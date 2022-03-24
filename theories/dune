@@ -1,0 +1,5 @@
+(coq.theory
+ (name CommutativeDiagrams)
+ (synopsis "Tools to work with commutative diagrams")
+ (flags "-noinit" "-indices-matter")
+ (modules Diagrams))
