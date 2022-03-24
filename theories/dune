@@ -2,4 +2,5 @@
  (name CommutativeDiagrams)
  (synopsis "Tools to work with commutative diagrams")
  (flags "-noinit" "-indices-matter")
- (modules Diagrams))
+ (libraries diagrams_plugin)
+ (modules Diagrams Loader))
