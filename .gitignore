@@ -1,0 +1,5 @@
+_build
+*/_build
+.project
+CoqMakefile.conf
+Makefile.coq

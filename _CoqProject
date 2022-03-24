@@ -1,0 +1,11 @@
+-arg -noinit
+-arg -indices-matter
+-R theories CommutativeDiagrams
+-I src
+
+theories/Diagrams.v
+
+src/main.ml
+src/main.mli
+src/g_diagrams.mlg
+src/diagrams_plugin.mlpack

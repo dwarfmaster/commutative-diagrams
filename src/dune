@@ -1,0 +1,4 @@
+(library
+ (name diagrams_plugin)
+ (libraries coq-core.plugins.ltac))
+(coq.pp (modules g_diagrams))

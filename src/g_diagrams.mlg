@@ -1,0 +1,18 @@
+DECLARE PLUGIN "commutative-diagrams"
+
+{
+
+open Pp
+open Ltac_plugin
+
+}
+
+VERNAC COMMAND EXTEND HelloWorld CLASSIFIED AS QUERY
+| [ "HelloWorld" ] -> { Feedback.msg_notice (strbrk Main.message) }
+END
+
+(* TACTIC EXTEND hello_world_tactic *)
+(* | [ "hello_world" ] -> *)
+(*   { let _ = Feedback.msg_notice (strbrk Main.message) in *)
+(*     Tacticals.tclIDTAC } *)
+(* END *)
