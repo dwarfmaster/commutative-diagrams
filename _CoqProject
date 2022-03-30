@@ -1,0 +1,4 @@
+-R theories/ CommutativeDiagrams
+-I _build/default/src/
+
+theories/Loader.v

@@ -1,6 +1,6 @@
-(coq.theory
- (name CommutativeDiagrams)
- (synopsis "Tools to work with commutative diagrams")
- (flags "-noinit" "-indices-matter")
- (libraries diagrams_plugin)
- (modules Diagrams Loader))
+; (coq.theory
+;  (name CommutativeDiagrams)
+;  (synopsis "Tools to work with commutative diagrams")
+;  (flags (:standard -noinit -indices-matter))
+;  (libraries coq-core.plugins.ltac diagrams_plugin)
+;  (modules Loader Diagrams))

@@ -1,3 +1,0 @@
-(env
- (dev (flags (:standard -rectypes -warn-error -A)))
- (release (ocamlopt_flags (:standard -O3 -rectypes))))
