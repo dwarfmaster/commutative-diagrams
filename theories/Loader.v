@@ -1,9 +1,6 @@
 
+From HoTT Require Import Basics.
 Declare ML Module "diagrams_plugin".
 
-HelloWorld.
-
-Lemma test : True.
-Proof.
-  hello. exact I.
-Qed.
+(* Locate Ltac hello. *)
+(* Print Grammar tactic. *)
