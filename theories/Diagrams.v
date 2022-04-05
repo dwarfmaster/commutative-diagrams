@@ -52,6 +52,7 @@ Section Diagrams.
       ; arrow_dst : object C
       ; arrow_mph : morphism C arrow_src arrow_dst
       }.
+  Arguments mkArrow {src dst} mph : rename.
   Record VertexData {nodes : list NodeData} :=
     mkVertexData
       { vt_src_id : idof nodes
@@ -112,45 +113,67 @@ End Diagrams.
 
 Section Combinators.
   Context {C : PreCategory}.
-  Context {Node1 Node2 Vertex1 Vertex2 Face1 Face2 : Type}.
   Context {Index : Type}.
   Context {Hid : DecidablePaths Index}.
 
-  Variable d1 : Diagram C Node1 Vertex1 Face1 Index.
-  Variable d2 : Diagram C Node2 Vertex2 Face2 Index.
+  Variable d1 : Diagram C Index.
+  Variable d2 : Diagram C Index.
 
   Ltac empty_ind := apply Empty_ind; assumption.
 
-  Definition emptyD : Diagram C Empty Empty Empty Index.
-  Proof. srapply mkDiagram; intros; empty_ind. Defined.
+  Definition emptyD : Diagram C Index.
+  Proof. srapply mkDiagram; exact nil. Defined.
 
   Definition singletonD (x : object C) (label : option Index) :
-    Diagram C Unit Empty Empty Index.
+    Diagram C Index.
   Proof.
-    srapply mkDiagram; intros; [ | empty_ind | empty_ind ].
+    srapply mkDiagram; intros; [ refine (cons _ nil) | exact nil | exact nil ].
     srapply mkNodeData; [ exact x | exact label ].
   Defined.
 
   Definition mkSimpleNodeData : object C -> NodeData C Index :=
     fun x => mkNodeData C Index x None.
+  Print leq.
+  Ltac solve_leq :=
+    match goal with
+    | |- leq ?n ?n => exact (leq_n n)
+    | |- leq ?n (S ?m) => refine (leq_S n m _); solve_leq
+    end.
+  Ltac mkid n := exists n; simpl; solve_leq.
 
   Definition arrowD {s d : object C} (m : morphism C s d) (label : option Index) :
-    Diagram C (Fin 2) Unit Empty Index.
+    Diagram C Index.
   Proof.
-    srapply mkDiagram; [ | | empty_ind ].
-    - intro x. destruct x; srapply mkSimpleNodeData; [ exact d | exact s ].
-    - intros _. srapply mkVertexData; [ exact (inr tt) | exact (inl (inr tt)) | exact m | exact label ].
+    srapply mkDiagram;
+      [ refine (cons _ (cons _ nil)); srapply mkSimpleNodeData; [ exact s | exact d ]
+      | refine (cons _ nil) | exact nil ].
+    srapply mkVertexData;
+      [ mkid 0%nat | mkid 1%nat | exact (mkArrow C s d m)
+      | exact 1 | exact 1 | exact label ].
   Defined.
 
+  Definition mkSingletonPath {nodes : list (NodeData C Index)} {vertices : list (VertexData C Index)}
+             (i : idof vertices) (j : idof nodes) (p : j = vt_src_id C Index (get i))
+    : @Path C Index nodes vertices j.
+  Proof. rewrite p. srapply PCons. apply PNil. Defined.
+
   Definition faceD {s d : object C} {m1 m2 : morphism C s d} (f : m1 = m2) (label : option Index) :
-    Diagram C (Fin 2) (Fin 2) Unit Index.
+    Diagram C Index.
   Proof.
-    srapply mkDiagram.
-    - intro x. destruct x; srapply mkSimpleNodeData; [ exact d | exact s ].
-    - intro x. srapply mkVertexData; [ exact (inr tt) | exact (inl (inr tt)) | | exact None ].
-      destruct x; [ exact m2 | exact m1 ].
-    - intros _. srapply mkFaceData; [ exact (inr tt) | exact (inl (inr tt)) | exact 1 | exact 1 | | exact label ].
-      unfold conjugate. simpl. rewrite left_identity. rewrite right_identity. exact f.
+    srapply mkDiagram;
+      [ refine (cons _ (cons _ nil)); srapply mkSimpleNodeData; [ exact s | exact d ] | | ].
+    - refine (cons _ (cons _ nil));
+        (srapply mkVertexData;
+         [ mkid 0%nat | mkid 1%nat | refine (mkArrow C s d _) | exact 1 | exact 1 | exact None ]);
+        [ exact m1 | exact m2 ].
+    - refine (cons _ nil); srapply mkFaceData.
+      + mkid 0%nat.
+      + srapply mkSingletonPath; [ mkid 0%nat | exact 1 ].
+      + srapply mkSingletonPath; [ mkid 1%nat | exact 1 ].
+      + exact 1.
+      + simpl; unfold conjugate; unfold eqToIso'; unfold eqToIso; simpl.
+        rewrite left_identity. rewrite <- f. exact 1.
+      + exact label.
   Defined.
 
 End Combinators.
