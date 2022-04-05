@@ -1,13 +1,43 @@
 
 From HoTT Require Import Basics.
 From HoTT Require Import Categories.
+From HoTT Require Import Types.Sigma.
 From HoTT Require Import Spaces.Finite.
 From HoTT Require Import Spaces.Nat.
 From HoTT Require Import Spaces.List.
 
+Section List.
+  Context {A : Type}.
+  Fixpoint length (l : list A) : nat :=
+    match l with
+    | nil => 0
+    | cons _ l => (length l) .+1
+    end.
+
+  Fixpoint getO (l : list A) (n : nat) : option A :=
+    match l,n with
+    | cons v _, O => Some v
+    | cons _ l, S n => getO l n
+    | nil, _ => None
+    end.
+
+  Definition get' (l : list A) (n : nat) (H : (S n <= length l)%nat) : A.
+  Proof.
+    generalize dependent n. induction l; intros n H.
+    - apply Empty_ind. exact (not_leq_Sn_0 _ H).
+    - destruct n; [ exact a | ]. apply (IHl n). exact (leq_S_n _ _ H).
+  Defined.
+
+  Definition idof (l : list A) := { n : nat & (S n <= length l)%nat }.
+  Definition get {l : list A} (n : idof l) : A := get' l (n.1) (n.2).
+  Definition Build_idof (l : list A) (n : nat) : (S n <= length l)%nat -> idof l.
+  Proof. intro H. exists n. assumption. Defined.
+  Lemma path_idof {l : list A} (id1 id2 : idof l) : id1.1 = id2.1 -> id1 = id2.
+  Proof. intro p. apply (path_sigma _ _ _ p). apply center. typeclasses eauto. Defined.
+End List.
+
 Section Diagrams.
   Variable C : PreCategory.
-  Variable Node Vertex Face : Type.
   Variable Index : Type.
   Variable Hid : DecidablePaths Index.
 
@@ -16,37 +46,67 @@ Section Diagrams.
       { node_object : object C
       ; node_name   : option Index
       }.
-  Record VertexData {nodes : Node -> NodeData} :=
+  Record Arrow :=
+    mkArrow
+      { arrow_src : object C
+      ; arrow_dst : object C
+      ; arrow_mph : morphism C arrow_src arrow_dst
+      }.
+  Record VertexData {nodes : list NodeData} :=
     mkVertexData
-      { vertex_src : Node
-      ; vertex_dst : Node
-      ; vertex_mph : morphism C (node_object (nodes vertex_src)) (node_object (nodes vertex_dst))
-      ; vertex_name : option Index
+      { vt_src_id : idof nodes
+      ; vt_dst_id : idof nodes
+      ; vt_mph    : Arrow
+      ; vt_src_eq : node_object (get vt_src_id) = arrow_src vt_mph
+      ; vt_dst_eq : node_object (get vt_dst_id) = arrow_dst vt_mph
+      ; vt_name   : option Index
       }.
   Arguments VertexData nodes : clear implicits.
+
   Definition eqToIso {a b : object C} (p : a = b) : morphism C a b :=
     paths_ind a (fun b _ => morphism C a b) 1%morphism b p.
   Definition conjugate {a b c d : object C} (f : morphism C b c) (p1 : a = b) (p2 : d = c) :
     morphism C a d :=
     eqToIso p2^ o f o (eqToIso p1).
-  Record FaceData {nodes : Node -> NodeData} {vertices : Vertex -> VertexData nodes} :=
+  Inductive Path {nodes : list NodeData} {vertices : list (VertexData nodes)} : idof nodes -> Type :=
+  | PNil : forall(id : idof nodes), Path id
+  | PCons : forall(v : idof vertices), Path (vt_dst_id (get v)) -> Path (vt_src_id (get v)).
+  Arguments Path nodes vertices : clear implicits.
+  Definition path_src {nodes : list NodeData} {vertices : list (VertexData nodes)} {src : idof nodes}
+    : Path nodes vertices src -> idof nodes := fun _ => src.
+  Fixpoint path_dst {nodes : list NodeData} {vertices : list (VertexData nodes)} {src : idof nodes}
+           (p : Path nodes vertices src) : idof nodes :=
+    match p with
+    | PNil id => id
+    | PCons _ p => path_dst p
+    end.
+  Fixpoint path_mph {nodes : list NodeData} {vertices : list (VertexData nodes)}
+           {src : idof nodes} (p : Path nodes vertices src)
+    : morphism C (node_object (get (path_src p))) (node_object (get (path_dst p)))
+    := match p return morphism C (node_object (get (path_src p))) (node_object (get (path_dst p))) with
+       | PNil id => identity (node_object (get id))
+       | PCons v p => path_mph p
+                   o conjugate (arrow_mph (vt_mph (get v))) (vt_src_eq (get v)) (vt_dst_eq (get v))
+       end.
+  Definition eqToIso' {nodes : list NodeData} {i1 i2 : idof nodes}
+    : i1 = i2 -> morphism C (node_object (get i1)) (node_object (get i2)) :=
+    fun p => eqToIso (ap (fun i => node_object (get i)) p).
+
+  Record FaceData {nodes : list NodeData} {vertices : list (VertexData nodes)} :=
     mkFaceData
-      { face_src : Vertex
-      ; face_dst : Vertex
-      ; face_src_eq : node_object (nodes (vertex_src (vertices face_src)))
-                      = node_object (nodes (vertex_src (vertices face_dst)))
-      ; face_dst_eq : node_object (nodes (vertex_dst (vertices face_src)))
-                      = node_object (nodes (vertex_dst (vertices face_dst)))
-      ; face : vertex_mph (vertices face_src)
-               = conjugate (vertex_mph (vertices face_dst)) face_src_eq face_dst_eq
+      { face_src : idof nodes
+      ; face_side1 : Path nodes vertices face_src
+      ; face_side2 : Path nodes vertices face_src
+      ; face_dst_eq : path_dst face_side1 = path_dst face_side2
+      ; face : (eqToIso' face_dst_eq o path_mph face_side1)%morphism = path_mph face_side2
       ; face_name : option Index
       }.
   Arguments FaceData nodes vertices : clear implicits.
   Record Diagram :=
     mkDiagram
-      { gr_node : Node -> NodeData
-      ; gr_vertex : Vertex -> VertexData gr_node
-      ; gr_face : Face -> FaceData gr_node gr_vertex
+      { gr_node : list NodeData
+      ; gr_vertex : list (VertexData gr_node)
+      ; gr_face : list (FaceData gr_node gr_vertex)
       }.
 End Diagrams.
 
