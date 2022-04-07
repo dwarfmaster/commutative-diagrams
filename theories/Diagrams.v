@@ -2,6 +2,7 @@
 From HoTT Require Import Basics.
 From HoTT Require Import Categories.
 From HoTT Require Import Types.Sigma.
+From HoTT Require Import Types.Bool.
 From HoTT Require Import Spaces.Finite.
 From HoTT Require Import Spaces.Nat.
 From HoTT Require Import Spaces.List.
@@ -21,12 +22,17 @@ Section List.
     | nil, _ => None
     end.
 
-  Definition get' (l : list A) (n : nat) (H : (S n <= length l)%nat) : A.
-  Proof.
-    generalize dependent n. induction l; intros n H.
-    - apply Empty_ind. exact (not_leq_Sn_0 _ H).
-    - destruct n; [ exact a | ]. apply (IHl n). exact (leq_S_n _ _ H).
-  Defined.
+  Fixpoint get' (l : list A) : forall(n : nat), (S n <= length l)%nat -> A :=
+    match l as l0 return forall(n:nat), (S n <= length l0)%nat -> A with
+    | nil => fun n H => Empty_ind (fun _ => A) (not_leq_Sn_0 _ H)
+    | cons a l => fun n => match n with
+                       | O => fun _ => a
+                       | S n => fun H => get' l n (leq_S_n _ _ H)
+                       end
+    end.
+  Lemma get'_irrelevant (l : list A) (n : nat) (H1 H2 : (S n <= length l)%nat) :
+    get' l n H1 = get' l n H2.
+  Proof. assert (H1 = H2) as pH by (apply center; typeclasses eauto). f_ap. Qed.
 
   Definition idof (l : list A) := { n : nat & (S n <= length l)%nat }.
   Definition get {l : list A} (n : idof l) : A := get' l (n.1) (n.2).
@@ -34,6 +40,45 @@ Section List.
   Proof. intro H. exists n. assumption. Defined.
   Lemma path_idof {l : list A} (id1 id2 : idof l) : id1.1 = id2.1 -> id1 = id2.
   Proof. intro p. apply (path_sigma _ _ _ p). apply center. typeclasses eauto. Defined.
+
+  Definition idof_cons (a : A) {l : list A} : idof l -> idof (cons a l).
+  Proof. intro id. exists (S id.1). apply leq_S_n'. exact id.2. Defined.
+  Lemma idof_cons_correct (a : A) (l : list A) (id : idof l) :
+    get id = get (idof_cons a id).
+  Proof. unfold idof_cons; unfold get; simpl. apply get'_irrelevant. Qed.
+
+  Definition idof_first (a : A) (l : list A) : idof (cons a l).
+  Proof. exists 0%nat. apply leq_S_n'. apply leq_0_n. Defined.
+  Lemma idof_first_correct (a : A) (l : list A) :
+    get (idof_first a l) = a.
+  Proof. reflexivity. Qed.
+
+  Fixpoint findIf (l : list A) (pred : A -> Bool) : option (idof l) :=
+    match l as l0 return option (idof l0) with
+    | nil => None
+    | cons a l' => if pred a
+                  then Some (idof_first a l')
+                  else match findIf l' pred with
+                       | Some id => Some (idof_cons a id)
+                       | None => None
+                       end
+    end.
+  Definition optionPred {T : Type} (P : T -> Type) : option T -> Type :=
+    fun opt => match opt with
+            | None => True
+            | Some t => P t
+            end.
+  Lemma findIfCorrect (l : list A) (pred : A -> Bool) :
+    optionPred (fun id => pred (get id) = true) (findIf l pred).
+  Proof.
+    induction l; simpl; [ constructor | ].
+    pose (b := pred a). assert (pred a = b) as Hb by reflexivity.
+    fold b. destruct b; simpl.
+    - rewrite idof_first_correct. exact Hb.
+    - destruct (findIf l pred); [ | constructor ].
+      simpl in *. rewrite <- idof_cons_correct. exact IHl.
+  Qed.
+
 End List.
 
 Section Diagrams.
@@ -105,9 +150,9 @@ Section Diagrams.
   Arguments FaceData nodes vertices : clear implicits.
   Record Diagram :=
     mkDiagram
-      { gr_node : list NodeData
-      ; gr_vertex : list (VertexData gr_node)
-      ; gr_face : list (FaceData gr_node gr_vertex)
+      { gr_nodes : list NodeData
+      ; gr_vertices : list (VertexData gr_nodes)
+      ; gr_faces : list (FaceData gr_nodes gr_vertices)
       }.
 End Diagrams.
 
