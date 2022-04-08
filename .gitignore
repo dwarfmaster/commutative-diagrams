@@ -3,3 +3,4 @@ _build
 .project
 CoqMakefile.conf
 Makefile.coq*
+theories/test
