@@ -8,21 +8,21 @@ let locate_inductive : string -> Names.inductive = fun name ->
   match Nametab.global (Libnames.qualid_of_string name) with
   | IndRef i -> i
   | _ -> raise Inductive_not_found
-(* exception Constructor_not_found *)
-(* let locate_constructor : string -> Names.constructor = fun name -> *)
-(*   match Nametab.global (Libnames.qualid_of_string name) with *)
-(*   | ConstructRef c -> c *)
-(*   | _ -> raise Constructor_not_found *)
-(* exception Constant_not_found *)
-(* let locate_constant : string -> Names.Constant.t = fun name -> *)
-(*   match Nametab.global (Libnames.qualid_of_string name) with *)
-(*   | ConstRef c -> c *)
-(*   | _ -> raise Constant_not_found *)
+
+let g_coq_cat : Names.inductive option ref = ref None
+let locate_cat : unit -> Names.inductive = fun _ ->
+  match !g_coq_cat with
+  | Some id -> id
+  | None ->
+    let coq_cat = locate_inductive "HoTT.Categories.Category.Core.PreCategory" in
+    g_coq_cat := Some coq_cat;
+    coq_cat
+
 
 
 let is_category : Evd.evar_map -> Environ.env -> ckind -> bool =
   fun sigma env c ->
-  let coq_cat = locate_inductive "HoTT.Categories.Category.Core.PreCategory" in
+  let coq_cat = locate_cat () in
   match c with
   | Ind (name,_) -> Names.Ind.UserOrd.equal name coq_cat
   | _ -> false
@@ -31,7 +31,7 @@ type c_object = { category : Constr.t }
 
 let is_object : Evd.evar_map -> Environ.env -> ckind -> c_object option =
   fun sigma env o ->
-  let coq_cat = locate_inductive "HoTT.Categories.Category.Core.PreCategory" in
+  let coq_cat = locate_cat () in
   let lbl = Names.Label.make "object" in
   match o with
   | Proj (p,arg) ->
