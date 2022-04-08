@@ -39,17 +39,26 @@ let is_object : Evd.evar_map -> Environ.env -> ckind -> c_object option =
   fun sigma env o ->
   let coq_cat = locate_cat () in
   match o with
-  | Proj (p,arg) -> if is_projection p coq_cat "object" then Some { category = arg } else None
+  | Proj (p,arg) when is_projection p coq_cat "object" -> Some { category = arg }
   | _ -> None
 
-(* type c_morphism = *)
-(*   { category : Constr.t *)
-(*   ; src      : Constr.t *)
-(*   ; dst      : Constr.t *)
-(*   } *)
+type c_morphism =
+  { category : Constr.t
+  ; src      : Constr.t
+  ; dst      : Constr.t
+  }
 
-(* let is_morphism : Evd.evar_map -> Environ.env -> ckind -> c_morphism option = *)
-(*   fun sigma env m -> None *)
+let is_morphism : Evd.evar_map -> Environ.env -> ckind -> c_morphism option =
+  fun sigma env m ->
+  let coq_cat = locate_cat () in
+  match m with
+  | App (p, [| src; dst |]) ->
+    begin match Constr.kind p with
+      | Proj (p,arg) when is_projection p coq_cat "morphism" ->
+        Some { category = arg; src = src; dst = dst }
+      | _ -> None
+    end
+  | _ -> None
 
 (* type c_face = *)
 (*   { category : Constr.t *)
@@ -71,8 +80,13 @@ let print_hyp : Evd.evar_map -> Environ.env -> Constr.named_declaration -> Pp.t 
   let is_obj = match is_object sigma env ck with
     | None -> Pp.str ""
     | Some obj -> Pp.str "object(" ++ Printer.pr_constr_env env sigma obj.category ++ Pp.str ") " in
+  let is_mph = match is_morphism sigma env ck with
+    | None -> Pp.str ""
+    | Some mph -> Pp.str "morphism(" ++ Printer.pr_constr_env env sigma mph.category ++ Pp.str ";"
+                  ++ Printer.pr_constr_env env sigma mph.src ++ Pp.str " -> "
+                  ++ Printer.pr_constr_env env sigma mph.dst ++ Pp.str ") " in
   Names.Id.print name ++ Pp.str " : " ++ Printer.pr_constr_env env sigma tp
-    ++ Pp.str " [ " ++ is_cat ++ is_obj ++ Pp.str "]"
+    ++ Pp.str " [ " ++ is_cat ++ is_obj ++ is_mph ++ Pp.str "]"
 
 let extract_goal : out_channel -> Evd.evar_map -> Environ.env -> Evar.t -> Pp.t = fun oc sigma env goal ->
   let info = Evd.find sigma goal in
