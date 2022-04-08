@@ -18,6 +18,15 @@ let locate_cat : unit -> Names.inductive = fun _ ->
     g_coq_cat := Some coq_cat;
     coq_cat
 
+let g_coq_eq : Names.inductive option ref = ref None
+let locate_eq : unit -> Names.inductive = fun _ ->
+  match !g_coq_eq with
+  | Some id -> id
+  | None ->
+    let coq_eq = locate_inductive "HoTT.Basics.Overture.paths" in
+    g_coq_eq := Some coq_eq;
+    coq_eq
+
 let is_projection : Names.Projection.t -> Names.inductive -> string -> bool = fun proj ind lbl ->
   let r = Names.Projection.repr proj in
   let pind = Names.Projection.Repr.inductive r in
@@ -60,33 +69,50 @@ let is_morphism : Evd.evar_map -> Environ.env -> ckind -> c_morphism option =
     end
   | _ -> None
 
-(* type c_face = *)
-(*   { category : Constr.t *)
-(*   ; src      : Constr.t *)
-(*   ; dst      : Constr.t *)
-(*   ; side1    : Constr.t *)
-(*   ; side2    : Constr.t *)
-(*   } *)
+type c_face =
+  { category : Constr.t
+  ; src      : Constr.t
+  ; dst      : Constr.t
+  ; side1    : Constr.t
+  ; side2    : Constr.t
+  }
 
-(* let is_face : Evd.evar_map -> Environ.env -> ckind -> c_face option = *)
-(*   fun sigma env f -> None *)
+let is_face : Evd.evar_map -> Environ.env -> ckind -> c_face option =
+  fun sigma env f ->
+  let coq_eq = locate_eq () in
+  match f with
+  | App (eq, [| mph; f1; f2 |]) ->
+    begin match Constr.kind eq with
+      | Ind (eq,_) when Names.Ind.UserOrd.equal eq coq_eq ->
+        begin match is_morphism sigma env (Constr.kind mph) with
+          | Some mph -> Some { category = mph.category; src = mph.src; dst = mph.dst; side1 = f1; side2 = f2 }
+          | _ -> None
+        end
+      | _ -> None
+    end
+  | _ -> None
 
 let print_hyp : Evd.evar_map -> Environ.env -> Constr.named_declaration -> Pp.t = fun sigma env dec ->
   let name,tp = match dec with
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
     | Context.Named.Declaration.LocalDef (name,_,tp) -> (name.binder_name, tp) in
   let ck : ckind = Constr.kind tp in
+  let ppconstr = Printer.pr_constr_env env sigma in
   let is_cat = if is_category sigma env ck then Pp.str "category " else Pp.str "" in
   let is_obj = match is_object sigma env ck with
     | None -> Pp.str ""
     | Some obj -> Pp.str "object(" ++ Printer.pr_constr_env env sigma obj.category ++ Pp.str ") " in
   let is_mph = match is_morphism sigma env ck with
     | None -> Pp.str ""
-    | Some mph -> Pp.str "morphism(" ++ Printer.pr_constr_env env sigma mph.category ++ Pp.str ";"
-                  ++ Printer.pr_constr_env env sigma mph.src ++ Pp.str " -> "
-                  ++ Printer.pr_constr_env env sigma mph.dst ++ Pp.str ") " in
-  Names.Id.print name ++ Pp.str " : " ++ Printer.pr_constr_env env sigma tp
-    ++ Pp.str " [ " ++ is_cat ++ is_obj ++ is_mph ++ Pp.str "]"
+    | Some mph -> Pp.str "morphism(" ++ ppconstr mph.category ++ Pp.str ";"
+                  ++ ppconstr mph.src ++ Pp.str " -> " ++ ppconstr mph.dst ++ Pp.str ") " in
+  let is_fce = match is_face sigma env ck with
+    | None -> Pp.str ""
+    | Some fce -> Pp.str "face(" ++ ppconstr fce.category ++ Pp.str ";"
+                  ++ ppconstr fce.src ++ Pp.str " -> " ++ ppconstr fce.dst ++ Pp.str ";"
+                  ++ ppconstr fce.side1 ++ Pp.str " <=> " ++ ppconstr fce.side2 ++ Pp.str ") " in
+  Names.Id.print name ++ Pp.str " : " ++ ppconstr tp
+    ++ Pp.str " [ " ++ is_cat ++ is_obj ++ is_mph ++ is_fce ++ Pp.str "]"
 
 let extract_goal : out_channel -> Evd.evar_map -> Environ.env -> Evar.t -> Pp.t = fun oc sigma env goal ->
   let info = Evd.find sigma goal in
