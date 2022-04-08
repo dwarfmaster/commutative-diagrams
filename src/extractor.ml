@@ -18,6 +18,12 @@ let locate_cat : unit -> Names.inductive = fun _ ->
     g_coq_cat := Some coq_cat;
     coq_cat
 
+let is_projection : Names.Projection.t -> Names.inductive -> string -> bool = fun proj ind lbl ->
+  let r = Names.Projection.repr proj in
+  let pind = Names.Projection.Repr.inductive r in
+  let plbl = Names.Projection.Repr.label r in
+  Names.Ind.UserOrd.equal pind ind && Names.Label.equal plbl (Names.Label.make lbl)
+
 
 
 let is_category : Evd.evar_map -> Environ.env -> ckind -> bool =
@@ -32,15 +38,8 @@ type c_object = { category : Constr.t }
 let is_object : Evd.evar_map -> Environ.env -> ckind -> c_object option =
   fun sigma env o ->
   let coq_cat = locate_cat () in
-  let lbl = Names.Label.make "object" in
   match o with
-  | Proj (p,arg) ->
-    let r = Names.Projection.repr p in
-    let ind = Names.Projection.Repr.inductive r in
-    let p_lbl = Names.Projection.Repr.label r in
-    if Names.Ind.UserOrd.equal ind coq_cat && Names.Label.equal lbl p_lbl
-    then Some { category = arg }
-    else None
+  | Proj (p,arg) -> if is_projection p coq_cat "object" then Some { category = arg } else None
   | _ -> None
 
 (* type c_morphism = *)
