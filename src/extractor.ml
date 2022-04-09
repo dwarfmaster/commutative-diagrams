@@ -90,9 +90,20 @@ type c_face =
   ; side2    : c_side
   }
 
+let rec parse_side : Evd.evar_map -> Environ.env -> Constr.t -> Constr.t list =
+  fun sigma env mph ->
+  match Constr.kind mph with
+  | App (cmp, [| src; int; dst; mid; msi |]) ->
+    begin match Constr.kind cmp with
+      | Proj (cmp,_) when is_projection cmp is_cat "compose" ->
+        List.append (parse_side sigma env msi) (parse_side sigma env mid)
+      | _ -> [ mph ]
+    end
+  | _ -> [ mph ]
+
 let mk_side : Evd.evar_map -> Environ.env -> Constr.t -> c_side =
   fun sigma env mph ->
-  { mph = mph; path = [ mph ] }
+  { mph = mph; path = parse_side sigma env mph }
 
 let rec pp_side' : Evd.evar_map -> Environ.env -> Constr.t list -> Pp.t =
   fun sigma env l ->
