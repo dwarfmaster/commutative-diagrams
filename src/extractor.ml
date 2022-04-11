@@ -10,17 +10,7 @@ let (++) = Pp.(++)
 (*               |_| *)
 (* Inspection *)
 
-module type Inspectable = sig
-  type constr
-  type types
-  type sorts
-  type univs
-
-  val kind : Evd.evar_map -> Environ.env -> constr -> (constr,types,sorts,univs) Constr.kind_of_term
-  val print : Evd.evar_map -> Environ.env -> constr -> Pp.t
-end
-
-module Inspector = functor (Ins : Inspectable) -> struct
+module Inspector = functor (Ins : Utils.ConstrLike) -> struct
   type constr = Ins.constr
   type kind = (constr,Ins.types,Ins.sorts,Ins.univs) Constr.kind_of_term
 
@@ -108,28 +98,8 @@ module Inspector = functor (Ins : Inspectable) -> struct
     | _ -> None
 
 end
-
-module InsConstr = struct
-  type constr = Constr.t
-  type types = Constr.t
-  type sorts = Sorts.t
-  type univs = Univ.Instance.t
-
-  let kind = fun _ _ -> Constr.kind
-  let print = fun sigma env -> Printer.pr_constr_env env sigma
-end
-module CInspect = Inspector(InsConstr)
-
-module InsEConstr = struct
-  type constr = EConstr.t
-  type types = EConstr.t
-  type sorts = EConstr.ESorts.t
-  type univs = EConstr.EInstance.t
-
-  let kind = fun sigma _ -> EConstr.kind sigma
-  let print = fun sigma env -> Printer.pr_econstr_env env sigma
-end
-module EInspect = Inspector(InsEConstr)
+module CInspect = Inspector(Utils.CLConstr)
+module EInspect = Inspector(Utils.CLEConstr)
 
 (*  _____                 _                _ *)
 (* |_   _|__  _ __       | | _____   _____| | *)
@@ -143,7 +113,7 @@ let print_hyp : Evd.evar_map -> Environ.env -> Constr.named_declaration -> Pp.t 
   let name,tp = match dec with
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
     | Context.Named.Declaration.LocalDef (name,_,tp) -> (name.binder_name, tp) in
-  let ck = InsConstr.kind sigma env tp in
+  let ck = Utils.CLConstr.kind sigma env tp in
   let ppconstr = Printer.pr_constr_env env sigma in
   let is_cat = if CInspect.is_category sigma env ck then Pp.str "category " else Pp.str "" in
   let is_obj = match CInspect.is_object sigma env ck with
