@@ -6,19 +6,34 @@ let locate_inductive : string -> Names.inductive = fun name ->
     | IndRef i -> i
     | _ -> raise (Object_not_found name)
   with Not_found -> raise (Object_not_found name)
+let locate_constructor : string -> Names.constructor = fun name ->
+  try match Nametab.global (Libnames.qualid_of_string name) with
+    | ConstructRef c -> c
+    | _ -> raise (Object_not_found name)
+  with Not_found -> raise (Object_not_found name)
 
-let perform_locate_ind : Names.inductive array ref -> string array -> Names.inductive array =
-  fun inds names ->
-  if Array.length !inds != 0
-  then !inds
+let perform_locate : 'a array ref -> string array -> (string -> 'a) -> 'a array =
+  fun objs names locate ->
+  if Array.length !objs != 0
+  then !objs
   else begin
-    inds := Array.map locate_inductive names;
-    !inds
+    objs := Array.map locate names;
+    !objs
   end
+
+let is_cached : 'a array ref -> string array -> 'a -> (string -> 'a) -> ('a -> 'a -> bool) -> bool =
+  fun objs names obj locate pred ->
+  let objs = perform_locate objs names locate in
+  Array.exists (pred obj) objs
 let is_ind : Names.inductive array ref -> string array -> Names.inductive -> bool =
-  fun inds names ind ->
-  let inds = perform_locate_ind inds names in
-  Array.exists (Names.Ind.UserOrd.equal ind) inds
+  fun inds names ind -> is_cached inds names ind locate_inductive Names.Ind.UserOrd.equal
+let is_construct : Names.constructor array ref -> string array -> Names.constructor -> bool =
+  fun constrs names constr -> is_cached constrs names constr locate_constructor Names.Construct.UserOrd.equal
+
+let mk_ind : Names.inductive array -> EConstr.t =
+  fun inds -> EConstr.mkInd inds.(0)
+let mk_constr : Names.constructor array -> EConstr.t =
+  fun constrs -> EConstr.mkConstruct constrs.(0)
 
 let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool =
   fun proj indP lbl ->
@@ -40,7 +55,9 @@ let g_coq_cat_names : string array =
    ; "Categories.Category.PreCategory"
    ; "Categories.PreCategory"
   |]
+let get_cat = fun _ -> perform_locate g_coq_cat g_coq_cat_names locate_inductive
 let is_cat : Names.inductive -> bool = is_ind g_coq_cat g_coq_cat_names
+let mk_cat = fun _ -> mk_ind (get_cat ())
 
 
 (*  ___ *)
@@ -53,4 +70,20 @@ let g_coq_eq : Names.inductive array ref = ref [| |]
 let g_coq_eq_names : string array =
   [| "HoTT.Basics.Overture.paths"
   |]
+let get_eq = fun _ -> perform_locate g_coq_eq g_coq_eq_names locate_inductive
 let is_eq : Names.inductive -> bool = is_ind g_coq_eq g_coq_eq_names
+let mk_eq = fun _ -> mk_ind (get_eq ())
+
+
+(*  ___      __ _ *)
+(* | _ \___ / _| | *)
+(* |   / -_)  _| | *)
+(* |_|_\___|_| |_| *)
+(* refl *)
+let g_coq_refl : Names.constructor array ref = ref [| |]
+let g_coq_refl_names : string array =
+  [| "HoTT.Basics.Overture.idpath"
+  |]
+let get_refl = fun _ -> perform_locate g_coq_refl g_coq_refl_names locate_constructor
+let is_refl : Names.constructor -> bool = is_construct g_coq_refl g_coq_refl_names
+let mk_refl = fun _ -> mk_constr (get_refl ())
