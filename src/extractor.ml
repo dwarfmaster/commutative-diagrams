@@ -2,56 +2,6 @@
 let (++) = Pp.(++)
 
 
-(*   ____            _            _ *)
-(*  / ___|___  _ __ | |_ _____  _| |_ *)
-(* | |   / _ \| '_ \| __/ _ \ \/ / __| *)
-(* | |__| (_) | | | | ||  __/>  <| |_ *)
-(*  \____\___/|_| |_|\__\___/_/\_\\__| *)
-(* Context *)
-
-exception Inductive_not_found
-let locate_inductive : string -> Names.inductive = fun name ->
-  match Nametab.global (Libnames.qualid_of_string name) with
-  | IndRef i -> i
-  | _ -> raise Inductive_not_found
-
-let g_coq_cat : Names.inductive array ref = ref [| |]
-let g_coq_cat_names : string array =
-  [| "HoTT.Categories.Category.Core.PreCategory"
-   ; "HoTT.Categories.Category.PreCategory"
-   ; "HoTT.Categories.PreCategory"
-   ; "Categories.Category.PreCategory"
-   ; "Categories.PreCategory"
-  |]
-let locate_cat : unit -> Names.inductive array = fun _ ->
-  if Array.length !g_coq_cat != 0
-  then !g_coq_cat
-  else begin
-    g_coq_cat := Array.map locate_inductive g_coq_cat_names;
-    !g_coq_cat
-  end
-let is_cat : Names.inductive -> bool = fun ind ->
-  let coq_cats = locate_cat () in
-  Array.exists (Names.Ind.UserOrd.equal ind) coq_cats
-
-let g_coq_eq : Names.inductive option ref = ref None
-let locate_eq : unit -> Names.inductive = fun _ ->
-  match !g_coq_eq with
-  | Some id -> id
-  | None ->
-    let coq_eq = locate_inductive "HoTT.Basics.Overture.paths" in
-    g_coq_eq := Some coq_eq;
-    coq_eq
-
-let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool =
-  fun proj indP lbl ->
-  let r = Names.Projection.repr proj in
-  let pind = Names.Projection.Repr.inductive r in
-  let plbl = Names.Projection.Repr.label r in
-  indP pind && Names.Label.equal plbl (Names.Label.make lbl)
-
-
-
 (*  ___                           _   _ *)
 (* |_ _|_ __  ___ _ __   ___  ___| |_(_) ___  _ __ *)
 (*  | || '_ \/ __| '_ \ / _ \/ __| __| |/ _ \| '_ \ *)
@@ -77,7 +27,7 @@ module Inspector = functor (Ins : Inspectable) -> struct
   let is_category : Evd.evar_map -> Environ.env -> kind -> bool =
     fun sigma env c ->
       match c with
-      | Ind (name,_) -> is_cat name
+      | Ind (name,_) -> Env.is_cat name
       | _ -> false
 
   type c_object = { category : constr }
@@ -85,7 +35,7 @@ module Inspector = functor (Ins : Inspectable) -> struct
   let is_object : Evd.evar_map -> Environ.env -> kind -> c_object option =
     fun sigma env o ->
     match o with
-    | Proj (p,arg) when is_projection p is_cat "object" -> Some { category = arg }
+    | Proj (p,arg) when Env.is_projection p Env.is_cat "object" -> Some { category = arg }
     | _ -> None
 
   type c_morphism =
@@ -99,7 +49,7 @@ module Inspector = functor (Ins : Inspectable) -> struct
     match m with
     | App (p, [| src; dst |]) ->
       begin match Ins.kind sigma env p with
-        | Proj (p,arg) when is_projection p is_cat "morphism" ->
+        | Proj (p,arg) when Env.is_projection p Env.is_cat "morphism" ->
           Some { category = arg; src = src; dst = dst }
         | _ -> None
       end
@@ -123,7 +73,7 @@ module Inspector = functor (Ins : Inspectable) -> struct
     match Ins.kind sigma env mph with
     | App (cmp, [| src; int; dst; mid; msi |]) ->
       begin match Ins.kind sigma env cmp with
-        | Proj (cmp,_) when is_projection cmp is_cat "compose" ->
+        | Proj (cmp,_) when Env.is_projection cmp Env.is_cat "compose" ->
           List.append (parse_side sigma env msi) (parse_side sigma env mid)
         | _ -> [ mph ]
       end
@@ -144,11 +94,10 @@ module Inspector = functor (Ins : Inspectable) -> struct
 
   let is_face : Evd.evar_map -> Environ.env -> kind -> c_face option =
     fun sigma env f ->
-    let coq_eq = locate_eq () in
     match f with
     | App (eq, [| mph; f1; f2 |]) ->
       begin match Ins.kind sigma env eq with
-        | Ind (eq,_) when Names.Ind.UserOrd.equal eq coq_eq ->
+        | Ind (eq,_) when Env.is_eq eq ->
           begin match is_morphism sigma env (Ins.kind sigma env mph) with
             | Some mph -> Some { category = mph.category; src = mph.src; dst = mph.dst;
                                  side1 = mk_side sigma env f1; side2 = mk_side sigma env f2 }
