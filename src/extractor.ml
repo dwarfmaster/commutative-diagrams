@@ -1,5 +1,6 @@
 
 let (++) = Pp.(++)
+let (let*) = Proofview.tclBIND
 
 
 (*  ___                           _   _ *)
@@ -109,55 +110,51 @@ module EInspect = Inspector(Utils.CLEConstr)
 (*           |_| *)
 (* Top-level *)
 
-let print_hyp : Evd.evar_map -> Environ.env -> Constr.named_declaration -> Pp.t = fun sigma env dec ->
+let print_hyp : Evd.evar_map -> Environ.env -> EConstr.named_declaration -> Pp.t = fun sigma env dec ->
   let name,tp = match dec with
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
     | Context.Named.Declaration.LocalDef (name,_,tp) -> (name.binder_name, tp) in
-  let ck = Utils.CLConstr.kind sigma env tp in
-  let ppconstr = Printer.pr_constr_env env sigma in
-  let is_cat = if CInspect.is_category sigma env ck then Pp.str "category " else Pp.str "" in
-  let is_obj = match CInspect.is_object sigma env ck with
+  let ck = Utils.CLEConstr.kind sigma env tp in
+  let ppconstr = Utils.CLEConstr.print sigma env in
+  let is_cat = if EInspect.is_category sigma env ck then Pp.str "category " else Pp.str "" in
+  let is_obj = match EInspect.is_object sigma env ck with
     | None -> Pp.str ""
-    | Some obj -> Pp.str "object(" ++ Printer.pr_constr_env env sigma obj.category ++ Pp.str ") " in
-  let is_mph = match CInspect.is_morphism sigma env ck with
+    | Some obj -> Pp.str "object(" ++ ppconstr obj.category ++ Pp.str ") " in
+  let is_mph = match EInspect.is_morphism sigma env ck with
     | None -> Pp.str ""
     | Some mph -> Pp.str "morphism(" ++ ppconstr mph.category ++ Pp.str ";"
                   ++ ppconstr mph.src ++ Pp.str " -> " ++ ppconstr mph.dst ++ Pp.str ") " in
-  let is_fce = match CInspect.is_face sigma env ck with
-    | None -> Pp.str ""
-    | Some fce -> Pp.str "face(" ++ ppconstr fce.category ++ Pp.str ";"
-                  ++ ppconstr fce.src ++ Pp.str " -> " ++ ppconstr fce.dst ++ Pp.str ";"
-                  ++ CInspect.pp_side sigma env fce.side1 ++ Pp.str " <=> " ++ CInspect.pp_side sigma env fce.side2 ++ Pp.str ") " in
-  Names.Id.print name ++ Pp.str " : " ++ ppconstr tp
-    ++ Pp.str " [ " ++ is_cat ++ is_obj ++ is_mph ++ is_fce ++ Pp.str "]"
-
-let extract_goal : out_channel -> Evd.evar_map -> Environ.env -> Evar.t -> Pp.t = fun oc sigma env goal ->
-  let info = Evd.find sigma goal in
-  let ppconstr = Printer.pr_econstr_env env sigma in
-  let goal_face = match EInspect.is_face sigma env (EConstr.kind sigma info.evar_concl) with
+  let is_fce = match EInspect.is_face sigma env ck with
     | None -> Pp.str ""
     | Some fce -> Pp.str "face(" ++ ppconstr fce.category ++ Pp.str ";"
                   ++ ppconstr fce.src ++ Pp.str " -> " ++ ppconstr fce.dst ++ Pp.str ";"
                   ++ EInspect.pp_side sigma env fce.side1 ++ Pp.str " <=> " ++ EInspect.pp_side sigma env fce.side2 ++ Pp.str ") " in
-  let pp = Pp.str "Conclusion: " ++ ppconstr info.evar_concl
-           ++ Pp.str " [" ++ goal_face ++ Pp.str "]" ++ Pp.fnl () in
-  let context = Environ.named_context_of_val info.evar_hyps in
-  let pp = pp ++ Pp.pr_vertical_list (print_hyp sigma env) context in
-  pp
+  Names.Id.print name ++ Pp.str " : " ++ ppconstr tp
+    ++ Pp.str " [ " ++ is_cat ++ is_obj ++ is_mph ++ is_fce ++ Pp.str "]"
 
-let extract : Proof.t -> string -> unit = fun state path ->
+let extract_goal : Pp.t ref -> Proofview.Goal.t -> unit Proofview.tactic = fun pp goal ->
+  let* sigma = Proofview.tclEVARMAP in
+  let* env   = Proofview.tclENV in
+  let ppconstr = Printer.pr_econstr_env env sigma in
+  let goal_face = match EInspect.is_face sigma env (EConstr.kind sigma (Proofview.Goal.concl goal)) with
+    | None -> Pp.str ""
+    | Some fce -> Pp.str "face(" ++ ppconstr fce.category ++ Pp.str ";"
+                  ++ ppconstr fce.src ++ Pp.str " -> " ++ ppconstr fce.dst ++ Pp.str ";"
+                  ++ EInspect.pp_side sigma env fce.side1 ++ Pp.str " <=> " ++ EInspect.pp_side sigma env fce.side2 ++ Pp.str ") " in
+  let context = Proofview.Goal.hyps goal in
+  let ppconcl = Pp.str "Focusing goal" ++ ppconstr (Proofview.Goal.concl goal)
+                ++ Pp.str " [" ++ goal_face ++ Pp.str "]" ++ Pp.fnl () in
+  pp := !pp ++ ppconcl ++ Pp.pr_vertical_list (print_hyp sigma env) context;
+  Proofview.tclUNIT ()
+
+let extract : string -> unit Proofview.tactic = fun path ->
   let oc = open_out path in
-  let data = Proof.data state in
-  let sigma, env = Proof.get_proof_context state in
-  let goal_id = ref 0 in
-  let pp = Pp.str "Goal: " ++ Pp.int (List.length data.goals) ++ Pp.fnl () in
-  let pp = pp ++ Pp.pr_vertical_list (fun goal -> begin
-        let pp = Pp.str "Focusing goal: " ++ Pp.int !goal_id ++ Pp.fnl () in
-        goal_id := !goal_id + 1;
-        pp ++ extract_goal oc sigma env goal
-    end) data.goals in
+  let* num   = Proofview.numgoals in
+  let pp = ref (Pp.str "Goals: " ++ Pp.int num ++ Pp.fnl ()) in
+  let* _ = Proofview.Goal.enter (extract_goal pp) in
   (* TODO: doesn't work *)
   (* Pp.pp_with (Stdlib.Format.formatter_of_out_channel oc) (Pp.strbrk "test"); *)
-  Printf.fprintf oc "%s\n" (Pp.string_of_ppcmds pp);
+  Printf.fprintf oc "%s\n" (Pp.string_of_ppcmds !pp);
   flush oc;
-  close_out oc
+  close_out oc;
+  Proofview.tclEXTEND [] Tacticals.tclIDTAC []

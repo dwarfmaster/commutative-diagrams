@@ -14,10 +14,8 @@ TACTIC EXTEND hello_world_tactic
     Tacticals.tclIDTAC }
 END
 
-VERNAC COMMAND EXTEND diagram_print CLASSIFIED AS QUERY
-| ![ proof_query ] [ "print_diagram" string(file) ] ->
-  { fun ~pstate ->
-    let state = Declare.Proof.get pstate in
-    Extractor.extract state file
+TACTIC EXTEND diagram_print
+| [ "print_diagram" string(file) ] ->
+  { Extractor.extract file
   }
 END

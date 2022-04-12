@@ -1,2 +1,2 @@
 
-val extract : Proof.t -> string -> unit
+val extract : string -> unit Proofview.tactic
