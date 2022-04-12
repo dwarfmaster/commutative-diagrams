@@ -7,6 +7,8 @@ module type ConstrLike = sig
 
   val kind : Evd.evar_map -> Environ.env -> constr -> (constr,types,sorts,univs) Constr.kind_of_term
   val print : Evd.evar_map -> Environ.env -> constr -> Pp.t
+  val econstr : constr -> EConstr.t
+  val try_solve : Evd.evar_map -> constr -> Constr.t option
 end
 
 module CLConstr : sig
@@ -17,6 +19,8 @@ module CLConstr : sig
 
   val kind : Evd.evar_map -> Environ.env -> constr -> (constr,types,sorts,univs) Constr.kind_of_term
   val print : Evd.evar_map -> Environ.env -> constr -> Pp.t
+  val econstr : constr -> EConstr.t
+  val try_solve : Evd.evar_map -> constr -> Constr.t option
 end
 
 module CLEConstr : sig
@@ -27,4 +31,6 @@ module CLEConstr : sig
 
   val kind : Evd.evar_map -> Environ.env -> constr -> (constr,types,sorts,univs) Constr.kind_of_term
   val print : Evd.evar_map -> Environ.env -> constr -> Pp.t
+  val econstr : constr -> EConstr.t
+  val try_solve : Evd.evar_map -> constr -> Constr.t option
 end

@@ -11,6 +11,11 @@ let locate_constructor : string -> Names.constructor = fun name ->
     | ConstructRef c -> c
     | _ -> raise (Object_not_found name)
   with Not_found -> raise (Object_not_found name)
+let locate_const : string -> Names.Constant.t = fun name ->
+  try match Nametab.global (Libnames.qualid_of_string name) with
+    | ConstRef c -> c
+    | _ -> raise (Object_not_found name)
+  with Not_found -> raise (Object_not_found name)
 
 let perform_locate : 'a array ref -> string array -> (string -> 'a) -> 'a array =
   fun objs names locate ->
@@ -29,11 +34,15 @@ let is_ind : Names.inductive array ref -> string array -> Names.inductive -> boo
   fun inds names ind -> is_cached inds names ind locate_inductive Names.Ind.UserOrd.equal
 let is_construct : Names.constructor array ref -> string array -> Names.constructor -> bool =
   fun constrs names constr -> is_cached constrs names constr locate_constructor Names.Construct.UserOrd.equal
+let is_const : Names.Constant.t array ref -> string array -> Names.Constant.t -> bool =
+  fun consts names const -> is_cached consts names const locate_const Names.Constant.UserOrd.equal
 
 let mk_ind : Names.inductive array -> EConstr.t =
   fun inds -> EConstr.mkInd inds.(0)
 let mk_constr : Names.constructor array -> EConstr.t =
   fun constrs -> EConstr.mkConstruct constrs.(0)
+let mk_const : Names.Constant.t array -> EConstr.t =
+  fun consts -> EConstr.mkConst consts.(0)
 
 let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool =
   fun proj indP lbl ->
@@ -87,3 +96,17 @@ let g_coq_refl_names : string array =
 let get_refl = fun _ -> perform_locate g_coq_refl g_coq_refl_names locate_constructor
 let is_refl : Names.constructor -> bool = is_construct g_coq_refl g_coq_refl_names
 let mk_refl = fun _ -> mk_constr (get_refl ())
+
+
+(*   ___                  _ *)
+(*  / __|___ _ _  __ __ _| |_ *)
+(* | (__/ _ \ ' \/ _/ _` |  _| *)
+(*  \___\___/_||_\__\__,_|\__| *)
+(* Concat *)
+let g_coq_concat : Names.Constant.t array ref = ref [| |]
+let g_coq_concat_names : string array =
+  [| "HoTT.Basics.Overture.idpath"
+  |]
+let get_concat = fun _ -> perform_locate g_coq_concat g_coq_concat_names locate_const
+let is_concat : Names.Constant.t -> bool = is_const g_coq_concat g_coq_concat_names
+let mk_concat = fun _ -> mk_const (get_concat ())
