@@ -17,11 +17,20 @@ module Make : functor (C : Utils.ConstrLike) -> sig
     ; category : category
     ; id       : elem_id
     }
-  type morphism =
-    { obj      : constr
-    ; category : category
+  type morphismT =
+    { category : category
     ; src      : elem
     ; dst      : elem
-    ; id       : mph_id
+    ; obj      : constr
     }
+  type morphism =
+    { obj : constr
+    ; tp  : morphismT
+    ; id  : mph_id
+    }
+
+  (* m1 -> m2 -> m2 o m1 *)
+  val compose : Evd.evar_map -> Environ.env -> morphism -> morphism -> morphism
+  (* [ m1, m2, m3 ] -> (m3 o m2) o m1 *)
+  val realize : Evd.evar_map -> Environ.env -> morphism list -> morphism
 end

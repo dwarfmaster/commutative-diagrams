@@ -17,11 +17,19 @@ module Make = functor (C : Utils.ConstrLike) -> struct
     ; category : category
     ; id       : elem_id
     }
-  type morphism =
-    { obj      : constr
-    ; category : category
+  type morphismT =
+    { category : category
     ; src      : elem
     ; dst      : elem
-    ; id       : mph_id
+    ; obj      : constr
     }
+  type morphism =
+    { obj : constr
+    ; tp  : morphismT
+    ; id  : mph_id
+    }
+
+  exception Unimplemented
+  let compose = fun sigma env m1 m2 -> raise Unimplemented
+  let realize = fun sigma env ms -> raise Unimplemented
 end

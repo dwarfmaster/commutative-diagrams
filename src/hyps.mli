@@ -1,7 +1,7 @@
 
 module Make : functor (C : Utils.ConstrLike) -> sig
 
-  include module type of ContextTypes.Make(C)
+  include module type of Morphisms.Make(C)
 
   (* The composed morphism of the path may not be in the context since we only keep the base *)
   type path =
