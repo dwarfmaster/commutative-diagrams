@@ -110,3 +110,16 @@ let g_coq_concat_names : string array =
 let get_concat = fun _ -> perform_locate g_coq_concat g_coq_concat_names locate_const
 let is_concat : Names.Constant.t -> bool = is_const g_coq_concat g_coq_concat_names
 let mk_concat = fun _ -> mk_const (get_concat ())
+
+(*   ___ *)
+(*  / __|___ _ __  _ __  ___ ___ ___   ___ __ _ *)
+(* | (__/ _ \ '  \| '_ \/ _ (_-</ -_) / -_) _` | *)
+(*  \___\___/_|_|_| .__/\___/__/\___|_\___\__, | *)
+(*                |_|              |___|     |_| *)
+(* compose_eq *)
+let g_coq_compose_eq : Names.Constant.t array ref = ref [| |]
+let g_coq_compose_eq_names : string array =
+  [| "Loader.compose_eq"
+  |]
+let get_compose_eq = fun _ -> perform_locate g_coq_compose_eq g_coq_compose_eq_names locate_const
+let mk_compose_eq = fun _ -> mk_const (get_compose_eq ())

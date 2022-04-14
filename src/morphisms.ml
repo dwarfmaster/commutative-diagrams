@@ -31,5 +31,6 @@ module Make = functor (C : Utils.ConstrLike) -> struct
 
   exception Unimplemented
   let compose = fun sigma env m1 m2 -> raise Unimplemented
+  let composeT = fun sigma env mT1 mT2 -> raise Unimplemented
   let realize = fun sigma env ms -> raise Unimplemented
 end
