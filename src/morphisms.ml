@@ -33,4 +33,8 @@ module Make = functor (C : Utils.ConstrLike) -> struct
   let compose = fun sigma env m1 m2 -> raise Unimplemented
   let composeT = fun sigma env mT1 mT2 -> raise Unimplemented
   let realize = fun sigma env ms -> raise Unimplemented
+  let identity = fun sigma env (x : elem) ->
+    { obj = raise Unimplemented
+    ; tp = { category = x.category; src = x; dst = x; obj = raise Unimplemented; }
+    ; id = 0; }
 end

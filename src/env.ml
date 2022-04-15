@@ -130,9 +130,30 @@ let mk_compose_eq = fun _ -> mk_const (get_compose_eq ())
 (*  / _ \ (_-<_-</ _ \/ _| / _` |  _| \ V / |  _| || | *)
 (* /_/ \_\/__/__/\___/\__|_\__,_|\__|_|\_/|_|\__|\_, | *)
 (*                                               |__/  *)
+(* Associativity *)
 let g_coq_assoc : Names.Constant.t array ref = ref [| |]
 let g_coq_assoc_names : string array =
   [| "Loader.assoc"
   |]
 let get_assoc = fun _ -> perform_locate g_coq_assoc g_coq_assoc_names locate_const
 let mk_assoc = fun _ -> mk_const (get_assoc ())
+
+
+(*  ___    _         _   _ _         *)
+(* |_ _|__| |___ _ _| |_(_) |_ _  _  *)
+(*  | |/ _` / -_) ' \  _| |  _| || | *)
+(* |___\__,_\___|_||_\__|_|\__|\_, | *)
+(*                             |__/  *)
+(* Identity *)
+let g_coq_left_id : Names.Constant.t array ref = ref [| |]
+let g_coq_left_id_names : string array =
+  [| "Loader.left_id"
+  |]
+let get_left_id = fun _ -> perform_locate g_coq_left_id g_coq_left_id_names locate_const
+let mk_left_id = fun _ -> mk_const (get_left_id ())
+let g_coq_right_id : Names.Constant.t array ref = ref [| |]
+let g_coq_right_id_names : string array =
+  [| "Loader.right_id"
+  |]
+let get_right_id = fun _ -> perform_locate g_coq_right_id g_coq_right_id_names locate_const
+let mk_right_id = fun _ -> mk_const (get_right_id ())

@@ -45,11 +45,21 @@ let assoc = fun sigma env m1 m2 m3 ->
                           ; m1.obj; m2.obj; m3.obj |])
   }
 
-let left_id = fun sigma env m ->
-  raise Unimplemented
+let left_id = fun sigma env (m : T.morphism) ->
+  { src = T.compose sigma env (T.identity sigma env m.tp.dst) m
+  ; dst = m
+  ; tp  = m.tp
+  ; eq  = EConstr.mkApp (Env.mk_left_id (),
+                         [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |])
+  }
 
-let right_id = fun sigma env m ->
-  raise Unimplemented
+let right_id = fun sigma env (m : T.morphism) ->
+  { src = T.compose sigma env m (T.identity sigma env m.tp.dst)
+  ; dst = m
+  ; tp  = m.tp
+  ; eq  = EConstr.mkApp (Env.mk_right_id (),
+                         [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |])
+  }
 
 let normalize = fun sigma env m ->
   raise Unimplemented

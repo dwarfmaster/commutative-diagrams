@@ -10,7 +10,11 @@ Proof. f_ap. Defined.
 Definition assoc (C : PreCategory) (a b c d : C)
       (m1 : morphism C a b) (m2 : morphism C b c) (m3 : morphism C c d) :
   m3 o (m2 o m1) = (m3 o m2) o m1 := (associativity C a b c d m1 m2 m3)^.
-Print assoc.
+Definition id (C : PreCategory) (a : C) : morphism C a a := @identity C a.
+Definition left_id (C : PreCategory) (a b : C) (m : morphism C a b) :
+  id C b o m = m := left_identity C a b m.
+Definition right_id (C : PreCategory) (a b : C) (m : morphism C a b) :
+  m o id C a = m := right_identity C a b m.
 
 Lemma test (C : PreCategory) (a b c d : C)
       (mab : morphism C a b) (mbc : morphism C b c) (mcd : morphism C c d)
