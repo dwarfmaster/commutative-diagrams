@@ -36,7 +36,14 @@ let compose = fun sigma env p1 p2 ->
   }
 
 let assoc = fun sigma env m1 m2 m3 ->
-  raise Unimplemented
+  { src = T.compose sigma env m1 (T.compose sigma env m2 m3)
+  ; dst = T.compose sigma env (T.compose sigma env m1 m2) m3
+  ; tp  = T.composeT sigma env (T.composeT sigma env m1.tp m2.tp) m3.tp
+  ; eq  = EConstr.mkApp (Env.mk_assoc (),
+                         [| m1.tp.category.obj
+                          ; m1.tp.src.obj; m2.tp.src.obj; m3.tp.src.obj; m3.tp.dst.obj
+                          ; m1.obj; m2.obj; m3.obj |])
+  }
 
 let left_id = fun sigma env m ->
   raise Unimplemented

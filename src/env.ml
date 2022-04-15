@@ -123,3 +123,16 @@ let g_coq_compose_eq_names : string array =
   |]
 let get_compose_eq = fun _ -> perform_locate g_coq_compose_eq g_coq_compose_eq_names locate_const
 let mk_compose_eq = fun _ -> mk_const (get_compose_eq ())
+
+
+(*    _                   _      _   _     _ _         *)
+(*   /_\   ______ ___  __(_)__ _| |_(_)_ _(_) |_ _  _  *)
+(*  / _ \ (_-<_-</ _ \/ _| / _` |  _| \ V / |  _| || | *)
+(* /_/ \_\/__/__/\___/\__|_\__,_|\__|_|\_/|_|\__|\_, | *)
+(*                                               |__/  *)
+let g_coq_assoc : Names.Constant.t array ref = ref [| |]
+let g_coq_assoc_names : string array =
+  [| "Loader.assoc"
+  |]
+let get_assoc = fun _ -> perform_locate g_coq_assoc g_coq_assoc_names locate_const
+let mk_assoc = fun _ -> mk_const (get_assoc ())

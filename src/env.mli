@@ -13,5 +13,6 @@ val mk_refl : unit -> EConstr.t
 val is_concat : Names.Constant.t -> bool
 val mk_concat : unit -> EConstr.t
 val mk_compose_eq : unit -> EConstr.t
+val mk_assoc : unit -> EConstr.t
 
 val is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool
