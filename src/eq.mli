@@ -12,6 +12,8 @@ exception Ill_typed
 val refl : Evd.evar_map -> Environ.env -> Morphisms.Make(Utils.CLEConstr).morphism -> t
 (* a = b -> b = c -> a = c *)
 val concat : Evd.evar_map -> Environ.env -> t -> t -> t
+(* a = b -> b = a *)
+val inv : Evd.evar_map -> Environ.env -> t -> t
 (* m1 = m2 -> m1' = m2' -> m1 o m1' = m2 o m2' *)
 val compose : Evd.evar_map -> Environ.env -> t -> t -> t
 (* m1 -> m2 -> m3 -> m3 o (m2 o m1) = (m3 o m2) o m1 *)

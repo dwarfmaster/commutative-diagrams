@@ -32,6 +32,7 @@ module Make : functor (C : Utils.ConstrLike) -> sig
   (* m1 -> m2 -> m2 o m1 *)
   val compose : Evd.evar_map -> Environ.env -> morphism -> morphism -> morphism
   val composeT : Evd.evar_map -> Environ.env -> morphismT -> morphismT -> morphismT
+  val mphT : Evd.evar_map -> Environ.env -> category -> EConstr.t -> EConstr.t -> morphismT
   (* [ m1, m2, m3 ] -> (m3 o m2) o m1 *)
   val realize : Evd.evar_map -> Environ.env -> morphism list -> morphism
   (* a -> 1_a *)

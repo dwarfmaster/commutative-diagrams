@@ -9,7 +9,6 @@ type t =
   }
 
 exception Ill_typed
-exception Unimplemented
 
 let refl = fun sigma env m ->
   { src = m
@@ -24,6 +23,14 @@ let concat = fun sigma env p1 p2 ->
   ; tp  = p1.tp
   ; eq  = EConstr.mkApp (Env.mk_concat (),
                         [| p1.tp.obj; p1.src.obj; p1.dst.obj; p2.dst.obj; p1.eq; p2.eq |])
+  }
+
+let inv = fun sigma env p ->
+  { src = p.dst
+  ; dst = p.src
+  ; tp  = p.tp
+  ; eq  = EConstr.mkApp (Env.mk_inv (),
+                        [| p.tp.obj; p.src.obj; p.dst.obj; p.eq |])
   }
 
 let compose = fun sigma env p1 p2 ->
@@ -61,5 +68,40 @@ let right_id = fun sigma env (m : T.morphism) ->
                          [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |])
   }
 
-let normalize = fun sigma env m ->
-  raise Unimplemented
+(* a = b -> [ m1 m2 ] -> a o m1 o m2 = b o m1 o m2 *)
+let rec lift_eq : Evd.evar_map -> Environ.env -> t -> T.morphism list -> t =
+  fun sigma env p mphs ->
+  match mphs with
+  | [ ] -> p
+  | m :: mphs -> lift_eq sigma env (compose sigma env p (refl sigma env m)) mphs
+
+(* left -> [ m1 m2 ] -> right -> left o (m1 o m2 o right) = left o m1 o m2 o right  *)
+let rec repeat_assoc : Evd.evar_map -> Environ.env -> T.morphism -> T.morphism list -> T.morphism list -> t =
+  fun sigma env left mphs right ->
+  match List.rev mphs with
+  | [ ] -> refl sigma env (T.compose sigma env left (T.realize sigma env right))
+  | m :: mphs ->
+    let mphs = List.rev mphs in
+    concat sigma env
+      (lift_eq sigma env (assoc sigma env left (T.realize sigma env mphs) m) right)
+      (repeat_assoc sigma env left mphs (m :: right))
+
+let rec normalize = fun sigma env (m : T.morphism) ->
+  match EConstr.kind sigma m.obj with
+  | App (cmp, [| src; int; dst; mid; msi |]) ->
+    begin match EConstr.kind sigma cmp with
+      | Proj (cmp,_) when Env.is_projection cmp Env.is_cat "compose" ->
+        let (d1,p1) = normalize sigma env
+            { obj = msi
+            ; tp = T.mphT sigma env m.tp.category src int
+            ; id = 0 } in
+        let (d2,p2) = normalize sigma env
+            { obj = mid
+            ; tp  = T.mphT sigma env m.tp.category int dst
+            ; id  = 0 } in
+        let p = compose sigma env p1 p2 in
+        let p' = repeat_assoc sigma env (T.realize sigma env d1) d2 [ ] in
+        (List.append d1 d2, concat sigma env p p')
+      | _ -> ([m], refl sigma env m)
+    end
+  | _ -> ([m], refl sigma env m)

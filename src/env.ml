@@ -105,11 +105,24 @@ let mk_refl = fun _ -> mk_constr (get_refl ())
 (* Concat *)
 let g_coq_concat : Names.Constant.t array ref = ref [| |]
 let g_coq_concat_names : string array =
-  [| "HoTT.Basics.Overture.idpath"
+  [| "HoTT.Basics.PathGroupoids.concat2"
   |]
 let get_concat = fun _ -> perform_locate g_coq_concat g_coq_concat_names locate_const
 let is_concat : Names.Constant.t -> bool = is_const g_coq_concat g_coq_concat_names
 let mk_concat = fun _ -> mk_const (get_concat ())
+
+
+(*  ___                    _ *)
+(* |_ _|_ ___ _____ _ _ __(_)___ _ _ *)
+(*  | || ' \ V / -_) '_(_-< / _ \ ' \ *)
+(* |___|_||_\_/\___|_| /__/_\___/_||_| *)
+(* Inversion *)
+let g_coq_inv : Names.Constant.t array ref = ref [| |]
+let g_coq_inv_names : string array =
+  [| "HoTT.Basics.Overture.inverse"
+  |]
+let get_inv = fun _ -> perform_locate g_coq_inv g_coq_inv_names locate_const
+let mk_inv = fun _ -> mk_const (get_inv ())
 
 (*   ___ *)
 (*  / __|___ _ __  _ __  ___ ___ ___   ___ __ _ *)
