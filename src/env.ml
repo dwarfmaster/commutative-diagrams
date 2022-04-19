@@ -170,3 +170,29 @@ let g_coq_right_id_names : string array =
   |]
 let get_right_id = fun _ -> perform_locate g_coq_right_id g_coq_right_id_names locate_const
 let mk_right_id = fun _ -> mk_const (get_right_id ())
+
+
+(*  __  __              _    _ *)
+(* |  \/  |___ _ _ _ __| |_ (_)____ __  ___ *)
+(* | |\/| / _ \ '_| '_ \ ' \| (_-< '  \(_-< *)
+(* |_|  |_\___/_| | .__/_||_|_/__/_|_|_/__/ *)
+(*                |_| *)
+(* Morphisms *)
+let g_coq_id : Names.Constant.t array ref = ref [| |]
+let g_coq_id_names : string array =
+  [| "Loader.id"
+  |]
+let get_id = fun _ -> perform_locate g_coq_id g_coq_id_names locate_const
+let mk_id = fun _ -> mk_const (get_id ())
+let g_coq_comp : Names.Constant.t array ref = ref [| |]
+let g_coq_comp_names : string array =
+  [| "Loader.comp"
+  |]
+let get_comp = fun _ -> perform_locate g_coq_comp g_coq_comp_names locate_const
+let mk_comp = fun _ -> mk_const (get_comp ())
+let g_coq_mphT : Names.Constant.t array ref = ref [| |]
+let g_coq_mphT_names : string array =
+  [| "Loader.mphT"
+  |]
+let get_mphT = fun _ -> perform_locate g_coq_mphT g_coq_mphT_names locate_const
+let mk_mphT = fun _ -> mk_const (get_mphT ())

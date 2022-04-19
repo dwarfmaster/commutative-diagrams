@@ -17,5 +17,8 @@ val mk_compose_eq : unit -> EConstr.t
 val mk_assoc : unit -> EConstr.t
 val mk_left_id : unit -> EConstr.t
 val mk_right_id : unit -> EConstr.t
+val mk_id : unit -> EConstr.t
+val mk_comp : unit -> EConstr.t
+val mk_mphT : unit -> EConstr.t
 
 val is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool
