@@ -27,16 +27,18 @@ type morphism =
   ; id  : mph_id
   }
 
+(* Equality between uninterned morphisms *)
 type eq =
-  { src : morphism
-  ; dst : morphism
+  { src : EConstr.t
+  ; dst : EConstr.t
   ; tp  : morphismT
   ; eq  : EConstr.t
   }
 
 (* The composed morphism of the path may not be in the context since we only keep the base *)
 type path =
-  { mph  : morphism
+  { mph  : EConstr.t
+  ; tp   : morphismT
   ; eq   : eq (* Equality from `mph` to `realize path` *)
   ; path : morphism list
   }
@@ -63,10 +65,10 @@ exception Ill_typed
 (*  \____\___/|_| |_|\__\___/_/\_\\__| *)
 
 val empty_context : t
-val get_cat  : EConstr.t -> t -> t * cat_id
-val get_elem : EConstr.t -> t -> t * elem_id
-val get_mph  : EConstr.t -> t -> t * mph_id
-val get_face : EConstr.t -> t -> t * face_id
+val get_cat  : Evd.evar_map -> EConstr.t -> t -> cat_id * t
+val get_elem : Evd.evar_map -> EConstr.t -> EConstr.t -> t -> elem_id * t
+val get_mph  : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> t -> mph_id * t
+val get_face : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> t -> face_id * t
 
 (*  __  __                  _     _ *)
 (* |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___ *)

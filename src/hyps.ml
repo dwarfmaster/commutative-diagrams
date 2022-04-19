@@ -28,15 +28,15 @@ type morphism =
   }
 
 type eq =
-  { src : morphism
-  ; dst : morphism
+  { src : EConstr.t
+  ; dst : EConstr.t
   ; tp  : morphismT
   ; eq  : EConstr.t
   }
 
-(* The composed morphism of the path may not be in the context since we only keep the base *)
 type path =
-  { mph  : morphism
+  { mph  : EConstr.t
+  ; tp   : morphismT
   ; eq   : eq (* Equality from `mph` to `realize path` *)
   ; path : morphism list
   }
@@ -63,15 +63,90 @@ exception Unimplemented
 (* | |__| (_) | | | | ||  __/>  <| |_  *)
 (*  \____\___/|_| |_|\__\___/_/\_\\__| *)
 
+let array_find_id : ('a -> bool) -> 'a array -> int option = fun pred arr ->
+  let result : int option ref = ref None in
+  for i = 0 to Array.length arr - 1 do
+    if pred arr.(i) then result := Some i else ()
+  done;
+  !result
+
 let empty_context =
   { categories = [| |]
   ; elems      = [| |]
   ; morphisms  = [| |]
   ; faces      = [| |] }
-let get_cat  = fun cat store -> raise Unimplemented
-let get_elem = fun elm store -> raise Unimplemented
-let get_mph  = fun mph store -> raise Unimplemented
-let get_face = fun fce store -> raise Unimplemented
+
+let get_cat  = fun sigma (cat : EConstr.t) store ->
+  let id = array_find_id (fun(c : category) -> EConstr.eq_constr sigma cat c.obj) store.categories in
+  match id with
+  | Some id -> (id,store)
+  | None -> let nid = Array.length store.categories in
+    (nid,
+     { categories = Array.append store.categories [| { obj = cat; id = Array.length store.categories } |]
+     ; elems = store.elems
+     ; morphisms = store.morphisms
+     ; faces = store.faces })
+
+let get_elem = fun sigma (cat : EConstr.t) elm store ->
+  let (cid,store) = get_cat sigma cat store in
+  let cat = store.categories.(cid) in
+  let id = array_find_id (fun(e : elem) -> EConstr.eq_constr sigma elm e.obj) store.elems in
+  match id with
+  | Some id -> (id,store)
+  | None -> let nid = Array.length store.elems in
+    (nid,
+     { categories = store.categories
+     ; elems = Array.append store.elems [| { obj = elm; id = nid; category = cat } |]
+     ; morphisms = store.morphisms
+     ; faces = store.faces })
+
+let get_mph  = fun sigma (cat : EConstr.t) src dst mph store ->
+  let (cid,store) = get_cat sigma cat store in
+  let cat = store.categories.(cid) in
+  let (src_id,store) = get_elem sigma cat.obj src store in
+  let src = store.elems.(src_id) in
+  let (dst_id,store) = get_elem sigma cat.obj dst store in
+  let dst = store.elems.(dst_id) in
+  let id = array_find_id (fun(m : morphism) -> EConstr.eq_constr sigma mph m.obj) store.morphisms in
+  match id with
+  | Some id -> (id,store)
+  | None ->
+    let nid = Array.length store.morphisms in
+    let tp = EConstr.mkApp (Env.mk_mphT (),
+                            [| cat.obj; src.obj; dst.obj |]) in
+    (nid,
+     { categories = store.categories
+     ; elems = store.elems
+     ; morphisms = Array.append store.morphisms
+           [| { obj = mph; tp = { category = cat; src = src; dst = dst; obj = tp }; id = nid } |]
+     ; faces = store.faces })
+
+let get_face = fun sigma cat src dst mph1 mph2 fce store ->
+  let (cid,store) = get_cat sigma cat store in
+  let cat = store.categories.(cid) in
+  let (src_id,store) = get_elem sigma cat.obj src store in
+  let src = store.elems.(src_id) in
+  let (dst_id,store) = get_elem sigma cat.obj dst store in
+  let dst = store.elems.(dst_id) in
+  let id = array_find_id (fun(f : face) -> EConstr.eq_constr sigma fce f.obj.eq) store.faces in
+  match id with
+  | Some id -> (id,store)
+  | None ->
+    let nid = Array.length store.faces in
+    let tp = EConstr.mkApp (Env.mk_mphT (),
+                            [| cat.obj; src.obj; dst.obj |]) in
+    let tp = { category = cat; src = src; dst = dst; obj = tp } in
+    (nid,
+     { categories = store.categories
+     ; elems = store.elems
+     ; morphisms = store.morphisms
+     ; faces = Array.append store.faces
+           [| { tp = tp
+              ; side1 = { mph = mph1; eq = raise Unimplemented; path = raise Unimplemented; tp = tp }
+              ; side2 = { mph = mph2; eq = raise Unimplemented; path = raise Unimplemented; tp = tp }
+              ; obj = { src = mph1; dst = mph2; tp = tp; eq = fce }
+              ; id = nid } |]
+     })
 
 
 
@@ -117,19 +192,19 @@ let rec realize = fun sigma env (ms : morphism list) ->
 (* |_____\__, |\__,_|\__,_|_|_|\__|\__, | *)
 (*          |_|                    |___/  *)
 
-let refl = fun sigma env m ->
-  { src = m
-  ; dst = m
+let refl = fun sigma env (m : morphism) ->
+  { src = m.obj
+  ; dst = m.obj
   ; tp  = m.tp
   ; eq  = EConstr.mkApp (Env.mk_refl (), [| m.tp.obj; m.obj |])
   }
 
-let concat = fun sigma env p1 p2 ->
+let concat = fun sigma env (p1 : eq) (p2 : eq) ->
   { src = p1.src
   ; dst = p2.dst
   ; tp  = p1.tp
   ; eq  = EConstr.mkApp (Env.mk_concat (),
-                        [| p1.tp.obj; p1.src.obj; p1.dst.obj; p2.dst.obj; p1.eq; p2.eq |])
+                        [| p1.tp.obj; p1.src; p1.dst; p2.dst; p1.eq; p2.eq |])
   }
 
 let inv = fun sigma env p ->
@@ -137,43 +212,47 @@ let inv = fun sigma env p ->
   ; dst = p.src
   ; tp  = p.tp
   ; eq  = EConstr.mkApp (Env.mk_inv (),
-                        [| p.tp.obj; p.src.obj; p.dst.obj; p.eq |])
+                        [| p.tp.obj; p.src; p.dst; p.eq |])
   }
 
 let composeP = fun sigma env p1 p2 ->
-  { src = compose sigma env p1.src p2.src
-  ; dst = compose sigma env p1.dst p2.dst
-  ; tp  = composeT sigma env p1.tp p2.tp
-  ; eq  = EConstr.mkApp (Env.mk_compose_eq (),
-                         [| p1.tp.category.obj; p1.src.tp.src.obj; p1.src.tp.dst.obj; p2.src.tp.dst.obj
-                          ; p1.src.obj; p1.dst.obj; p2.src.obj; p2.dst.obj; p1.eq; p2.eq |])
-  }
+  raise Unimplemented
+  (* { src = compose sigma env p1.src p2.src *)
+  (* ; dst = compose sigma env p1.dst p2.dst *)
+  (* ; tp  = composeT sigma env p1.tp p2.tp *)
+  (* ; eq  = EConstr.mkApp (Env.mk_compose_eq (), *)
+  (*                        [| p1.tp.category.obj; p1.src.tp.src.obj; p1.src.tp.dst.obj; p2.src.tp.dst.obj *)
+  (*                         ; p1.src.obj; p1.dst.obj; p2.src.obj; p2.dst.obj; p1.eq; p2.eq |]) *)
+  (* } *)
 
 let assoc = fun sigma env m1 m2 m3 ->
-  { src = compose sigma env m1 (compose sigma env m2 m3)
-  ; dst = compose sigma env (compose sigma env m1 m2) m3
-  ; tp  = composeT sigma env (composeT sigma env m1.tp m2.tp) m3.tp
-  ; eq  = EConstr.mkApp (Env.mk_assoc (),
-                         [| m1.tp.category.obj
-                          ; m1.tp.src.obj; m2.tp.src.obj; m3.tp.src.obj; m3.tp.dst.obj
-                          ; m1.obj; m2.obj; m3.obj |])
-  }
+  raise Unimplemented
+  (* { src = compose sigma env m1 (compose sigma env m2 m3) *)
+  (* ; dst = compose sigma env (compose sigma env m1 m2) m3 *)
+  (* ; tp  = composeT sigma env (composeT sigma env m1.tp m2.tp) m3.tp *)
+  (* ; eq  = EConstr.mkApp (Env.mk_assoc (), *)
+  (*                        [| m1.tp.category.obj *)
+  (*                         ; m1.tp.src.obj; m2.tp.src.obj; m3.tp.src.obj; m3.tp.dst.obj *)
+  (*                         ; m1.obj; m2.obj; m3.obj |]) *)
+  (* } *)
 
 let left_id = fun sigma env (m : morphism) ->
-  { src = compose sigma env (identity sigma env m.tp.dst) m
-  ; dst = m
-  ; tp  = m.tp
-  ; eq  = EConstr.mkApp (Env.mk_left_id (),
-                         [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |])
-  }
+  raise Unimplemented
+  (* { src = compose sigma env (identity sigma env m.tp.dst) m *)
+  (* ; dst = m *)
+  (* ; tp  = m.tp *)
+  (* ; eq  = EConstr.mkApp (Env.mk_left_id (), *)
+  (*                        [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |]) *)
+  (* } *)
 
 let right_id = fun sigma env (m : morphism) ->
-  { src = compose sigma env m (identity sigma env m.tp.dst)
-  ; dst = m
-  ; tp  = m.tp
-  ; eq  = EConstr.mkApp (Env.mk_right_id (),
-                         [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |])
-  }
+  raise Unimplemented
+  (* { src = compose sigma env m (identity sigma env m.tp.dst) *)
+  (* ; dst = m *)
+  (* ; tp  = m.tp *)
+  (* ; eq  = EConstr.mkApp (Env.mk_right_id (), *)
+  (*                        [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |]) *)
+  (* } *)
 
 (* a = b -> [ m1 m2 ] -> a o m1 o m2 = b o m1 o m2 *)
 let rec lift_eq : Evd.evar_map -> Environ.env -> eq -> morphism list -> eq =
