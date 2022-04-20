@@ -57,7 +57,6 @@ type t =
   }
 
 exception Ill_typed
-exception Unimplemented
 
 
 (*  __  __                  _     _ *)
@@ -280,21 +279,11 @@ let rec normalize = fun sigma (m : morphismData) store ->
     let (mId,store) = get_mph sigma m store in
     ([store.morphisms.(mId)], refl sigma m, store)
 
-let get_face = fun sigma cat src dst mph1 mph2 fce store ->
+let get_face = fun sigma tp mph1 mph2 fce store ->
   let id = array_find_id (fun(f : face) -> EConstr.eq_constr sigma fce f.obj.eq) store.faces in
   match id with
   | Some id -> (id,store)
   | None ->
-    let (cid,store) = get_cat sigma cat store in
-    let cat = store.categories.(cid) in
-    let (srcId,store) = get_elem sigma cat.obj src store in
-    let src = store.elems.(srcId) in
-    let (dstId,store) = get_elem sigma cat.obj dst store in
-    let dst = store.elems.(dstId) in
-    let tp = { category = cat
-             ; src = src
-             ; dst = dst
-             ; obj = mphT sigma cat.obj src.obj dst.obj } in
     let mph1 = { obj = mph1; tp = tp } in
     let (d1,p1,store) = normalize sigma mph1 store in
     let mph2 = { obj = mph2; tp = tp } in
@@ -319,7 +308,54 @@ let get_face = fun sigma cat src dst mph1 mph2 fce store ->
 (* |  __/ (_| | |  \__ \ | | | | (_| | *)
 (* |_|   \__,_|_|  |___/_|_| |_|\__, | *)
 (*                              |___/  *)
-let parse_cat  = fun sigma cat store -> raise Unimplemented
-let parse_elem = fun sigma elm store -> raise Unimplemented
-let parse_mph  = fun sigma mph store -> raise Unimplemented
-let parse_face = fun sigma fce store -> raise Unimplemented
+
+let parse_cat  = fun sigma name cat store ->
+  match EConstr.kind sigma cat with
+  | Ind (ind,_) when Env.is_cat ind ->
+    let (id,store) = get_cat sigma (EConstr.mkVar name) store in (store,Some id)
+  | _ -> (store,None)
+
+let parse_elem = fun sigma name elm store ->
+  match EConstr.kind sigma elm with
+  | Proj (p,arg) when Env.is_projection p Env.is_cat "object" ->
+    let (id,store) = get_elem sigma arg (EConstr.mkVar name) store in (store,Some id)
+  | _ -> (store,None)
+
+let read_mph : Evd.evar_map -> EConstr.t -> t -> t * morphismT option =
+  fun sigma mph store ->
+  match EConstr.kind sigma mph with
+  | App (p, [| src; dst |]) ->
+    begin match EConstr.kind sigma p with
+      | Proj (p,arg) when Env.is_projection p Env.is_cat "morphism" ->
+        let (srcId,store) = get_elem sigma arg src store in
+        let (dstId,store) = get_elem sigma arg dst store in
+        let src = store.elems.(srcId) in
+        let dst = store.elems.(dstId) in
+        let cat = src.category in
+        (store, Some { category = cat; src = src; dst = dst; obj = mph })
+      | _ -> (store,None)
+    end
+  | _ -> (store,None)
+
+let parse_mph  = fun sigma name mph store ->
+  let (store,mph) = read_mph sigma mph store in
+  match mph with
+  | Some tp ->
+    let mph = { obj = EConstr.mkVar name; tp = tp } in
+    let (id,store) = get_mph sigma mph store in (store,Some id)
+  | _ -> (store,None)
+
+let parse_face = fun sigma name fce store ->
+  match EConstr.kind sigma fce with
+  | App (eq, [| mph; f1; f2 |]) ->
+    begin match EConstr.kind sigma eq with
+      | Ind (eq,_) when Env.is_eq eq ->
+        let (store,tp) = read_mph sigma mph store in
+        begin match tp with
+          | Some tp ->
+            let (id,store) = get_face sigma tp f1 f2 (EConstr.mkVar name) store in (store,Some id)
+          | _ -> (store,None)
+        end
+      | _ -> (store,None)
+    end
+  | _ -> (store,None)

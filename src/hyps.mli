@@ -110,7 +110,7 @@ val get_elem : Evd.evar_map -> EConstr.t -> EConstr.t -> t -> elem_id * t
 val get_mph  : Evd.evar_map -> morphismData -> t -> mph_id * t
 (* Split morphism along compositions, remove identities, and give equality *)
 val normalize : Evd.evar_map -> morphismData -> t -> morphism list * eq * t
-val get_face : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> t -> face_id * t
+val get_face : Evd.evar_map -> morphismT -> EConstr.t -> EConstr.t -> EConstr.t -> t -> face_id * t
 
 (*  ____                _              *)
 (* |  _ \ __ _ _ __ ___(_)_ __   __ _  *)
@@ -118,7 +118,7 @@ val get_face : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t 
 (* |  __/ (_| | |  \__ \ | | | | (_| | *)
 (* |_|   \__,_|_|  |___/_|_| |_|\__, | *)
 (*                              |___/  *)
-val parse_cat  : Evd.evar_map -> kind -> t -> t * cat_id  option
-val parse_elem : Evd.evar_map -> kind -> t -> t * elem_id option
-val parse_mph  : Evd.evar_map -> kind -> t -> t * mph_id  option
-val parse_face : Evd.evar_map -> kind -> t -> t * face_id option
+val parse_cat  : Evd.evar_map -> Names.Id.t -> EConstr.t -> t -> t * cat_id  option
+val parse_elem : Evd.evar_map -> Names.Id.t -> EConstr.t -> t -> t * elem_id option
+val parse_mph  : Evd.evar_map -> Names.Id.t -> EConstr.t -> t -> t * mph_id  option
+val parse_face : Evd.evar_map -> Names.Id.t -> EConstr.t -> t -> t * face_id option
