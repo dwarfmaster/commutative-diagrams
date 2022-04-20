@@ -21,24 +21,26 @@ type morphismT =
   ; dst      : elem
   ; obj      : EConstr.t
   }
-type morphism =
+type morphismData =
   { obj : EConstr.t
   ; tp  : morphismT
-  ; id  : mph_id
+  }
+type morphism =
+  { data : morphismData
+  ; id   : mph_id
   }
 
 (* Equality between uninterned morphisms *)
 type eq =
-  { src : EConstr.t
-  ; dst : EConstr.t
+  { src : morphismData
+  ; dst : morphismData
   ; tp  : morphismT
   ; eq  : EConstr.t
   }
 
 (* The composed morphism of the path may not be in the context since we only keep the base *)
 type path =
-  { mph  : EConstr.t
-  ; tp   : morphismT
+  { mph  : morphismData
   ; eq   : eq (* Equality from `mph` to `realize path` *)
   ; path : morphism list
   }
@@ -58,18 +60,6 @@ type t =
 
 exception Ill_typed
 
-(*   ____            _            _    *)
-(*  / ___|___  _ __ | |_ _____  _| |_  *)
-(* | |   / _ \| '_ \| __/ _ \ \/ / __| *)
-(* | |__| (_) | | | | ||  __/>  <| |_  *)
-(*  \____\___/|_| |_|\__\___/_/\_\\__| *)
-
-val empty_context : t
-val get_cat  : Evd.evar_map -> EConstr.t -> t -> cat_id * t
-val get_elem : Evd.evar_map -> EConstr.t -> EConstr.t -> t -> elem_id * t
-val get_mph  : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> t -> mph_id * t
-val get_face : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> t -> face_id * t
-
 (*  __  __                  _     _ *)
 (* |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___ *)
 (* | |\/| |/ _ \| '__| '_ \| '_ \| / __| '_ ` _ \/ __| *)
@@ -77,14 +67,14 @@ val get_face : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t 
 (* |_|  |_|\___/|_|  | .__/|_| |_|_|___/_| |_| |_|___/ *)
 (*                   |_| *)
 (* m1 -> m2 -> m2 o m1 *)
-val compose : Evd.evar_map -> Environ.env -> morphism -> morphism -> morphism
-val composeT : Evd.evar_map -> Environ.env -> morphismT -> morphismT -> morphismT
-val mphT : Evd.evar_map -> Environ.env -> category -> EConstr.t -> EConstr.t -> morphismT
+val compose : Evd.evar_map -> morphismData -> morphismData -> morphismData
+val composeT : Evd.evar_map -> morphismT -> morphismT -> morphismT
+val mphT : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t
 (* [ m1, m2, m3 ] -> (m3 o m2) o m1 *)
 (* Raises Ill_typed if the list is empty of not composable *)
-val realize : Evd.evar_map -> Environ.env -> morphism list -> morphism
+val realize : Evd.evar_map -> morphismData list -> morphismData
 (* a -> 1_a *)
-val identity : Evd.evar_map -> Environ.env -> elem -> morphism
+val identity : Evd.evar_map -> elem -> morphismData
 
 
 (*  _____                  _ _ _          *)
@@ -94,22 +84,33 @@ val identity : Evd.evar_map -> Environ.env -> elem -> morphism
 (* |_____\__, |\__,_|\__,_|_|_|\__|\__, | *)
 (*          |_|                    |___/  *)
 (* a -> a =_A a *)
-val refl : Evd.evar_map -> Environ.env -> morphism -> eq
+val refl : Evd.evar_map -> morphismData -> eq
 (* a = b -> b = c -> a = c *)
-val concat : Evd.evar_map -> Environ.env -> eq -> eq -> eq
+val concat : Evd.evar_map -> eq -> eq -> eq
 (* a = b -> b = a *)
-val inv : Evd.evar_map -> Environ.env -> eq -> eq
+val inv : Evd.evar_map -> eq -> eq
 (* m1 = m2 -> m1' = m2' -> m1 o m1' = m2 o m2' *)
-val composeP : Evd.evar_map -> Environ.env -> eq -> eq -> eq
+val composeP : Evd.evar_map -> eq -> eq -> eq
 (* m1 -> m2 -> m3 -> m3 o (m2 o m1) = (m3 o m2) o m1 *)
-val assoc : Evd.evar_map -> Environ.env -> morphism -> morphism -> morphism -> eq
+val assoc : Evd.evar_map -> morphismData -> morphismData -> morphismData -> eq
 (* m -> id o m = m *)
-val left_id : Evd.evar_map -> Environ.env -> morphism -> eq
+val left_id : Evd.evar_map -> morphismData -> eq
 (* m -> m o id = m *)
-val right_id : Evd.evar_map -> Environ.env -> morphism -> eq
-(* Split morphism along compositions, remove identities, and give equality *)
-val normalize : Evd.evar_map -> Environ.env -> morphism -> morphism list * eq
+val right_id : Evd.evar_map -> morphismData -> eq
 
+(*   ____            _            _    *)
+(*  / ___|___  _ __ | |_ _____  _| |_  *)
+(* | |   / _ \| '_ \| __/ _ \ \/ / __| *)
+(* | |__| (_) | | | | ||  __/>  <| |_  *)
+(*  \____\___/|_| |_|\__\___/_/\_\\__| *)
+
+val empty_context : t
+val get_cat  : Evd.evar_map -> EConstr.t -> t -> cat_id * t
+val get_elem : Evd.evar_map -> EConstr.t -> EConstr.t -> t -> elem_id * t
+val get_mph  : Evd.evar_map -> morphismData -> t -> mph_id * t
+(* Split morphism along compositions, remove identities, and give equality *)
+val normalize : Evd.evar_map -> morphismData -> t -> morphism list * eq * t
+val get_face : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> t -> face_id * t
 
 (*  ____                _              *)
 (* |  _ \ __ _ _ __ ___(_)_ __   __ _  *)
@@ -117,7 +118,7 @@ val normalize : Evd.evar_map -> Environ.env -> morphism -> morphism list * eq
 (* |  __/ (_| | |  \__ \ | | | | (_| | *)
 (* |_|   \__,_|_|  |___/_|_| |_|\__, | *)
 (*                              |___/  *)
-val parse_cat  : Evd.evar_map -> Environ.env -> kind -> t -> t * cat_id  option
-val parse_elem : Evd.evar_map -> Environ.env -> kind -> t -> t * elem_id option
-val parse_mph  : Evd.evar_map -> Environ.env -> kind -> t -> t * mph_id  option
-val parse_face : Evd.evar_map -> Environ.env -> kind -> t -> t * face_id option
+val parse_cat  : Evd.evar_map -> kind -> t -> t * cat_id  option
+val parse_elem : Evd.evar_map -> kind -> t -> t * elem_id option
+val parse_mph  : Evd.evar_map -> kind -> t -> t * mph_id  option
+val parse_face : Evd.evar_map -> kind -> t -> t * face_id option
