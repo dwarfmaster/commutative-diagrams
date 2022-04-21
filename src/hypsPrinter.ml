@@ -23,21 +23,18 @@ let mph = fun sigma env (m : Hyps.morphism) ->
   mphDt sigma env m.data ++ Pp.str "::" ++ Pp.int m.id
 
 let eq = fun sigma env (eq : Hyps.eq) ->
-  ppe sigma env eq.eq ++ Pp.str "::<"
-  ++ mphDt sigma env eq.src ++ Pp.str "> = <"
-  ++ mphDt sigma env eq.dst ++ Pp.str ">::("
-  ++ mphT sigma env eq.tp ++ Pp.str ")"
+  ppe sigma env eq.eq
 
 let rec mphList = fun sigma env (ms : Hyps.morphism list) ->
   match ms with
   | [ ] -> Pp.str ""
-  | [ m ] -> mph sigma env m
-  | m :: ms -> mph sigma env m ++ Pp.str ";" ++ mphList sigma env ms
+  | [ m ] -> ppe sigma env m.data.obj
+  | m :: ms -> ppe sigma env m.data.obj ++ Pp.str ";" ++ mphList sigma env ms
 
 let path = fun sigma env (p : Hyps.path) ->
-  Pp.str "{" ++ mphDt sigma env p.mph ++ Pp.str "} ={"
-  ++ eq sigma env p.eq ++ Pp.str "} {"
-  ++ mphList sigma env p.path ++ Pp.str "}"
+  ppe sigma env p.mph.obj ++ Pp.str " ={"
+  ++ eq sigma env p.eq ++ Pp.str "} "
+  ++ mphList sigma env p.path
 
 let face = fun sigma env (f : Hyps.face) ->
   eq sigma env f.obj ++ Pp.str ":::" ++
