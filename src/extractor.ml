@@ -3,105 +3,6 @@ let (++) = Pp.(++)
 let (let*) = Proofview.tclBIND
 
 
-(*  ___                           _   _ *)
-(* |_ _|_ __  ___ _ __   ___  ___| |_(_) ___  _ __ *)
-(*  | || '_ \/ __| '_ \ / _ \/ __| __| |/ _ \| '_ \ *)
-(*  | || | | \__ \ |_) |  __/ (__| |_| | (_) | | | | *)
-(* |___|_| |_|___/ .__/ \___|\___|\__|_|\___/|_| |_| *)
-(*               |_| *)
-(* Inspection *)
-
-module Inspector = functor (Ins : Utils.ConstrLike) -> struct
-  type constr = Ins.constr
-  type kind = (constr,Ins.types,Ins.sorts,Ins.univs) Constr.kind_of_term
-
-  let is_category : Evd.evar_map -> Environ.env -> kind -> bool =
-    fun sigma env c ->
-      match c with
-      | Ind (name,_) -> Env.is_cat name
-      | _ -> false
-
-  type c_object = { category : constr }
-
-  let is_object : Evd.evar_map -> Environ.env -> kind -> c_object option =
-    fun sigma env o ->
-    match o with
-    | Proj (p,arg) when Env.is_projection p Env.is_cat "object" -> Some { category = arg }
-    | _ -> None
-
-  type c_morphism =
-    { category : constr
-    ; src      : constr
-    ; dst      : constr
-    }
-
-  let is_morphism : Evd.evar_map -> Environ.env -> kind -> c_morphism option =
-    fun sigma env m ->
-    match m with
-    | App (p, [| src; dst |]) ->
-      begin match Ins.kind sigma env p with
-        | Proj (p,arg) when Env.is_projection p Env.is_cat "morphism" ->
-          Some { category = arg; src = src; dst = dst }
-        | _ -> None
-      end
-    | _ -> None
-
-  type c_side =
-    { mph  : constr
-    ; path : constr list
-    }
-
-  type c_face =
-    { category : constr
-    ; src      : constr
-    ; dst      : constr
-    ; side1    : c_side
-    ; side2    : c_side
-    }
-
-  let rec parse_side : Evd.evar_map -> Environ.env -> constr -> constr list =
-    fun sigma env mph ->
-    match Ins.kind sigma env mph with
-    | App (cmp, [| src; int; dst; mid; msi |]) ->
-      begin match Ins.kind sigma env cmp with
-        | Proj (cmp,_) when Env.is_projection cmp Env.is_cat "compose" ->
-          List.append (parse_side sigma env msi) (parse_side sigma env mid)
-        | _ -> [ mph ]
-      end
-    | _ -> [ mph ]
-
-  let mk_side : Evd.evar_map -> Environ.env -> constr -> c_side =
-    fun sigma env mph ->
-    { mph = mph; path = parse_side sigma env mph }
-
-  let rec pp_side' : Evd.evar_map -> Environ.env -> constr list -> Pp.t =
-    fun sigma env l ->
-    match l with
-    | [ ] -> Pp.str ""
-    | [ m ] -> Ins.print sigma env m
-    | m :: l -> Ins.print sigma env m ++ Pp.str ">" ++ pp_side' sigma env l
-  let pp_side : Evd.evar_map -> Environ.env -> c_side -> Pp.t =
-    fun sigma env side -> pp_side' sigma env side.path
-
-  let is_face : Evd.evar_map -> Environ.env -> kind -> c_face option =
-    fun sigma env f ->
-    match f with
-    | App (eq, [| mph; f1; f2 |]) ->
-      begin match Ins.kind sigma env eq with
-        | Ind (eq,_) when Env.is_eq eq ->
-          begin match is_morphism sigma env (Ins.kind sigma env mph) with
-            | Some mph -> Some { category = mph.category; src = mph.src; dst = mph.dst;
-                                 side1 = mk_side sigma env f1; side2 = mk_side sigma env f2 }
-            | _ -> None
-          end
-        | _ -> None
-      end
-    | _ -> None
-
-end
-module CInspect = Inspector(Utils.CLConstr)
-module EInspect = Inspector(Utils.CLEConstr)
-
 (*  _____                 _                _ *)
 (* |_   _|__  _ __       | | _____   _____| | *)
 (*   | |/ _ \| '_ \ _____| |/ _ \ \ / / _ \ | *)
@@ -110,46 +11,51 @@ module EInspect = Inspector(Utils.CLEConstr)
 (*           |_| *)
 (* Top-level *)
 
-let print_hyp : Evd.evar_map -> Environ.env -> EConstr.named_declaration -> Pp.t = fun sigma env dec ->
+let print_hyp : Evd.evar_map -> Environ.env -> Hyps.t -> EConstr.named_declaration -> Hyps.t * Pp.t =
+  fun sigma env store dec ->
   let name,tp = match dec with
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
     | Context.Named.Declaration.LocalDef (name,_,tp) -> (name.binder_name, tp) in
-  let ck = Utils.CLEConstr.kind sigma env tp in
-  let ppconstr = Utils.CLEConstr.print sigma env in
-  let is_cat = if EInspect.is_category sigma env ck then Pp.str "category " else Pp.str "" in
-  let is_obj = match EInspect.is_object sigma env ck with
+  let ppconstr = Printer.pr_econstr_env env sigma in
+  let (store,is_cat) = Hyps.parse_cat  sigma name tp store in
+  let (store,is_elm) = Hyps.parse_elem sigma name tp store in
+  let (store,is_mph) = Hyps.parse_mph  sigma name tp store in
+  let (store,is_fce) = Hyps.parse_face sigma name tp store in
+  let cat = match is_cat with | Some _ -> Pp.str "category " | None -> Pp.str "" in
+  let elm = match is_elm with
     | None -> Pp.str ""
-    | Some obj -> Pp.str "object(" ++ ppconstr obj.category ++ Pp.str ") " in
-  let is_mph = match EInspect.is_morphism sigma env ck with
+    | Some id -> Pp.str "object(" ++ ppconstr (store.elems.(id).category.obj) ++ Pp.str ") " in
+  let mph = match is_mph with
     | None -> Pp.str ""
-    | Some mph -> Pp.str "morphism(" ++ ppconstr mph.category ++ Pp.str ";"
-                  ++ ppconstr mph.src ++ Pp.str " -> " ++ ppconstr mph.dst ++ Pp.str ") " in
-  let is_fce = match EInspect.is_face sigma env ck with
+    | Some id ->
+      let mph = store.morphisms.(id) in
+      Pp.str "morphism(" ++ ppconstr mph.data.tp.category.obj ++ Pp.str ";"
+      ++ ppconstr mph.data.tp.src.obj ++ Pp.str " -> "
+      ++ ppconstr mph.data.tp.dst.obj ++ Pp.str ") " in
+  let fce = match is_fce with
     | None -> Pp.str ""
-    | Some fce -> Pp.str "face(" ++ ppconstr fce.category ++ Pp.str ";"
-                  ++ ppconstr fce.src ++ Pp.str " -> " ++ ppconstr fce.dst ++ Pp.str ";"
-                  ++ EInspect.pp_side sigma env fce.side1 ++ Pp.str " <=> " ++ EInspect.pp_side sigma env fce.side2 ++ Pp.str ") " in
-  Names.Id.print name ++ Pp.str " : " ++ ppconstr tp
-    ++ Pp.str " [ " ++ is_cat ++ is_obj ++ is_mph ++ is_fce ++ Pp.str "]"
+    | Some id ->
+      let fce = store.faces.(id) in
+      Pp.str "face(" ++ ppconstr fce.tp.category.obj ++ Pp.str ";"
+      ++ ppconstr fce.tp.src.obj ++ Pp.str " -> " ++ ppconstr fce.tp.dst.obj ++ Pp.str ")" in
+  (store,
+   Names.Id.print name ++ Pp.str " : " ++ ppconstr tp
+   ++ Pp.str " [ " ++ cat ++ elm ++ mph ++ fce ++ Pp.str "]")
 
 let extract_goal : Pp.t ref -> Proofview.Goal.t -> unit Proofview.tactic = fun pp goal ->
+  let store = Hyps.empty_context in
   let* sigma = Proofview.tclEVARMAP in
   let* env   = Proofview.tclENV in
   let ppconstr = Printer.pr_econstr_env env sigma in
-  let goal_face = match EInspect.is_face sigma env (EConstr.kind sigma (Proofview.Goal.concl goal)) with
-    | None -> Pp.str ""
-    | Some fce -> Pp.str "face(" ++ ppconstr fce.category ++ Pp.str ";"
-                  ++ ppconstr fce.src ++ Pp.str " -> " ++ ppconstr fce.dst ++ Pp.str ";"
-                  ++ EInspect.pp_side sigma env fce.side1 ++ Pp.str " <=> " ++ EInspect.pp_side sigma env fce.side2 ++ Pp.str ") " in
   let context = Proofview.Goal.hyps goal in
-  let ppconcl = Pp.str "Focusing goal" ++ ppconstr (Proofview.Goal.concl goal)
-                ++ Pp.str " [" ++ goal_face ++ Pp.str "]" ++ Pp.fnl () in
-  pp := !pp ++ ppconcl ++ Pp.pr_vertical_list (print_hyp sigma env) context;
+  let (store,ctx) = List.fold_left_map (print_hyp sigma env) store context in
+  let ppconcl = Pp.str "Focusing goal" ++ ppconstr (Proofview.Goal.concl goal) ++ Pp.fnl () in
+  pp := !pp ++ ppconcl ++ Pp.pr_vertical_list (fun h -> h) ctx;
   Proofview.tclUNIT ()
 
 let extract : string -> unit Proofview.tactic = fun path ->
   let oc = open_out path in
-  let* num   = Proofview.numgoals in
+  let* num = Proofview.numgoals in
   let pp = ref (Pp.str "Goals: " ++ Pp.int num ++ Pp.fnl ()) in
   let* _ = Proofview.Goal.enter (extract_goal pp) in
   (* TODO: doesn't work *)
