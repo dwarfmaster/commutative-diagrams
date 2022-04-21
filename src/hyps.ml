@@ -86,12 +86,12 @@ let identity = fun sigma (x : elem) ->
          ; dst = x
          ; obj = mphT sigma x.category.obj x.obj x.obj }
   }
-let rec realize' = fun sigma (ms : morphismData list) ->
+let rec realize' = fun sigma src (ms : morphismData list) ->
   match ms with
-  | [] -> raise Ill_typed
+  | [] -> identity sigma src
   | [ m ] -> m
-  | m :: ms -> compose sigma (realize' sigma ms) m
-let realize = fun sigma ms -> realize' sigma (List.rev ms)
+  | m :: ms -> compose sigma (realize' sigma src ms) m
+let realize = fun sigma src ms -> realize' sigma src (List.rev ms)
 
 
 
@@ -240,17 +240,32 @@ let rec repeat_assoc : Evd.evar_map -> morphismData -> morphismData list -> morp
   match List.rev mphs with
   | [ ] -> (match right with
       | [ ] -> refl sigma left
-      | _ -> refl sigma (compose sigma left (realize sigma right)))
+      | _ -> refl sigma (compose sigma left (realize sigma left.tp.dst right)))
   | m :: [ ] -> (match right with
       | [ ] -> refl sigma (compose sigma left m)
-      | _ -> assoc sigma left m (realize sigma right))
+      | _ -> assoc sigma left m (realize sigma m.tp.dst right))
   | m :: mphs ->
     let mphs = List.rev mphs in
     concat sigma
-      (lift_eq sigma (assoc sigma left (realize sigma mphs) m) right)
+      (lift_eq sigma (assoc sigma left (realize sigma left.tp.dst mphs) m) right)
       (repeat_assoc sigma left mphs (m :: right))
 
 let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
+
+let isIdentity : Evd.evar_map -> EConstr.t -> bool =
+  fun sigma id ->
+  match EConstr.kind sigma id with
+  | App (id, [| cat; elem |]) ->
+    begin match EConstr.kind sigma id with
+      | Const (name,_) -> Env.is_id name
+      | _ -> false
+    end
+  | App (id, [| elem |]) ->
+    begin match EConstr.kind sigma id with
+      | Proj (id,_) -> Env.is_projection id Env.is_cat "identity"
+      | _ -> false
+    end
+  | _ -> false
 
 let rec normalize = fun sigma (m : morphismData) store ->
   match EConstr.kind sigma m.obj with
@@ -259,27 +274,34 @@ let rec normalize = fun sigma (m : morphismData) store ->
       | Proj (cmp,cat) when Env.is_projection cmp Env.is_cat "compose" ->
         let (catId,store) = get_cat sigma cat store in
         let (intId,store) = get_elem sigma cat int store in
-        let (d1,p1,store) = normalize sigma
+        let msi =
             { obj = msi
             ; tp = { category = m.tp.category
                    ; src = m.tp.src
                    ; dst = store.elems.(intId)
                    ; obj = mphT sigma m.tp.category.obj src int }
-            } store in
-        let (d2,p2,store) = normalize sigma
+            } in
+        let mid =
             { obj = mid
             ; tp  = { category = m.tp.category
                     ; src = store.elems.(intId)
                     ; dst = m.tp.dst
                     ; obj = mphT sigma m.tp.category.obj int dst }
-            } store in
-        let p = composeP sigma p1 p2 in
-        let p' = repeat_assoc sigma (realize sigma (extract d1)) (extract d2) [ ] in
-        (List.append d1 d2, concat sigma p p', store)
+            } in
+        let (d1,p1,store) = normalize sigma msi store in
+        let (d2,p2,store) = normalize sigma mid store in
+        (match d1,d2 with
+         | [], _ -> (d2, concat sigma (right_id sigma mid) p1, store)
+         | _, [] -> (d1, concat sigma (left_id sigma msi) p2, store)
+         | _, _ ->
+           let p = composeP sigma p1 p2 in
+           let p' = repeat_assoc sigma (realize sigma m.tp.src (extract d1)) (extract d2) [ ] in
+           (List.append d1 d2, concat sigma p p', store))
       | _ ->
         let (mId,store) = get_mph sigma m store in
         ([store.morphisms.(mId)], refl sigma m, store)
     end
+  | _ when isIdentity sigma m.obj -> ([], refl sigma m, store)
   | _ ->
     let (mId,store) = get_mph sigma m store in
     ([store.morphisms.(mId)], refl sigma m, store)

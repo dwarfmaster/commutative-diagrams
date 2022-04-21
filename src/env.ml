@@ -183,6 +183,7 @@ let g_coq_id_names : string array =
   [| "Loader.id"
   |]
 let get_id = fun _ -> perform_locate g_coq_id g_coq_id_names locate_const
+let is_id = is_const g_coq_id g_coq_id_names
 let mk_id = fun _ -> mk_const (get_id ())
 let g_coq_comp : Names.Constant.t array ref = ref [| |]
 let g_coq_comp_names : string array =

@@ -71,8 +71,8 @@ val compose : Evd.evar_map -> morphismData -> morphismData -> morphismData
 val composeT : Evd.evar_map -> morphismT -> morphismT -> morphismT
 val mphT : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t
 (* [ m1, m2, m3 ] -> (m3 o m2) o m1 *)
-(* Raises Ill_typed if the list is empty of not composable *)
-val realize : Evd.evar_map -> morphismData list -> morphismData
+(* Raises Ill_typed if the list is not composable *)
+val realize : Evd.evar_map -> elem -> morphismData list -> morphismData
 (* a -> 1_a *)
 val identity : Evd.evar_map -> elem -> morphismData
 
