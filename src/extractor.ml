@@ -1,6 +1,5 @@
 
 let (++) = Pp.(++)
-let (let*) = Proofview.tclBIND
 
 
 (*  _____                 _                _ *)
@@ -40,25 +39,40 @@ let print_hyp : Evd.evar_map -> Environ.env -> Hyps.t -> EConstr.named_declarati
    Names.Id.print name ++ Pp.str " : " ++ ppconstr tp
    ++ Pp.str " [ " ++ cat ++ elm ++ mph ++ fce ++ Pp.str "]")
 
+let normalize_goal : Hyps.path -> Hyps.path -> Environ.env -> Evd.evar_map -> Evd.evar_map * EConstr.t =
+  fun side1 side2 env sigma ->
+  let src = Hyps.rpath sigma side1 in
+  let dst = Hyps.rpath sigma side2 in
+  let (sigma,hole) = Evarutil.new_evar ~principal:true env sigma (Hyps.eqT sigma src dst) in
+  let hole : Hyps.eq =
+    { src = src
+    ; dst = dst
+    ; tp  = src.tp
+    ; eq  = hole } in
+  let eq = Hyps.concat sigma side1.eq (Hyps.concat sigma hole (Hyps.inv sigma side2.eq)) in
+  (sigma,eq.eq)
+
 let extract_goal : Pp.t ref -> Proofview.Goal.t -> unit Proofview.tactic = fun pp goal ->
   let store = Hyps.empty_context in
-  let* sigma = Proofview.tclEVARMAP in
-  let* env   = Proofview.tclENV in
+  let sigma = Tacmach.project goal in
+  let env   = Proofview.Goal.env goal in
   let ppconstr = Printer.pr_econstr_env env sigma in
   let context = Proofview.Goal.hyps goal in
   let (store,ctx) = List.fold_left_map (print_hyp sigma env) store context in
-  let ppconcl = Pp.str "Focusing goal" ++ ppconstr (Proofview.Goal.concl goal) ++ Pp.fnl () in
+  let goal = Proofview.Goal.concl goal in
+  let (store,obj) = Hyps.read_face sigma goal store in
+  let ppconcl = Pp.str "Focusing goal" ++ ppconstr goal ++ Pp.fnl () in
   pp := !pp ++ ppconcl ++ Pp.pr_vertical_list (fun h -> h) ctx ++ HP.to_graphviz sigma env store;
-  Proofview.tclUNIT ()
+  match obj with
+  | None -> Proofview.tclUNIT ()
+  | Some (side1,side2) -> Refine.refine ~typecheck:true (normalize_goal side1 side2 env)
 
 let extract : string -> unit Proofview.tactic = fun path ->
   let oc = open_out path in
-  let* num = Proofview.numgoals in
-  let pp = ref (Pp.str "Goals: " ++ Pp.int num ++ Pp.fnl ()) in
-  let* _ = Proofview.Goal.enter (extract_goal pp) in
-  (* TODO: doesn't work *)
-  (* Pp.pp_with (Stdlib.Format.formatter_of_out_channel oc) (Pp.strbrk "test"); *)
-  Printf.fprintf oc "%s\n" (Pp.string_of_ppcmds !pp);
-  flush oc;
-  close_out oc;
-  Proofview.tclEXTEND [] Tacticals.tclIDTAC []
+  let pp = ref (Pp.str "") in
+  Proofview.tclTHEN
+    (Proofview.Goal.enter (extract_goal pp))
+    (Printf.fprintf oc "%s\n" (Pp.string_of_ppcmds !pp);
+     flush oc;
+     close_out oc;
+     Tacticals.tclIDTAC)

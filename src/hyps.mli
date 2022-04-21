@@ -73,6 +73,7 @@ val mphT : Evd.evar_map -> EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t
 (* [ m1, m2, m3 ] -> (m3 o m2) o m1 *)
 (* Raises Ill_typed if the list is not composable *)
 val realize : Evd.evar_map -> elem -> morphismData list -> morphismData
+val rpath : Evd.evar_map -> path -> morphismData
 (* a -> 1_a *)
 val identity : Evd.evar_map -> elem -> morphismData
 
@@ -83,6 +84,7 @@ val identity : Evd.evar_map -> elem -> morphismData
 (* | |__| (_| | |_| | (_| | | | |_| |_| | *)
 (* |_____\__, |\__,_|\__,_|_|_|\__|\__, | *)
 (*          |_|                    |___/  *)
+val eqT : Evd.evar_map -> morphismData -> morphismData -> EConstr.t
 (* a -> a =_A a *)
 val refl : Evd.evar_map -> morphismData -> eq
 (* a = b -> b = c -> a = c *)
@@ -121,4 +123,5 @@ val get_face : Evd.evar_map -> morphismT -> EConstr.t -> EConstr.t -> EConstr.t 
 val parse_cat  : Evd.evar_map -> Names.Id.t -> EConstr.t -> t -> t * cat_id  option
 val parse_elem : Evd.evar_map -> Names.Id.t -> EConstr.t -> t -> t * elem_id option
 val parse_mph  : Evd.evar_map -> Names.Id.t -> EConstr.t -> t -> t * mph_id  option
+val read_face  : Evd.evar_map -> EConstr.t -> t -> t * (path*path) option
 val parse_face : Evd.evar_map -> Names.Id.t -> EConstr.t -> t -> t * face_id option

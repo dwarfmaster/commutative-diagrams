@@ -29,6 +29,8 @@ type morphism =
   { data : morphismData
   ; id   : mph_id
   }
+let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
+
 
 type eq =
   { src : morphismData
@@ -92,6 +94,7 @@ let rec realize' = fun sigma src (ms : morphismData list) ->
   | [ m ] -> m
   | m :: ms -> compose sigma (realize' sigma src ms) m
 let realize = fun sigma src ms -> realize' sigma src (List.rev ms)
+let rpath = fun sigma pth -> realize sigma pth.mph.tp.src (extract pth.path)
 
 
 
@@ -102,6 +105,9 @@ let realize = fun sigma src ms -> realize' sigma src (List.rev ms)
 (* | |__| (_| | |_| | (_| | | | |_| |_| | *)
 (* |_____\__, |\__,_|\__,_|_|_|\__|\__, | *)
 (*          |_|                    |___/  *)
+
+let eqT = fun sigma (m1 : morphismData) (m2 : morphismData) ->
+  EConstr.mkApp (Env.mk_eq (), [| m1.tp.obj; m1.obj; m2.obj |])
 
 let refl = fun sigma (m : morphismData) ->
   { src = m
@@ -250,8 +256,6 @@ let rec repeat_assoc : Evd.evar_map -> morphismData -> morphismData list -> morp
       (lift_eq sigma (assoc sigma left (realize sigma left.tp.dst mphs) m) right)
       (repeat_assoc sigma left mphs (m :: right))
 
-let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
-
 let isIdentity : Evd.evar_map -> EConstr.t -> bool =
   fun sigma id ->
   match EConstr.kind sigma id with
@@ -370,6 +374,27 @@ let parse_mph  = fun sigma name mph store ->
   | Some tp ->
     let mph = { obj = EConstr.mkVar name; tp = tp } in
     let (id,store) = get_mph sigma mph store in (store,Some id)
+  | _ -> (store,None)
+
+let read_face = fun sigma fce store ->
+  match EConstr.kind sigma fce with
+  | App (eq, [| mph; f1; f2 |]) ->
+    begin match EConstr.kind sigma eq with
+      | Ind (eq,_) when Env.is_eq eq ->
+        let (store,tp) = read_mph sigma mph store in
+        begin match tp with
+          | Some tp ->
+            let mph1 = { obj = f1; tp = tp } in
+            let (d1,p1,store) = normalize sigma mph1 store in
+            let side1 = { mph = mph1; eq = p1; path = d1 } in
+            let mph2 = { obj = f2; tp = tp } in
+            let (d2,p2,store) = normalize sigma mph2 store in
+            let side2 = { mph = mph2; eq = p2; path = d2 } in
+            (store, Some (side1,side2))
+          | _ -> (store,None)
+        end
+      | _ -> (store,None)
+    end
   | _ -> (store,None)
 
 let parse_face = fun sigma name fce store ->
