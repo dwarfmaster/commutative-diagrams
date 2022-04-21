@@ -10,6 +10,7 @@ let (let*) = Proofview.tclBIND
 (*   |_|\___/| .__/      |_|\___| \_/ \___|_| *)
 (*           |_| *)
 (* Top-level *)
+module HP = HypsPrinter
 
 let print_hyp : Evd.evar_map -> Environ.env -> Hyps.t -> EConstr.named_declaration -> Hyps.t * Pp.t =
   fun sigma env store dec ->
@@ -21,23 +22,20 @@ let print_hyp : Evd.evar_map -> Environ.env -> Hyps.t -> EConstr.named_declarati
   let (store,is_elm) = Hyps.parse_elem sigma name tp store in
   let (store,is_mph) = Hyps.parse_mph  sigma name tp store in
   let (store,is_fce) = Hyps.parse_face sigma name tp store in
-  let cat = match is_cat with | Some _ -> Pp.str "category " | None -> Pp.str "" in
+  let cat = match is_cat with
+    | None -> Pp.str ""
+    | Some id -> HP.cat sigma env store.categories.(id) ++ Pp.str " " in
   let elm = match is_elm with
     | None -> Pp.str ""
-    | Some id -> Pp.str "object(" ++ ppconstr (store.elems.(id).category.obj) ++ Pp.str ") " in
+    | Some id -> HP.elem sigma env store.elems.(id) ++ Pp.str " " in
   let mph = match is_mph with
     | None -> Pp.str ""
     | Some id ->
-      let mph = store.morphisms.(id) in
-      Pp.str "morphism(" ++ ppconstr mph.data.tp.category.obj ++ Pp.str ";"
-      ++ ppconstr mph.data.tp.src.obj ++ Pp.str " -> "
-      ++ ppconstr mph.data.tp.dst.obj ++ Pp.str ") " in
+      let mph = store.morphisms.(id) in HP.mph sigma env mph ++ Pp.str " " in
   let fce = match is_fce with
     | None -> Pp.str ""
     | Some id ->
-      let fce = store.faces.(id) in
-      Pp.str "face(" ++ ppconstr fce.tp.category.obj ++ Pp.str ";"
-      ++ ppconstr fce.tp.src.obj ++ Pp.str " -> " ++ ppconstr fce.tp.dst.obj ++ Pp.str ")" in
+      let fce = store.faces.(id) in HP.face sigma env fce ++ Pp.str " " in
   (store,
    Names.Id.print name ++ Pp.str " : " ++ ppconstr tp
    ++ Pp.str " [ " ++ cat ++ elm ++ mph ++ fce ++ Pp.str "]")
