@@ -238,7 +238,12 @@ let rec lift_eq : Evd.evar_map -> eq -> morphismData list -> eq =
 let rec repeat_assoc : Evd.evar_map -> morphismData -> morphismData list -> morphismData list -> eq =
   fun sigma left mphs right ->
   match List.rev mphs with
-  | [ ] -> refl sigma (compose sigma left (realize sigma right))
+  | [ ] -> (match right with
+      | [ ] -> refl sigma left
+      | _ -> refl sigma (compose sigma left (realize sigma right)))
+  | m :: [ ] -> (match right with
+      | [ ] -> refl sigma (compose sigma left m)
+      | _ -> assoc sigma left m (realize sigma right))
   | m :: mphs ->
     let mphs = List.rev mphs in
     concat sigma
