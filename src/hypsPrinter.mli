@@ -7,3 +7,5 @@ val mph   : Evd.evar_map -> Environ.env -> Hyps.morphism     -> Pp.t
 val eq    : Evd.evar_map -> Environ.env -> Hyps.eq           -> Pp.t
 val path  : Evd.evar_map -> Environ.env -> Hyps.path         -> Pp.t
 val face  : Evd.evar_map -> Environ.env -> Hyps.face         -> Pp.t
+
+val to_graphviz : Evd.evar_map -> Environ.env -> Hyps.t -> Pp.t

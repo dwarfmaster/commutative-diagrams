@@ -48,7 +48,7 @@ let extract_goal : Pp.t ref -> Proofview.Goal.t -> unit Proofview.tactic = fun p
   let context = Proofview.Goal.hyps goal in
   let (store,ctx) = List.fold_left_map (print_hyp sigma env) store context in
   let ppconcl = Pp.str "Focusing goal" ++ ppconstr (Proofview.Goal.concl goal) ++ Pp.fnl () in
-  pp := !pp ++ ppconcl ++ Pp.pr_vertical_list (fun h -> h) ctx;
+  pp := !pp ++ ppconcl ++ Pp.pr_vertical_list (fun h -> h) ctx ++ HP.to_graphviz sigma env store;
   Proofview.tclUNIT ()
 
 let extract : string -> unit Proofview.tactic = fun path ->

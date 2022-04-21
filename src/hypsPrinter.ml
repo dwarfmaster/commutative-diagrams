@@ -42,3 +42,21 @@ let path = fun sigma env (p : Hyps.path) ->
 let face = fun sigma env (f : Hyps.face) ->
   eq sigma env f.obj ++ Pp.str ":::" ++
   path sigma env f.side1 ++ Pp.str " <-> " ++ path sigma env f.side2
+
+
+(*   ____                 _          _      *)
+(*  / ___|_ __ __ _ _ __ | |____   _(_)____ *)
+(* | |  _| '__/ _` | '_ \| '_ \ \ / / |_  / *)
+(* | |_| | | | (_| | |_) | | | \ V /| |/ /  *)
+(*  \____|_|  \__,_| .__/|_| |_|\_/ |_/___| *)
+(*                 |_|                      *)
+let elem_graphviz = fun sigma env (elem : Hyps.elem) ->
+  Pp.str "e" ++ Pp.int elem.id ++ Pp.str " [ label=\"" ++ ppe sigma env elem.obj ++ Pp.str "\"];"
+let mph_graphviz = fun sigma env (mph : Hyps.morphism) ->
+  Pp.str "e" ++ Pp.int mph.data.tp.src.id ++ Pp.str " -> e" ++ Pp.int mph.data.tp.dst.id
+  ++ Pp.str " [label=\"" ++ ppe sigma env mph.data.obj ++ Pp.str "\"];"
+let to_graphviz = fun sigma env (store : Hyps.t) ->
+  Pp.str "digraph {"
+  ++ Array.fold_left (fun pp e -> pp ++ elem_graphviz sigma env e) (Pp.str "") store.elems
+  ++ Array.fold_left (fun pp m -> pp ++ mph_graphviz  sigma env m) (Pp.str "") store.morphisms
+  ++ Pp.str "}"
