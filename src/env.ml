@@ -1,6 +1,9 @@
 
 exception Object_not_found of string
 
+let app = fun f args ->
+  Proofview.tclBIND f (fun f -> Proofview.tclUNIT (EConstr.mkApp (f,args)))
+
 let locate_inductive : string -> Names.inductive = fun name ->
   try match Nametab.global (Libnames.qualid_of_string name) with
     | IndRef i -> i
@@ -37,12 +40,12 @@ let is_construct : Names.constructor array ref -> string array -> Names.construc
 let is_const : Names.Constant.t array ref -> string array -> Names.Constant.t -> bool =
   fun consts names const -> is_cached consts names const locate_const Names.Constant.UserOrd.equal
 
-let mk_ind : Names.inductive array -> EConstr.t =
-  fun inds -> EConstr.mkInd inds.(0)
-let mk_constr : Names.constructor array -> EConstr.t =
-  fun constrs -> EConstr.mkConstruct constrs.(0)
-let mk_const : Names.Constant.t array -> EConstr.t =
-  fun consts -> EConstr.mkConst consts.(0)
+let mk_ind : Names.inductive array -> EConstr.t Proofview.tactic =
+  fun inds -> Tacticals.pf_constr_of_global (Names.GlobRef.IndRef inds.(0))
+let mk_constr : Names.constructor array -> EConstr.t Proofview.tactic =
+  fun constrs -> Tacticals.pf_constr_of_global (Names.GlobRef.ConstructRef constrs.(0))
+let mk_const : Names.Constant.t array -> EConstr.t Proofview.tactic =
+  fun consts -> Tacticals.pf_constr_of_global (Names.GlobRef.ConstRef consts.(0))
 
 let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool =
   fun proj indP lbl ->
