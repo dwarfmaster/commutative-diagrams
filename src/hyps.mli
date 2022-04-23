@@ -59,6 +59,7 @@ type t =
   }
 
 exception Ill_typed
+val extract : morphism list -> morphismData list
 
 (*  __  __                  _     _ *)
 (* |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___ *)
@@ -110,6 +111,8 @@ val empty_context : t
 val get_cat  : EConstr.t -> t -> (cat_id * t) Proofview.tactic
 val get_elem : EConstr.t -> EConstr.t -> t -> (elem_id * t) Proofview.tactic
 val get_mph  : morphismData -> t -> (mph_id * t) Proofview.tactic
+(* TODO remove *)
+val repeat_assoc : morphismData list -> morphismData -> eq Proofview.tactic
 (* Split morphism along compositions, remove identities, and give equality *)
 val normalize : morphismData -> t -> (morphism list * eq * t) Proofview.tactic
 val get_face : morphismT -> EConstr.t -> EConstr.t -> EConstr.t -> t -> (face_id * t) Proofview.tactic

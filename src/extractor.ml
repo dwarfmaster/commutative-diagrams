@@ -45,18 +45,6 @@ let print_hyp : Environ.env -> Hyps.t
      Names.Id.print name ++ Pp.str " : " ++ ppconstr tp
      ++ Pp.str " [ " ++ cat ++ elm ++ mph ++ fce ++ Pp.str "]")
 
-(* let normalize_goal : Hyps.path -> Hyps.path -> Environ.env -> Evd.evar_map -> Evd.evar_map * EConstr.t = *)
-(*   fun side1 side2 env sigma -> *)
-(*   (\* let src = Hyps.rpath sigma side1 in *\) *)
-(*   (\* let dst = Hyps.rpath sigma side2 in *\) *)
-(*   let (sigma,hole) = Evarutil.new_evar ~principal:true env sigma (Hyps.eqT sigma side1.mph side2.mph) in *)
-(*   (\* let hole : Hyps.eq = *\) *)
-(*   (\*   { src = src *\) *)
-(*   (\*   ; dst = dst *\) *)
-(*   (\*   ; tp  = src.tp *\) *)
-(*   (\*   ; eq  = hole } in *\) *)
-(*   (\* let eq = Hyps.concat sigma side1.eq (Hyps.concat sigma hole (Hyps.inv sigma side2.eq)) in *\) *)
-(*   (sigma,hole) *)
 
 let name : string -> Names.Name.t = fun s -> Names.Name.mk_name (Names.Id.of_string s)
 
@@ -91,13 +79,15 @@ let extract_goal : Pp.t ref -> Proofview.Goal.t -> unit Proofview.tactic = fun p
   match obj with
   | None -> Proofview.tclUNIT ()
   | Some (side1,side2) ->
-    let* eq = add_universes_constraints env side2.eq.eq in
-    Tactics.pose_tac (name "Hnorm") eq
-  (* | Some (side1,side2) -> Refine.refine ~typecheck:true (normalize_goal side1 side2 env) *)
+    let* eq1 = add_universes_constraints env side1.eq.eq in
+    let* eq2 = add_universes_constraints env side2.eq.eq in
+    Proofview.tclTHEN
+      (Tactics.pose_tac (name "H1") eq1)
+      (Tactics.pose_tac (name "H2") eq2)
 
 let extract : string -> unit Proofview.tactic = fun path ->
   let oc = open_out path in
-  let pp = ref (Pp.str "") in
+  let pp = ref (Pp.str "test\n") in
   Proofview.tclTHEN
     (Proofview.Goal.enter (extract_goal pp))
     (Printf.fprintf oc "%s\n" (Pp.string_of_ppcmds !pp);

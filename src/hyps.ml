@@ -101,8 +101,8 @@ let rec realize' = fun src (ms : morphismData list) ->
   match ms with
   | [] -> identity src
   | [ m ] -> ret m
-  | m :: ms -> let* r = realize' src ms in compose r m
-let realize = fun src ms -> realize' src (List.rev ms)
+  | m :: ms -> compose m @<< realize' m.tp.dst ms
+let realize = fun src ms -> realize' src ms
 let rpath = fun pth -> realize pth.mph.tp.src (extract pth.path)
 
 
@@ -150,8 +150,8 @@ let composeP = fun p1 p2 ->
   ret { src = src; dst = dst; tp = tp; eq = eq }
 
 let assoc = fun m1 m2 m3 ->
-  let* src = compose m2 m3 >>= (fun m23 -> compose m1 m23) in
-  let* dst = compose m1 m2 >>= (fun m12 -> compose m12 m3) in
+  let* src = compose m1 m2 >>= (fun m12 -> compose m12 m3) in
+  let* dst = compose m2 m3 >>= (fun m23 -> compose m1 m23) in
   let* tp  = composeT m1.tp m2.tp >>= (fun mT12 -> composeT mT12 m3.tp) in
   let* eq  = Env.app (Env.mk_assoc ())
       [| m1.tp.category.obj
@@ -248,28 +248,19 @@ let get_mph  = fun (mph : morphismData) store ->
 (* |_| \_|\___/|_|  |_| |_| |_|\__,_|_|_|___/\__,_|\__|_|\___/|_| |_| *)
 
 
-(* a = b -> [ m1 m2 ] -> a o m1 o m2 = b o m1 o m2 *)
-let rec lift_eq : eq -> morphismData list -> eq Proofview.tactic =
-  fun p mphs ->
+(* [ m1 m2 m3 ] -> right -> (right o ((m3 o m2) o m1)) = right o m3 o m2 o m1  *)
+(* TODO(optimisation) avoid calling realize at each step *)
+let rec repeat_assoc : morphismData list -> morphismData -> eq Proofview.tactic =
+  fun mphs right ->
   match mphs with
-  | [ ] -> ret p
-  | m :: mphs -> let* m = composeP p @<< refl m in lift_eq m mphs
-
-(* left -> [ m1 m2 ] -> right -> left o (m1 o m2 o right) = left o m1 o m2 o right  *)
-let rec repeat_assoc : morphismData -> morphismData list -> morphismData list -> eq Proofview.tactic =
-  fun left mphs right ->
-  match List.rev mphs with
-  | [ ] -> (match right with
-      | [ ] -> refl left
-      | _ -> refl @<< compose left @<< realize left.tp.dst right)
-  | m :: [ ] -> (match right with
-      | [ ] -> refl @<< compose left m
-      | _ -> assoc left m @<< realize m.tp.dst right)
+  | [ ] -> refl right
+  | m :: [ ] -> refl @<< compose m right
   | m :: mphs ->
-    let mphs = List.rev mphs in
-    let* real = realize left.tp.dst mphs in
-    let* lift = assoc left real m >>= (fun ass -> lift_eq ass right) in
-    concat lift @<< repeat_assoc left mphs (m :: right)
+    let* p = repeat_assoc mphs right in
+    let* r = refl m in
+    let* mphs = realize m.tp.dst mphs in
+    let* extract_first = assoc m mphs right in
+    concat extract_first @<< composeP r p
 
 let isIdentity : Evd.evar_map -> EConstr.t -> bool =
   fun sigma id ->
@@ -311,14 +302,15 @@ let rec normalize = fun (m : morphismData) store ->
                     ; obj = obj }
             } in
         let* (d1,p1,store) = normalize msi store in
+        let* m1 = realize m.tp.src (extract d1) in
         let* (d2,p2,store) = normalize mid store in
+        let* m2 = realize store.elems.(intId) (extract d2) in
+        let* p = composeP p1 p2 in
         (match d1,d2 with
-         | [], _ -> right_id mid >>= fun id -> concat id p1 >>= fun c -> ret (d2, c, store)
-         | _, [] -> left_id msi  >>= fun id -> concat id p2 >>= fun c -> ret (d1, c, store)
+         | [], _ -> right_id m2 >>= fun id -> concat p id >>= fun c -> ret (d2, c, store)
+         | _, [] -> left_id  m1 >>= fun id -> concat p id >>= fun c -> ret (d1, c, store)
          | _, _ ->
-           let* p = composeP p1 p2 in
-           let* p' = realize m.tp.src (extract d1)
-             >>= fun real -> repeat_assoc real (extract d2) [ ] in
+           let* p' = repeat_assoc (extract d1) m2 in
            concat p p' >>= fun c -> ret (List.append d1 d2, c, store))
       | _ ->
         let* (mId,store) = get_mph m store in
