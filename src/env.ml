@@ -40,12 +40,19 @@ let is_construct : Names.constructor array ref -> string array -> Names.construc
 let is_const : Names.Constant.t array ref -> string array -> Names.Constant.t -> bool =
   fun consts names const -> is_cached consts names const locate_const Names.Constant.UserOrd.equal
 
+let fresh_global : Names.GlobRef.t -> EConstr.t Proofview.tactic = fun glob ->
+  let (let*) = Proofview.tclBIND in
+  let* sigma = Proofview.tclEVARMAP in
+  let* env = Proofview.tclENV in
+  let sigma, constr = Evd.fresh_global env sigma glob in
+  Proofview.tclTHEN (Proofview.Unsafe.tclEVARS sigma) (Proofview.tclUNIT constr)
+
 let mk_ind : Names.inductive array -> EConstr.t Proofview.tactic =
-  fun inds -> Tacticals.pf_constr_of_global (Names.GlobRef.IndRef inds.(0))
+  fun inds -> fresh_global (Names.GlobRef.IndRef inds.(0))
 let mk_constr : Names.constructor array -> EConstr.t Proofview.tactic =
-  fun constrs -> Tacticals.pf_constr_of_global (Names.GlobRef.ConstructRef constrs.(0))
+  fun constrs -> fresh_global (Names.GlobRef.ConstructRef constrs.(0))
 let mk_const : Names.Constant.t array -> EConstr.t Proofview.tactic =
-  fun consts -> Tacticals.pf_constr_of_global (Names.GlobRef.ConstRef consts.(0))
+  fun consts -> fresh_global (Names.GlobRef.ConstRef consts.(0))
 
 let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool =
   fun proj indP lbl ->
