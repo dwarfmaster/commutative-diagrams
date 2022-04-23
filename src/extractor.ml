@@ -65,7 +65,7 @@ let add_universes_constraints : Environ.env -> EConstr.t -> EConstr.t Proofview.
     (Proofview.Unsafe.tclEVARS sigma)
     (Proofview.tclUNIT c)
 
-let extract_goal : Pp.t ref -> Proofview.Goal.t -> unit Proofview.tactic = fun pp goal ->
+let extract_goal : Proofview.Goal.t -> Pp.t Proofview.tactic = fun goal ->
   let store = Hyps.empty_context in
   let sigma = Tacmach.project goal in
   let env   = Proofview.Goal.env goal in
@@ -75,22 +75,22 @@ let extract_goal : Pp.t ref -> Proofview.Goal.t -> unit Proofview.tactic = fun p
   let* (store,ctx) = fold_left_mapM (print_hyp env) store context in
   let* (store,obj) = Hyps.read_face goal store in
   let ppconcl = Pp.str "Focusing goal" ++ ppconstr goal ++ Pp.fnl () in
-  pp := !pp ++ ppconcl ++ Pp.pr_vertical_list (fun h -> h) ctx ++ HP.to_graphviz sigma env store;
+  let pp = ppconcl ++ Pp.pr_vertical_list (fun h -> h) ctx ++ HP.to_graphviz sigma env store in
   match obj with
-  | None -> Proofview.tclUNIT ()
+  | None -> Proofview.tclUNIT pp
   | Some (side1,side2) ->
     let* eq1 = add_universes_constraints env side1.eq.eq in
     let* eq2 = add_universes_constraints env side2.eq.eq in
     Proofview.tclTHEN
       (Tactics.pose_tac (name "H1") eq1)
-      (Tactics.pose_tac (name "H2") eq2)
+      (Proofview.tclTHEN
+         (Tactics.pose_tac (name "H2") eq2)
+         (Proofview.tclUNIT pp))
 
 let extract : string -> unit Proofview.tactic = fun path ->
   let oc = open_out path in
-  let pp = ref (Pp.str "test\n") in
-  Proofview.tclTHEN
-    (Proofview.Goal.enter (extract_goal pp))
-    (Printf.fprintf oc "%s\n" (Pp.string_of_ppcmds !pp);
-     flush oc;
-     close_out oc;
-     Tacticals.tclIDTAC)
+  let* pp = Proofview.Goal.enter_one extract_goal in
+  Printf.fprintf oc "%s\n" (Pp.string_of_ppcmds pp);
+  flush oc;
+  close_out oc;
+  Tacticals.tclIDTAC
