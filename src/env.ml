@@ -115,7 +115,7 @@ let mk_refl = fun _ -> mk_constr (get_refl ())
 (* Concat *)
 let g_coq_concat : Names.Constant.t array ref = ref [| |]
 let g_coq_concat_names : string array =
-  [| "HoTT.Basics.PathGroupoids.concat2"
+  [| "HoTT.Basics.Overture.concat"
   |]
 let get_concat = fun _ -> perform_locate g_coq_concat g_coq_concat_names locate_const
 let is_concat : Names.Constant.t -> bool = is_const g_coq_concat g_coq_concat_names
