@@ -39,7 +39,7 @@ let mapiM : (int -> 'a -> 'b Proofview.tactic) -> 'a list -> 'b list Proofview.t
 let initCell = fun i (path : path) ->
   let* eq = Hyps.refl @<< (Hyps.realize (fst path) (Hyps.extract (snd path))) in
   ret { parent = i
-      ; rank   = 0
+      ; rank   = 1
       ; path   = path
       ; eq     = eq
       }
@@ -68,18 +68,26 @@ let query_conn = fun p1 p2 store ->
   then (fun x -> Some x) <$> Hyps.concat eq1 @<< Hyps.inv eq2
   else ret None
 
+let conjugate : Hyps.eq -> Hyps.eq -> Hyps.eq -> Hyps.eq Proofview.tactic =
+  fun eq1 eq eq2 ->
+  let* eq1 = Hyps.inv eq1 in
+  let* c = Hyps.concat eq1 eq in
+  Hyps.concat c eq2
+
 let union = fun id1 id2 eq store ->
-  let* parent1,_ = find id1 store in
-  let* parent2,_ = find id2 store in
+  let* parent1,eq1 = find id1 store in
+  let* parent2,eq2 = find id2 store in
   if parent1 = parent2 then ret ()
   else if store.(parent1).rank < store.(parent2).rank
   then begin
     let* eq = Hyps.inv eq in
+    let* eq = conjugate eq2 eq eq1 in
     store.(parent2).parent <- parent1;
     store.(parent2).eq     <- eq;
     store.(parent1).rank   <- store.(parent1).rank + store.(parent2).rank;
     ret ()
   end else begin
+    let* eq = conjugate eq1 eq eq2 in
     store.(parent1).parent <- parent2;
     store.(parent1).eq     <- eq;
     store.(parent2).rank   <- store.(parent1).rank + store.(parent2).rank;
