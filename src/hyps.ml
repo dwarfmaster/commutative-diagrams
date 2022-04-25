@@ -31,12 +31,20 @@ type morphism =
   }
 let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
 
-
-type eq =
+type eqT =
+  | Refl of morphismData
+  | Concat of eq * eq
+  | Inv of eq
+  | Compose of eq * eq
+  | Assoc of morphismData * morphismData * morphismData
+  | LeftId of morphismData
+  | RightId of morphismData
+  | Atom of EConstr.t
+and eq =
   { src : morphismData
   ; dst : morphismData
   ; tp  : morphismT
-  ; eq  : EConstr.t
+  ; eq  : eqT
   }
 
 type path =
@@ -119,64 +127,108 @@ let eqT = fun (m1 : morphismData) (m2 : morphismData) ->
   Env.app (Env.mk_eq ()) [| m1.tp.obj; m1.obj; m2.obj |]
 
 let refl = fun (m : morphismData) ->
-  let* eq = Env.app (Env.mk_refl ()) [| m.tp.obj; m.obj |] in
   ret { src = m
       ; dst = m
       ; tp  = m.tp
-      ; eq  = eq }
+      ; eq  = Refl m }
 
 let concat = fun (p1 : eq) (p2 : eq) ->
-  let* eq = Env.app (Env.mk_concat ())
-      [| p1.tp.obj; p1.src.obj; p1.dst.obj; p2.dst.obj; p1.eq; p2.eq |] in
   ret { src = p1.src
       ; dst = p2.dst
       ; tp  = p1.tp
-      ; eq  = eq }
+      ; eq  = Concat (p1,p2) }
 
 let inv = fun (p : eq) ->
-  let* eq = Env.app (Env.mk_inv()) [| p.tp.obj; p.src.obj; p.dst.obj; p.eq |] in
   ret { src = p.dst
       ; dst = p.src
       ; tp  = p.tp
-      ; eq  = eq }
+      ; eq  = Inv p }
 
 let composeP = fun p1 p2 ->
   let* src = compose p1.src p2.src in
   let* dst = compose p1.dst p2.dst in
   let* tp  = composeT p1.tp p2.tp  in
-  let* eq  = Env.app (Env.mk_compose_eq ())
-      [| p1.tp.category.obj; p1.src.tp.src.obj; p1.src.tp.dst.obj; p2.src.tp.dst.obj
-       ; p1.src.obj; p1.dst.obj; p2.src.obj; p2.dst.obj; p1.eq; p2.eq |] in
-  ret { src = src; dst = dst; tp = tp; eq = eq }
+  ret { src = src; dst = dst; tp = tp; eq = Compose (p1,p2) }
 
 let assoc = fun m1 m2 m3 ->
   let* src = compose m1 m2 >>= (fun m12 -> compose m12 m3) in
   let* dst = compose m2 m3 >>= (fun m23 -> compose m1 m23) in
   let* tp  = composeT m1.tp m2.tp >>= (fun mT12 -> composeT mT12 m3.tp) in
-  let* eq  = Env.app (Env.mk_assoc ())
-      [| m1.tp.category.obj
-       ; m1.tp.src.obj; m2.tp.src.obj; m3.tp.src.obj; m3.tp.dst.obj
-       ; m1.obj; m2.obj; m3.obj |] in
-  ret { src = src; dst = dst; tp = tp; eq = eq }
+  ret { src = src; dst = dst; tp = tp; eq = Assoc (m1,m2,m3) }
 
 let left_id = fun (m : morphismData) ->
   let* src = identity m.tp.dst >>= (fun id -> compose id m) in
-  let* eq  = Env.app (Env.mk_left_id ())
-      [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |] in
   ret { src = src
       ; dst = m
       ; tp  = m.tp
-      ; eq  = eq }
+      ; eq  = LeftId m }
 
 let right_id = fun (m : morphismData) ->
   let* src = compose m @<< identity m.tp.dst in
-  let* eq  = Env.app (Env.mk_right_id ())
-      [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |] in
   ret { src = src
       ; dst = m
       ; tp  = m.tp
-      ; eq  = eq }
+      ; eq  = RightId m }
 
+let atom_eq = fun ec -> Atom ec
+
+let rec simplify_eqT : bool -> eq -> eqT =
+  fun inv eq ->
+  match eq.eq with
+  | Concat (p1,p2) ->
+    let p1 = simplify_eq inv p1 in
+    let p2 = simplify_eq inv p2 in
+    begin
+      match p1.eq, p2.eq with
+      | Refl _, _ -> p2.eq
+      | _, Refl _ -> p1.eq
+      | _, _ -> if inv then Concat (p2,p1) else Concat (p1,p2)
+    end
+  | Inv p -> (simplify_eq (not inv) p).eq
+  | Compose (p1,p2) ->
+    (* TODO add support for ap and simplify if refl on only one side *)
+    let p1 = simplify_eq inv p1 in
+    let p2 = simplify_eq inv p2 in
+    Compose (p1,p2)
+  | Refl m -> Refl m
+  | _ -> if inv then Inv eq else eq.eq
+and simplify_eq : bool -> eq -> eq = fun inv eq ->
+  { tp  = eq.tp
+  ; src = if inv then eq.dst else eq.src
+  ; dst = if inv then eq.src else eq.dst
+  ; eq  = simplify_eqT inv eq
+  }
+
+let rec real_eqT : eqT -> EConstr.t Proofview.tactic = function
+  | Refl m -> Env.app (Env.mk_refl ()) [| m.tp.obj; m.obj |]
+  | Concat (p1,p2) ->
+    let* rp1 = real_eqT p1.eq in
+    let* rp2 = real_eqT p2.eq in
+    Env.app (Env.mk_concat ())
+      [| p1.tp.obj; p1.src.obj; p1.dst.obj; p2.dst.obj; rp1; rp2 |]
+  | Inv p ->
+    let* rp = real_eqT p.eq in
+    Env.app (Env.mk_inv ()) [| p.tp.obj; p.src.obj; p.dst.obj; rp |]
+  | Compose (p1,p2) ->
+    let* rp1 = real_eqT p1.eq in
+    let* rp2 = real_eqT p2.eq in
+    Env.app (Env.mk_compose_eq ())
+      [| p1.tp.category.obj; p1.src.tp.src.obj; p1.src.tp.dst.obj; p2.src.tp.dst.obj
+       ; p1.src.obj; p1.dst.obj; p2.src.obj; p2.dst.obj; rp1; rp2 |]
+  | Assoc (m1,m2,m3) ->
+    Env.app (Env.mk_assoc ())
+      [| m1.tp.category.obj
+       ; m1.tp.src.obj; m2.tp.src.obj; m3.tp.src.obj; m3.tp.dst.obj
+       ; m1.obj; m2.obj; m3.obj |]
+  | LeftId m ->
+    Env.app (Env.mk_left_id ())
+      [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |]
+  | RightId m ->
+    Env.app (Env.mk_right_id ())
+      [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |]
+  | Atom eq -> ret eq
+
+let real_eq = fun (eq : eq) -> real_eqT (simplify_eq false eq).eq
 
 
 
@@ -321,9 +373,14 @@ let rec normalize = fun (m : morphismData) store ->
     let* (mId,store) = get_mph m store in
     refl m >>= fun r -> ret ([store.morphisms.(mId)], r, store)
 
+let eq_face = fun sigma fce f ->
+  match f.obj.eq with
+  | Atom eq -> EConstr.eq_constr sigma fce eq
+  | _ -> assert false
+
 let get_face = fun tp mph1 mph2 fce store ->
   let* sigma = Proofview.tclEVARMAP in
-  let id = array_find_id (fun(f : face) -> EConstr.eq_constr sigma fce f.obj.eq) store.faces in
+  let id = array_find_id (eq_face sigma fce) store.faces in
   match id with
   | Some id -> ret (id,store)
   | None ->
@@ -340,7 +397,7 @@ let get_face = fun tp mph1 mph2 fce store ->
                [| { tp = tp
                   ; side1 = { mph = mph1; eq = p1; path = d1 }
                   ; side2 = { mph = mph2; eq = p2; path = d2 }
-                  ; obj = { src = mph1; dst = mph2; tp = tp; eq = fce }
+                  ; obj = { src = mph1; dst = mph2; tp = tp; eq = Atom fce }
                   ; id = nid } |]
          })
 

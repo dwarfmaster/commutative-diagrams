@@ -31,11 +31,12 @@ type morphism =
   }
 
 (* Equality between uninterned morphisms *)
+type eqT
 type eq =
   { src : morphismData
   ; dst : morphismData
   ; tp  : morphismT
-  ; eq  : EConstr.t
+  ; eq  : eqT
   }
 
 (* The composed morphism of the path may not be in the context since we only keep the base *)
@@ -100,6 +101,8 @@ val assoc : morphismData -> morphismData -> morphismData -> eq Proofview.tactic
 val left_id : morphismData -> eq Proofview.tactic
 (* m -> m o id = m *)
 val right_id : morphismData -> eq Proofview.tactic
+val atom_eq : EConstr.t -> eqT
+val real_eq : eq -> EConstr.t Proofview.tactic
 
 (*   ____            _            _    *)
 (*  / ___|___  _ __ | |_ _____  _| |_  *)

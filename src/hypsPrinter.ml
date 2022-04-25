@@ -23,7 +23,7 @@ let mph = fun sigma env (m : Hyps.morphism) ->
   mphDt sigma env m.data ++ Pp.str "::" ++ Pp.int m.id
 
 let eq = fun sigma env (eq : Hyps.eq) ->
-  ppe sigma env eq.eq
+  Pp.str "{{eq}}"
 
 let rec mphList = fun sigma env (ms : Hyps.morphism list) ->
   match ms with

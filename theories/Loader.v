@@ -23,7 +23,7 @@ Definition right_id (C : PreCategory) (a b : C) (m : morphism C a b) :
   comp C a a b (id C a) m = m := right_identity C a b m.
 
 Lemma test (C : PreCategory) (a b : C) (m1 m2 m3 : morphism C a b)
-      (H12 : m1 = m2) (H23 : m2 = m3) : m1 = m3.
+      (H12 : m1 = m2) (H32 : m3 = m2) : m1 = m3.
 Proof.
   print_diagram "test". exact Hsolv.
 Qed.
