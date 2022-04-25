@@ -76,16 +76,26 @@ let extract_goal : Proofview.Goal.t -> Pp.t Proofview.tactic = fun goal ->
   let* (store,obj) = Hyps.read_face goal store in
   let ppconcl = Pp.str "Focusing goal" ++ ppconstr goal ++ Pp.fnl () in
   let pp = ppconcl ++ Pp.pr_vertical_list (fun h -> h) ctx ++ HP.to_graphviz sigma env store in
+  let* commuter = Commutation.build store 5 in
   match obj with
   | None -> Proofview.tclUNIT pp
   | Some (side1,side2) ->
+    let* sol = Commutation.query side1 side2 commuter in
     let* eq1 = add_universes_constraints env side1.eq.eq in
     let* eq2 = add_universes_constraints env side2.eq.eq in
-    Proofview.tclTHEN
-      (Tactics.pose_tac (name "H1") eq1)
-      (Proofview.tclTHEN
-         (Tactics.pose_tac (name "H2") eq2)
-         (Proofview.tclUNIT pp))
+    match sol with
+    | None ->
+      Proofview.tclTHEN
+        (Tactics.pose_tac (name "H1") eq1)
+        (Proofview.tclTHEN
+           (Tactics.pose_tac (name "H2") eq2)
+           (Proofview.tclUNIT pp))
+    | Some eq ->
+      let* eq = add_universes_constraints env eq.eq in
+      Proofview.tclTHEN
+        (Tactics.pose_tac (name "Hsolv") eq)
+        (Proofview.tclUNIT pp)
+
 
 let extract : string -> unit Proofview.tactic = fun path ->
   let oc = open_out path in

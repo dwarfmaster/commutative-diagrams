@@ -65,10 +65,18 @@ let rec enumerateAllPaths : Hyps.t -> int -> pathEnumeration Proofview.tactic = 
 let mergePaths : pathEnumeration -> Hyps.path list = fun enum ->
   Array.fold_right (fun lst paths -> List.append lst paths) enum []
 
+let addEq : UF.t -> Hyps.face -> unit Proofview.tactic = fun union face ->
+  let* p1 = Hyps.inv face.side1.eq in
+  let* p  = Hyps.concat p1 face.obj in
+  let* p  = Hyps.concat p  face.side2.eq in
+  UF.connect (UF.extract face.side1) (UF.extract face.side2) p union
+
 let build = fun hyps level ->
   let* paths = mergePaths <$> enumerateAllPaths hyps level in
   let* union = UF.init (List.map UF.extract paths) in
-  ret { union = union
-      ; paths = paths
-      ; hyps  = hyps
-      }
+  Proofview.tclTHEN
+    (forM hyps.faces (addEq union))
+    (ret { union = union
+         ; paths = paths
+         ; hyps  = hyps
+         })
