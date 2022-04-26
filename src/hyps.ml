@@ -157,14 +157,14 @@ let assoc = fun m1 m2 m3 ->
   ret { src = src; dst = dst; tp = tp; eq = Assoc (m1,m2,m3) }
 
 let left_id = fun (m : morphismData) ->
-  let* src = identity m.tp.dst >>= (fun id -> compose id m) in
+  let* src = identity m.tp.dst >>= (fun id -> compose m id) in
   ret { src = src
       ; dst = m
       ; tp  = m.tp
       ; eq  = LeftId m }
 
 let right_id = fun (m : morphismData) ->
-  let* src = compose m @<< identity m.tp.dst in
+  let* src = identity m.tp.dst >>= (fun id -> compose id m) in
   ret { src = src
       ; dst = m
       ; tp  = m.tp
