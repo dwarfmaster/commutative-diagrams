@@ -27,20 +27,22 @@ Definition r_ap (C : PreCategory) (a b c : C) (m : morphism C a b) (m1 m2 : morp
 Definition l_ap (C : PreCategory) (a b c : C) (m1 m2 : morphism C a b) (m : morphism C b c) :
   m1 = m2 -> m o m1 = m o m2 := fun p => ap (fun m' => m o m') p.
 
+Ltac reify_hyp H :=
+  unfold mphT in H; unfold comp in H; unfold compose_eq in H; unfold assoc in H;
+  unfold id in H; unfold left_id in H; unfold right_id in H;
+  unfold r_ap in H; unfold l_ap in H.
+
 Lemma test (C : PreCategory) (a b : C) (m1 m2 m3 : morphism C a b)
       (H12 : 1 o m1 = m2 o 1) (H32 : 1 o m3 o 1 = m2) : m1 = m3.
 Proof.
-  print_diagram "test". exact Hsolv.
+  print_diagram "test". reify_hyp Hsolv. exact Hsolv.
 Qed.
 
 Lemma test2 (C : PreCategory) (a b c d : C)
       (mab : morphism C a b) (mbc : morphism C b c) (mcd : morphism C c d)
       (mac : morphism C a c) (mad : morphism C a d)
-      (Hac : mac = mbc o mab) (Had : mad = mcd o mac) :
+      (Hac : mac o 1 o 1 o 1 = mbc o 1 o mab) (Had : mad o 1 = mcd o mac) :
   1 o mad o 1 = (mcd o 1) o (mbc o (1 o 1 o mab) o 1).
 Proof.
-  print_diagram "test".
-  unfold comp in H1; rewrite H1.
-  unfold comp in H2; rewrite H2.
-  rewrite associativity. rewrite <- Hac. exact Had.
+  print_diagram "test". reify_hyp Hsolv. exact Hsolv.
 Qed.

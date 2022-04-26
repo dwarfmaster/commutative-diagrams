@@ -81,12 +81,12 @@ let extract_goal : Proofview.Goal.t -> Pp.t Proofview.tactic = fun goal ->
   | None -> Proofview.tclUNIT pp
   | Some (side1,side2) ->
     let* sol = Commutation.query side1 side2 commuter in
-    let* eq1 = Hyps.real_eq side1.eq in
-    let* eq1 = add_universes_constraints env eq1 in
-    let* eq2 = Hyps.real_eq side2.eq in
-    let* eq2 = add_universes_constraints env eq2 in
     match sol with
     | None ->
+      let* eq1 = Hyps.real_eq side1.eq in
+      let* eq1 = add_universes_constraints env eq1 in
+      let* eq2 = Hyps.real_eq side2.eq in
+      let* eq2 = add_universes_constraints env eq2 in
       Proofview.tclTHEN
         (Tactics.pose_tac (name "H1") eq1)
         (Proofview.tclTHEN
