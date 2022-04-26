@@ -77,7 +77,7 @@ let conjugate : Hyps.eq -> Hyps.eq -> Hyps.eq -> Hyps.eq Proofview.tactic =
 let union = fun id1 id2 eq store ->
   let* parent1,eq1 = find id1 store in
   let* parent2,eq2 = find id2 store in
-  if parent1 = parent2 then ret ()
+  if parent1 = parent2 then ret false
   else if store.(parent1).rank < store.(parent2).rank
   then begin
     let* eq = Hyps.inv eq in
@@ -85,13 +85,13 @@ let union = fun id1 id2 eq store ->
     store.(parent2).parent <- parent1;
     store.(parent2).eq     <- eq;
     store.(parent1).rank   <- store.(parent1).rank + store.(parent2).rank;
-    ret ()
+    ret true
   end else begin
     let* eq = conjugate eq1 eq eq2 in
     store.(parent1).parent <- parent2;
     store.(parent1).eq     <- eq;
     store.(parent2).rank   <- store.(parent1).rank + store.(parent2).rank;
-    ret ()
+    ret true
   end
 
 let connect = fun p1 p2 eq store ->
