@@ -22,8 +22,13 @@ Definition left_id (C : PreCategory) (a b : C) (m : morphism C a b) :
 Definition right_id (C : PreCategory) (a b : C) (m : morphism C a b) :
   comp C a a b (id C a) m = m := right_identity C a b m.
 
+Definition r_ap (C : PreCategory) (a b c : C) (m : morphism C a b) (m1 m2 : morphism C b c) :
+  m1 = m2 -> m1 o m = m2 o m := fun p => ap (fun m' => m' o m) p.
+Definition l_ap (C : PreCategory) (a b c : C) (m1 m2 : morphism C a b) (m : morphism C b c) :
+  m1 = m2 -> m o m1 = m o m2 := fun p => ap (fun m' => m o m') p.
+
 Lemma test (C : PreCategory) (a b : C) (m1 m2 m3 : morphism C a b)
-      (H12 : m1 = m2) (H32 : m3 = m2) : m1 = m3.
+      (H12 : 1 o m1 = m2 o 1) (H32 : 1 o m3 o 1 = m2) : m1 = m3.
 Proof.
   print_diagram "test". exact Hsolv.
 Qed.

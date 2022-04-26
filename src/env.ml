@@ -207,3 +207,25 @@ let g_coq_mphT_names : string array =
   |]
 let get_mphT = fun _ -> perform_locate g_coq_mphT g_coq_mphT_names locate_const
 let mk_mphT = fun _ -> mk_const (get_mphT ())
+
+
+
+
+(*     _    ____   *)
+(*    / \  |  _ \  *)
+(*   / _ \ | |_) | *)
+(*  / ___ \|  __/  *)
+(* /_/   \_\_|     *)
+(* ap  *)
+let g_coq_lap : Names.Constant.t array ref = ref [| |]
+let g_coq_lap_names : string array =
+  [| "Loader.r_ap"
+  |]
+let get_lap = fun _ -> perform_locate g_coq_lap g_coq_lap_names locate_const
+let mk_lap = fun _ -> mk_const (get_lap ())
+let g_coq_rap : Names.Constant.t array ref = ref [| |]
+let g_coq_rap_names : string array =
+  [| "Loader.l_ap"
+  |]
+let get_rap = fun _ -> perform_locate g_coq_rap g_coq_rap_names locate_const
+let mk_rap = fun _ -> mk_const (get_rap ())

@@ -39,6 +39,8 @@ type eqT =
   | Assoc of morphismData * morphismData * morphismData
   | LeftId of morphismData
   | RightId of morphismData
+  | RAp of eq * morphismData
+  | LAp of morphismData * eq
   | Atom of EConstr.t
 and eq =
   { src : morphismData
@@ -186,11 +188,29 @@ let rec simplify_eqT : bool -> eq -> eqT =
     end
   | Inv p -> (simplify_eq (not inv) p).eq
   | Compose (p1,p2) ->
-    (* TODO add support for ap and simplify if refl on only one side *)
     let p1 = simplify_eq inv p1 in
     let p2 = simplify_eq inv p2 in
-    Compose (p1,p2)
+    begin
+      (* TODO add support for ap and simplify if refl on only one side *)
+      match p1.eq, p2.eq with
+      | Refl _, Refl _ -> Refl eq.src
+      | Refl m, _ -> LAp (m,p2)
+      | _, Refl m -> RAp (p1,m)
+      | _ -> Compose (p1,p2)
+    end
   | Refl m -> Refl m
+  | RAp (p,m) ->
+    let p = simplify_eq inv p in begin
+      match p.eq with
+      | Refl _ -> Refl eq.src
+      | _ -> RAp (p,m)
+    end
+  | LAp (m,p) ->
+    let p = simplify_eq inv p in begin
+      match p.eq with
+      | Refl _ -> Refl eq.src
+      | _ -> LAp (m,p)
+    end
   | _ -> if inv then Inv eq else eq.eq
 and simplify_eq : bool -> eq -> eq = fun inv eq ->
   { tp  = eq.tp
@@ -213,7 +233,7 @@ let rec real_eqT : eqT -> EConstr.t Proofview.tactic = function
     let* rp1 = real_eqT p1.eq in
     let* rp2 = real_eqT p2.eq in
     Env.app (Env.mk_compose_eq ())
-      [| p1.tp.category.obj; p1.src.tp.src.obj; p1.src.tp.dst.obj; p2.src.tp.dst.obj
+      [| p1.tp.category.obj; p1.tp.src.obj; p1.tp.dst.obj; p2.tp.dst.obj
        ; p1.src.obj; p1.dst.obj; p2.src.obj; p2.dst.obj; rp1; rp2 |]
   | Assoc (m1,m2,m3) ->
     Env.app (Env.mk_assoc ())
@@ -226,6 +246,16 @@ let rec real_eqT : eqT -> EConstr.t Proofview.tactic = function
   | RightId m ->
     Env.app (Env.mk_right_id ())
       [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |]
+  | RAp (p,m) ->
+    let* rp = real_eqT p.eq in
+    Env.app (Env.mk_rap ())
+      [| m.tp.category.obj; p.tp.src.obj; p.tp.dst.obj; m.tp.dst.obj
+       ; p.src.obj; p.dst.obj; m.obj; rp |]
+  | LAp (m,p) ->
+    let* rp = real_eqT p.eq in
+    Env.app (Env.mk_lap ())
+      [| m.tp.category.obj; m.tp.src.obj; p.tp.src.obj; p.tp.dst.obj
+       ; m.obj; p.src.obj; p.dst.obj; rp |]
   | Atom eq -> ret eq
 
 let real_eq = fun (eq : eq) -> real_eqT (simplify_eq false eq).eq
