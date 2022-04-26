@@ -166,7 +166,7 @@ let left_id = fun (m : morphismData) ->
       ; eq  = LeftId m }
 
 let right_id = fun (m : morphismData) ->
-  let* src = identity m.tp.dst >>= (fun id -> compose id m) in
+  let* src = identity m.tp.src >>= (fun id -> compose id m) in
   ret { src = src
       ; dst = m
       ; tp  = m.tp
@@ -191,7 +191,6 @@ let rec simplify_eqT : bool -> eq -> eqT =
     let p1 = simplify_eq inv p1 in
     let p2 = simplify_eq inv p2 in
     begin
-      (* TODO add support for ap and simplify if refl on only one side *)
       match p1.eq, p2.eq with
       | Refl _, Refl _ -> Refl eq.src
       | Refl m, _ -> LAp (m,p2)
