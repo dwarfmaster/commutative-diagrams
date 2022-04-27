@@ -31,6 +31,7 @@ type morphism =
   { data : morphismData
   ; id   : mph_id
   ; mutable mono : EConstr.t option
+  ; mutable epi  : EConstr.t option
   }
 let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
 
@@ -45,6 +46,7 @@ type eqT =
   | RAp of eq * morphismData
   | LAp of morphismData * eq
   | Mono of EConstr.t * morphismData * morphismData * eq
+  | Epi of EConstr.t * morphismData * morphismData * eq
   | Atom of EConstr.t
 and eq =
   { src : morphismData
@@ -179,6 +181,7 @@ let right_id = fun (m : morphismData) ->
 let atom_eq = fun ec -> Atom ec
 
 let mono_eq = fun ec m1 m2 p -> Mono (ec,m1,m2,p)
+let epi_eq = fun ec m1 m2 p -> Epi (ec,m1,m2,p)
 
 let rec simplify_eqT : bool -> eq -> eqT =
   fun inv eq ->
@@ -221,6 +224,11 @@ let rec simplify_eqT : bool -> eq -> eqT =
     if inv
     then Mono (ec,m2,m1,p)
     else Mono (ec,m1,m2,p)
+  | Epi (ec,m1,m2,p) ->
+    let p = simplify_eq inv p in
+    if inv
+    then Epi (ec,m2,m1,p)
+    else Epi (ec,m1,m2,p)
   | _ -> if inv then Inv eq else eq.eq
 and simplify_eq : bool -> eq -> eq = fun inv eq ->
   { tp  = eq.tp
@@ -269,6 +277,9 @@ let rec real_eqT : eqT -> EConstr.t Proofview.tactic = function
   | Mono (ec,m1,m2,p) ->
     let* rp = real_eqT p.eq in
     ret (EConstr.mkApp (ec, [| p.tp.src.obj; m1.obj; m2.obj; rp |]))
+  | Epi (ec,m1,m2,p) ->
+    let* rp = real_eqT p.eq in
+    ret (EConstr.mkApp (ec, [| p.tp.dst.obj; m1.obj; m2.obj; rp |]))
   | Atom eq -> ret eq
 
 let real_eq = fun (eq : eq) -> real_eqT (simplify_eq false eq).eq
@@ -332,7 +343,7 @@ let get_mph  = fun (mph : morphismData) store ->
     ret (nid,
          { categories = store.categories
          ; elems = store.elems
-         ; morphisms = Array.append store.morphisms [| { data = mph; id = nid; mono = None } |]
+         ; morphisms = Array.append store.morphisms [| { data = mph; id = nid; mono = None; epi = None } |]
          ; faces = store.faces })
 
 
@@ -549,6 +560,31 @@ let parse_mono = fun name mono store ->
             } store in
         let mph = store.morphisms.(mph) in
         mph.mono <- Some (EConstr.mkVar name);
+        ret (store,Some mph.id)
+      | _ -> ret (store,None)
+    end
+  | _ -> ret (store,None)
+
+let parse_epi = fun name epi store ->
+  let* sigma = Proofview.tclEVARMAP in
+  match EConstr.kind sigma epi with
+  | App (epi, [| cat; src; dst; mph |]) ->
+    begin match EConstr.kind sigma epi with
+      | Const (epi,_) when Env.is_epi epi ->
+        let* (cat,store) = get_cat cat store in
+        let cat = store.categories.(cat) in
+        let* (src,store) = get_elem cat.obj src store in
+        let src = store.elems.(src) in
+        let* (dst,store) = get_elem cat.obj dst store in
+        let dst = store.elems.(dst) in
+        let* tp = mphT cat.obj src.obj dst.obj in
+        let* (mph,store) =
+          get_mph
+            { obj = mph
+            ; tp = { src = src; dst = dst; category = cat; obj = tp }
+            } store in
+        let mph = store.morphisms.(mph) in
+        mph.epi <- Some (EConstr.mkVar name);
         ret (store,Some mph.id)
       | _ -> ret (store,None)
     end

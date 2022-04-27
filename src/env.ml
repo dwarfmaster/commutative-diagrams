@@ -250,3 +250,22 @@ let g_coq_mono_names : string array =
 let get_mono = fun _ -> perform_locate g_coq_mono g_coq_mono_names locate_const
 let is_mono = is_const g_coq_mono g_coq_mono_names
 let mk_mono = fun _ -> mk_const (get_mono ())
+
+(*  _____       _                            _     _ *)
+(* | ____|_ __ (_)_ __ ___   ___  _ __ _ __ | |__ (_)___ _ __ ___ *)
+(* |  _| | '_ \| | '_ ` _ \ / _ \| '__| '_ \| '_ \| / __| '_ ` _ \ *)
+(* | |___| |_) | | | | | | | (_) | |  | |_) | | | | \__ \ | | | | | *)
+(* |_____| .__/|_|_| |_| |_|\___/|_|  | .__/|_| |_|_|___/_| |_| |_| *)
+(*       |_|                          |_| *)
+(* Epimorphism *)
+let g_coq_epi : Names.Constant.t array ref = ref [| |]
+let g_coq_epi_names : string array =
+  [| "HoTT.Categories.Category.IsEpimorphism"
+   ; "Category.IsEpimorphism"
+   ; "Morphisms.IsEpimorphism"
+   ; "HoTT.Categories.Category.Morphisms.IsEpimorphism"
+   ; "Morphisms.IsEpimorphism"
+  |]
+let get_epi = fun _ -> perform_locate g_coq_epi g_coq_epi_names locate_const
+let is_epi = is_const g_coq_epi g_coq_epi_names
+let mk_epi = fun _ -> mk_const (get_epi ())

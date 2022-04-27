@@ -54,4 +54,12 @@ Lemma test_mono (C : PreCategory) (a b c : C)
   m1 = m2.
 Proof.
   print_diagram "test"; reify_hyp Hsolv. exact Hsolv.
-Qed.
+Defined.
+
+Lemma test_epi (C : PreCategory) (a b c : C)
+      (epi : morphism C a b) (m1 m2 : morphism C b c)
+      (Hepi : IsEpimorphism epi) (H : m1 o epi = m2 o epi) :
+  m1 = m2.
+Proof.
+  print_diagram "test"; reify_hyp Hsolv. exact Hsolv.
+Defined.

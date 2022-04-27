@@ -53,6 +53,7 @@ let mph_graphviz = fun sigma env (mph : Hyps.morphism) ->
   Pp.str "e" ++ Pp.int mph.data.tp.src.id ++ Pp.str " -> e" ++ Pp.int mph.data.tp.dst.id
   ++ Pp.str " [label=\"" ++ ppe sigma env mph.data.obj ++ Pp.str "\""
   ++ (if mph.mono != None then Pp.str ",arrowhead=\"oldiamond\"" else Pp.str "")
+  ++ (if mph.epi  != None then Pp.str ",arrowhead=\"onormalonormal\"" else Pp.str "")
   ++ Pp.str "];"
 let to_graphviz = fun sigma env (store : Hyps.t) ->
   Pp.str "digraph {"

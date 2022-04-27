@@ -25,5 +25,7 @@ val mk_lap : unit -> EConstr.t Proofview.tactic
 val mk_rap : unit -> EConstr.t Proofview.tactic
 val is_mono : Names.Constant.t -> bool
 val mk_mono : unit -> EConstr.t Proofview.tactic
+val is_epi : Names.Constant.t -> bool
+val mk_epi : unit -> EConstr.t Proofview.tactic
 
 val is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool

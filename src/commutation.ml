@@ -95,6 +95,37 @@ let monomorphism_hook : Hyps.morphism -> hook = fun mono fce ->
     end
   | _ -> ret None
 
+(* Epimorphism hook *)
+let rec path_dst_id : Hyps.elem * (Hyps.morphism list) -> Hyps.elem = fun (x,l) ->
+  match l with
+  | [] -> x
+  | [ x ] -> x.data.tp.dst
+  | _ :: xs -> path_dst_id (x,xs)
+
+let epimorphism_hook : Hyps.morphism -> hook = fun epi fce ->
+  match epi.epi with
+  | None -> ret None
+  | Some h when fce.eq.tp.src.id = epi.data.tp.src.id
+             && path_dst_id fce.side1 = path_dst_id fce.side2 ->
+    begin match snd fce.side1, snd fce.side2 with
+      | epi1 :: pth1, epi2 :: pth2 when epi1.id = epi.id && epi2.id = epi.id ->
+        let src = epi.data.tp.dst in
+        let* m1 = Hyps.realize src (Hyps.extract pth1) in
+        let* m2 = Hyps.realize src (Hyps.extract pth2) in
+        let eq = Hyps.epi_eq h m1 m2 fce.eq in
+        ret (Some { side1 = (src, pth1)
+                  ; side2 = (src, pth2)
+                  ; eq    =
+                      { eq = eq
+                      ; src = m1
+                      ; dst = m2
+                      ; tp = m1.tp
+                      }
+                  })
+      | _, _ -> ret None
+    end
+  | _ -> ret None
+
 (*   ____                                _        _   _              *)
 (*  / ___|___  _ __ ___  _ __ ___  _   _| |_ __ _| |_(_) ___  _ __   *)
 (* | |   / _ \| '_ ` _ \| '_ ` _ \| | | | __/ _` | __| |/ _ \| '_ \  *)
@@ -196,6 +227,7 @@ let build = fun hyps level ->
     [ List.map precompose_hook   (Array.to_list hyps.morphisms)
     ; List.map postcompose_hook  (Array.to_list hyps.morphisms)
     ; List.map monomorphism_hook (Array.to_list hyps.morphisms)
+    ; List.map epimorphism_hook  (Array.to_list hyps.morphisms)
     ] in
   let data = { union = union; hooks = hooks; level = level } in
   Proofview.tclTHEN
