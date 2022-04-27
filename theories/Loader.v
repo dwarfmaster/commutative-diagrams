@@ -1,6 +1,7 @@
 
 From HoTT Require Import Basics.
 From HoTT Require Import Categories.
+From HoTT Require Import Categories.Category.Morphisms.
 Declare ML Module "diagrams_plugin".
 Local Open Scope morphism.
 
@@ -32,17 +33,25 @@ Ltac reify_hyp H :=
   unfold id in H; unfold left_id in H; unfold right_id in H;
   unfold r_ap in H; unfold l_ap in H.
 
-Lemma test (C : PreCategory) (a b : C) (m1 m2 m3 : morphism C a b)
+Lemma test_concat (C : PreCategory) (a b : C) (m1 m2 m3 : morphism C a b)
       (H12 : 1 o m1 = m2 o 1) (H32 : 1 o m3 o 1 = m2) : m1 = m3.
 Proof.
-  print_diagram "test". reify_hyp Hsolv. exact Hsolv.
-Qed.
+  print_diagram "test"; reify_hyp Hsolv. exact Hsolv.
+Defined.
 
-Lemma test2 (C : PreCategory) (a b c d : C)
+Lemma test_context (C : PreCategory) (a b c d : C)
       (mab : morphism C a b) (mbc : morphism C b c) (mcd : morphism C c d)
       (mac : morphism C a c) (mad : morphism C a d)
       (Hac : mac o 1 o 1 o 1 = mbc o 1 o mab) (Had : mad o 1 = mcd o mac) :
   1 o mad o 1 = (mcd o 1) o (mbc o (1 o 1 o mab) o 1).
 Proof.
-  print_diagram "test". reify_hyp Hsolv. exact Hsolv.
+  print_diagram "test"; reify_hyp Hsolv. exact Hsolv.
+Defined.
+
+Lemma test_mono (C : PreCategory) (a b c : C)
+      (mono : morphism C b c) (m1 m2 : morphism C a b)
+      (Hmono : IsMonomorphism mono) (H : mono o m1 = mono o m2) :
+  m1 = m2.
+Proof.
+  print_diagram "test"; reify_hyp Hsolv. exact Hsolv.
 Qed.

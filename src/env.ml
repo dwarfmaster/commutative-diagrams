@@ -229,3 +229,24 @@ let g_coq_rap_names : string array =
   |]
 let get_rap = fun _ -> perform_locate g_coq_rap g_coq_rap_names locate_const
 let mk_rap = fun _ -> mk_const (get_rap ())
+
+
+
+(*  __  __                                              _     _                *)
+(* |  \/  | ___  _ __   ___  _ __ ___   ___  _ __  _ __| |__ (_)___ _ __ ___   *)
+(* | |\/| |/ _ \| '_ \ / _ \| '_ ` _ \ / _ \| '_ \| '__| '_ \| / __| '_ ` _ \  *)
+(* | |  | | (_) | | | | (_) | | | | | | (_) | |_) | |  | | | | \__ \ | | | | | *)
+(* |_|  |_|\___/|_| |_|\___/|_| |_| |_|\___/| .__/|_|  |_| |_|_|___/_| |_| |_| *)
+(*                                          |_|                                *)
+(* Monomorphism *)
+let g_coq_mono : Names.Constant.t array ref = ref [| |]
+let g_coq_mono_names : string array =
+  [| "HoTT.Categories.Category.IsMonomorphism"
+   ; "Category.IsMonomorphism"
+   ; "Morphisms.IsMonomorphism"
+   ; "HoTT.Categories.Category.Morphisms.IsMonomorphism"
+   ; "Morphisms.IsMonomorphism"
+  |]
+let get_mono = fun _ -> perform_locate g_coq_mono g_coq_mono_names locate_const
+let is_mono = is_const g_coq_mono g_coq_mono_names
+let mk_mono = fun _ -> mk_const (get_mono ())

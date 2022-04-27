@@ -1,6 +1,8 @@
 
 type kind = (EConstr.t,EConstr.t,EConstr.ESorts.t,EConstr.EInstance.t) Constr.kind_of_term
 
+(* TODO Support metadata (mono,epi,iso) on paths, not just atomic morphisms *)
+
 type cat_id  = int
 type elem_id = int
 type mph_id  = int
@@ -28,6 +30,7 @@ type morphismData =
 type morphism =
   { data : morphismData
   ; id   : mph_id
+  ; mutable mono : EConstr.t option
   }
 let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
 
@@ -41,6 +44,7 @@ type eqT =
   | RightId of morphismData
   | RAp of eq * morphismData
   | LAp of morphismData * eq
+  | Mono of EConstr.t * morphismData * morphismData * eq
   | Atom of EConstr.t
 and eq =
   { src : morphismData
@@ -174,6 +178,8 @@ let right_id = fun (m : morphismData) ->
 
 let atom_eq = fun ec -> Atom ec
 
+let mono_eq = fun ec m1 m2 p -> Mono (ec,m1,m2,p)
+
 let rec simplify_eqT : bool -> eq -> eqT =
   fun inv eq ->
   match eq.eq with
@@ -210,6 +216,11 @@ let rec simplify_eqT : bool -> eq -> eqT =
       | Refl _ -> Refl eq.src
       | _ -> LAp (m,p)
     end
+  | Mono (ec,m1,m2,p) ->
+    let p = simplify_eq inv p in
+    if inv
+    then Mono (ec,m2,m1,p)
+    else Mono (ec,m1,m2,p)
   | _ -> if inv then Inv eq else eq.eq
 and simplify_eq : bool -> eq -> eq = fun inv eq ->
   { tp  = eq.tp
@@ -255,6 +266,9 @@ let rec real_eqT : eqT -> EConstr.t Proofview.tactic = function
     Env.app (Env.mk_lap ())
       [| m.tp.category.obj; m.tp.src.obj; p.tp.src.obj; p.tp.dst.obj
        ; m.obj; p.src.obj; p.dst.obj; rp |]
+  | Mono (ec,m1,m2,p) ->
+    let* rp = real_eqT p.eq in
+    ret (EConstr.mkApp (ec, [| p.tp.src.obj; m1.obj; m2.obj; rp |]))
   | Atom eq -> ret eq
 
 let real_eq = fun (eq : eq) -> real_eqT (simplify_eq false eq).eq
@@ -318,7 +332,7 @@ let get_mph  = fun (mph : morphismData) store ->
     ret (nid,
          { categories = store.categories
          ; elems = store.elems
-         ; morphisms = Array.append store.morphisms [| { data = mph; id = nid } |]
+         ; morphisms = Array.append store.morphisms [| { data = mph; id = nid; mono = None } |]
          ; faces = store.faces })
 
 
@@ -511,6 +525,31 @@ let parse_face = fun name fce store ->
             let* (id,store) = get_face tp f1 f2 (EConstr.mkVar name) store in ret (store,Some id)
           | _ -> ret (store,None)
         end
+      | _ -> ret (store,None)
+    end
+  | _ -> ret (store,None)
+
+let parse_mono = fun name mono store ->
+  let* sigma = Proofview.tclEVARMAP in
+  match EConstr.kind sigma mono with
+  | App (mono, [| cat; src; dst; mph |]) ->
+    begin match EConstr.kind sigma mono with
+      | Const (mono,_) when Env.is_mono mono ->
+        let* (cat,store) = get_cat cat store in
+        let cat = store.categories.(cat) in
+        let* (src,store) = get_elem cat.obj src store in
+        let src = store.elems.(src) in
+        let* (dst,store) = get_elem cat.obj dst store in
+        let dst = store.elems.(dst) in
+        let* tp = mphT cat.obj src.obj dst.obj in
+        let* (mph,store) =
+          get_mph
+            { obj = mph
+            ; tp = { src = src; dst = dst; category = cat; obj = tp }
+            } store in
+        let mph = store.morphisms.(mph) in
+        mph.mono <- Some (EConstr.mkVar name);
+        ret (store,Some mph.id)
       | _ -> ret (store,None)
     end
   | _ -> ret (store,None)

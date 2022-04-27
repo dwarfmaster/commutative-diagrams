@@ -51,7 +51,9 @@ let elem_graphviz = fun sigma env (elem : Hyps.elem) ->
   Pp.str "e" ++ Pp.int elem.id ++ Pp.str " [ label=\"" ++ ppe sigma env elem.obj ++ Pp.str "\"];"
 let mph_graphviz = fun sigma env (mph : Hyps.morphism) ->
   Pp.str "e" ++ Pp.int mph.data.tp.src.id ++ Pp.str " -> e" ++ Pp.int mph.data.tp.dst.id
-  ++ Pp.str " [label=\"" ++ ppe sigma env mph.data.obj ++ Pp.str "\"];"
+  ++ Pp.str " [label=\"" ++ ppe sigma env mph.data.obj ++ Pp.str "\""
+  ++ (if mph.mono != None then Pp.str ",arrowhead=\"oldiamond\"" else Pp.str "")
+  ++ Pp.str "];"
 let to_graphviz = fun sigma env (store : Hyps.t) ->
   Pp.str "digraph {"
   ++ Array.fold_left (fun pp e -> pp ++ elem_graphviz sigma env e) (Pp.str "") store.elems

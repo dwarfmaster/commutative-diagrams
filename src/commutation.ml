@@ -20,6 +20,7 @@ type face =
   }
 type hook = face -> face option Proofview.tactic
 
+(* Precompose hook *)
 let precompose_hook : Hyps.morphism -> hook = fun mph fce ->
   if fce.eq.tp.src.id = mph.data.tp.dst.id
   then
@@ -31,6 +32,7 @@ let precompose_hook : Hyps.morphism -> hook = fun mph fce ->
               })
   else ret None
 
+(* Postcompose hook *)
 let rec push_equality : Hyps.morphism list -> Hyps.morphism -> Hyps.eq Proofview.tactic = fun ms m ->
   match ms with
   | [ ] -> Hyps.refl m.data
@@ -58,6 +60,40 @@ let postcompose_hook : Hyps.morphism -> hook = fun mph fce ->
               ; eq    = eq
               })
   else ret None
+
+(* Monomorphism hook *)
+(* If the last element matches the predicate, return the list without it *)
+let rec lastrmP : ('a -> bool) -> 'a list -> 'a list option = fun pred -> function
+  | [] -> None
+  | [ x ] -> if pred x then Some [] else None
+  | x :: l -> match lastrmP pred l with
+    | Some l -> Some (x :: l)
+    | None -> None
+
+let monomorphism_hook : Hyps.morphism -> hook = fun mono fce ->
+  match mono.mono with
+  | None -> ret None
+  | Some h when fce.eq.tp.dst.id = mono.data.tp.dst.id
+             && (fst fce.side1).id = (fst fce.side2).id ->
+    let pred = fun (m : Hyps.morphism) -> m.id = mono.id in
+    begin match lastrmP pred (snd fce.side1), lastrmP pred (snd fce.side2) with
+      | Some pth1, Some pth2 ->
+        let src = fst fce.side1 in
+        let* m1 = Hyps.realize src (Hyps.extract pth1) in
+        let* m2 = Hyps.realize src (Hyps.extract pth2) in
+        let eq  = Hyps.mono_eq h m1 m2 fce.eq in
+        ret (Some { side1 = (fst fce.side1, pth1)
+                  ; side2 = (fst fce.side2, pth2)
+                  ; eq    =
+                      { eq = eq
+                      ; src = m1
+                      ; dst = m2
+                      ; tp = m1.tp
+                      }
+                  })
+      | _, _ -> ret None
+    end
+  | _ -> ret None
 
 (*   ____                                _        _   _              *)
 (*  / ___|___  _ __ ___  _ __ ___  _   _| |_ __ _| |_(_) ___  _ __   *)
@@ -157,8 +193,9 @@ let build = fun hyps level ->
   let* paths = mergePaths <$> enumerateAllPaths hyps level in
   let* union = UF.init (List.map UF.extract paths) in
   let hooks = List.concat
-    [ List.map precompose_hook  (Array.to_list hyps.morphisms)
-    ; List.map postcompose_hook (Array.to_list hyps.morphisms)
+    [ List.map precompose_hook   (Array.to_list hyps.morphisms)
+    ; List.map postcompose_hook  (Array.to_list hyps.morphisms)
+    ; List.map monomorphism_hook (Array.to_list hyps.morphisms)
     ] in
   let data = { union = union; hooks = hooks; level = level } in
   Proofview.tclTHEN

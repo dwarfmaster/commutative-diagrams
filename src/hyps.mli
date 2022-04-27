@@ -28,6 +28,7 @@ type morphismData =
 type morphism =
   { data : morphismData
   ; id   : mph_id
+  ; mutable mono : EConstr.t option
   }
 
 (* Equality between uninterned morphisms *)
@@ -102,6 +103,7 @@ val left_id : morphismData -> eq Proofview.tactic
 (* m -> m o id = m *)
 val right_id : morphismData -> eq Proofview.tactic
 val atom_eq : EConstr.t -> eqT
+val mono_eq : EConstr.t -> morphismData -> morphismData -> eq -> eqT
 val real_eq : eq -> EConstr.t Proofview.tactic
 
 (*   ____            _            _    *)
@@ -131,3 +133,4 @@ val parse_elem : Names.Id.t -> EConstr.t -> t -> (t * elem_id option) Proofview.
 val parse_mph  : Names.Id.t -> EConstr.t -> t -> (t * mph_id  option) Proofview.tactic
 val read_face  : EConstr.t -> t -> (t * (path*path) option) Proofview.tactic
 val parse_face : Names.Id.t -> EConstr.t -> t -> (t * face_id option) Proofview.tactic
+val parse_mono : Names.Id.t -> EConstr.t -> t -> (t * mph_id option) Proofview.tactic
