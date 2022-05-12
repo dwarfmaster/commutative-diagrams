@@ -1,4 +1,4 @@
--R _build/default/theories/ CommutativeDiagrams
+-R theories/ CommutativeDiagrams
 -I _build/default/src/
 -arg -noinit
 -arg -indices-matter

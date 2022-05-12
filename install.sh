@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Use system-wide coq instead, not this one
+
 zlib_path=$(pkg-config zlib --cflags)
 zlib_path=${zlib_path#"-I"}
 zlib_include=$(pkg-config zlib --libs | cut -d ' ' -f 1)
