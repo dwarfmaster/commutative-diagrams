@@ -96,3 +96,20 @@ let union = fun id1 id2 eq store ->
 
 let connect = fun p1 p2 eq store ->
   union (M.find p1 store.map) (M.find p2 store.map) eq store.cells
+
+let rec print_path = fun (p : path) ->
+  let (++) = Pp.(++) in
+  match snd p with
+  | [] ->
+    let* env = Proofview.tclENV in
+    let* sigma = Proofview.tclEVARMAP in
+    ret (Pp.str "id_(" ++ Printer.pr_econstr_env env sigma (fst p).obj ++ Pp.str ")")
+  | m :: [] ->
+    let* env = Proofview.tclENV in
+    let* sigma = Proofview.tclEVARMAP in
+    ret (Printer.pr_econstr_env env sigma m.data.obj)
+  | m :: ms ->
+    let* mph = print_path (m.data.tp.dst,ms) in
+    let* env = Proofview.tclENV in
+    let* sigma = Proofview.tclEVARMAP in
+    ret (Printer.pr_econstr_env env sigma m.data.obj ++ Pp.str ">" ++ mph)
