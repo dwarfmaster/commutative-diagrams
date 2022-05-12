@@ -204,8 +204,8 @@ let rec processHooks : buildData -> face -> unit Proofview.tactic = fun data fac
     let* res = hook face in
     match res with
     | None -> ret ()
-    | Some fce -> if List.length (snd face.side1) > data.level
-                  || List.length (snd face.side2) > data.level
+    | Some fce -> if List.length (snd face.side1) >= data.level
+                  || List.length (snd face.side2) >= data.level
       then ret ()
       else addFace data fce
   end
