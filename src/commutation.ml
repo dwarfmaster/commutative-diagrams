@@ -26,6 +26,17 @@ let precompose_hook : Hyps.morphism -> hook = fun mph fce ->
   then
     let* r = Hyps.refl mph.data in
     let* eq = Hyps.composeP r fce.eq in
+    let* eq =
+      match snd fce.side1, snd fce.side2 with
+      | _ :: _, _ :: _ -> ret eq
+      | [], _ :: _ ->
+        let* p = Hyps.left_id mph.data in
+        let* p = Hyps.inv p in
+        Hyps.concat p eq
+      | _ :: _, [] ->
+        let* p = Hyps.left_id mph.data in
+        Hyps.concat eq p
+      | [], [] -> ret r in
     ret (Some { side1 = (mph.data.tp.src, mph :: snd fce.side1)
               ; side2 = (mph.data.tp.src, mph :: snd fce.side2)
               ; eq    = eq
@@ -55,6 +66,17 @@ let postcompose_hook : Hyps.morphism -> hook = fun mph fce ->
     let* rnorm_r = push_equality (snd fce.side2) mph in
     let* eq = Hyps.concat rnorm_l eq in
     let* eq = Hyps.concat eq rnorm_r in
+    let* eq =
+      match snd fce.side1, snd fce.side2 with
+      | _ :: _, _ :: _ -> ret eq
+      | [], _ :: _ ->
+        let* p = Hyps.right_id mph.data in
+        let* p = Hyps.inv p in
+        Hyps.concat p eq
+      | _ :: _, [] ->
+        let* p = Hyps.right_id mph.data in
+        Hyps.concat eq p
+      | [], [] -> ret r in
     ret (Some { side1 = (fst fce.side1, List.append (snd fce.side1) [ mph ])
               ; side2 = (fst fce.side2, List.append (snd fce.side2) [ mph ])
               ; eq    = eq
@@ -154,11 +176,20 @@ let query = fun p1 p2 (store : t) ->
     let* p = Hyps.concat p p2 in
     ret (Some p)
 
+let singlePath : Hyps.morphism -> Hyps.path Proofview.tactic = fun m ->
+  let* r = Hyps.refl m.data in
+  ret { Hyps.mph = m.data
+      ; eq       = r
+      ; path     = [ m ]
+      }
 let precomposePath : Hyps.morphism -> Hyps.path -> Hyps.path Proofview.tactic = fun mph path ->
-  let* c  = Hyps.compose mph.data path.mph in
-  let* r  = Hyps.refl mph.data in
-  let* eq = Hyps.composeP r path.eq in
-  ret { Hyps.mph = c; eq = eq; path = mph :: path.path }
+  match path.path with
+  | [] -> singlePath mph
+  | _ ->
+    let* c  = Hyps.compose mph.data path.mph in
+    let* r  = Hyps.refl mph.data in
+    let* eq = Hyps.composeP r path.eq in
+    ret { Hyps.mph = c; eq = eq; path = mph :: path.path }
 
 let forM : 'a array -> ('a -> unit Proofview.tactic) -> unit Proofview.tactic = fun arr body ->
   Array.fold_left (fun m x -> Proofview.tclTHEN m (body x)) (Proofview.tclUNIT ()) arr
@@ -167,19 +198,20 @@ let forM' : 'a list -> ('a -> unit Proofview.tactic) -> unit Proofview.tactic = 
 
 (* All paths, sorted by the index of their starting element *)
 type pathEnumeration = Hyps.path list array
-let singlePath : Hyps.morphism -> Hyps.path Proofview.tactic = fun m ->
-  let* r = Hyps.refl m.data in
-  ret { Hyps.mph = m.data
+let idPath : Hyps.elem -> Hyps.path Proofview.tactic = fun e ->
+  let* mph = Hyps.realize e [] in
+  let* r = Hyps.refl mph in
+  ret { Hyps.mph = mph
       ; eq       = r
-      ; path     = [ m ]
+      ; path     = [ ]
       }
 let rec enumerateAllPaths : Hyps.t -> int -> pathEnumeration Proofview.tactic = fun store level ->
-  if level <= 1 then begin
+  if level <= 0 then begin
     let res = Array.make (Array.length store.elems) [] in
     Proofview.tclTHEN
-      (forM store.morphisms begin fun mph ->
-          let* p = singlePath mph in
-          res.(mph.data.tp.src.id) <- p :: res.(mph.data.tp.src.id);
+      (forM store.elems begin fun elem ->
+          let* p = idPath elem in
+          res.(elem.id) <- p :: res.(elem.id);
           ret ()
         end)
       (ret res)
@@ -199,6 +231,7 @@ let rec enumerateAllPaths : Hyps.t -> int -> pathEnumeration Proofview.tactic = 
 let mergePaths : pathEnumeration -> Hyps.path list = fun enum ->
   Array.fold_right (fun lst paths -> List.append lst paths) enum []
 
+let (++) = Pp.(++)
 let rec processHooks : buildData -> face -> unit Proofview.tactic = fun data face ->
   forM' data.hooks begin fun hook ->
     let* res = hook face in
@@ -210,6 +243,10 @@ let rec processHooks : buildData -> face -> unit Proofview.tactic = fun data fac
       else addFace data fce
   end
 and addFace : buildData -> face -> unit Proofview.tactic = fun data face ->
+  let* pth1 = UnionFind.print_path face.side1 in
+  let* pth2 = UnionFind.print_path face.side2 in
+  let msg = Pp.str "Connecting: " ++ pth1 ++ Pp.str " with " ++ pth2 in
+  Feedback.msg_info msg;
   let* added = UF.connect face.side1 face.side2 face.eq data.union in
   if added then processHooks data face else ret ()
 
