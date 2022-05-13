@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
-# Use system-wide coq instead, not this one
+ver="4.12.0"
+if [ "$#" -ne 0 ]; then
+    ver="$1"
+fi
+
+opam switch remove diagrams-coq
+opam switch create diagrams-coq $ver
 
 zlib_path=$(pkg-config zlib --cflags)
 zlib_path=${zlib_path#"-I"}
@@ -12,4 +18,4 @@ gmp_path=${gmp_path#"-I"}
 gmp_include=$(pkg-config gmp --libs | cut -d ' ' -f 1)
 gmp_include=${gmp_include#"-L"}
 
-LIBRARY_PATH="$zlib_include:$gmp_include" CPATH="$zlib_path:$gmp_path" opam install coq
+LIBRARY_PATH="$zlib_include:$gmp_include" CPATH="$zlib_path:$gmp_path" opam install merlin zarith
