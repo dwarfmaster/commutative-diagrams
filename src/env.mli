@@ -27,5 +27,12 @@ val is_mono : Names.Constant.t -> bool
 val mk_mono : unit -> EConstr.t Proofview.tactic
 val is_epi : Names.Constant.t -> bool
 val mk_epi : unit -> EConstr.t Proofview.tactic
+val is_iso : Names.inductive -> bool
+val mk_iso : unit -> EConstr.t Proofview.tactic
+val mk_inv_mph : unit -> EConstr.t Proofview.tactic
+val mk_right_inv : unit -> EConstr.t Proofview.tactic
+val mk_left_inv : unit -> EConstr.t Proofview.tactic
 
 val is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool
+
+val whd : EConstr.t -> EConstr.t Proofview.tactic

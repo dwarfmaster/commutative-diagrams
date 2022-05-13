@@ -25,11 +25,17 @@ type morphismData =
   { obj : EConstr.t
   ; tp  : morphismT
   }
+type isoData =
+  { obj : EConstr.t
+  ; mph : mph_id
+  ; inv : mph_id
+  }
 type morphism =
   { data : morphismData
   ; id   : mph_id
   ; mutable mono : EConstr.t option
   ; mutable epi  : EConstr.t option
+  ; mutable iso  : isoData option
   }
 
 (* Equality between uninterned morphisms *)
@@ -137,3 +143,4 @@ val read_face  : EConstr.t -> t -> (t * (path*path) option) Proofview.tactic
 val parse_face : Names.Id.t -> EConstr.t -> t -> (t * face_id option) Proofview.tactic
 val parse_mono : Names.Id.t -> EConstr.t -> t -> (t * mph_id option) Proofview.tactic
 val parse_epi  : Names.Id.t -> EConstr.t -> t -> (t * mph_id option) Proofview.tactic
+val parse_iso  : Names.Id.t -> EConstr.t -> t -> (t * mph_id option) Proofview.tactic

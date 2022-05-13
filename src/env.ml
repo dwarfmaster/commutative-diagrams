@@ -3,6 +3,11 @@ exception Object_not_found of string
 
 let app = fun f args ->
   Proofview.tclBIND f (fun f -> Proofview.tclUNIT (EConstr.mkApp (f,args)))
+let whd = fun ec ->
+  let (let*) = Proofview.tclBIND in
+  let* env = Proofview.tclENV in
+  let* sigma = Proofview.tclEVARMAP in
+  Proofview.tclUNIT (Reductionops.whd_all env sigma ec)
 
 let locate_inductive : string -> Names.inductive = fun name ->
   try match Nametab.global (Libnames.qualid_of_string name) with
@@ -269,3 +274,37 @@ let g_coq_epi_names : string array =
 let get_epi = fun _ -> perform_locate g_coq_epi g_coq_epi_names locate_const
 let is_epi = is_const g_coq_epi g_coq_epi_names
 let mk_epi = fun _ -> mk_const (get_epi ())
+
+(*  ___                                      _     _ *)
+(* |_ _|___  ___  _ __ ___   ___  _ __ _ __ | |__ (_)___ _ __ ___ *)
+(*  | |/ __|/ _ \| '_ ` _ \ / _ \| '__| '_ \| '_ \| / __| '_ ` _ \ *)
+(*  | |\__ \ (_) | | | | | | (_) | |  | |_) | | | | \__ \ | | | | | *)
+(* |___|___/\___/|_| |_| |_|\___/|_|  | .__/|_| |_|_|___/_| |_| |_| *)
+(*                                    |_| *)
+(* Isomorphism *)
+let g_coq_iso : Names.inductive array ref = ref [| |]
+let g_coq_iso_names : string array =
+  [| "HoTT.Categories.Category.IsIsomorphism"
+   ; "HoTT.Categories.Category.Morphisms.IsIsomorphism"
+  |]
+let get_iso = fun _ -> perform_locate g_coq_iso g_coq_iso_names locate_inductive
+let is_iso = is_ind g_coq_iso g_coq_iso_names
+let mk_iso = fun _ -> mk_ind (get_iso ())
+let g_coq_inv_mph : Names.Constant.t array ref = ref [| |]
+let g_coq_inv_mph_names : string array =
+  [| "Loader.mph_inv"
+  |]
+let get_inv_mph = fun _ -> perform_locate g_coq_inv_mph g_coq_inv_mph_names locate_const
+let mk_inv_mph = fun _ -> mk_const (get_inv_mph ())
+let g_coq_right_inv : Names.Constant.t array ref = ref [| |]
+let g_coq_right_inv_names : string array =
+  [| "Loader.right_inv"
+  |]
+let get_right_inv = fun _ -> perform_locate g_coq_right_inv g_coq_right_inv_names locate_const
+let mk_right_inv = fun _ -> mk_const (get_right_inv ())
+let g_coq_left_inv : Names.Constant.t array ref = ref [| |]
+let g_coq_left_inv_names : string array =
+  [| "Loader.left_inv"
+  |]
+let get_left_inv = fun _ -> perform_locate g_coq_left_inv g_coq_left_inv_names locate_const
+let mk_left_inv = fun _ -> mk_const (get_left_inv ())

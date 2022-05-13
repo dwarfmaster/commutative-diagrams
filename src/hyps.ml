@@ -27,11 +27,17 @@ type morphismData =
   { obj : EConstr.t
   ; tp  : morphismT
   }
+type isoData =
+  { obj : EConstr.t
+  ; mph : mph_id
+  ; inv : mph_id
+  }
 type morphism =
   { data : morphismData
   ; id   : mph_id
   ; mutable mono : EConstr.t option
   ; mutable epi  : EConstr.t option
+  ; mutable iso  : isoData option
   }
 let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
 
@@ -349,7 +355,7 @@ let get_mph = fun (mph : morphismData) store ->
     ret (nid,
          { categories = store.categories
          ; elems = store.elems
-         ; morphisms = Array.append store.morphisms [| { data = mph; id = nid; mono = None; epi = None } |]
+         ; morphisms = Array.append store.morphisms [| { data = mph; id = nid; mono = None; epi = None; iso = None } |]
          ; faces = store.faces })
 
 
@@ -593,6 +599,47 @@ let parse_epi = fun name epi store ->
         let mph = store.morphisms.(mph) in
         mph.epi <- Some (EConstr.mkVar name);
         ret (store,Some mph.id)
+      | _ -> ret (store,None)
+    end
+  | _ -> ret (store,None)
+
+let parse_iso = fun name iso store ->
+  let* sigma = Proofview.tclEVARMAP in
+  match EConstr.kind sigma iso with
+  | App (iso, [| cat; src; dst; mph |]) ->
+    begin match EConstr.kind sigma iso with
+      | Ind (iso,_) when Env.is_iso iso ->
+        let* (cat,store) = get_cat cat store in
+        let cat = store.categories.(cat) in
+        let* (src,store) = get_elem cat.obj src store in
+        let src = store.elems.(src) in
+        let* (dst,store) = get_elem cat.obj dst store in
+        let dst = store.elems.(dst) in
+        let* tp = mphT cat.obj src.obj dst.obj in
+        let* (mph,store) =
+          get_mph
+            { obj = mph
+            ; tp = { src = src; dst = dst; category = cat; obj = tp }
+            } store in
+        let mph = store.morphisms.(mph) in
+        let hypo = EConstr.mkVar name in
+        let* inv = Env.app (Env.mk_inv_mph ()) [| cat.obj; src.obj; dst.obj; mph.data.obj; hypo |] in
+        let* tp = mphT cat.obj dst.obj src.obj in
+        let* (inv,store) =
+          get_mph
+            { obj = inv
+            ; tp = { src = dst; dst = src; category = cat; obj = tp }
+            } store in
+        let data =
+          { obj = hypo
+          ; mph = mph.id
+          ; inv = inv
+          } in
+        begin
+          mph.iso <- Some data;
+          store.morphisms.(inv).iso <- Some data;
+          ret (store,Some mph.id)
+        end
       | _ -> ret (store,None)
     end
   | _ -> ret (store,None)

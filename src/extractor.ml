@@ -26,6 +26,7 @@ let print_hyp : Environ.env -> Hyps.t
   let* (store,is_fce) = Hyps.parse_face name tp store in
   let* (store,_)      = Hyps.parse_mono name tp store in
   let* (store,_)      = Hyps.parse_epi  name tp store in
+  let* (store,_)      = Hyps.parse_iso  name tp store in
   (* The evar map may have been changed by the previous call, so we update it *)
   let* sigma = Proofview.tclEVARMAP in
   let cat = match is_cat with
