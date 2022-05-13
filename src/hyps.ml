@@ -305,9 +305,13 @@ let empty_context =
   ; morphisms  = [| |]
   ; faces      = [| |] }
 
+let comp_constr : Environ.env -> Evd.evar_map -> EConstr.t -> EConstr.t -> bool =
+  fun env sigma e1 e2 -> Reductionops.check_conv env sigma e1 e2
+
 let get_cat  = fun (cat : EConstr.t) store ->
+  let* env = Proofview.tclENV in
   let* sigma = Proofview.tclEVARMAP in
-  let id = array_find_id (fun(c : category) -> EConstr.eq_constr sigma cat c.obj) store.categories in
+  let id = array_find_id (fun(c : category) -> comp_constr env sigma cat c.obj) store.categories in
   match id with
   | Some id -> ret (id,store)
   | None -> let nid = Array.length store.categories in
@@ -320,10 +324,11 @@ let get_cat  = fun (cat : EConstr.t) store ->
          ; faces = store.faces })
 
 let get_elem = fun (cat : EConstr.t) elm store ->
+  let* env = Proofview.tclENV in
   let* sigma = Proofview.tclEVARMAP in
   let* (cid,store) = get_cat cat store in
   let cat = store.categories.(cid) in
-  let id = array_find_id (fun(e : elem) -> EConstr.eq_constr sigma elm e.obj) store.elems in
+  let id = array_find_id (fun(e : elem) -> comp_constr env sigma elm e.obj) store.elems in
   match id with
   | Some id -> ret (id,store)
   | None -> let nid = Array.length store.elems in
@@ -333,9 +338,10 @@ let get_elem = fun (cat : EConstr.t) elm store ->
          ; morphisms = store.morphisms
          ; faces = store.faces })
 
-let get_mph  = fun (mph : morphismData) store ->
+let get_mph = fun (mph : morphismData) store ->
+  let* env = Proofview.tclENV in
   let* sigma = Proofview.tclEVARMAP in
-  let id = array_find_id (fun(m : morphism) -> EConstr.eq_constr sigma mph.obj m.data.obj) store.morphisms in
+  let id = array_find_id (fun(m : morphism) -> comp_constr env sigma mph.obj m.data.obj) store.morphisms in
   match id with
   | Some id -> ret (id,store)
   | None ->
@@ -427,14 +433,15 @@ let rec normalize = fun (m : morphismData) store ->
     let* (mId,store) = get_mph m store in
     refl m >>= fun r -> ret ([store.morphisms.(mId)], r, store)
 
-let eq_face = fun sigma fce f ->
+let eq_face = fun env sigma fce f ->
   match f.obj.eq with
-  | Atom eq -> EConstr.eq_constr sigma fce eq
+  | Atom eq -> comp_constr env sigma fce eq
   | _ -> assert false
 
 let get_face = fun tp mph1 mph2 fce store ->
+  let* env = Proofview.tclENV in
   let* sigma = Proofview.tclEVARMAP in
-  let id = array_find_id (eq_face sigma fce) store.faces in
+  let id = array_find_id (eq_face env sigma fce) store.faces in
   match id with
   | Some id -> ret (id,store)
   | None ->
