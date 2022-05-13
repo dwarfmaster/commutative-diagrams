@@ -243,10 +243,6 @@ let rec processHooks : buildData -> face -> unit Proofview.tactic = fun data fac
       else addFace data fce
   end
 and addFace : buildData -> face -> unit Proofview.tactic = fun data face ->
-  let* pth1 = UnionFind.print_path face.side1 in
-  let* pth2 = UnionFind.print_path face.side2 in
-  let msg = Pp.str "Connecting: " ++ pth1 ++ Pp.str " with " ++ pth2 in
-  Feedback.msg_info msg;
   let* added = UF.connect face.side1 face.side2 face.eq data.union in
   if added then processHooks data face else ret ()
 
