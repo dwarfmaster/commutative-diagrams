@@ -7,11 +7,116 @@ let (>>=) = Proofview.tclBIND
 
 
 
+(*  ___                                      _     _                    *)
+(* |_ _|___  ___  _ __ ___   ___  _ __ _ __ | |__ (_)___ _ __ ___  ___  *)
+(*  | |/ __|/ _ \| '_ ` _ \ / _ \| '__| '_ \| '_ \| / __| '_ ` _ \/ __| *)
+(*  | |\__ \ (_) | | | | | | (_) | |  | |_) | | | | \__ \ | | | | \__ \ *)
+(* |___|___/\___/|_| |_| |_|\___/|_|  | .__/|_| |_|_|___/_| |_| |_|___/ *)
+(*                                    |_|                               *)
+(* Isomorphisms *)
+
+(* m1 -> m2 -> m3 -> m2 o m1 = 1 -> (m3 o m2) o m1 = m3 *)
+let simplify_iso : Hyps.morphismData -> Hyps.morphismData -> Hyps.morphismData
+  -> Hyps.eq -> Hyps.eq Proofview.tactic =
+  fun m1 m2 m3 p ->
+  (* m3 o (m2 o m1) = m3 o 1 *)
+  let* p_m3 = Hyps.refl m3 in
+  let* p_iso = Hyps.composeP p p_m3 in
+  (* (m3 o m2) o m1 = m3 o 1 *)
+  let* p_assoc = Hyps.assoc m1 m2 m3 in
+  let* p_assoc = Hyps.inv p_assoc in
+  let* p_iso = Hyps.concat p_assoc p_iso in
+  (* (m3 o m2) o m1 = m3 *)
+  let* p_id = Hyps.right_id m3 in
+  Hyps.concat p_iso p_id
+
+let rec normalize_iso : Hyps.morphism list -> (Hyps.morphism list * Hyps.eq) option Proofview.tactic =
+  fun lst ->
+  match lst with
+  | [] -> ret None
+  | m :: [] -> ret None
+  | m1 :: m2 :: [] ->
+    begin match m1.iso with
+      | Some iso when iso.mph.id = m2.id && iso.inv.id = m1.id ->
+        let* p_iso = Hyps.left_inv iso in
+        ret (Some ([],p_iso))
+      | Some iso when iso.mph.id = m1.id && iso.inv.id = m2.id ->
+        let* p_iso = Hyps.right_inv iso in
+        ret (Some ([],p_iso))
+      | _ -> ret None
+    end
+  | m1 :: m2 :: lst ->
+    begin match m1.iso with
+      | Some iso when iso.mph.id = m2.id && iso.inv.id = m1.id ->
+        let* m3 = Hyps.realize m1.data.tp.src (Hyps.extract lst) in
+        let* p_iso = Hyps.left_inv iso in
+        let* p_iso = simplify_iso m1.data m2.data m3 p_iso in
+        let* norm = normalize_iso lst in
+        (match norm with
+        | None -> ret (Some (lst,p_iso))
+        | Some (lst,p) -> let* p = Hyps.concat p_iso p in ret (Some (lst,p)))
+      | Some iso when iso.mph.id = m1.id && iso.inv.id = m2.id ->
+        let* m3 = Hyps.realize m1.data.tp.src (Hyps.extract lst) in
+        let* p_iso = Hyps.right_inv iso in
+        let* p_iso = simplify_iso m1.data m2.data m3 p_iso in
+        let* norm = normalize_iso lst in
+        (match norm with
+        | None -> ret (Some (lst,p_iso))
+        | Some (lst,p) -> let* p = Hyps.concat p_iso p in ret (Some (lst,p)))
+      | _ ->
+        let* norm = normalize_iso (m2 :: lst) in
+        match norm with
+        | None -> ret None
+        | Some (nlst,eq) ->
+          let* p_m1 = Hyps.refl m1.data in
+          let* p = Hyps.composeP p_m1 eq in
+          ret (Some (m1 :: lst, p))
+    end
+
+let normalize_iso_in_path : Hyps.path -> Hyps.path Proofview.tactic = fun pth ->
+  let* norm = normalize_iso pth.path in
+  match norm with
+  | None -> ret pth
+  | Some (lst,p) ->
+    ret { Hyps.mph = pth.mph
+        ; eq       = p
+        ; path     = lst
+        }
+
+let normalize_iso_in_face : Hyps.face -> Hyps.face Proofview.tactic = fun fce ->
+  let* side1 = normalize_iso_in_path fce.side1 in
+  let* side2 = normalize_iso_in_path fce.side2 in
+  ret { Hyps.tp = fce.tp
+      ; side1   = side1
+      ; side2   = side2
+      ; obj     = fce.obj
+      ; id      = fce.id
+      }
+
+let rec normalize_iso_in_faces : Hyps.face array -> int -> Hyps.face array Proofview.tactic = fun faces id ->
+  if id >= Array.length faces then ret faces
+  else begin
+    let* face = normalize_iso_in_face faces.(id) in
+    faces.(id) <- face;
+    normalize_iso_in_faces faces (id + 1)
+  end
+
+let normalize_iso_in_hyps : Hyps.t -> Hyps.t Proofview.tactic = fun hyps ->
+  let* faces = normalize_iso_in_faces hyps.faces 0 in
+  ret { Hyps.categories = hyps.categories
+      ; elems           = hyps.elems
+      ; morphisms       = hyps.morphisms
+      ; faces           = faces
+      }
+
+
+
 (*  _   _             _         *)
 (* | | | | ___   ___ | | _____  *)
 (* | |_| |/ _ \ / _ \| |/ / __| *)
 (* |  _  | (_) | (_) |   <\__ \ *)
 (* |_| |_|\___/ \___/|_|\_\___/ *)
+(* Hooks *)
 
 type face =
   { side1 : UF.path
@@ -167,6 +272,8 @@ type buildData =
   }
 
 let query = fun p1 p2 (store : t) ->
+  let* p1 = normalize_iso_in_path p1 in
+  let* p2 = normalize_iso_in_path p2 in
   let* r = UF.query_conn (UF.extract p1) (UF.extract p2) store.union in
   match r with
   | None -> ret None
@@ -254,6 +361,7 @@ let addEq : buildData -> Hyps.face -> unit Proofview.tactic = fun data face ->
     { side1 = UF.extract face.side1; side2 = UF.extract face.side2; eq = p }
 
 let build = fun hyps level ->
+  let* hyps = normalize_iso_in_hyps hyps in
   let* paths = mergePaths <$> enumerateAllPaths hyps level in
   let* union = UF.init (List.map UF.extract paths) in
   let hooks = List.concat

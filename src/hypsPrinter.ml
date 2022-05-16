@@ -51,7 +51,7 @@ let elem_graphviz = fun sigma env (elem : Hyps.elem) ->
   Pp.str "e" ++ Pp.int elem.id ++ Pp.str " [ label=\"" ++ ppe sigma env elem.obj ++ Pp.str "\"];"
 let mph_graphviz = fun sigma env (mph : Hyps.morphism) ->
   match mph.iso with
-  | Some data when data.inv = mph.id -> Pp.str ""
+  | Some data when data.inv.id = mph.id -> Pp.str ""
   | _ ->
     Pp.str "e" ++ Pp.int mph.data.tp.src.id ++ Pp.str " -> e" ++ Pp.int mph.data.tp.dst.id
     ++ Pp.str " [label=\"" ++ ppe sigma env mph.data.obj ++ Pp.str "\""

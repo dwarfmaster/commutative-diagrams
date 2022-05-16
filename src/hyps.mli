@@ -27,10 +27,10 @@ type morphismData =
   }
 type isoData =
   { obj : EConstr.t
-  ; mph : mph_id
-  ; inv : mph_id
+  ; mph : morphism
+  ; inv : morphism
   }
-type morphism =
+and morphism =
   { data : morphismData
   ; id   : mph_id
   ; mutable mono : EConstr.t option
@@ -109,6 +109,8 @@ val assoc : morphismData -> morphismData -> morphismData -> eq Proofview.tactic
 val left_id : morphismData -> eq Proofview.tactic
 (* m -> m o id = m *)
 val right_id : morphismData -> eq Proofview.tactic
+val right_inv : isoData -> eq Proofview.tactic
+val left_inv  : isoData -> eq Proofview.tactic
 val atom_eq : EConstr.t -> eqT
 val mono_eq : EConstr.t -> morphismData -> morphismData -> eq -> eqT
 val epi_eq : EConstr.t -> morphismData -> morphismData -> eq -> eqT
@@ -126,7 +128,7 @@ val get_elem : EConstr.t -> EConstr.t -> t -> (elem_id * t) Proofview.tactic
 val get_mph  : morphismData -> t -> (mph_id * t) Proofview.tactic
 (* TODO remove *)
 val repeat_assoc : morphismData list -> morphismData -> eq Proofview.tactic
-(* Split morphism along compositions, remove identities, and give equality *)
+(* Split morphism along compositions, remove identities and inversions, and give equality *)
 val normalize : morphismData -> t -> (morphism list * eq * t) Proofview.tactic
 val get_face : morphismT -> EConstr.t -> EConstr.t -> EConstr.t -> t -> (face_id * t) Proofview.tactic
 

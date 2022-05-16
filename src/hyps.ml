@@ -29,10 +29,10 @@ type morphismData =
   }
 type isoData =
   { obj : EConstr.t
-  ; mph : mph_id
-  ; inv : mph_id
+  ; mph : morphism
+  ; inv : morphism
   }
-type morphism =
+and morphism =
   { data : morphismData
   ; id   : mph_id
   ; mutable mono : EConstr.t option
@@ -183,6 +183,34 @@ let right_id = fun (m : morphismData) ->
       ; dst = m
       ; tp  = m.tp
       ; eq  = RightId m }
+
+let right_inv = fun (iso : isoData) ->
+  let mph = iso.mph in
+  let inv = iso.inv in
+  let* id = identity mph.data.tp.src  in
+  let* c  = compose mph.data inv.data in
+  let* eq = Env.app (Env.mk_right_inv ())
+      [| mph.data.tp.category.obj; mph.data.tp.src.obj; mph.data.tp.dst.obj
+       ; mph.data.obj; iso.obj |] in
+  ret { src = c
+      ; dst = id
+      ; tp  = id.tp
+      ; eq  = Atom eq
+      }
+
+let left_inv = fun (iso : isoData) ->
+  let mph = iso.mph in
+  let inv = iso.inv in
+  let* id = identity mph.data.tp.dst  in
+  let* c  = compose inv.data mph.data in
+  let* eq = Env.app (Env.mk_left_inv ())
+      [| mph.data.tp.category.obj; mph.data.tp.src.obj; mph.data.tp.dst.obj
+       ; mph.data.obj; iso.obj |] in
+  ret { src = c
+      ; dst = id
+      ; tp  = id.tp
+      ; eq  = Atom eq
+      }
 
 let atom_eq = fun ec -> Atom ec
 
@@ -632,8 +660,8 @@ let parse_iso = fun name iso store ->
             } store in
         let data =
           { obj = hypo
-          ; mph = mph.id
-          ; inv = inv
+          ; mph = mph
+          ; inv = store.morphisms.(inv)
           } in
         begin
           mph.iso <- Some data;

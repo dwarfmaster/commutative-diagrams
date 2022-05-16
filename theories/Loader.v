@@ -28,10 +28,20 @@ Definition r_ap (C : PreCategory) (a b c : C) (m : morphism C a b) (m1 m2 : morp
 Definition l_ap (C : PreCategory) (a b c : C) (m1 m2 : morphism C a b) (m : morphism C b c) :
   m1 = m2 -> m o m1 = m o m2 := fun p => ap (fun m' => m o m') p.
 
+Definition mph_inv (C : PreCategory) (a b : C) (m : morphism C a b) (H : IsIsomorphism m) :
+  morphism C b a := @morphism_inverse C a b m H.
+Definition right_inv (C : PreCategory) (a b : C) (m : morphism C a b) (H : IsIsomorphism m) :
+  m^-1 o m = 1 :=
+  @left_inverse C a b m H.
+Definition left_inv (C : PreCategory) (a b : C) (m : morphism C a b) (H : IsIsomorphism m) :
+  m o m^-1 = 1 :=
+  @right_inverse C a b m H.
+
 Ltac reify_hyp H :=
   unfold mphT in H; unfold comp in H; unfold compose_eq in H; unfold assoc in H;
   unfold id in H; unfold left_id in H; unfold right_id in H;
-  unfold r_ap in H; unfold l_ap in H.
+  unfold r_ap in H; unfold l_ap in H;
+  unfold mph_inv in H; unfold right_inv in H; unfold left_inv in H.
 
 Lemma test_concat (C : PreCategory) (a b : C) (m1 m2 m3 : morphism C a b)
       (H12 : 1 o m1 = m2 o 1) (H32 : 1 o m3 o 1 = m2) : m1 = m3.
