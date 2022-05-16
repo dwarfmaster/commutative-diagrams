@@ -9,7 +9,10 @@ type cell =
 module OrderedPaths = struct
   type t = path
   let compareMphs = fun (m1 : Hyps.morphism) (m2 : Hyps.morphism) -> m1.id - m2.id
-  let compare = fun (p1 : path) (p2 : path) -> List.compare compareMphs (snd p1) (snd p2)
+  let compare = fun (p1 : path) (p2 : path) ->
+    if (fst p1).id = (fst p2).id
+    then List.compare compareMphs (snd p1) (snd p2)
+    else (fst p1).id - (fst p2).id
 end
 module M = struct
   include Map.Make(OrderedPaths)

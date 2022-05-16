@@ -79,7 +79,7 @@ let extract_goal : Proofview.Goal.t -> Pp.t Proofview.tactic = fun goal ->
   let* (store,obj) = Hyps.read_face goal store in
   let ppconcl = Pp.str "Focusing goal" ++ ppconstr goal ++ Pp.fnl () in
   let pp = ppconcl ++ Pp.pr_vertical_list (fun h -> h) ctx ++ HP.to_graphviz sigma env store in
-  let* commuter = Commutation.build store 5 in
+  let* commuter = Commutation.build store 6 in
   match obj with
   | None -> Proofview.tclUNIT pp
   | Some (side1,side2) ->

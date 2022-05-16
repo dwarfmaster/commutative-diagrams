@@ -91,9 +91,23 @@ Proof.
 Defined.
 
 Lemma test_id (C : PreCategory) (a b c d : C)
-      (i1 : morphism C a b) (i2 : morphism C b a) (Hi : i1 o i2 = 1)
       (j1 : morphism C c d) (j2 : morphism C d c) (Hj : j2 o j1 = 1)
+      (i1 : morphism C a b) (i2 : morphism C b a) (Hi : i1 o i2 = 1)
       (m : morphism C b c) : m = j2 o j1 o m o i1 o i2.
+Proof.
+  print_diagram "test"; reify_hyp Hsolv. exact Hsolv.
+Defined.
+
+Lemma test_basic_iso_r (C : PreCategory) (a b c : C)
+      (iso : morphism C a b) (Hiso : IsIsomorphism iso) :
+  iso o iso^-1 = 1.
+Proof.
+  print_diagram "test"; reify_hyp Hsolv. exact Hsolv.
+Defined.
+
+Lemma test_basic_iso_l (C : PreCategory) (a b c : C)
+      (iso : morphism C a b) (Hiso : IsIsomorphism iso) :
+  iso^-1 o iso = 1.
 Proof.
   print_diagram "test"; reify_hyp Hsolv. exact Hsolv.
 Defined.
@@ -102,9 +116,7 @@ Lemma test_iso (C : PreCategory) (a b c d : C)
       (iso1 : morphism C a b) (iso2 : morphism C c d)
       (m1 : morphism C a c) (m2 : morphism C b d)
       (Hiso1 : IsIsomorphism iso1) (Hiso2 : IsIsomorphism iso2)
-      (H : (morphism_inverse iso2) o m2 o iso1 = m1) : m2 o iso1 = iso2 o m1.
+      (H : iso2^-1 o m2 o iso1 = m1) : m2 o iso1 = iso2 o m1.
 Proof.
-  assert (iso2 o iso2^-1 = 1) by (apply right_inverse).
   print_diagram "test". reify_hyp Hsolv. exact Hsolv.
 Defined.
-Print test_iso.

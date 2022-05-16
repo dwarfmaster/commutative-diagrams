@@ -5,7 +5,11 @@ let ret = Proofview.tclUNIT
 let (<$>) = fun f x -> Proofview.tclBIND x (fun x -> ret (f x))
 let (>>=) = Proofview.tclBIND
 
-
+type face =
+  { side1 : UF.path
+  ; side2 : UF.path
+  ; eq    : Hyps.eq
+  }
 
 (*  ___                                      _     _                    *)
 (* |_ _|___  ___  _ __ ___   ___  _ __ _ __ | |__ (_)___ _ __ ___  ___  *)
@@ -67,7 +71,13 @@ let rec normalize_iso : Hyps.morphism list -> (Hyps.morphism list * Hyps.eq) opt
         let* norm = normalize_iso (m2 :: lst) in
         match norm with
         | None -> ret None
-        | Some (nlst,eq) ->
+        | Some ([],eq) ->
+          let* p_m1 = Hyps.refl m1.data in
+          let* p = Hyps.composeP p_m1 eq in
+          let* p_id = Hyps.left_id m1.data in
+          let* p = Hyps.concat p p_id in
+          ret (Some ([m1], p))
+        | Some (lst,eq) ->
           let* p_m1 = Hyps.refl m1.data in
           let* p = Hyps.composeP p_m1 eq in
           ret (Some (m1 :: lst, p))
@@ -78,6 +88,7 @@ let normalize_iso_in_path : Hyps.path -> Hyps.path Proofview.tactic = fun pth ->
   match norm with
   | None -> ret pth
   | Some (lst,p) ->
+    let* p = Hyps.concat pth.eq p in
     ret { Hyps.mph = pth.mph
         ; eq       = p
         ; path     = lst
@@ -93,20 +104,26 @@ let normalize_iso_in_face : Hyps.face -> Hyps.face Proofview.tactic = fun fce ->
       ; id      = fce.id
       }
 
-let rec normalize_iso_in_faces : Hyps.face array -> int -> Hyps.face array Proofview.tactic = fun faces id ->
-  if id >= Array.length faces then ret faces
-  else begin
-    let* face = normalize_iso_in_face faces.(id) in
-    faces.(id) <- face;
-    normalize_iso_in_faces faces (id + 1)
-  end
-
-let normalize_iso_in_hyps : Hyps.t -> Hyps.t Proofview.tactic = fun hyps ->
-  let* faces = normalize_iso_in_faces hyps.faces 0 in
-  ret { Hyps.categories = hyps.categories
-      ; elems           = hyps.elems
-      ; morphisms       = hyps.morphisms
-      ; faces           = faces
+let normalize_iso_for_hook : face -> face Proofview.tactic =
+  fun face ->
+  let* norm1 = normalize_iso (snd face.side1) in
+  let* norm2 = normalize_iso (snd face.side2) in
+  let* (side1,p) =
+    match norm1 with
+    | None -> ret (snd face.side1, face.eq)
+    | Some (side,eq) ->
+      let* eq = Hyps.inv eq in
+      let* p = Hyps.concat eq face.eq in
+      ret (side,p) in
+  let* (side2,p) =
+    match norm2 with
+    | None -> ret (snd face.side2, p)
+    | Some (side,eq) ->
+      let* p = Hyps.concat p eq in
+      ret (side,p) in
+  ret { side1 = (fst face.side1,side1)
+      ; side2 = (fst face.side2,side2)
+      ; eq = p
       }
 
 
@@ -118,11 +135,6 @@ let normalize_iso_in_hyps : Hyps.t -> Hyps.t Proofview.tactic = fun hyps ->
 (* |_| |_|\___/ \___/|_|\_\___/ *)
 (* Hooks *)
 
-type face =
-  { side1 : UF.path
-  ; side2 : UF.path
-  ; eq    : Hyps.eq
-  }
 type hook = face -> face option Proofview.tactic
 
 (* Precompose hook *)
@@ -312,6 +324,7 @@ let idPath : Hyps.elem -> Hyps.path Proofview.tactic = fun e ->
       ; eq       = r
       ; path     = [ ]
       }
+(* Remove non-normal paths from enumeration *)
 let rec enumerateAllPaths : Hyps.t -> int -> pathEnumeration Proofview.tactic = fun store level ->
   if level <= 0 then begin
     let res = Array.make (Array.length store.elems) [] in
@@ -344,14 +357,15 @@ let rec processHooks : buildData -> face -> unit Proofview.tactic = fun data fac
     let* res = hook face in
     match res with
     | None -> ret ()
-    | Some fce -> if List.length (snd face.side1) >= data.level
-                  || List.length (snd face.side2) >= data.level
-      then ret ()
-      else addFace data fce
+    | Some fce -> addFace data fce
   end
 and addFace : buildData -> face -> unit Proofview.tactic = fun data face ->
-  let* added = UF.connect face.side1 face.side2 face.eq data.union in
-  if added then processHooks data face else ret ()
+  let* face = normalize_iso_for_hook face in
+  if List.length (snd face.side1) >= data.level || List.length (snd face.side2) >= data.level
+  then ret ()
+  else
+    let* added = UF.connect face.side1 face.side2 face.eq data.union in
+    if added then processHooks data face else ret ()
 
 let addEq : buildData -> Hyps.face -> unit Proofview.tactic = fun data face ->
   let* p1 = Hyps.inv face.side1.eq in
@@ -361,7 +375,6 @@ let addEq : buildData -> Hyps.face -> unit Proofview.tactic = fun data face ->
     { side1 = UF.extract face.side1; side2 = UF.extract face.side2; eq = p }
 
 let build = fun hyps level ->
-  let* hyps = normalize_iso_in_hyps hyps in
   let* paths = mergePaths <$> enumerateAllPaths hyps level in
   let* union = UF.init (List.map UF.extract paths) in
   let hooks = List.concat
