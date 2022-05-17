@@ -301,14 +301,18 @@ let singlePath : Hyps.morphism -> Hyps.path Proofview.tactic = fun m ->
       ; eq       = r
       ; path     = [ m ]
       }
-let precomposePath : Hyps.morphism -> Hyps.path -> Hyps.path Proofview.tactic = fun mph path ->
+let precomposePath : Hyps.morphism -> Hyps.path -> Hyps.path option Proofview.tactic = fun mph path ->
   match path.path with
-  | [] -> singlePath mph
-  | _ ->
-    let* c  = Hyps.compose mph.data path.mph in
-    let* r  = Hyps.refl mph.data in
-    let* eq = Hyps.composeP r path.eq in
-    ret { Hyps.mph = c; eq = eq; path = mph :: path.path }
+  | [] -> let* s = singlePath mph in ret (Some s)
+  | m :: _ ->
+    match mph.iso with
+    | Some iso when (iso.mph.id = mph.id && iso.inv.id = m.id)
+                 || (iso.mph.id = m.id   && iso.inv.id = mph.id) -> ret None
+    | _ ->
+      let* c  = Hyps.compose mph.data path.mph in
+      let* r  = Hyps.refl mph.data in
+      let* eq = Hyps.composeP r path.eq in
+      ret (Some { Hyps.mph = c; eq = eq; path = mph :: path.path })
 
 let forM : 'a array -> ('a -> unit Proofview.tactic) -> unit Proofview.tactic = fun arr body ->
   Array.fold_left (fun m x -> Proofview.tclTHEN m (body x)) (Proofview.tclUNIT ()) arr
@@ -324,7 +328,6 @@ let idPath : Hyps.elem -> Hyps.path Proofview.tactic = fun e ->
       ; eq       = r
       ; path     = [ ]
       }
-(* Remove non-normal paths from enumeration *)
 let rec enumerateAllPaths : Hyps.t -> int -> pathEnumeration Proofview.tactic = fun store level ->
   if level <= 0 then begin
     let res = Array.make (Array.length store.elems) [] in
@@ -337,12 +340,14 @@ let rec enumerateAllPaths : Hyps.t -> int -> pathEnumeration Proofview.tactic = 
       (ret res)
   end else begin
     let* sub = enumerateAllPaths store (level - 1) in
-    let res = Array.init (Array.length sub) (fun i -> sub.(i)) in
+    let res = Array.copy sub in
     Proofview.tclTHEN
       (forM store.morphisms begin fun mph ->
           forM' sub.(mph.data.tp.dst.id) begin fun pth ->
             let* pth = precomposePath mph pth in
-            res.(mph.data.tp.src.id) <- pth :: res.(mph.data.tp.src.id);
+            (match pth with
+            | Some pth -> res.(mph.data.tp.src.id) <- pth :: res.(mph.data.tp.src.id)
+            | None -> ());
             ret ()
           end
         end)
