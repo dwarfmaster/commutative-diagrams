@@ -2,20 +2,17 @@ DECLARE PLUGIN "diagrams_plugin"
 
 {
 
-open Pp
 open Ltac_plugin
 open Stdarg
 
 }
 
-TACTIC EXTEND hello_world_tactic
-| [ "hello" ] ->
-  { let _ = Feedback.msg_notice (strbrk Main.message) in
-    Tacticals.tclIDTAC }
+TACTIC EXTEND diagram
+| [ "diagram" "print" string(file) ] ->
+  { Extractor.extract file }
+| [ "diagram" "norm" ] ->
+  { Extractor.normalize () }
+| [ "diagram" "solve" ] ->
+  { Extractor.solve () }
 END
 
-TACTIC EXTEND diagram_print
-| [ "print_diagram" string(file) ] ->
-  { Extractor.extract file
-  }
-END
