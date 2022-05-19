@@ -4,6 +4,7 @@ let (let*) = Proofview.tclBIND
 let ret = Proofview.tclUNIT
 let (<$>) = fun f x -> Proofview.tclBIND x (fun x -> ret (f x))
 let (>>=) = Proofview.tclBIND
+let (++) = Pp.(++)
 
 type face =
   { side1 : UF.path
@@ -314,12 +315,31 @@ let precomposePath : Hyps.morphism -> Hyps.path -> Hyps.path option Proofview.ta
       let* eq = Hyps.composeP r path.eq in
       ret (Some { Hyps.mph = c; eq = eq; path = mph :: path.path })
 
-let forM : 'a array -> ('a -> unit Proofview.tactic) -> unit Proofview.tactic = fun arr body ->
-  Array.fold_left (fun m x -> Proofview.tclTHEN m (body x)) (Proofview.tclUNIT ()) arr
-let forM' : 'a list -> ('a -> unit Proofview.tactic) -> unit Proofview.tactic = fun lst body ->
-  List.fold_left (fun m x -> Proofview.tclTHEN m (body x)) (Proofview.tclUNIT ()) lst
+module Array = struct
+  include Array
+  let rec forM' : 'a array -> int -> ('a -> unit Proofview.tactic) -> unit Proofview.tactic = fun arr i body ->
+    if i >= length arr then ret ()
+    else
+      let* _ = body arr.(i) in
+      forM' arr (i + 1) body
+  let forM : 'a array -> ('a -> unit Proofview.tactic) -> unit Proofview.tactic = fun arr body -> forM' arr 0 body
+end
 
-(* All paths, sorted by the index of their starting element *)
+module List = struct
+  include List
+  let rec forM : 'a list -> ('a -> unit Proofview.tactic) -> unit Proofview.tactic = fun lst body ->
+    match lst with
+    | [] -> ret ()
+    | x :: lst ->
+      let* _ = body x in
+      forM lst body
+end
+
+(* last is included *)
+let forEnum : int -> int -> (int -> unit Proofview.tactic) -> unit Proofview.tactic = fun first last body ->
+  List.forM (List.init (last - first + 1) (fun n -> n + first)) body
+
+(* All paths, sorted by the index of their starting element and size *)
 type pathEnumeration = Hyps.path list array
 let idPath : Hyps.elem -> Hyps.path Proofview.tactic = fun e ->
   let* mph = Hyps.realize e [] in
@@ -328,37 +348,38 @@ let idPath : Hyps.elem -> Hyps.path Proofview.tactic = fun e ->
       ; eq       = r
       ; path     = [ ]
       }
-let rec enumerateAllPaths : Hyps.t -> int -> pathEnumeration Proofview.tactic = fun store level ->
-  if level <= 0 then begin
-    let res = Array.make (Array.length store.elems) [] in
-    Proofview.tclTHEN
-      (forM store.elems begin fun elem ->
-          let* p = idPath elem in
-          res.(elem.id) <- p :: res.(elem.id);
+
+let enumerateAllPaths : Hyps.t -> int -> pathEnumeration Proofview.tactic = fun store level ->
+  let lvlC = Array.length store.elems in
+  let res = Array.make (lvlC * (level + 1)) [] in
+  let* _ = Array.forM store.elems begin fun elem ->
+      let* p = idPath elem in
+      res.(elem.id) <- [ p ];
+      ret ()
+    end in
+  let* sigma = Proofview.tclEVARMAP in
+  let* env = Proofview.tclENV in
+  let* _ =
+    forEnum 0 (level-1) begin fun lvl ->
+      Array.forM store.morphisms begin fun mph ->
+        let s = mph.data.tp.src.id in
+        let d = mph.data.tp.dst.id in
+        List.forM res.(d + lvl*lvlC) begin fun pth ->
+          let* pth = precomposePath mph pth in
+          (match pth with
+           | Some pth ->
+             res.(s + (lvl+1)*lvlC) <- pth :: res.(s + (lvl+1)*lvlC);
+           | None -> ());
           ret ()
-        end)
-      (ret res)
-  end else begin
-    let* sub = enumerateAllPaths store (level - 1) in
-    let res = Array.copy sub in
-    Proofview.tclTHEN
-      (forM store.morphisms begin fun mph ->
-          forM' sub.(mph.data.tp.dst.id) begin fun pth ->
-            let* pth = precomposePath mph pth in
-            (match pth with
-            | Some pth -> res.(mph.data.tp.src.id) <- pth :: res.(mph.data.tp.src.id)
-            | None -> ());
-            ret ()
-          end
-        end)
-      (ret res)
-  end
+        end
+      end
+    end in
+  ret res
 let mergePaths : pathEnumeration -> Hyps.path list = fun enum ->
   Array.fold_right (fun lst paths -> List.append lst paths) enum []
 
-let (++) = Pp.(++)
 let rec processHooks : buildData -> face -> unit Proofview.tactic = fun data face ->
-  forM' data.hooks begin fun hook ->
+  List.forM data.hooks begin fun hook ->
     let* res = hook face in
     match res with
     | None -> ret ()
@@ -390,7 +411,7 @@ let build = fun hyps level ->
     ] in
   let data = { union = union; hooks = hooks; level = level } in
   Proofview.tclTHEN
-    (forM hyps.faces (addEq data))
+    (Array.forM hyps.faces (addEq data))
     (ret { union = union
          ; paths = paths
          ; hyps  = hyps
