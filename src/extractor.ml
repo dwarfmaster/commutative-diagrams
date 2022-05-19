@@ -72,19 +72,44 @@ let extract' : string -> Proofview.Goal.t -> unit Proofview.tactic = fun path go
   Tacticals.tclIDTAC
 let extract : string -> unit Proofview.tactic = fun path -> Proofview.Goal.enter_one (extract' path)
 
+let hole : Environ.env -> EConstr.t -> EConstr.t Proofview.tactic = fun env tp ->
+  let* sigma = Proofview.tclEVARMAP in
+  let (sigma,hole) = Evarutil.new_evar ~principal:true env sigma tp in
+  let* _ = Proofview.Unsafe.tclEVARS sigma in
+  ret hole
+
+let eqT : Hyps.path -> Hyps.path -> EConstr.t Proofview.tactic = fun side1 side2 ->
+  let* side1 = Hyps.rpath side1 in
+  let* side2 = Hyps.rpath side2 in
+  Hyps.eqT side1 side2
+
+let eqHole : Environ.env -> Hyps.path -> Hyps.path -> Hyps.eq Proofview.tactic = fun env side1 side2 ->
+  let* pth1 = Hyps.rpath side1 in
+  let* pth2 = Hyps.rpath side2 in
+  let* tp = Hyps.eqT pth1 pth2 in
+  let* hl = hole env tp in
+  let hl = Hyps.atom_eq hl in
+  ret { Hyps.src = pth1
+      ; dst      = pth2
+      ; tp       = side1.mph.tp
+      ; eq       = hl
+      }
+
 let normalize' : Proofview.Goal.t -> unit Proofview.tactic = fun goal ->
   let* (store,obj) = extract_hyps goal in
   match obj with
   | None -> Tacticals.tclFAIL 0 (Pp.str "Goal is not a face")
   | Some (side1,side2) ->
     let env = Proofview.Goal.env goal in
-    let* eq1 = Hyps.real_eq side1.eq in
-    let* eq1 = add_universes_constraints env eq1 in
-    let* eq2 = Hyps.real_eq side2.eq in
-    let* eq2 = add_universes_constraints env eq2 in
-    let* _ = Tactics.pose_tac (name "H1") eq1 in
-    let* _ = Tactics.pose_tac (name "H2") eq2 in
-    Tacticals.tclIDTAC
+    let* side1 = Commutation.normalize_iso_in_path side1 in
+    let* side2 = Commutation.normalize_iso_in_path side2 in
+    let* eq2 = Hyps.inv side2.eq in
+    let* ngl = eqHole env side1 side2 in
+    let* ngl = Hyps.concat side1.eq ngl in
+    let* ngl = Hyps.concat ngl eq2 in
+    let* ngl = Hyps.real_eq ngl in
+    let* ngl = add_universes_constraints env ngl in
+    Refine.refine ~typecheck:false (fun sigma -> (sigma, ngl))
 let normalize : unit -> unit Proofview.tactic = fun _ -> Proofview.Goal.enter_one normalize'
 
 let solve' : int -> Proofview.Goal.t -> unit Proofview.tactic = fun level goal ->
@@ -100,6 +125,5 @@ let solve' : int -> Proofview.Goal.t -> unit Proofview.tactic = fun level goal -
       let env = Proofview.Goal.env goal in
       let* eq = Hyps.real_eq eq in
       let* eq = add_universes_constraints env eq in
-      let* _ = Tactics.pose_tac (name "Hsolv") eq in
-      Tacticals.tclIDTAC
+      Refine.refine ~typecheck:false (fun sigma -> (sigma, eq))
 let solve : int -> unit Proofview.tactic = fun level -> Proofview.Goal.enter_one (solve' level)

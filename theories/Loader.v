@@ -42,11 +42,16 @@ Ltac reify_hyp H :=
   unfold id in H; unfold left_id in H; unfold right_id in H;
   unfold r_ap in H; unfold l_ap in H;
   unfold mph_inv in H; unfold right_inv in H; unfold left_inv in H.
+Ltac reify :=
+  unfold mphT; unfold comp; unfold compose_eq; unfold assoc;
+  unfold id; unfold left_id; unfold right_id;
+  unfold r_ap; unfold l_ap;
+  unfold mph_inv; unfold right_inv; unfold left_inv.
 
 Lemma test_concat (C : PreCategory) (a b : C) (m1 m2 m3 : morphism C a b)
       (H12 : 1 o m1 = m2 o 1) (H32 : 1 o m3 o 1 = m2) : m1 = m3.
 Proof.
-  diagram print "test". diagram solve; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve.
 Defined.
 
 Lemma test_context (C : PreCategory) (a b c d : C)
@@ -55,7 +60,7 @@ Lemma test_context (C : PreCategory) (a b c d : C)
       (Hac : mac o 1 o 1 o 1 = mbc o 1 o mab) (Had : mad o 1 = mcd o mac) :
   1 o mad o 1 = (mcd o 1) o (mbc o (1 o 1 o mab) o 1).
 Proof.
-  diagram print "test". diagram solve; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve.
 Defined.
 
 Lemma test_mono (C : PreCategory) (a b c : C)
@@ -63,7 +68,7 @@ Lemma test_mono (C : PreCategory) (a b c : C)
       (Hmono : IsMonomorphism mono) (H : mono o m1 = mono o m2) :
   m1 = m2.
 Proof.
-  diagram print "test". diagram solve; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve.
 Defined.
 
 Lemma test_epi (C : PreCategory) (a b c : C)
@@ -71,7 +76,7 @@ Lemma test_epi (C : PreCategory) (a b c : C)
       (Hepi : IsEpimorphism epi) (H : m1 o epi = m2 o epi) :
   m1 = m2.
 Proof.
-  diagram print "test". diagram solve; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve.
 Defined.
 
 Lemma test_id_l (C : PreCategory) (a b c : C)
@@ -79,7 +84,7 @@ Lemma test_id_l (C : PreCategory) (a b c : C)
       (m : morphism C a b) (H : i2 o i1 = 1) :
   m = i2 o i1 o m.
 Proof.
-  diagram print "test". diagram solve; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve.
 Defined.
 
 Lemma test_id_r (C : PreCategory) (a b c : C)
@@ -87,7 +92,7 @@ Lemma test_id_r (C : PreCategory) (a b c : C)
       (m : morphism C b c) (H : i1 o i2 = 1) :
   m = m o i1 o i2.
 Proof.
-  diagram print "test". diagram solve; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve.
 Defined.
 
 Lemma test_id (C : PreCategory) (a b c d : C)
@@ -95,21 +100,21 @@ Lemma test_id (C : PreCategory) (a b c d : C)
       (i1 : morphism C a b) (i2 : morphism C b a) (Hi : i1 o i2 = 1)
       (m : morphism C b c) : m = j2 o j1 o m o i1 o i2.
 Proof.
-  diagram print "test". diagram solve 6; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve 6.
 Defined.
 
 Lemma test_basic_iso_r (C : PreCategory) (a b c : C)
       (iso : morphism C a b) (Hiso : IsIsomorphism iso) :
   iso o iso^-1 = 1.
 Proof.
-  diagram print "test". diagram solve 2; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve 0.
 Defined.
 
 Lemma test_basic_iso_l (C : PreCategory) (a b c : C)
       (iso : morphism C a b) (Hiso : IsIsomorphism iso) :
   iso^-1 o iso = 1.
 Proof.
-  diagram print "test". diagram solve 2; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve 0.
 Defined.
 
 Lemma test_iso (C : PreCategory) (a b c d : C)
@@ -118,5 +123,14 @@ Lemma test_iso (C : PreCategory) (a b c d : C)
       (Hiso1 : IsIsomorphism iso1) (Hiso2 : IsIsomorphism iso2)
       (H : iso2^-1 o m2 o iso1 = m1) : m2 o iso1 = iso2 o m1.
 Proof.
-  diagram print "test". diagram solve; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve.
+Defined.
+
+Lemma test_norm (C : PreCategory) (a b c d : C)
+      (iso1 : morphism C a b) (m : morphism C b c) (iso2 : morphism C c d)
+      (H1 : IsIsomorphism iso1) (H2 : IsIsomorphism iso2) :
+  (iso2^-1 o (iso2 o 1 o 1) o m) o (1 o (1 o iso1) o iso1^-1 o iso1) =
+    m o iso1.
+Proof.
+  diagram print "test". unshelve (diagram norm); reify. reflexivity.
 Defined.
