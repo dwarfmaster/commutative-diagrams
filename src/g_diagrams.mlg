@@ -12,7 +12,9 @@ TACTIC EXTEND diagram
   { Extractor.extract file }
 | [ "diagram" "norm" ] ->
   { Extractor.normalize () }
+| [ "diagram" "solve" int(n) ] ->
+  { Extractor.solve n }
 | [ "diagram" "solve" ] ->
-  { Extractor.solve () }
+  { Extractor.solve 5 }
 END
 

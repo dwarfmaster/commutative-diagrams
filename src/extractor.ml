@@ -52,44 +52,16 @@ let add_universes_constraints : Environ.env -> EConstr.t -> EConstr.t Proofview.
     (Proofview.tclUNIT c)
 
 let extract_hyps : Proofview.Goal.t
-  -> (Hyps.t * (Hyps.path*Hyps.path) option * Environ.env) Proofview.tactic = fun goal ->
+  -> (Hyps.t * (Hyps.path*Hyps.path) option) Proofview.tactic = fun goal ->
   let store = Hyps.empty_context in
-  (* let sigma = Tacmach.project goal in *)
   let env   = Proofview.Goal.env goal in
   let context = Proofview.Goal.hyps goal in
   let goal = Proofview.Goal.concl goal in
   let* store = fold_leftM (extract_hyp env) store context in
-  let* (store,obj) = Hyps.read_face goal store in
-  ret (store,obj,env)
+  Hyps.read_face goal store
 
-  (* let* (store,obj) = Hyps.read_face goal store in *)
-  (* let pp = HP.to_graphviz sigma env store in *)
-  (* let* commuter = Commutation.build store 6 in *)
-  (* match obj with *)
-  (* | None -> Proofview.tclUNIT pp *)
-  (* | Some (side1,side2) -> *)
-  (*   let* sol = Commutation.query side1 side2 commuter in *)
-  (*   match sol with *)
-  (*   | None -> *)
-  (*     let* eq1 = Hyps.real_eq side1.eq in *)
-  (*     let* eq1 = add_universes_constraints env eq1 in *)
-  (*     let* eq2 = Hyps.real_eq side2.eq in *)
-  (*     let* eq2 = add_universes_constraints env eq2 in *)
-  (*     Proofview.tclTHEN *)
-  (*       (Tactics.pose_tac (name "H1") eq1) *)
-  (*       (Proofview.tclTHEN *)
-  (*          (Tactics.pose_tac (name "H2") eq2) *)
-  (*          (Proofview.tclUNIT pp)) *)
-  (*   | Some eq -> *)
-  (*     let* eq = Hyps.real_eq eq in *)
-  (*     let* eq = add_universes_constraints env eq in *)
-  (*     Proofview.tclTHEN *)
-  (*       (Tactics.pose_tac (name "Hsolv") eq) *)
-  (*       (Proofview.tclUNIT pp) *)
-
-
-let extract : string -> unit Proofview.tactic = fun path ->
-  let* (store,_,_) = Proofview.Goal.enter_one extract_hyps in
+let extract' : string -> Proofview.Goal.t -> unit Proofview.tactic = fun path goal ->
+  let* (store,_) = extract_hyps goal in
   let* sigma = Proofview.tclEVARMAP in
   let* env = Proofview.tclENV in
   let pp = HP.to_graphviz sigma env store in
@@ -98,12 +70,14 @@ let extract : string -> unit Proofview.tactic = fun path ->
   flush oc;
   close_out oc;
   Tacticals.tclIDTAC
+let extract : string -> unit Proofview.tactic = fun path -> Proofview.Goal.enter_one (extract' path)
 
-let normalize : unit -> unit Proofview.tactic = fun _ ->
-  let* (store,obj,env) = Proofview.Goal.enter_one extract_hyps in
+let normalize' : Proofview.Goal.t -> unit Proofview.tactic = fun goal ->
+  let* (store,obj) = extract_hyps goal in
   match obj with
   | None -> Tacticals.tclFAIL 0 (Pp.str "Goal is not a face")
   | Some (side1,side2) ->
+    let env = Proofview.Goal.env goal in
     let* eq1 = Hyps.real_eq side1.eq in
     let* eq1 = add_universes_constraints env eq1 in
     let* eq2 = Hyps.real_eq side2.eq in
@@ -111,18 +85,21 @@ let normalize : unit -> unit Proofview.tactic = fun _ ->
     let* _ = Tactics.pose_tac (name "H1") eq1 in
     let* _ = Tactics.pose_tac (name "H2") eq2 in
     Tacticals.tclIDTAC
+let normalize : unit -> unit Proofview.tactic = fun _ -> Proofview.Goal.enter_one normalize'
 
-let solve : unit -> unit Proofview.tactic = fun _ ->
-  let* (store,obj,env) = Proofview.Goal.enter_one extract_hyps in
+let solve' : int -> Proofview.Goal.t -> unit Proofview.tactic = fun level goal ->
+  let* (store,obj) = extract_hyps goal in
   match obj with
   | None -> Tacticals.tclFAIL 0 (Pp.str "Goal is not a face")
   | Some (side1,side2) ->
-    let* commuter = Commutation.build store 6 in
+    let* commuter = Commutation.build store level in
     let* sol = Commutation.query side1 side2 commuter in
     match sol with
     | None -> Tacticals.tclFAIL 0 (Pp.str "Couldn't make goal commute")
     | Some eq ->
+      let env = Proofview.Goal.env goal in
       let* eq = Hyps.real_eq eq in
       let* eq = add_universes_constraints env eq in
       let* _ = Tactics.pose_tac (name "Hsolv") eq in
       Tacticals.tclIDTAC
+let solve : int -> unit Proofview.tactic = fun level -> Proofview.Goal.enter_one (solve' level)

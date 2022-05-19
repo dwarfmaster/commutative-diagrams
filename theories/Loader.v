@@ -95,21 +95,21 @@ Lemma test_id (C : PreCategory) (a b c d : C)
       (i1 : morphism C a b) (i2 : morphism C b a) (Hi : i1 o i2 = 1)
       (m : morphism C b c) : m = j2 o j1 o m o i1 o i2.
 Proof.
-  diagram print "test". diagram solve; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve 6; reify_hyp Hsolv. exact Hsolv.
 Defined.
 
 Lemma test_basic_iso_r (C : PreCategory) (a b c : C)
       (iso : morphism C a b) (Hiso : IsIsomorphism iso) :
   iso o iso^-1 = 1.
 Proof.
-  diagram print "test". diagram solve; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve 2; reify_hyp Hsolv. exact Hsolv.
 Defined.
 
 Lemma test_basic_iso_l (C : PreCategory) (a b c : C)
       (iso : morphism C a b) (Hiso : IsIsomorphism iso) :
   iso^-1 o iso = 1.
 Proof.
-  diagram print "test". diagram solve; reify_hyp Hsolv. exact Hsolv.
+  diagram print "test". diagram solve 2; reify_hyp Hsolv. exact Hsolv.
 Defined.
 
 Lemma test_iso (C : PreCategory) (a b c d : C)
