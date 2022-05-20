@@ -3,4 +3,4 @@
  (synopsis "Tools to work with commutative diagrams")
  (flags (:standard -noinit -indices-matter))
  (libraries coq-core.plugins.ltac diagrams_plugin)
- (modules Loader Diagrams))
+ (modules Loader Tests))
