@@ -49,6 +49,8 @@ type eqT =
   | RightId of morphismData
   | RAp of eq * morphismData
   | LAp of morphismData * eq
+  | RInv of isoData
+  | LInv of isoData
   | Mono of EConstr.t * morphismData * morphismData * eq
   | Epi of EConstr.t * morphismData * morphismData * eq
   | Atom of EConstr.t
@@ -72,3 +74,4 @@ type face =
   ; obj   : eq (* Equality between side1.mph and side2.mph *)
   ; id    : face_id
   }
+

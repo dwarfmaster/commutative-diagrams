@@ -48,4 +48,5 @@ val inverse : Environ.env -> t -> t -> t -> t -> t -> t Proofview.tactic
 val eq : Environ.env -> t -> t -> t -> t Proofview.tactic
 (* eqT -> T*x*y *)
 val is_eq : Environ.env -> t -> (t*t*t) option Proofview.tactic
-(* TODO equality realisation *)
+(* Take the description of an equality and give the associated term *)
+val real_eq : Data.eq -> t Proofview.tactic

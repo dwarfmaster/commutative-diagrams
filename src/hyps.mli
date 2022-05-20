@@ -54,7 +54,7 @@ val left_inv  : isoData -> eq Proofview.tactic
 val atom_eq : EConstr.t -> eqT
 val mono_eq : EConstr.t -> morphismData -> morphismData -> eq -> eqT
 val epi_eq : EConstr.t -> morphismData -> morphismData -> eq -> eqT
-val real_eq : eq -> EConstr.t Proofview.tactic
+val simpl_eq : eq -> eq
 
 (*   ____            _            _    *)
 (*  / ___|___  _ __ | |_ _____  _| |_  *)

@@ -107,7 +107,7 @@ let normalize' : Proofview.Goal.t -> unit Proofview.tactic = fun goal ->
     let* ngl = eqHole env side1 side2 in
     let* ngl = Hyps.concat side1.eq ngl in
     let* ngl = Hyps.concat ngl eq2 in
-    let* ngl = Hyps.real_eq ngl in
+    let* ngl = Hott.real_eq (Hyps.simpl_eq ngl) in
     let* ngl = add_universes_constraints env ngl in
     Refine.refine ~typecheck:false (fun sigma -> (sigma, ngl))
 let normalize : unit -> unit Proofview.tactic = fun _ -> Proofview.Goal.enter_one normalize'
@@ -123,7 +123,7 @@ let solve' : int -> Proofview.Goal.t -> unit Proofview.tactic = fun level goal -
     | None -> Tacticals.tclFAIL 0 (Pp.str "Couldn't make goal commute")
     | Some eq ->
       let env = Proofview.Goal.env goal in
-      let* eq = Hyps.real_eq eq in
+      let* eq = Hott.real_eq (Hyps.simpl_eq eq) in
       let* eq = add_universes_constraints env eq in
       Refine.refine ~typecheck:false (fun sigma -> (sigma, eq))
 let solve : int -> unit Proofview.tactic = fun level -> Proofview.Goal.enter_one (solve' level)

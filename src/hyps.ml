@@ -1,7 +1,6 @@
 
 open Data
 
-let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
 type t =
   { categories : category array
   ; elems      : elem array
@@ -16,6 +15,7 @@ let (@<<) : ('a -> 'b Proofview.tactic) -> 'a Proofview.tactic -> 'b Proofview.t
   fun f x -> Proofview.tclBIND x f
 let ret = Proofview.tclUNIT
 
+let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
 
 (*  __  __                  _     _ *)
 (* |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___ *)
@@ -121,13 +121,10 @@ let right_inv = fun (iso : isoData) ->
   let inv = iso.inv in
   let* id = identity mph.data.tp.src  in
   let* c  = compose mph.data inv.data in
-  let* eq = Env.app (Env.mk_right_inv ())
-      [| mph.data.tp.category.obj; mph.data.tp.src.obj; mph.data.tp.dst.obj
-       ; mph.data.obj; iso.obj |] in
   ret { src = c
       ; dst = id
       ; tp  = id.tp
-      ; eq  = Atom eq
+      ; eq  = RInv iso
       }
 
 let left_inv = fun (iso : isoData) ->
@@ -135,13 +132,10 @@ let left_inv = fun (iso : isoData) ->
   let inv = iso.inv in
   let* id = identity mph.data.tp.dst  in
   let* c  = compose inv.data mph.data in
-  let* eq = Env.app (Env.mk_left_inv ())
-      [| mph.data.tp.category.obj; mph.data.tp.src.obj; mph.data.tp.dst.obj
-       ; mph.data.obj; iso.obj |] in
   ret { src = c
       ; dst = id
       ; tp  = id.tp
-      ; eq  = Atom eq
+      ; eq  = LInv iso
       }
 
 let atom_eq = fun ec -> Atom ec
@@ -203,54 +197,7 @@ and simplify_eq : bool -> eq -> eq = fun inv eq ->
   ; eq  = simplify_eqT inv eq
   }
 
-let rec real_eqT : eqT -> EConstr.t Proofview.tactic = function
-  | Refl m -> Env.app (Env.mk_refl ()) [| m.tp.obj; m.obj |]
-  | Concat (p1,p2) ->
-    let* rp1 = real_eqT p1.eq in
-    let* rp2 = real_eqT p2.eq in
-    Env.app (Env.mk_concat ())
-      [| p1.tp.obj; p1.src.obj; p1.dst.obj; p2.dst.obj; rp1; rp2 |]
-  | Inv p ->
-    let* rp = real_eqT p.eq in
-    Env.app (Env.mk_inv ()) [| p.tp.obj; p.src.obj; p.dst.obj; rp |]
-  | Compose (p1,p2) ->
-    let* rp1 = real_eqT p1.eq in
-    let* rp2 = real_eqT p2.eq in
-    Env.app (Env.mk_compose_eq ())
-      [| p1.tp.category.obj; p1.tp.src.obj; p1.tp.dst.obj; p2.tp.dst.obj
-       ; p1.src.obj; p1.dst.obj; p2.src.obj; p2.dst.obj; rp1; rp2 |]
-  | Assoc (m1,m2,m3) ->
-    Env.app (Env.mk_assoc ())
-      [| m1.tp.category.obj
-       ; m1.tp.src.obj; m2.tp.src.obj; m3.tp.src.obj; m3.tp.dst.obj
-       ; m1.obj; m2.obj; m3.obj |]
-  | LeftId m ->
-    Env.app (Env.mk_left_id ())
-      [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |]
-  | RightId m ->
-    Env.app (Env.mk_right_id ())
-      [| m.tp.category.obj; m.tp.src.obj; m.tp.dst.obj; m.obj |]
-  | RAp (p,m) ->
-    let* rp = real_eqT p.eq in
-    Env.app (Env.mk_rap ())
-      [| m.tp.category.obj; p.tp.src.obj; p.tp.dst.obj; m.tp.dst.obj
-       ; p.src.obj; p.dst.obj; m.obj; rp |]
-  | LAp (m,p) ->
-    let* rp = real_eqT p.eq in
-    Env.app (Env.mk_lap ())
-      [| m.tp.category.obj; m.tp.src.obj; p.tp.src.obj; p.tp.dst.obj
-       ; m.obj; p.src.obj; p.dst.obj; rp |]
-  | Mono (ec,m1,m2,p) ->
-    let* rp = real_eqT p.eq in
-    ret (EConstr.mkApp (ec, [| p.tp.src.obj; m1.obj; m2.obj; rp |]))
-  | Epi (ec,m1,m2,p) ->
-    let* rp = real_eqT p.eq in
-    ret (EConstr.mkApp (ec, [| p.tp.dst.obj; m1.obj; m2.obj; rp |]))
-  | Atom eq -> ret eq
-
-let real_eq = fun (eq : eq) -> real_eqT (simplify_eq false eq).eq
-
-
+let simpl_eq = simplify_eq false
 
 (*   ____            _            _    *)
 (*  / ___|___  _ __ | |_ _____  _| |_  *)
