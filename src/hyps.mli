@@ -79,7 +79,6 @@ val extract : morphism list -> morphismData list
 (* m1 -> m2 -> m2 o m1 *)
 val compose : morphismData -> morphismData -> morphismData Proofview.tactic
 val composeT : morphismT -> morphismT -> morphismT Proofview.tactic
-val mphT : EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t Proofview.tactic
 (* [ m1, m2, m3 ] -> (m3 o m2) o m1 *)
 (* Raises Ill_typed if the list is not composable *)
 val realize : elem -> morphismData list -> morphismData Proofview.tactic

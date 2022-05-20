@@ -95,24 +95,26 @@ let ret = Proofview.tclUNIT
 (* |_|  |_|\___/|_|  | .__/|_| |_|_|___/_| |_| |_|___/ *)
 (*                   |_| *)
 
-let mphT = fun cat e1 e2 ->
-  Env.app (Env.mk_mphT ()) [| cat; e1; e2 |]
 let composeT = fun (mT1 : morphismT) (mT2 : morphismT) ->
-  let* obj = mphT mT1.category.obj mT1.src.obj mT2.dst.obj in
+  let* env = Proofview.tclENV in
+  let* obj = Hott.morphism env mT1.category.obj mT1.src.obj mT2.dst.obj in
   ret { category = mT1.category
       ; src = mT1.src
       ; dst = mT2.dst
       ; obj = obj
       }
 let compose = fun (m1 : morphismData) (m2 : morphismData) ->
-  let* obj = Env.app (Env.mk_comp ()) [| m1.tp.category.obj
-                                       ; m1.tp.src.obj; m1.tp.dst.obj; m2.tp.dst.obj
-                                       ; m1.obj; m2.obj |] in
+  let* env = Proofview.tclENV in
+  let* obj =
+    Hott.compose env m1.tp.category.obj
+      m1.tp.src.obj m1.tp.dst.obj m2.tp.dst.obj
+      m1.obj m2.obj in
   let* tp = composeT m1.tp m2.tp in
   ret { obj = obj; tp = tp }
 let identity = fun (x : elem) ->
-  let* obj = Env.app (Env.mk_id ()) [| x.category.obj; x.obj |] in
-  let* tp = mphT x.category.obj x.obj x.obj in
+  let* env = Proofview.tclENV in
+  let* obj = Hott.identity env x.category.obj x.obj in
+  let* tp = Hott.morphism env x.category.obj x.obj x.obj in
   ret { obj = obj
       ; tp = { category = x.category
              ; src = x
@@ -138,7 +140,8 @@ let rpath = fun pth -> realize pth.mph.tp.src (extract pth.path)
 (*          |_|                    |___/  *)
 
 let eqT = fun (m1 : morphismData) (m2 : morphismData) ->
-  Env.app (Env.mk_eq ()) [| m1.tp.obj; m1.obj; m2.obj |]
+  let* env = Proofview.tclENV in
+  Hott.eq env m1.tp.obj m1.obj m2.obj
 
 let refl = fun (m : morphismData) ->
   ret { src = m
@@ -408,64 +411,48 @@ let rec repeat_assoc : morphismData list -> morphismData -> eq Proofview.tactic 
     let* extract_first = assoc m mphs right in
     concat extract_first @<< composeP r p
 
-let isIdentity : Evd.evar_map -> EConstr.t -> bool =
-  fun sigma id ->
-  match EConstr.kind sigma id with
-  | App (id, [| cat; elem |]) ->
-    begin match EConstr.kind sigma id with
-      | Const (name,_) -> Env.is_id name
-      | _ -> false
-    end
-  | App (id, [| elem |]) ->
-    begin match EConstr.kind sigma id with
-      | Proj (id,_) -> Env.is_projection id Env.is_cat "identity"
-      | _ -> false
-    end
-  | _ -> false
-
 let rec normalize = fun (m : morphismData) store ->
   let* sigma = Proofview.tclEVARMAP in
-  match EConstr.kind sigma m.obj with
-  | App (cmp, [| src; int; dst; mid; msi |]) ->
-    begin match EConstr.kind sigma cmp with
-      | Proj (cmp,cat) when Env.is_projection cmp Env.is_cat "compose" ->
-        let* (catId,store) = get_cat cat store in
-        let* (intId,store) = get_elem cat int store in
-        let* obj = mphT m.tp.category.obj src int in
-        let msi =
-            { obj = msi
-            ; tp = { category = m.tp.category
-                   ; src = m.tp.src
-                   ; dst = store.elems.(intId)
-                   ; obj = obj }
-            } in
-        let* obj = mphT m.tp.category.obj int dst in
-        let mid =
-            { obj = mid
-            ; tp  = { category = m.tp.category
-                    ; src = store.elems.(intId)
-                    ; dst = m.tp.dst
-                    ; obj = obj }
-            } in
-        let* (d1,p1,store) = normalize msi store in
-        let* m1 = realize m.tp.src (extract d1) in
-        let* (d2,p2,store) = normalize mid store in
-        let* m2 = realize store.elems.(intId) (extract d2) in
-        let* p = composeP p1 p2 in
-        (match d1,d2 with
-         | [], _ -> right_id m2 >>= fun id -> concat p id >>= fun c -> ret (d2, c, store)
-         | _, [] -> left_id  m1 >>= fun id -> concat p id >>= fun c -> ret (d1, c, store)
-         | _, _ ->
-           let* p' = repeat_assoc (extract d1) m2 in
-           concat p p' >>= fun c -> ret (List.append d1 d2, c, store))
-      | _ ->
-        let* (mId,store) = get_mph m store in
-        refl m >>= fun eq -> ret ([store.morphisms.(mId)], eq, store)
-    end
-  | _ when isIdentity sigma m.obj -> refl m >>= fun eq -> ret ([], eq, store)
+  let* env = Proofview.tclENV in
+  let* mph = Hott.parse_compose env m.obj in
+  match mph with
+  | Some (cat,src,int,dst,msi,mid) ->
+    let* (catId,store) = get_cat cat store in
+    let* (intId,store) = get_elem cat int store in
+    let* obj = Hott.morphism env m.tp.category.obj src int in
+    let msi =
+      { obj = msi
+      ; tp = { category = m.tp.category
+             ; src = m.tp.src
+             ; dst = store.elems.(intId)
+             ; obj = obj }
+      } in
+    let* obj = Hott.morphism env m.tp.category.obj int dst in
+    let mid =
+      { obj = mid
+      ; tp  = { category = m.tp.category
+              ; src = store.elems.(intId)
+              ; dst = m.tp.dst
+              ; obj = obj }
+      } in
+    let* (d1,p1,store) = normalize msi store in
+    let* m1 = realize m.tp.src (extract d1) in
+    let* (d2,p2,store) = normalize mid store in
+    let* m2 = realize store.elems.(intId) (extract d2) in
+    let* p = composeP p1 p2 in
+    (match d1,d2 with
+     | [], _ -> right_id m2 >>= fun id -> concat p id >>= fun c -> ret (d2, c, store)
+     | _, [] -> left_id  m1 >>= fun id -> concat p id >>= fun c -> ret (d1, c, store)
+     | _, _ ->
+       let* p' = repeat_assoc (extract d1) m2 in
+       concat p p' >>= fun c -> ret (List.append d1 d2, c, store))
   | _ ->
-    let* (mId,store) = get_mph m store in
-    refl m >>= fun r -> ret ([store.morphisms.(mId)], r, store)
+    let* id = Hott.parse_identity env m.obj in
+    match id with
+    | Some _ -> refl m >>= fun eq -> ret ([], eq, store)
+    | _ ->
+      let* (mId,store) = get_mph m store in
+      refl m >>= fun r -> ret ([store.morphisms.(mId)], r, store)
 
 let eq_face = fun env sigma fce f ->
   match f.obj.eq with
@@ -505,34 +492,32 @@ let get_face = fun tp mph1 mph2 fce store ->
 (*                              |___/  *)
 
 let parse_cat  = fun name cat store ->
-  let* sigma = Proofview.tclEVARMAP in
-  match EConstr.kind sigma cat with
-  | Ind (ind,_) when Env.is_cat ind ->
-    let* (id,store) = get_cat (EConstr.mkVar name) store in ret (store,Some id)
-  | _ -> ret (store,None)
+  let* env = Proofview.tclENV in
+  let* isc = Hott.is_cat env cat in
+  if isc
+  then let* (id,store) = get_cat (EConstr.mkVar name) store in ret (store,Some id)
+  else ret (store,None)
 
 let parse_elem = fun name elm store ->
-  let* sigma = Proofview.tclEVARMAP in
-  match EConstr.kind sigma elm with
-  | Proj (p,arg) when Env.is_projection p Env.is_cat "object" ->
+  let* env = Proofview.tclENV in
+  let* obj = Hott.is_object env elm in
+  match obj with
+  | Some arg ->
     let* (id,store) = get_elem arg (EConstr.mkVar name) store in ret (store,Some id)
   | _ -> ret (store,None)
 
 let read_mph : EConstr.t -> t -> (t * morphismT option) Proofview.tactic =
   fun mph store ->
-  let* sigma = Proofview.tclEVARMAP in
-  match EConstr.kind sigma mph with
-  | App (p, [| src; dst |]) ->
-    begin match EConstr.kind sigma p with
-      | Proj (p,arg) when Env.is_projection p Env.is_cat "morphism" ->
-        let* (srcId,store) = get_elem arg src store in
-        let* (dstId,store) = get_elem arg dst store in
-        let src = store.elems.(srcId) in
-        let dst = store.elems.(dstId) in
-        let cat = src.category in
-        ret (store, Some { category = cat; src = src; dst = dst; obj = mph })
-      | _ -> ret (store,None)
-    end
+  let* env = Proofview.tclENV in
+  let* obj = Hott.is_morphism env mph in
+  match obj with
+  | Some (arg,src,dst) ->
+    let* (srcId,store) = get_elem arg src store in
+    let* (dstId,store) = get_elem arg dst store in
+    let src = store.elems.(srcId) in
+    let dst = store.elems.(dstId) in
+    let cat = src.category in
+    ret (store, Some { category = cat; src = src; dst = dst; obj = mph })
   | _ -> ret (store,None)
 
 let parse_mph  = fun name mph store ->
@@ -544,130 +529,116 @@ let parse_mph  = fun name mph store ->
   | _ -> ret (store,None)
 
 let read_face = fun fce store ->
-  let* sigma = Proofview.tclEVARMAP in
-  match EConstr.kind sigma fce with
-  | App (eq, [| mph; f1; f2 |]) ->
-    begin match EConstr.kind sigma eq with
-      | Ind (eq,_) when Env.is_eq eq ->
-        let* (store,tp) = read_mph mph store in
-        begin match tp with
-          | Some tp ->
-            let mph1 = { obj = f1; tp = tp } in
-            let* (d1,p1,store) = normalize mph1 store in
-            let side1 = { mph = mph1; eq = p1; path = d1 } in
-            let mph2 = { obj = f2; tp = tp } in
-            let* (d2,p2,store) = normalize mph2 store in
-            let side2 = { mph = mph2; eq = p2; path = d2 } in
-            ret (store, Some (side1,side2))
-          | _ -> ret (store,None)
-        end
+  let* env = Proofview.tclENV in
+  let* eq = Hott.is_eq env fce in
+  match eq with
+  | Some (mph,f1,f2) ->
+    let* (store,tp) = read_mph mph store in
+    begin match tp with
+      | Some tp ->
+        let mph1 = { obj = f1; tp = tp } in
+        let* (d1,p1,store) = normalize mph1 store in
+        let side1 = { mph = mph1; eq = p1; path = d1 } in
+        let mph2 = { obj = f2; tp = tp } in
+        let* (d2,p2,store) = normalize mph2 store in
+        let side2 = { mph = mph2; eq = p2; path = d2 } in
+        ret (store, Some (side1,side2))
       | _ -> ret (store,None)
     end
   | _ -> ret (store,None)
 
 let parse_face = fun name fce store ->
-  let* sigma = Proofview.tclEVARMAP in
-  match EConstr.kind sigma fce with
-  | App (eq, [| mph; f1; f2 |]) ->
-    begin match EConstr.kind sigma eq with
-      | Ind (eq,_) when Env.is_eq eq ->
-        let* (store,tp) = read_mph mph store in
-        begin match tp with
-          | Some tp ->
-            let* (id,store) = get_face tp f1 f2 (EConstr.mkVar name) store in ret (store,Some id)
-          | _ -> ret (store,None)
-        end
+  let* env = Proofview.tclENV in
+  let* eq = Hott.is_eq env fce in
+  match eq with
+  | Some (mph,f1,f2) ->
+    let* (store,tp) = read_mph mph store in
+    begin match tp with
+      | Some tp ->
+        let* (id,store) = get_face tp f1 f2 (EConstr.mkVar name) store in ret (store,Some id)
       | _ -> ret (store,None)
     end
   | _ -> ret (store,None)
 
 let parse_mono = fun name mono store ->
-  let* sigma = Proofview.tclEVARMAP in
-  match EConstr.kind sigma mono with
-  | App (mono, [| cat; src; dst; mph |]) ->
-    begin match EConstr.kind sigma mono with
-      | Const (mono,_) when Env.is_mono mono ->
-        let* (cat,store) = get_cat cat store in
-        let cat = store.categories.(cat) in
-        let* (src,store) = get_elem cat.obj src store in
-        let src = store.elems.(src) in
-        let* (dst,store) = get_elem cat.obj dst store in
-        let dst = store.elems.(dst) in
-        let* tp = mphT cat.obj src.obj dst.obj in
-        let* (mph,store) =
-          get_mph
-            { obj = mph
-            ; tp = { src = src; dst = dst; category = cat; obj = tp }
-            } store in
-        let mph = store.morphisms.(mph) in
-        mph.mono <- Some (EConstr.mkVar name);
-        ret (store,Some mph.id)
-      | _ -> ret (store,None)
-    end
+  let* env = Proofview.tclENV in
+  let* mono = Hott.is_mono env mono in
+  match mono with
+  | Some (cat,src,dst,mph) ->
+    let* (cat,store) = get_cat cat store in
+    let cat = store.categories.(cat) in
+    let* (src,store) = get_elem cat.obj src store in
+    let src = store.elems.(src) in
+    let* (dst,store) = get_elem cat.obj dst store in
+    let dst = store.elems.(dst) in
+    let* tp = Hott.morphism env cat.obj src.obj dst.obj in
+    let* (mph,store) =
+      get_mph
+        { obj = mph
+        ; tp = { src = src; dst = dst; category = cat; obj = tp }
+        } store in
+    let mph = store.morphisms.(mph) in
+    mph.mono <- Some (EConstr.mkVar name);
+    ret (store,Some mph.id)
   | _ -> ret (store,None)
 
 let parse_epi = fun name epi store ->
-  let* sigma = Proofview.tclEVARMAP in
-  match EConstr.kind sigma epi with
-  | App (epi, [| cat; src; dst; mph |]) ->
-    begin match EConstr.kind sigma epi with
-      | Const (epi,_) when Env.is_epi epi ->
-        let* (cat,store) = get_cat cat store in
-        let cat = store.categories.(cat) in
-        let* (src,store) = get_elem cat.obj src store in
-        let src = store.elems.(src) in
-        let* (dst,store) = get_elem cat.obj dst store in
-        let dst = store.elems.(dst) in
-        let* tp = mphT cat.obj src.obj dst.obj in
-        let* (mph,store) =
-          get_mph
-            { obj = mph
-            ; tp = { src = src; dst = dst; category = cat; obj = tp }
-            } store in
-        let mph = store.morphisms.(mph) in
-        mph.epi <- Some (EConstr.mkVar name);
-        ret (store,Some mph.id)
-      | _ -> ret (store,None)
-    end
+  let* env = Proofview.tclENV in
+  let* epi = Hott.is_epi env epi in
+  match epi with
+  | Some (cat,src,dst,mph) ->
+    let* (cat,store) = get_cat cat store in
+    let cat = store.categories.(cat) in
+    let* (src,store) = get_elem cat.obj src store in
+    let src = store.elems.(src) in
+    let* (dst,store) = get_elem cat.obj dst store in
+    let dst = store.elems.(dst) in
+    let* tp = Hott.morphism env cat.obj src.obj dst.obj in
+    let* (mph,store) =
+      get_mph
+        { obj = mph
+        ; tp = { src = src; dst = dst; category = cat; obj = tp }
+        } store in
+    let mph = store.morphisms.(mph) in
+    mph.epi <- Some (EConstr.mkVar name);
+    ret (store,Some mph.id)
   | _ -> ret (store,None)
 
 let parse_iso = fun name iso store ->
   let* sigma = Proofview.tclEVARMAP in
-  match EConstr.kind sigma iso with
-  | App (iso, [| cat; src; dst; mph |]) ->
-    begin match EConstr.kind sigma iso with
-      | Ind (iso,_) when Env.is_iso iso ->
-        let* (cat,store) = get_cat cat store in
-        let cat = store.categories.(cat) in
-        let* (src,store) = get_elem cat.obj src store in
-        let src = store.elems.(src) in
-        let* (dst,store) = get_elem cat.obj dst store in
-        let dst = store.elems.(dst) in
-        let* tp = mphT cat.obj src.obj dst.obj in
-        let* (mph,store) =
-          get_mph
-            { obj = mph
-            ; tp = { src = src; dst = dst; category = cat; obj = tp }
-            } store in
-        let mph = store.morphisms.(mph) in
-        let hypo = EConstr.mkVar name in
-        let* inv = Env.app (Env.mk_inv_mph ()) [| cat.obj; src.obj; dst.obj; mph.data.obj; hypo |] in
-        let* tp = mphT cat.obj dst.obj src.obj in
-        let* (inv,store) =
-          get_mph
-            { obj = inv
-            ; tp = { src = dst; dst = src; category = cat; obj = tp }
-            } store in
-        let data =
-          { obj = hypo
-          ; mph = mph
-          ; inv = store.morphisms.(inv)
-          } in
-        begin
-          mph.iso <- Some data;
-          store.morphisms.(inv).iso <- Some data;
-          ret (store,Some mph.id)
-        end
-      | _ -> ret (store,None)
+  let* env = Proofview.tclENV in
+  let* iso = Hott.is_iso env iso in
+  match iso with
+  | Some (cat,src,dst,mph) ->
+    let* (cat,store) = get_cat cat store in
+    let cat = store.categories.(cat) in
+    let* (src,store) = get_elem cat.obj src store in
+    let src = store.elems.(src) in
+    let* (dst,store) = get_elem cat.obj dst store in
+    let dst = store.elems.(dst) in
+    let* tp = Hott.morphism env cat.obj src.obj dst.obj in
+    let* (mph,store) =
+      get_mph
+        { obj = mph
+        ; tp = { src = src; dst = dst; category = cat; obj = tp }
+        } store in
+    let mph = store.morphisms.(mph) in
+    let hypo = EConstr.mkVar name in
+    let* inv = Hott.inverse env cat.obj src.obj dst.obj mph.data.obj hypo in
+    let* tp = Hott.morphism env cat.obj dst.obj src.obj in
+    let* (inv,store) =
+      get_mph
+        { obj = inv
+        ; tp = { src = dst; dst = src; category = cat; obj = tp }
+        } store in
+    let data =
+      { obj = hypo
+      ; mph = mph
+      ; inv = store.morphisms.(inv)
+      } in
+    begin
+      mph.iso <- Some data;
+      store.morphisms.(inv).iso <- Some data;
+      ret (store,Some mph.id)
     end
   | _ -> ret (store,None)
