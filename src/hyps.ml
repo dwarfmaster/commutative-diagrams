@@ -1,78 +1,7 @@
 
-type kind = (EConstr.t,EConstr.t,EConstr.ESorts.t,EConstr.EInstance.t) Constr.kind_of_term
+open Data
 
-(* TODO Support metadata (mono,epi,iso) on paths, not just atomic morphisms *)
-
-type cat_id  = int
-type elem_id = int
-type mph_id  = int
-type face_id = int
-
-type category =
-  { obj : EConstr.t
-  ; id  : cat_id
-  }
-type elem =
-  { obj      : EConstr.t
-  ; category : category
-  ; id       : elem_id
-  }
-type morphismT =
-  { category : category
-  ; src      : elem
-  ; dst      : elem
-  ; obj      : EConstr.t
-  }
-type morphismData =
-  { obj : EConstr.t
-  ; tp  : morphismT
-  }
-type isoData =
-  { obj : EConstr.t
-  ; mph : morphism
-  ; inv : morphism
-  }
-and morphism =
-  { data : morphismData
-  ; id   : mph_id
-  ; mutable mono : EConstr.t option
-  ; mutable epi  : EConstr.t option
-  ; mutable iso  : isoData option
-  }
 let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
-
-type eqT =
-  | Refl of morphismData
-  | Concat of eq * eq
-  | Inv of eq
-  | Compose of eq * eq
-  | Assoc of morphismData * morphismData * morphismData
-  | LeftId of morphismData
-  | RightId of morphismData
-  | RAp of eq * morphismData
-  | LAp of morphismData * eq
-  | Mono of EConstr.t * morphismData * morphismData * eq
-  | Epi of EConstr.t * morphismData * morphismData * eq
-  | Atom of EConstr.t
-and eq =
-  { src : morphismData
-  ; dst : morphismData
-  ; tp  : morphismT
-  ; eq  : eqT
-  }
-
-type path =
-  { mph  : morphismData
-  ; eq   : eq (* Equality from `mph` to `realize path` *)
-  ; path : morphism list
-  }
-type face =
-  { tp    : morphismT
-  ; side1 : path
-  ; side2 : path
-  ; obj   : eq (* Equality between side1.mph and side2.mph *)
-  ; id    : face_id
-  }
 type t =
   { categories : category array
   ; elems      : elem array
@@ -98,7 +27,7 @@ let ret = Proofview.tclUNIT
 let composeT = fun (mT1 : morphismT) (mT2 : morphismT) ->
   let* env = Proofview.tclENV in
   let* obj = Hott.morphism env mT1.category.obj mT1.src.obj mT2.dst.obj in
-  ret { category = mT1.category
+  ret { Data.category = mT1.category
       ; src = mT1.src
       ; dst = mT2.dst
       ; obj = obj
@@ -110,12 +39,12 @@ let compose = fun (m1 : morphismData) (m2 : morphismData) ->
       m1.tp.src.obj m1.tp.dst.obj m2.tp.dst.obj
       m1.obj m2.obj in
   let* tp = composeT m1.tp m2.tp in
-  ret { obj = obj; tp = tp }
+  ret { Data.obj = obj; tp = tp }
 let identity = fun (x : elem) ->
   let* env = Proofview.tclENV in
   let* obj = Hott.identity env x.category.obj x.obj in
   let* tp = Hott.morphism env x.category.obj x.obj x.obj in
-  ret { obj = obj
+  ret { Data.obj = obj
       ; tp = { category = x.category
              ; src = x
              ; dst = x

@@ -52,7 +52,7 @@ let add_universes_constraints : Environ.env -> EConstr.t -> EConstr.t Proofview.
     (Proofview.tclUNIT c)
 
 let extract_hyps : Proofview.Goal.t
-  -> (Hyps.t * (Hyps.path*Hyps.path) option) Proofview.tactic = fun goal ->
+  -> (Hyps.t * (Data.path*Data.path) option) Proofview.tactic = fun goal ->
   let store = Hyps.empty_context in
   let env   = Proofview.Goal.env goal in
   let context = Proofview.Goal.hyps goal in
@@ -78,18 +78,18 @@ let hole : Environ.env -> EConstr.t -> EConstr.t Proofview.tactic = fun env tp -
   let* _ = Proofview.Unsafe.tclEVARS sigma in
   ret hole
 
-let eqT : Hyps.path -> Hyps.path -> EConstr.t Proofview.tactic = fun side1 side2 ->
+let eqT : Data.path -> Data.path -> EConstr.t Proofview.tactic = fun side1 side2 ->
   let* side1 = Hyps.rpath side1 in
   let* side2 = Hyps.rpath side2 in
   Hyps.eqT side1 side2
 
-let eqHole : Environ.env -> Hyps.path -> Hyps.path -> Hyps.eq Proofview.tactic = fun env side1 side2 ->
+let eqHole : Environ.env -> Data.path -> Data.path -> Data.eq Proofview.tactic = fun env side1 side2 ->
   let* pth1 = Hyps.rpath side1 in
   let* pth2 = Hyps.rpath side2 in
   let* tp = Hyps.eqT pth1 pth2 in
   let* hl = hole env tp in
   let hl = Hyps.atom_eq hl in
-  ret { Hyps.src = pth1
+  ret { Data.src = pth1
       ; dst      = pth2
       ; tp       = side1.mph.tp
       ; eq       = hl

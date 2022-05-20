@@ -1,13 +1,13 @@
 
 (* t is mutable *)
-type path = Hyps.elem * Hyps.morphism list
+type path = Data.elem * Data.morphism list
 type t
 
-val extract    : Hyps.path -> path
+val extract    : Data.path -> path
 val init       : path list -> t Proofview.tactic
 (* Returns false if nothing was done *)
-val connect    : path -> path -> Hyps.eq -> t -> bool Proofview.tactic
-val query      : path -> t -> (path * Hyps.eq) Proofview.tactic
-val query_conn : path -> path -> t -> Hyps.eq option Proofview.tactic
+val connect    : path -> path -> Data.eq -> t -> bool Proofview.tactic
+val query      : path -> t -> (path * Data.eq) Proofview.tactic
+val query_conn : path -> path -> t -> Data.eq option Proofview.tactic
 (* Utilities *)
 val print_path : path -> Pp.t Proofview.tactic

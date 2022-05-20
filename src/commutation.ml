@@ -9,7 +9,7 @@ let (++) = Pp.(++)
 type face =
   { side1 : UF.path
   ; side2 : UF.path
-  ; eq    : Hyps.eq
+  ; eq    : Data.eq
   }
 
 (*  ___                                      _     _                    *)
@@ -21,8 +21,8 @@ type face =
 (* Isomorphisms *)
 
 (* m1 -> m2 -> m3 -> m2 o m1 = 1 -> (m3 o m2) o m1 = m3 *)
-let simplify_iso : Hyps.morphismData -> Hyps.morphismData -> Hyps.morphismData
-  -> Hyps.eq -> Hyps.eq Proofview.tactic =
+let simplify_iso : Data.morphismData -> Data.morphismData -> Data.morphismData
+  -> Data.eq -> Data.eq Proofview.tactic =
   fun m1 m2 m3 p ->
   (* m3 o (m2 o m1) = m3 o 1 *)
   let* p_m3 = Hyps.refl m3 in
@@ -35,7 +35,7 @@ let simplify_iso : Hyps.morphismData -> Hyps.morphismData -> Hyps.morphismData
   let* p_id = Hyps.right_id m3 in
   Hyps.concat p_iso p_id
 
-let rec normalize_iso : Hyps.morphism list -> (Hyps.morphism list * Hyps.eq) option Proofview.tactic =
+let rec normalize_iso : Data.morphism list -> (Data.morphism list * Data.eq) option Proofview.tactic =
   fun lst ->
   match lst with
   | [] -> ret None
@@ -84,21 +84,21 @@ let rec normalize_iso : Hyps.morphism list -> (Hyps.morphism list * Hyps.eq) opt
           ret (Some (m1 :: lst, p))
     end
 
-let normalize_iso_in_path : Hyps.path -> Hyps.path Proofview.tactic = fun pth ->
+let normalize_iso_in_path : Data.path -> Data.path Proofview.tactic = fun pth ->
   let* norm = normalize_iso pth.path in
   match norm with
   | None -> ret pth
   | Some (lst,p) ->
     let* p = Hyps.concat pth.eq p in
-    ret { Hyps.mph = pth.mph
+    ret { Data.mph = pth.mph
         ; eq       = p
         ; path     = lst
         }
 
-let normalize_iso_in_face : Hyps.face -> Hyps.face Proofview.tactic = fun fce ->
+let normalize_iso_in_face : Data.face -> Data.face Proofview.tactic = fun fce ->
   let* side1 = normalize_iso_in_path fce.side1 in
   let* side2 = normalize_iso_in_path fce.side2 in
-  ret { Hyps.tp = fce.tp
+  ret { Data.tp = fce.tp
       ; side1   = side1
       ; side2   = side2
       ; obj     = fce.obj
@@ -139,7 +139,7 @@ let normalize_iso_for_hook : face -> face Proofview.tactic =
 type hook = face -> face option Proofview.tactic
 
 (* Precompose hook *)
-let precompose_hook : Hyps.morphism -> hook = fun mph fce ->
+let precompose_hook : Data.morphism -> hook = fun mph fce ->
   if fce.eq.tp.src.id = mph.data.tp.dst.id
   then
     let* r = Hyps.refl mph.data in
@@ -162,7 +162,7 @@ let precompose_hook : Hyps.morphism -> hook = fun mph fce ->
   else ret None
 
 (* Postcompose hook *)
-let rec push_equality : Hyps.morphism list -> Hyps.morphism -> Hyps.eq Proofview.tactic = fun ms m ->
+let rec push_equality : Data.morphism list -> Data.morphism -> Data.eq Proofview.tactic = fun ms m ->
   match ms with
   | [ ] -> Hyps.refl m.data
   | [ m1 ] -> Hyps.compose m1.data m.data >>= Hyps.refl
@@ -174,7 +174,7 @@ let rec push_equality : Hyps.morphism list -> Hyps.morphism -> Hyps.eq Proofview
     let* p  = Hyps.assoc m1.data ms m.data in
     Hyps.concat p pe
 
-let postcompose_hook : Hyps.morphism -> hook = fun mph fce ->
+let postcompose_hook : Data.morphism -> hook = fun mph fce ->
   if fce.eq.tp.dst.id = mph.data.tp.src.id
   then
     let* r = Hyps.refl mph.data in
@@ -210,12 +210,12 @@ let rec lastrmP : ('a -> bool) -> 'a list -> 'a list option = fun pred -> functi
     | Some l -> Some (x :: l)
     | None -> None
 
-let monomorphism_hook : Hyps.morphism -> hook = fun mono fce ->
+let monomorphism_hook : Data.morphism -> hook = fun mono fce ->
   match mono.mono with
   | None -> ret None
   | Some h when fce.eq.tp.dst.id = mono.data.tp.dst.id
              && (fst fce.side1).id = (fst fce.side2).id ->
-    let pred = fun (m : Hyps.morphism) -> m.id = mono.id in
+    let pred = fun (m : Data.morphism) -> m.id = mono.id in
     begin match lastrmP pred (snd fce.side1), lastrmP pred (snd fce.side2) with
       | Some pth1, Some pth2 ->
         let src = fst fce.side1 in
@@ -236,13 +236,13 @@ let monomorphism_hook : Hyps.morphism -> hook = fun mono fce ->
   | _ -> ret None
 
 (* Epimorphism hook *)
-let rec path_dst_id : Hyps.elem * (Hyps.morphism list) -> Hyps.elem = fun (x,l) ->
+let rec path_dst_id : Data.elem * (Data.morphism list) -> Data.elem = fun (x,l) ->
   match l with
   | [] -> x
   | [ x ] -> x.data.tp.dst
   | _ :: xs -> path_dst_id (x,xs)
 
-let epimorphism_hook : Hyps.morphism -> hook = fun epi fce ->
+let epimorphism_hook : Data.morphism -> hook = fun epi fce ->
   match epi.epi with
   | None -> ret None
   | Some h when fce.eq.tp.src.id = epi.data.tp.src.id
@@ -274,7 +274,7 @@ let epimorphism_hook : Hyps.morphism -> hook = fun epi fce ->
 
 type t =
   { union : UF.t
-  ; paths : Hyps.path list
+  ; paths : Data.path list
   ; hyps  : Hyps.t
   }
 
@@ -296,13 +296,13 @@ let query = fun p1 p2 (store : t) ->
     let* p = Hyps.concat p p2 in
     ret (Some p)
 
-let singlePath : Hyps.morphism -> Hyps.path Proofview.tactic = fun m ->
+let singlePath : Data.morphism -> Data.path Proofview.tactic = fun m ->
   let* r = Hyps.refl m.data in
-  ret { Hyps.mph = m.data
+  ret { Data.mph = m.data
       ; eq       = r
       ; path     = [ m ]
       }
-let precomposePath : Hyps.morphism -> Hyps.path -> Hyps.path option Proofview.tactic = fun mph path ->
+let precomposePath : Data.morphism -> Data.path -> Data.path option Proofview.tactic = fun mph path ->
   match path.path with
   | [] -> let* s = singlePath mph in ret (Some s)
   | m :: _ ->
@@ -313,7 +313,7 @@ let precomposePath : Hyps.morphism -> Hyps.path -> Hyps.path option Proofview.ta
       let* c  = Hyps.compose mph.data path.mph in
       let* r  = Hyps.refl mph.data in
       let* eq = Hyps.composeP r path.eq in
-      ret (Some { Hyps.mph = c; eq = eq; path = mph :: path.path })
+      ret (Some { Data.mph = c; eq = eq; path = mph :: path.path })
 
 module Array = struct
   include Array
@@ -340,11 +340,11 @@ let forEnum : int -> int -> (int -> unit Proofview.tactic) -> unit Proofview.tac
   List.forM (List.init (last - first + 1) (fun n -> n + first)) body
 
 (* All paths, sorted by the index of their starting element and size *)
-type pathEnumeration = Hyps.path list array
-let idPath : Hyps.elem -> Hyps.path Proofview.tactic = fun e ->
+type pathEnumeration = Data.path list array
+let idPath : Data.elem -> Data.path Proofview.tactic = fun e ->
   let* mph = Hyps.realize e [] in
   let* r = Hyps.refl mph in
-  ret { Hyps.mph = mph
+  ret { Data.mph = mph
       ; eq       = r
       ; path     = [ ]
       }
@@ -375,7 +375,7 @@ let enumerateAllPaths : Hyps.t -> int -> pathEnumeration Proofview.tactic = fun 
       end
     end in
   ret res
-let mergePaths : pathEnumeration -> Hyps.path list = fun enum ->
+let mergePaths : pathEnumeration -> Data.path list = fun enum ->
   Array.fold_right (fun lst paths -> List.append lst paths) enum []
 
 let rec processHooks : buildData -> face -> unit Proofview.tactic = fun data face ->
@@ -393,7 +393,7 @@ and addFace : buildData -> face -> unit Proofview.tactic = fun data face ->
     let* added = UF.connect face.side1 face.side2 face.eq data.union in
     if added then processHooks data face else ret ()
 
-let addEq : buildData -> Hyps.face -> unit Proofview.tactic = fun data face ->
+let addEq : buildData -> Data.face -> unit Proofview.tactic = fun data face ->
   let* p1 = Hyps.inv face.side1.eq in
   let* p  = Hyps.concat p1 face.obj in
   let* p  = Hyps.concat p  face.side2.eq in

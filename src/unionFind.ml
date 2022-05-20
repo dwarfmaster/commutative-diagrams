@@ -1,14 +1,14 @@
 
-type path = Hyps.elem * Hyps.morphism list
+type path = Data.elem * Data.morphism list
 type cell =
   { mutable parent : int
   ; mutable rank   : int
   ; path           : path
-  ; mutable eq     : Hyps.eq
+  ; mutable eq     : Data.eq
   }
 module OrderedPaths = struct
   type t = path
-  let compareMphs = fun (m1 : Hyps.morphism) (m2 : Hyps.morphism) -> m1.id - m2.id
+  let compareMphs = fun (m1 : Data.morphism) (m2 : Data.morphism) -> m1.id - m2.id
   let compare = fun (p1 : path) (p2 : path) ->
     if (fst p1).id = (fst p2).id
     then List.compare compareMphs (snd p1) (snd p2)
@@ -46,7 +46,7 @@ let initCell = fun i (path : path) ->
       ; path   = path
       ; eq     = eq
       }
-let extract = fun (p : Hyps.path) -> (p.mph.tp.src, p.path)
+let extract = fun (p : Data.path) -> (p.mph.tp.src, p.path)
 let init = fun paths ->
   let* cells = Array.of_list <$> mapiM initCell paths in
   ret { cells = cells
@@ -71,7 +71,7 @@ let query_conn = fun p1 p2 store ->
   then (fun x -> Some x) <$> Hyps.concat eq1 @<< Hyps.inv eq2
   else ret None
 
-let conjugate : Hyps.eq -> Hyps.eq -> Hyps.eq -> Hyps.eq Proofview.tactic =
+let conjugate : Data.eq -> Data.eq -> Data.eq -> Data.eq Proofview.tactic =
   fun eq1 eq eq2 ->
   let* eq1 = Hyps.inv eq1 in
   let* c = Hyps.concat eq1 eq in
