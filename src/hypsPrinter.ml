@@ -20,7 +20,8 @@ let mphDt = fun sigma env (m : Data.morphismData) ->
   ppe sigma env m.obj ++ Pp.str "::" ++ mphT sigma env m.tp
 
 let mph = fun sigma env (m : Data.morphism) ->
-  mphDt sigma env m.data ++ Pp.str "::" ++ Pp.int m.id
+  match m.shape with
+  | Base m -> mphDt sigma env m.data ++ Pp.str "::" ++ Pp.int m.id
 
 let eq = fun sigma env (eq : Data.eq) ->
   Pp.str "{{eq}}"
@@ -49,7 +50,7 @@ let face = fun sigma env (f : Data.face) ->
 (*                 |_|                      *)
 let elem_graphviz = fun sigma env (elem : Data.elem) ->
   Pp.str "e" ++ Pp.int elem.id ++ Pp.str " [ label=\"" ++ ppe sigma env elem.obj ++ Pp.str "\"];"
-let mph_graphviz = fun sigma env (mph : Data.morphism) ->
+let mph_graphviz = fun sigma env (mph : Data.morphismBase) ->
   match mph.iso with
   | Some data when data.inv.id = mph.id -> Pp.str ""
   | _ ->

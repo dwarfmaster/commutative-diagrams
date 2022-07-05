@@ -27,16 +27,25 @@ type morphismData =
   }
 type isoData =
   { obj : EConstr.t
-  ; mph : morphism
-  ; inv : morphism
+  ; mph : morphismBase
+  ; inv : morphismBase
   }
-and morphism =
+and morphismBase =
   { data : morphismData
   ; id   : mph_id
   ; mutable mono : EConstr.t option
   ; mutable epi  : EConstr.t option
   ; mutable iso  : isoData option
   }
+type morphismShape =
+  | Base of morphismBase
+type morphism =
+  { data  : morphismData
+  ; shape : morphismShape
+  }
+
+let fromBase (m : morphismBase) : morphism =
+  { data = m.data; shape = Base m; }
 
 type eqT =
   | Refl of morphismData

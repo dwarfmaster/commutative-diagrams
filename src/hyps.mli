@@ -4,7 +4,7 @@ open Data
 type t =
   { categories : category array
   ; elems      : elem array
-  ; morphisms  : morphism array
+  ; morphisms  : morphismBase array
   ; faces      : face array
   }
 
