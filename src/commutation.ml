@@ -41,47 +41,53 @@ let rec normalize_iso : Data.morphism list -> (Data.morphism list * Data.eq) opt
   | [] -> ret None
   | m :: [] -> ret None
   | m1 :: m2 :: [] ->
-    begin match m1.iso with
-      | Some iso when iso.mph.id = m2.id && iso.inv.id = m1.id ->
-        let* p_iso = Hyps.left_inv iso in
-        ret (Some ([],p_iso))
-      | Some iso when iso.mph.id = m1.id && iso.inv.id = m2.id ->
-        let* p_iso = Hyps.right_inv iso in
-        ret (Some ([],p_iso))
-      | _ -> ret None
+    begin match m1.shape, m2.shape with 
+    | Base m1', Base m2' ->
+      begin match m1'.iso with
+        | Some iso when iso.mph.id = m2'.id && iso.inv.id = m1'.id ->
+          let* p_iso = Hyps.left_inv iso in
+          ret (Some ([],p_iso))
+        | Some iso when iso.mph.id = m1'.id && iso.inv.id = m2'.id ->
+          let* p_iso = Hyps.right_inv iso in
+          ret (Some ([],p_iso))
+        | _ -> ret None
+      end
     end
   | m1 :: m2 :: lst ->
-    begin match m1.iso with
-      | Some iso when iso.mph.id = m2.id && iso.inv.id = m1.id ->
-        let* m3 = Hyps.realize m1.data.tp.src (Hyps.extract lst) in
-        let* p_iso = Hyps.left_inv iso in
-        let* p_iso = simplify_iso m1.data m2.data m3 p_iso in
-        let* norm = normalize_iso lst in
-        (match norm with
-        | None -> ret (Some (lst,p_iso))
-        | Some (lst,p) -> let* p = Hyps.concat p_iso p in ret (Some (lst,p)))
-      | Some iso when iso.mph.id = m1.id && iso.inv.id = m2.id ->
-        let* m3 = Hyps.realize m1.data.tp.src (Hyps.extract lst) in
-        let* p_iso = Hyps.right_inv iso in
-        let* p_iso = simplify_iso m1.data m2.data m3 p_iso in
-        let* norm = normalize_iso lst in
-        (match norm with
-        | None -> ret (Some (lst,p_iso))
-        | Some (lst,p) -> let* p = Hyps.concat p_iso p in ret (Some (lst,p)))
-      | _ ->
-        let* norm = normalize_iso (m2 :: lst) in
-        match norm with
-        | None -> ret None
-        | Some ([],eq) ->
-          let* p_m1 = Hyps.refl m1.data in
-          let* p = Hyps.composeP p_m1 eq in
-          let* p_id = Hyps.left_id m1.data in
-          let* p = Hyps.concat p p_id in
-          ret (Some ([m1], p))
-        | Some (lst,eq) ->
-          let* p_m1 = Hyps.refl m1.data in
-          let* p = Hyps.composeP p_m1 eq in
-          ret (Some (m1 :: lst, p))
+    begin match m1.shape, m2.shape with 
+    | Base m1', Base m2' ->
+      begin match m1'.iso with
+        | Some iso when iso.mph.id = m2'.id && iso.inv.id = m1'.id ->
+          let* m3 = Hyps.realize m1.data.tp.src (Hyps.extract lst) in
+          let* p_iso = Hyps.left_inv iso in
+          let* p_iso = simplify_iso m1.data m2.data m3 p_iso in
+          let* norm = normalize_iso lst in
+          (match norm with
+          | None -> ret (Some (lst,p_iso))
+          | Some (lst,p) -> let* p = Hyps.concat p_iso p in ret (Some (lst,p)))
+        | Some iso when iso.mph.id = m1'.id && iso.inv.id = m2'.id ->
+          let* m3 = Hyps.realize m1.data.tp.src (Hyps.extract lst) in
+          let* p_iso = Hyps.right_inv iso in
+          let* p_iso = simplify_iso m1.data m2.data m3 p_iso in
+          let* norm = normalize_iso lst in
+          (match norm with
+          | None -> ret (Some (lst,p_iso))
+          | Some (lst,p) -> let* p = Hyps.concat p_iso p in ret (Some (lst,p)))
+        | _ ->
+          let* norm = normalize_iso (m2 :: lst) in
+          match norm with
+          | None -> ret None
+          | Some ([],eq) ->
+            let* p_m1 = Hyps.refl m1.data in
+            let* p = Hyps.composeP p_m1 eq in
+            let* p_id = Hyps.left_id m1.data in
+            let* p = Hyps.concat p p_id in
+            ret (Some ([m1], p))
+          | Some (lst,eq) ->
+            let* p_m1 = Hyps.refl m1.data in
+            let* p = Hyps.composeP p_m1 eq in
+            ret (Some (m1 :: lst, p))
+      end
     end
 
 let normalize_iso_in_path : Data.path -> Data.path Proofview.tactic = fun pth ->
@@ -139,7 +145,7 @@ let normalize_iso_for_hook : face -> face Proofview.tactic =
 type hook = face -> face option Proofview.tactic
 
 (* Precompose hook *)
-let precompose_hook : Data.morphism -> hook = fun mph fce ->
+let precompose_hook : Data.morphismBase -> hook = fun mph fce ->
   if fce.eq.tp.src.id = mph.data.tp.dst.id
   then
     let* r = Hyps.refl mph.data in
@@ -155,8 +161,8 @@ let precompose_hook : Data.morphism -> hook = fun mph fce ->
         let* p = Hyps.left_id mph.data in
         Hyps.concat eq p
       | [], [] -> ret r in
-    ret (Some { side1 = (mph.data.tp.src, mph :: snd fce.side1)
-              ; side2 = (mph.data.tp.src, mph :: snd fce.side2)
+    ret (Some { side1 = (mph.data.tp.src, Data.fromBase mph :: snd fce.side1)
+              ; side2 = (mph.data.tp.src, Data.fromBase mph :: snd fce.side2)
               ; eq    = eq
               })
   else ret None
@@ -174,7 +180,8 @@ let rec push_equality : Data.morphism list -> Data.morphism -> Data.eq Proofview
     let* p  = Hyps.assoc m1.data ms m.data in
     Hyps.concat p pe
 
-let postcompose_hook : Data.morphism -> hook = fun mph fce ->
+let postcompose_hook : Data.morphismBase -> hook = fun mph fce ->
+  let mph = Data.fromBase mph in
   if fce.eq.tp.dst.id = mph.data.tp.src.id
   then
     let* r = Hyps.refl mph.data in
@@ -210,12 +217,15 @@ let rec lastrmP : ('a -> bool) -> 'a list -> 'a list option = fun pred -> functi
     | Some l -> Some (x :: l)
     | None -> None
 
-let monomorphism_hook : Data.morphism -> hook = fun mono fce ->
+let monomorphism_hook : Data.morphismBase -> hook = fun mono fce ->
   match mono.mono with
   | None -> ret None
   | Some h when fce.eq.tp.dst.id = mono.data.tp.dst.id
              && (fst fce.side1).id = (fst fce.side2).id ->
-    let pred = fun (m : Data.morphism) -> m.id = mono.id in
+    let pred = fun (m : Data.morphism) -> 
+      match m.shape with 
+      | Base m -> m.id = mono.id
+    in
     begin match lastrmP pred (snd fce.side1), lastrmP pred (snd fce.side2) with
       | Some pth1, Some pth2 ->
         let src = fst fce.side1 in
@@ -242,26 +252,30 @@ let rec path_dst_id : Data.elem * (Data.morphism list) -> Data.elem = fun (x,l) 
   | [ x ] -> x.data.tp.dst
   | _ :: xs -> path_dst_id (x,xs)
 
-let epimorphism_hook : Data.morphism -> hook = fun epi fce ->
+let epimorphism_hook : Data.morphismBase -> hook = fun epi fce ->
   match epi.epi with
   | None -> ret None
   | Some h when fce.eq.tp.src.id = epi.data.tp.src.id
              && path_dst_id fce.side1 = path_dst_id fce.side2 ->
     begin match snd fce.side1, snd fce.side2 with
-      | epi1 :: pth1, epi2 :: pth2 when epi1.id = epi.id && epi2.id = epi.id ->
-        let src = epi.data.tp.dst in
-        let* m1 = Hyps.realize src (Hyps.extract pth1) in
-        let* m2 = Hyps.realize src (Hyps.extract pth2) in
-        let eq = Hyps.epi_eq h m1 m2 fce.eq in
-        ret (Some { side1 = (src, pth1)
-                  ; side2 = (src, pth2)
-                  ; eq    =
-                      { eq = eq
-                      ; src = m1
-                      ; dst = m2
-                      ; tp = m1.tp
-                      }
-                  })
+      | epi1 :: pth1, epi2 :: pth2 ->
+        begin match epi1.shape, epi2.shape with 
+          | Base epi1, Base epi2 when epi1.id = epi.id && epi2.id = epi.id ->
+            let src = epi.data.tp.dst in
+            let* m1 = Hyps.realize src (Hyps.extract pth1) in
+            let* m2 = Hyps.realize src (Hyps.extract pth2) in
+            let eq = Hyps.epi_eq h m1 m2 fce.eq in
+            ret (Some { side1 = (src, pth1)
+                      ; side2 = (src, pth2)
+                      ; eq    =
+                          { eq = eq
+                          ; src = m1
+                          ; dst = m2
+                          ; tp = m1.tp
+                          }
+                      })
+          | _, _ -> ret None
+        end
       | _, _ -> ret None
     end
   | _ -> ret None
@@ -296,24 +310,26 @@ let query = fun p1 p2 (store : t) ->
     let* p = Hyps.concat p p2 in
     ret (Some p)
 
-let singlePath : Data.morphism -> Data.path Proofview.tactic = fun m ->
+let singlePath : Data.morphismBase -> Data.path Proofview.tactic = fun m ->
   let* r = Hyps.refl m.data in
   ret { Data.mph = m.data
       ; eq       = r
-      ; path     = [ m ]
+      ; path     = [ Data.fromBase m ]
       }
-let precomposePath : Data.morphism -> Data.path -> Data.path option Proofview.tactic = fun mph path ->
+let precomposePath : Data.morphismBase -> Data.path -> Data.path option Proofview.tactic = fun mph path ->
   match path.path with
   | [] -> let* s = singlePath mph in ret (Some s)
   | m :: _ ->
-    match mph.iso with
-    | Some iso when (iso.mph.id = mph.id && iso.inv.id = m.id)
-                 || (iso.mph.id = m.id   && iso.inv.id = mph.id) -> ret None
-    | _ ->
-      let* c  = Hyps.compose mph.data path.mph in
-      let* r  = Hyps.refl mph.data in
-      let* eq = Hyps.composeP r path.eq in
-      ret (Some { Data.mph = c; eq = eq; path = mph :: path.path })
+    match m.shape with 
+    | Base m ->
+      match mph.iso with
+      | Some iso when (iso.mph.id = mph.id && iso.inv.id = m.id)
+                   || (iso.mph.id = m.id   && iso.inv.id = mph.id) -> ret None
+      | _ ->
+        let* c  = Hyps.compose mph.data path.mph in
+        let* r  = Hyps.refl mph.data in
+        let* eq = Hyps.composeP r path.eq in
+        ret (Some { Data.mph = c; eq = eq; path = Data.fromBase mph :: path.path })
 
 module Array = struct
   include Array

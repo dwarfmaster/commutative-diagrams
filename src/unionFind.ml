@@ -8,7 +8,9 @@ type cell =
   }
 module OrderedPaths = struct
   type t = path
-  let compareMphs = fun (m1 : Data.morphism) (m2 : Data.morphism) -> m1.id - m2.id
+  let compareMphs = fun (m1 : Data.morphism) (m2 : Data.morphism) ->
+    match m1.shape, m2.shape with
+    | Base m1, Base m2 -> m1.id - m2.id
   let compare = fun (p1 : path) (p2 : path) ->
     if (fst p1).id = (fst p2).id
     then List.compare compareMphs (snd p1) (snd p2)

@@ -4,7 +4,7 @@ open Data
 type t =
   { categories : category array
   ; elems      : elem array
-  ; morphisms  : morphism array
+  ; morphisms  : morphismBase array
   ; faces      : face array
   }
 
@@ -15,7 +15,8 @@ let (@<<) : ('a -> 'b Proofview.tactic) -> 'a Proofview.tactic -> 'b Proofview.t
   fun f x -> Proofview.tclBIND x f
 let ret = Proofview.tclUNIT
 
-let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
+let extract : morphism list -> morphismData list =
+  List.map (fun m -> m.data)
 
 (*  __  __                  _     _ *)
 (* |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___ *)
@@ -254,7 +255,7 @@ let get_elem = fun (cat : EConstr.t) elm store ->
 let get_mph = fun (mph : morphismData) store ->
   let* env = Proofview.tclENV in
   let* sigma = Proofview.tclEVARMAP in
-  let id = array_find_id (fun(m : morphism) -> comp_constr env sigma mph.obj m.data.obj) store.morphisms in
+  let id = array_find_id (fun(m : morphismBase) -> comp_constr env sigma mph.obj m.data.obj) store.morphisms in
   match id with
   | Some id -> ret (id,store)
   | None ->
@@ -328,7 +329,7 @@ let rec normalize = fun (m : morphismData) store ->
     | Some _ -> refl m >>= fun eq -> ret ([], eq, store)
     | _ ->
       let* (mId,store) = get_mph m store in
-      refl m >>= fun r -> ret ([store.morphisms.(mId)], r, store)
+      refl m >>= fun r -> ret ([fromBase store.morphisms.(mId)], r, store)
 
 let eq_face = fun env sigma fce f ->
   match f.obj.eq with

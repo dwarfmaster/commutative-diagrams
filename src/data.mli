@@ -27,16 +27,24 @@ type morphismData =
   }
 type isoData =
   { obj : EConstr.t
-  ; mph : morphism
-  ; inv : morphism
+  ; mph : morphismBase
+  ; inv : morphismBase
   }
-and morphism =
+and morphismBase =
   { data : morphismData
   ; id   : mph_id
   ; mutable mono : EConstr.t option
   ; mutable epi  : EConstr.t option
   ; mutable iso  : isoData option
   }
+type morphismShape =
+  | Base of morphismBase
+type morphism =
+  { data  : morphismData
+  ; shape : morphismShape
+  }
+
+val fromBase : morphismBase -> morphism 
 
 (* Equality between uninterned morphisms *)
 type eqT =
