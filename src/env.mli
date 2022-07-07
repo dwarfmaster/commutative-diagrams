@@ -2,7 +2,8 @@
 exception Object_not_found of string
 
 val app : EConstr.t Proofview.tactic -> EConstr.t array -> EConstr.t Proofview.tactic
-
+  
+(* Catgories *)
 val is_cat  : Names.inductive -> bool
 val mk_cat  : unit -> EConstr.t Proofview.tactic
 
@@ -33,6 +34,15 @@ val mk_inv_mph : unit -> EConstr.t Proofview.tactic
 val mk_right_inv : unit -> EConstr.t Proofview.tactic
 val mk_left_inv : unit -> EConstr.t Proofview.tactic
 
+(* Functors *)
+val is_functor : Names.inductive -> bool
+val mk_functor : unit -> EConstr.t Proofview.tactic
+val mk_funct_object : unit -> EConstr.t Proofview.tactic
+val mk_funct_mph    : unit -> EConstr.t Proofview.tactic
+val mk_funct_comp   : unit -> EConstr.t Proofview.tactic
+val mk_funct_id     : unit -> EConstr.t Proofview.tactic
+
+(* Helpers *)
 val is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool
 
 val whd : EConstr.t -> EConstr.t Proofview.tactic

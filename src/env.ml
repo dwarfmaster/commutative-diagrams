@@ -308,3 +308,47 @@ let g_coq_left_inv_names : string array =
   |]
 let get_left_inv = fun _ -> perform_locate g_coq_left_inv g_coq_left_inv_names locate_const
 let mk_left_inv = fun _ -> mk_const (get_left_inv ())
+
+
+
+(*  _____                 _                  *)
+(* |  ___|   _ _ __   ___| |_ ___  _ __ ___  *)
+(* | |_ | | | | '_ \ / __| __/ _ \| '__/ __| *)
+(* |  _|| |_| | | | | (__| || (_) | |  \__ \ *)
+(* |_|   \__,_|_| |_|\___|\__\___/|_|  |___/ *)
+(*                                           *)
+(* Functors *)
+let g_coq_functor : Names.inductive array ref = ref [| |]
+let g_coq_functor_names : string array =
+  [| "HoTT.Categories.Functor"
+   ; "Core.Functor"
+   ; "HoTT.Categories.Functor.Core.Functor"
+   ; "HoTT.Categories.Functor.Functor"
+   ; "Functor.Functor"
+   ; "HoTT.Categories.Functor"
+  |]
+let get_functor = fun _ -> perform_locate g_coq_functor g_coq_functor_names locate_inductive
+let is_functor = is_ind g_coq_functor g_coq_functor_names
+let mk_functor = fun _ -> mk_ind (get_functor ())
+let g_coq_funct_object : Names.Constant.t array ref = ref [| |]
+let g_coq_funct_object_names : string array =
+  [| "Loader.funct_object" |]
+let get_funct_object = fun _ -> perform_locate g_coq_funct_object g_coq_funct_object_names locate_const
+let mk_funct_object = fun _ -> mk_const (get_funct_object ())
+let g_coq_funct_mph : Names.Constant.t array ref = ref [| |]
+let g_coq_funct_mph_names : string array =
+  [| "Loader.funct_mph" |]
+let get_funct_mph = fun _ -> perform_locate g_coq_funct_mph g_coq_funct_mph_names locate_const
+let mk_funct_mph = fun _ -> mk_const (get_funct_mph ())
+let g_coq_funct_comp : Names.Constant.t array ref = ref [| |]
+let g_coq_funct_comp_names : string array =
+  [| "Loader.funct_comp" |]
+let get_funct_comp = fun _ -> perform_locate g_coq_funct_comp g_coq_funct_comp_names locate_const
+let mk_funct_comp = fun _ -> mk_const (get_funct_comp ())
+let g_coq_funct_id : Names.Constant.t array ref = ref [| |]
+let g_coq_funct_id_names : string array =
+  [| "Loader.funct_id" |]
+let get_funct_id = fun _ -> perform_locate g_coq_funct_id g_coq_funct_id_names locate_const
+let mk_funct_id = fun _ -> mk_const (get_funct_id ())
+
+
