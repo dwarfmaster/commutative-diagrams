@@ -7,6 +7,11 @@ inverse of isomorphisms, and can handle monomorphisms and epimorphisms.
 For now it only works with the *HoTT* category library, but could easily be
 ported to any category library in Coq.
 
+# Installation
+
+A `flake.nix` file is provided for nix users. The plugin is also available on
+opam as `coq-commutative-diagrams`.
+
 # Usage
 
 `CommutativeDiagrams.Loader` must be imported. It then exposes 3 main tactis:
@@ -36,4 +41,8 @@ ported to any category library in Coq.
 - [X] Isomorphisms
 - [ ] Compostion under inverses
 - [ ] Functors
+- [ ] Natural transformations
 - [ ] Equality of objects
+- [ ] Products and coproducts of categories
+- [ ] Monoidal categories
+- [ ] Dual categories
