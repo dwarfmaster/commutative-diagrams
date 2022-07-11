@@ -1,6 +1,6 @@
 (library
  (name diagrams_plugin)
- (public_name commutative-diagrams.plugin)
+ (public_name coq-commutative-diagrams.plugin)
  (flags :standard -rectypes -w -27)
  (libraries coq-core.vernac coq-core.plugins.ltac))
 (coq.pp (modules g_diagrams))

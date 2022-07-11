@@ -1,5 +1,5 @@
 (lang dune 2.9)
-(name commutative-diagrams)
+(name coq-commutative-diagrams)
 (using coq 0.3)
 (generate_opam_files true)
 
@@ -10,5 +10,5 @@
 
 
 (package
- (name commutative-diagrams)
+ (name coq-commutative-diagrams)
  (synopsis "A Coq plugin to deal with commutative diagrams"))
