@@ -3,7 +3,7 @@
 (using coq 0.3)
 (generate_opam_files true)
 
-(source (github dwarfmaster/categories-lp))
+(source (github dwarfmaster/commutative-diagrams))
 (authors "Luc Chabassier")
 (maintainers "luc@dwarfmaster.net")
 (license MIT)
