@@ -2,17 +2,23 @@
   description="Coq plugin to automate commutative diagrams";
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-22.05";
-    hott.url = "github:dwarfmaster/coq-hott-nix";
   };
 
-  outputs = { self, nixpkgs, hott }: let
-    pkgs = import nixpkgs { system = "x86_64-linux"; };
-    ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_12;
-    coqPackages = pkgs.coqPackages_8_15;
+  outputs = { self, nixpkgs }: let
+    system = "x86_64-linux";
+    pkgs = import nixpkgs { inherit system; };
+    ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_13;
+    coq = pkgs.coq.override {
+      version = "8.15";
+      coq-version = "8.15";
+      customOCamlPackages = ocamlPackages;
+    };
+    coqPackages = pkgs.mkCoqPackages coq;
+    hott = coqPackages.callPackage ./hott.nix {};
 
     pkg = ocamlPackages.callPackage ./default.nix {
-      coq_8_15 = coqPackages.coq;
-      inherit (hott.packages."x86_64-linux") coq-hott_8_15;
+      coq_8_15 = coq;
+      coq-hott_8_15 = hott;
     };
 
     shell = pkgs.mkShell {
