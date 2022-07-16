@@ -3,5 +3,5 @@
  (package coq-commutative-diagrams)
  (synopsis "Tools to work with commutative diagrams")
  (flags (:standard -noinit -indices-matter))
- (libraries coq-core.plugins.ltac diagrams_plugin)
+ (libraries coq-core.plugins.ltac coq-commutative-diagrams.plugin)
  (modules Loader Tests))
