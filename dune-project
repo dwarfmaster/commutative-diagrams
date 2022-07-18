@@ -13,5 +13,5 @@
  (name coq-commutative-diagrams)
  (synopsis "A Coq plugin to deal with commutative diagrams")
  (depends
-   (ocaml (>= 4.12))
+   (ocaml (>= 4.08))
    (coq-core (and (>= 8.15) (< 8.16~)))))

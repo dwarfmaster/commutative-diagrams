@@ -11,7 +11,7 @@ module OrderedPaths = struct
   let compareMphs = fun (m1 : Data.morphism) (m2 : Data.morphism) -> m1.id - m2.id
   let compare = fun (p1 : path) (p2 : path) ->
     if (fst p1).id = (fst p2).id
-    then List.compare compareMphs (snd p1) (snd p2)
+    then CList.compare compareMphs (snd p1) (snd p2)
     else (fst p1).id - (fst p2).id
 end
 module M = struct
