@@ -1,40 +1,40 @@
 
 type state
-type 'a t
-val run : Proofview.Goal.t -> 'a t -> 'a Proofview.tactic
+type 'a m
+val run : Proofview.Goal.t -> 'a m -> 'a Proofview.tactic
 
 (* Basic monadic operations *)
-val bind : 'a t -> ('a -> 'b t) -> 'b t
-val thn  : 'a t -> 'b t -> 'b t
-val ret  : 'a -> 'a t
-val (let*) : 'a t -> ('a -> 'b t) -> 'b t
-val (>>=)  : 'a t -> ('a -> 'b t) -> 'b t
-val (@<<)  : ('a -> 'b t) -> 'a t -> 'b t
-val (<$>)  : ('a -> 'b) -> 'a t -> 'b t
+val bind : 'a m -> ('a -> 'b m) -> 'b m
+val thn  : 'a m -> 'b m -> 'b m
+val ret  : 'a -> 'a m
+val (let*) : 'a m -> ('a -> 'b m) -> 'b m
+val (>>=)  : 'a m -> ('a -> 'b m) -> 'b m
+val (@<<)  : ('a -> 'b m) -> 'a m -> 'b m
+val (<$>)  : ('a -> 'b) -> 'a m -> 'b m
 
 (* Proof operations *)
-val liftTactic : 'a Proofview.tactic -> 'a t
-val getEnv : Environ.env t
-val getEvarMap : Evd.evar_map t
+val liftTactic : 'a Proofview.tactic -> 'a m
+val getEnv : Environ.env m
+val getEvarMap : Evd.evar_map m
 
 (* State operations *)
-val getCategories : Data.category array t
-val getCategory : int -> Data.category t
-val addCategory : Data.category -> unit t
-val initCategory : (* cat *)EConstr.t -> Data.cat_id t
+val getCategories : Data.category array m
+val getCategory : int -> Data.category m
+val addCategory : Data.category -> unit m
+val initCategory : (* cat *)EConstr.t -> Data.cat_id m
 
-val getElems : Data.elem array t 
-val getElem : int -> Data.elem t
-val addElem : Data.elem -> unit t
-val initElem : (* cat *)EConstr.t -> (* elem *)EConstr.t -> Data.elem_id t
+val getElems : Data.elem array m 
+val getElem : int -> Data.elem m
+val addElem : Data.elem -> unit m
+val initElem : (* cat *)Data.category -> (* elem *)EConstr.t -> Data.elem_id m
 
-val getMorphisms : Data.morphismBase array t 
-val getMorphism : int -> Data.morphismBase t
-val addMorphism : Data.morphismBase -> unit t
-val initMorphism : Data.morphismData -> Data.mph_id t
+val getMorphisms : Data.morphismBase array m 
+val getMorphism : int -> Data.morphismBase m
+val addMorphism : Data.morphismBase -> unit m
+val initMorphism : Data.morphismData -> Data.mph_id m
 
-val getFaces : Data.face array t
-val getFace : int -> Data.face t
-val addFace : Data.face -> unit t
+val getFaces : Data.face array m
+val getFace : int -> Data.face m
+val addFace : Data.face -> unit m
 val initFace : (* tp *)Data.morphismT -> (* mph1 *)Data.path -> (* mph2 *)Data.path
-            -> (* eq *)EConstr.t -> Data.face_id t
+            -> (* eq *)EConstr.t -> Data.face_id m

@@ -1,19 +1,8 @@
 
 open Data
-
-type t =
-  { categories : category array
-  ; elems      : elem array
-  ; morphisms  : morphismBase array
-  ; faces      : face array
-  }
+open Monad
 
 exception Ill_typed
-let (let*) = Proofview.tclBIND
-let (>>=) = Proofview.tclBIND
-let (@<<) : ('a -> 'b Proofview.tactic) -> 'a Proofview.tactic -> 'b Proofview.tactic =
-  fun f x -> Proofview.tclBIND x f
-let ret = Proofview.tclUNIT
 
 let extract : morphism list -> morphismData list =
   List.map (fun m -> m.data)

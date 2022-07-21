@@ -9,8 +9,8 @@ type state =
 
 (* State monad over Proofview.tactic *)
 (* state might be mutated, so binding must always be linear *)
-type 'a t = state -> (state * 'a) Proofview.tactic 
-let run (goal : Proofview.Goal.t) (m : 'a t) =
+type 'a m = state -> (state * 'a) Proofview.tactic 
+let run (goal : Proofview.Goal.t) (m : 'a m) =
   let env = Proofview.Goal.env goal in
   let tac = m { categories = [| |]
               ; elems      = [| |]
@@ -20,11 +20,11 @@ let run (goal : Proofview.Goal.t) (m : 'a t) =
               } in
   Proofview.tclBIND tac (fun (_,x) -> Proofview.tclUNIT x)
 
-let onState : (state -> 'a) -> 'a t =
+let onState : (state -> 'a) -> 'a m =
   fun f -> fun st -> let x = f st in Proofview.tclUNIT (st,x)
-let upState : (state -> state) -> unit t =
+let upState : (state -> state) -> unit m =
   fun f -> fun st -> Proofview.tclUNIT (f st, ())
-let mutateState : (state -> unit) -> unit t =
+let mutateState : (state -> unit) -> unit m =
   fun f -> fun st -> let _ = f st in Proofview.tclUNIT (st, ())
 let push_back : 'a array -> 'a -> 'a array =
   fun arr x ->
@@ -39,15 +39,15 @@ let push_back : 'a array -> 'a -> 'a array =
 (*                                  *)
 (* Monad *)
 
-let bind : 'a t -> ('a -> 'b t) -> 'b t =
+let bind : 'a m -> ('a -> 'b m) -> 'b m =
   fun x f ->
     fun st ->
       Proofview.tclBIND (x st) (fun (st,x) -> f x st)
 
-let thn  : 'a t -> 'b t -> 'b t =
+let thn  : 'a m -> 'b m -> 'b m =
   fun x y -> bind x (fun _ -> y)
 
-let ret  : 'a -> 'a t =
+let ret  : 'a -> 'a m =
   fun x -> fun st -> Proofview.tclUNIT (st,x)
 
 let (let*) = bind
@@ -63,7 +63,7 @@ let (<$>)  = fun f x -> bind x (fun x -> ret (f x))
 (* |_|   |_|  \___/ \___/|_|    \___/| .__/ \___|_|  \__,_|\__|_|\___/|_| |_|___/ *)
 (*                                   |_|                                          *)
 (* Proof operations *)
-let liftTactic : 'a Proofview.tactic -> 'a t =
+let liftTactic : 'a Proofview.tactic -> 'a m =
   fun tac -> fun st -> Proofview.tclBIND tac (fun x -> Proofview.tclUNIT (st,x))
 let getEnv = fun st -> Proofview.tclUNIT (st, st.env)
 let getEvarMap = liftTactic Proofview.tclEVARMAP
@@ -105,10 +105,9 @@ let getElems = onState (fun st -> st.elems)
 let getElem (i : int) = onState (fun st -> Array.get st.elems i)
 let addElem (elem : Data.elem) =
   upState (fun st -> { st with elems = push_back st.elems elem })
-let initElem (cat : EConstr.t) (elem : EConstr.t) =
+let initElem (cat : Data.category) (elem : EConstr.t) =
   let* env = getEnv in 
   let* sigma = getEvarMap in 
-  let* cat = getCategory @<< initCategory cat in
   let* id = array_find_id (fun (e : Data.elem) -> comp_constr env sigma elem e.obj) <$> getElems in
   match id with
   | Some id -> ret id 
@@ -131,7 +130,7 @@ let initMorphism (mph : Data.morphismData) =
   | Some id -> ret id
   | None ->
       let* nid = Array.length <$> getMorphisms in 
-      let* _ = addMorphism { data = mph; id = nid; mono = None; epi = None; iso = None } in 
+      let* _ = addMorphism { data = mph; id = nid } in 
       ret nid
 
 let getFaces = onState (fun st -> st.faces)

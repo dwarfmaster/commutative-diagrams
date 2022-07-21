@@ -1,13 +1,6 @@
 
 
 open Data
-type t =
-  { categories : category array
-  ; elems      : elem array
-  ; morphisms  : morphismBase array
-  ; faces      : face array
-  }
-
 exception Ill_typed
 val extract : morphism list -> morphismData list
 
@@ -62,7 +55,6 @@ val simpl_eq : eq -> eq
 (* | |__| (_) | | | | ||  __/>  <| |_  *)
 (*  \____\___/|_| |_|\__\___/_/\_\\__| *)
 
-val empty_context : t
 val get_cat  : EConstr.t -> t -> (cat_id * t) Proofview.tactic
 val get_elem : EConstr.t -> EConstr.t -> t -> (elem_id * t) Proofview.tactic
 val get_mph  : morphismData -> t -> (mph_id * t) Proofview.tactic

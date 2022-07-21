@@ -18,7 +18,6 @@ type preMorphismType =
 type preMorphismShape =
   | Id   of preElem
   | Comp of preMorphism * preMorphism
-  | Inv  of preMorphism
   | Mph  of EConstr.t
 and preMorphism =
   { shape : preMorphismShape
@@ -52,3 +51,13 @@ type preFace =
   { tp  : preMorphismType
   ; obj : preMorphism preEq
   }
+
+val normCategory : preCategory -> Data.category Monad.m
+val normElem : preElem -> Data.elem Monad.m
+val normMorphismT : preMorphismType -> Data.morphismT Monad.m
+val normMorphism : preMorphism -> Data.path Monad.m
+val normIso : preIso -> Data.isoData Monad.m
+val normEpi : preEpi -> Data.epiData Monad.m
+val normMono : preMono -> Data.monoData Monad.m
+val normEq : preMorphism preEq -> Data.eq Monad.m
+val normFace : preFace -> Data.face Monad.m

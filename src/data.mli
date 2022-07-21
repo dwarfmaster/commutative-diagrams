@@ -25,17 +25,22 @@ type morphismData =
   { obj : EConstr.t
   ; tp  : morphismT
   }
+type morphismBase =
+  { data : morphismData
+  ; id   : mph_id
+  }
 type isoData =
   { obj : EConstr.t
   ; mph : morphismBase
   ; inv : morphismBase
   }
-and morphismBase =
-  { data : morphismData
-  ; id   : mph_id
-  ; mutable mono : EConstr.t option
-  ; mutable epi  : EConstr.t option
-  ; mutable iso  : isoData option
+type epiData =
+  { obj : EConstr.t
+  ; mph : morphismBase
+  }
+type monoData =
+  { obj : EConstr.t 
+  ; mph : morphismBase 
   }
 type morphismShape =
   | Base of morphismBase
