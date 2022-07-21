@@ -9,7 +9,7 @@ bug-reports: "https://github.com/dwarfmaster/commutative-diagrams/issues"
 depends: [
   "dune" {>= "2.9"}
   "ocaml" {>= "4.08"}
-  "coq-core" {>= "8.15" & < "8.16~"}
+  "coq" {>= "8.15" & < "8.16~"}
   "odoc" {with-doc}
 ]
 build: [
