@@ -37,4 +37,4 @@ val getFaces : Data.face array m
 val getFace : int -> Data.face m
 val addFace : Data.face -> unit m
 val initFace : (* tp *)Data.morphismT -> (* mph1 *)Data.path -> (* mph2 *)Data.path
-            -> (* eq *)EConstr.t -> Data.face_id m
+            -> (* eq *)Data.eq -> Data.face_id m

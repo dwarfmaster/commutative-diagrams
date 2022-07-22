@@ -137,11 +137,9 @@ let getFaces = onState (fun st -> st.faces)
 let getFace (i : int) = onState (fun st -> Array.get st.faces i)
 let addFace (fce : Data.face) =
   upState (fun st -> { st with faces = push_back st.faces fce })
-let initFace (tp : Data.morphismT) (mph1 : Data.path) (mph2 : Data.path) (fce : EConstr.t) =
+let initFace (tp : Data.morphismT) (mph1 : Data.path) (mph2 : Data.path) (fce : Data.eq) =
   let eq_face = fun env sigma fce (f : Data.face) ->
-    match f.obj.eq with
-    | Atom eq -> comp_constr env sigma fce eq 
-    | _ -> assert false in
+    Data.comp_eq (comp_constr env sigma) fce f.obj in
   let* env = getEnv in 
   let* sigma = getEvarMap in 
   let* id = 
@@ -153,7 +151,7 @@ let initFace (tp : Data.morphismT) (mph1 : Data.path) (mph2 : Data.path) (fce : 
       let* _ = addFace { tp    = tp 
                        ; side1 = mph1 
                        ; side2 = mph2 
-                       ; obj   = { src = mph1.mph; dst = mph2.mph; tp = tp; eq = Atom fce }
+                       ; obj   = fce
                        ; id    = nid 
                        } in 
       ret nid

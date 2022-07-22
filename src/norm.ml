@@ -70,35 +70,36 @@ let normMorphismT (mphT : preMorphismType) : Data.morphismT m =
   ret { Data.category = cat; src = src; dst = dst; obj = mphT.obj }
 
 (* TODO *)
-let rec normMorphism (m : preMorphism) : Data.path m =
-  let* env = getEnv in 
-  let* sigma = getEvarMap in 
-  let* mph = liftTactic (Hott.parse_compose env m.obj) in 
-  match mph with
-  | Some (cat,src,int,dst,msi,mid) ->
-      let* catP = getCategory @<< initCategory cat in 
-      let* intP = getElem @<< initElem cat int in 
-      let* obj = liftTactic (Hott.morphism env m.tp.category.obj src int) in 
-      let msi =
-        {
-        }
-      let msi =
-        { obj = msi
-        ; tp = { category = m.tp.category 
-               ; src = m.tp.src
-               ; dst = intP 
-               ; obj = obj }
-        } in
-      let* obj = liftTactic (Hott.morphism env m.tp.category.obj int dst) in 
-      let mid =
-        { obj = mid 
-        ; tp = { category = m.tp.category 
-               ; src = intP
-               ; dst = m.tp.dst 
-               ; obj = obj }
-        } in
-      let* p1 = normMorphism msi in
-      assert false
+let normMorphism (m : preMorphism) : Data.path m =
+  assert false
+  (* let* env = getEnv in  *)
+  (* let* sigma = getEvarMap in  *)
+  (* let* mph = liftTactic (Hott.parse_compose env m.obj) in  *)
+  (* match mph with *)
+  (* | Some (cat,src,int,dst,msi,mid) -> *)
+  (*     let* catP = getCategory @<< initCategory cat in  *)
+  (*     let* intP = getElem @<< initElem cat int in  *)
+  (*     let* obj = liftTactic (Hott.morphism env m.tp.category.obj src int) in  *)
+  (*     let msi = *)
+  (*       { *)
+  (*       } *)
+  (*     let msi = *)
+  (*       { obj = msi *)
+  (*       ; tp = { category = m.tp.category  *)
+  (*              ; src = m.tp.src *)
+  (*              ; dst = intP  *)
+  (*              ; obj = obj } *)
+  (*       } in *)
+  (*     let* obj = liftTactic (Hott.morphism env m.tp.category.obj int dst) in  *)
+  (*     let mid = *)
+  (*       { obj = mid  *)
+  (*       ; tp = { category = m.tp.category  *)
+  (*              ; src = intP *)
+  (*              ; dst = m.tp.dst  *)
+  (*              ; obj = obj } *)
+  (*       } in *)
+  (*     let* p1 = normMorphism msi in *)
+  (*     assert false *)
 
 let normIso (iso : preIso) : Data.isoData m =
   let* mph = normMorphism iso.mph in
@@ -129,6 +130,9 @@ let normMono (mono : preMono) : Data.monoData m =
       end
   | _ -> assert false
 
+let makeEq (p1: Data.path) (p2 : Data.path) (eqT : Data.eqT) : Data.eq =
+  { Data.src = p1.mph; dst = p2.mph; tp = p1.mph.tp; eq = eqT }
+
 (* TODO handle tp data *)
 let rec normEqT (shape : preMorphism preEqShape) : Data.eqT m =
   match shape with
@@ -144,16 +148,17 @@ let rec normEqT (shape : preMorphism preEqShape) : Data.eqT m =
       ret (Data.Inv eq)
   | Eq eq ->
       ret (Data.Atom eq)
-and normEq' (eq : preMorphism preEq) : ((Data.path,Data.path,Data.eqT)) m = 
+and normEq' (eq : preMorphism preEq) : (Data.path * Data.path * Data.eqT) m = 
   let* src = normMorphism eq.src in 
   let* dst = normMorphism eq.dst in 
   let* eqT = normEqT eq.shape in
   ret (src,dst,eqT)
 and normEq (eq : preMorphism preEq) : Data.eq m =
   let* (src,dst,eqT) = normEq' eq in
-  ret { Data.src = src.mph; dst = dst.mph; tp = src.mph.tp; eq = eqT }
+  ret (makeEq src dst eqT)
 
 let normFace (fce : preFace) : Data.face m =
   let* mphT = normMorphismT fce.tp in 
   let* (src,dst,eqT) = normEq' fce.obj in 
-  getFace @<< initFace mphT src dst fce.obj
+  getFace @<< initFace mphT src dst (makeEq src dst eqT)
+
