@@ -74,10 +74,10 @@ let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string ->
 let g_coq_cat : Names.inductive array ref = ref [| |]
 let g_coq_cat_names : string array =
   [| "HoTT.Categories.Category.Core.PreCategory"
-   ; "HoTT.Categories.Category.PreCategory"
-   ; "HoTT.Categories.PreCategory"
-   ; "Categories.Category.PreCategory"
-   ; "Categories.PreCategory"
+   (* ; "HoTT.Categories.Category.PreCategory" *)
+   (* ; "HoTT.Categories.PreCategory" *)
+   (* ; "Categories.Category.PreCategory" *)
+   (* ; "Categories.PreCategory" *)
   |]
 let get_cat = fun _ -> perform_locate g_coq_cat g_coq_cat_names locate_inductive
 let is_cat : Names.inductive -> bool = is_ind g_coq_cat g_coq_cat_names
@@ -246,11 +246,11 @@ let mk_rap = fun _ -> mk_const (get_rap ())
 (* Monomorphism *)
 let g_coq_mono : Names.Constant.t array ref = ref [| |]
 let g_coq_mono_names : string array =
-  [| "HoTT.Categories.Category.IsMonomorphism"
-   ; "Category.IsMonomorphism"
-   ; "Morphisms.IsMonomorphism"
-   ; "HoTT.Categories.Category.Morphisms.IsMonomorphism"
-   ; "Morphisms.IsMonomorphism"
+  [| "HoTT.Categories.Category.Morphisms.IsMonomorphism"
+   (* ; "HoTT.Categories.Category.IsMonomorphism" *)
+   (* ; "Category.IsMonomorphism" *)
+   (* ; "Morphisms.IsMonomorphism" *)
+   (* ; "Morphisms.IsMonomorphism" *)
   |]
 let get_mono = fun _ -> perform_locate g_coq_mono g_coq_mono_names locate_const
 let is_mono = is_const g_coq_mono g_coq_mono_names
@@ -265,11 +265,11 @@ let mk_mono = fun _ -> mk_const (get_mono ())
 (* Epimorphism *)
 let g_coq_epi : Names.Constant.t array ref = ref [| |]
 let g_coq_epi_names : string array =
-  [| "HoTT.Categories.Category.IsEpimorphism"
-   ; "Category.IsEpimorphism"
-   ; "Morphisms.IsEpimorphism"
-   ; "HoTT.Categories.Category.Morphisms.IsEpimorphism"
-   ; "Morphisms.IsEpimorphism"
+  [| "HoTT.Categories.Category.Morphisms.IsEpimorphism"
+   (* ; "HoTT.Categories.Category.IsEpimorphism" *)
+   (* ; "Category.IsEpimorphism" *)
+   (* ; "Morphisms.IsEpimorphism" *)
+   (* ; "Morphisms.IsEpimorphism" *)
   |]
 let get_epi = fun _ -> perform_locate g_coq_epi g_coq_epi_names locate_const
 let is_epi = is_const g_coq_epi g_coq_epi_names
@@ -284,8 +284,8 @@ let mk_epi = fun _ -> mk_const (get_epi ())
 (* Isomorphism *)
 let g_coq_iso : Names.inductive array ref = ref [| |]
 let g_coq_iso_names : string array =
-  [| "HoTT.Categories.Category.IsIsomorphism"
-   ; "HoTT.Categories.Category.Morphisms.IsIsomorphism"
+  [| "HoTT.Categories.Category.Morphisms.IsIsomorphism"
+   (* ; "HoTT.Categories.Category.IsIsomorphism" *)
   |]
 let get_iso = fun _ -> perform_locate g_coq_iso g_coq_iso_names locate_inductive
 let is_iso = is_ind g_coq_iso g_coq_iso_names
