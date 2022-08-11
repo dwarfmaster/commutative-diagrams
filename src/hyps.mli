@@ -10,6 +10,7 @@ type t =
 
 exception Ill_typed
 val extract : morphism list -> morphismData list
+val extractSkel : morphism list -> pathSkeleton
 
 (*  __  __                  _     _ *)
 (* |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___ *)
@@ -22,7 +23,7 @@ val compose : morphismData -> morphismData -> morphismData Proofview.tactic
 val composeT : morphismT -> morphismT -> morphismT Proofview.tactic
 (* [ m1, m2, m3 ] -> (m3 o m2) o m1 *)
 (* Raises Ill_typed if the list is not composable *)
-val realize : elem -> morphismData list -> morphismData Proofview.tactic
+val realize : elem -> pathSkeleton -> morphismData Proofview.tactic
 val rpath : path -> morphismData Proofview.tactic
 (* a -> 1_a *)
 val identity : elem -> morphismData Proofview.tactic

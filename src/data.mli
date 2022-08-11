@@ -62,11 +62,15 @@ and eq =
   }
 
 (* The composed morphism of the path may not be in the context since we only keep the base *)
+type ('morphism,'path) pathComponent =
+  | Base of 'morphism
 type path =
   { mph  : morphismData
   ; eq   : eq (* Equality from `mph` to `realize path` *)
-  ; path : morphism list
+  ; path : (morphism,path) pathComponent list
   }
+type pathSkeleton = (morphismData,pathSkeleton) pathComponent list
+val toSkeleton : path -> pathSkeleton
 type face =
   { tp    : morphismT
   ; side1 : path

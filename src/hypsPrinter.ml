@@ -31,10 +31,18 @@ let rec mphList = fun sigma env (ms : Data.morphism list) ->
   | [ m ] -> ppe sigma env m.data.obj
   | m :: ms -> ppe sigma env m.data.obj ++ Pp.str ";" ++ mphList sigma env ms
 
-let path = fun sigma env (p : Data.path) ->
+let rec path = fun sigma env (p : Data.path) ->
   ppe sigma env p.mph.obj ++ Pp.str " ={"
   ++ eq sigma env p.eq ++ Pp.str "} "
-  ++ mphList sigma env p.path
+  ++ compList sigma env p.path
+and compList sigma env (ms : (Data.morphism,Data.path) Data.pathComponent list) =
+  match ms with
+  | [ ] -> Pp.str ""
+  | [ m ] -> comp sigma env m 
+  | m :: ms -> comp sigma env m ++ Pp.str ";" ++ compList sigma env ms
+and comp sigma env (m : (Data.morphism,Data.path) Data.pathComponent) =
+  match m with
+  | Base m -> ppe sigma env m.data.obj
 
 let face = fun sigma env (f : Data.face) ->
   eq sigma env f.obj ++ Pp.str ":::" ++

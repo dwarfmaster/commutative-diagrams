@@ -60,11 +60,14 @@ and eq =
   ; eq  : eqT
   }
 
+type ('morphism,'path) pathComponent =
+  | Base of 'morphism
 type path =
   { mph  : morphismData
-  ; eq   : eq
-  ; path : morphism list
+  ; eq   : eq (* Equality from `mph` to `realize path` *)
+  ; path : (morphism,path) pathComponent list
   }
+type pathSkeleton = (morphismData,pathSkeleton) pathComponent list
 type face =
   { tp    : morphismT
   ; side1 : path
@@ -73,3 +76,8 @@ type face =
   ; id    : face_id
   }
 
+let rec toSkeleton (path : path) : pathSkeleton =
+  List.map toSkeletonComp path.path
+and toSkeletonComp (comp : (morphism,path) pathComponent) : (morphismData,pathSkeleton) pathComponent =
+  match comp with
+  | Base m -> Base m.data

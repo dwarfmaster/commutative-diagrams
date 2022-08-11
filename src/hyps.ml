@@ -16,6 +16,7 @@ let (@<<) : ('a -> 'b Proofview.tactic) -> 'a Proofview.tactic -> 'b Proofview.t
 let ret = Proofview.tclUNIT
 
 let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
+let extractSkel : morphism list -> pathSkeleton = List.map (fun m -> Base m.data)
 
 (*  __  __                  _     _ *)
 (* |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___ *)
@@ -50,13 +51,16 @@ let identity = fun (x : elem) ->
              ; dst = x
              ; obj = tp }
       }
-let rec realize' = fun src (ms : morphismData list) ->
+let rec realize (src : elem) (ms : pathSkeleton) : morphismData Proofview.tactic =
   match ms with
   | [] -> identity src
-  | [ m ] -> ret m
-  | m :: ms -> compose m @<< realize' m.tp.dst ms
-let realize = fun src ms -> realize' src ms
-let rpath = fun pth -> realize pth.mph.tp.src (extract pth.path)
+  | [ m ] -> realizeComp m
+  | m :: ms -> let* m = realizeComp m in compose m @<< realize m.tp.dst ms
+and realizeComp (m : (morphismData,pathSkeleton) pathComponent) : morphismData Proofview.tactic =
+  match m with
+  | Base m -> ret m
+let rpath (pth : path) =
+  realize pth.mph.tp.src (toSkeleton pth)
 
 
 
@@ -273,6 +277,9 @@ let get_mph = fun (mph : morphismData) store ->
 (* |_| \_|\___/|_|  |_| |_| |_|\__,_|_|_|___/\__,_|\__|_|\___/|_| |_| *)
 
 
+let listToSkeleton (mphs : morphismData list) : pathSkeleton =
+  List.map (fun m -> Base m) mphs
+
 (* [ m1 m2 m3 ] -> right -> (right o ((m3 o m2) o m1)) = right o m3 o m2 o m1  *)
 (* TODO(optimisation) avoid calling realize at each step *)
 let rec repeat_assoc : morphismData list -> morphismData -> eq Proofview.tactic =
@@ -283,7 +290,7 @@ let rec repeat_assoc : morphismData list -> morphismData -> eq Proofview.tactic 
   | m :: mphs ->
     let* p = repeat_assoc mphs right in
     let* r = refl m in
-    let* mphs = realize m.tp.dst mphs in
+    let* mphs = realize m.tp.dst (listToSkeleton mphs) in
     let* extract_first = assoc m mphs right in
     concat extract_first @<< composeP r p
 
@@ -312,9 +319,9 @@ let rec normalize = fun (m : morphismData) store ->
               ; obj = obj }
       } in
     let* (d1,p1,store) = normalize msi store in
-    let* m1 = realize m.tp.src (extract d1) in
+    let* m1 = realize m.tp.src (extractSkel d1) in
     let* (d2,p2,store) = normalize mid store in
-    let* m2 = realize store.elems.(intId) (extract d2) in
+    let* m2 = realize store.elems.(intId) (extractSkel d2) in
     let* p = composeP p1 p2 in
     (match d1,d2 with
      | [], _ -> right_id m2 >>= fun id -> concat p id >>= fun c -> ret (d2, c, store)
@@ -335,6 +342,9 @@ let eq_face = fun env sigma fce f ->
   | Atom eq -> comp_constr env sigma fce eq
   | _ -> assert false
 
+let listToPath : morphism list -> (morphism,path) pathComponent list =
+  List.map (fun m -> Base m)
+
 let get_face = fun tp mph1 mph2 fce store ->
   let* env = Proofview.tclENV in
   let* sigma = Proofview.tclEVARMAP in
@@ -353,8 +363,8 @@ let get_face = fun tp mph1 mph2 fce store ->
          ; morphisms = store.morphisms
          ; faces = Array.append store.faces
                [| { tp = tp
-                  ; side1 = { mph = mph1; eq = p1; path = d1 }
-                  ; side2 = { mph = mph2; eq = p2; path = d2 }
+                  ; side1 = { mph = mph1; eq = p1; path = listToPath d1 }
+                  ; side2 = { mph = mph2; eq = p2; path = listToPath d2 }
                   ; obj = { src = mph1; dst = mph2; tp = tp; eq = Atom fce }
                   ; id = nid } |]
          })
@@ -414,14 +424,14 @@ let read_face = fun fce store ->
       | Some tp ->
         let mph1 = { obj = f1; tp = tp } in
         let* (d1,p1,store) = normalize mph1 store in
-        let side1 = { mph = mph1; eq = p1; path = d1 } in
+        let side1 = { mph = mph1; eq = p1; path = listToPath d1 } in
         let mph2 = { obj = f2; tp = tp } in
         let* (d2,p2,store) = normalize mph2 store in
-        let side2 = { mph = mph2; eq = p2; path = d2 } in
+        let side2 = { mph = mph2; eq = p2; path = listToPath d2 } in
         ret (store, Some (side1,side2))
-      | _ -> ret (store,None)
+      | _ -> Feedback.msg_notice (Pp.str "Couldn't read morphism"); ret (store,None)
     end
-  | _ -> ret (store,None)
+  | _ -> Feedback.msg_notice (Pp.str "Couldn't read equality"); ret (store,None)
 
 let parse_face = fun name fce store ->
   let* env = Proofview.tclENV in
@@ -518,3 +528,4 @@ let parse_iso = fun name iso store ->
       ret (store,Some mph.id)
     end
   | _ -> ret (store,None)
+
