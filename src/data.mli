@@ -1,14 +1,22 @@
 
 type kind = (EConstr.t,EConstr.t,EConstr.ESorts.t,EConstr.EInstance.t) Constr.kind_of_term
 
-type cat_id  = int
-type elem_id = int
-type mph_id  = int
-type face_id = int
+type cat_id   = int
+type funct_id = int
+type elem_id  = int
+type mph_id   = int
+type face_id  = int
 
 type category =
   { obj : EConstr.t
   ; id  : cat_id
+  }
+type funct =
+  { obj : EConstr.t 
+  ; tp  : EConstr.t
+  ; id  : funct_id
+  ; src : category
+  ; dst : category
   }
 type elem =
   { obj      : EConstr.t

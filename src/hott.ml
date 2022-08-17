@@ -20,6 +20,16 @@ let is_cat : Environ.env -> t -> bool Proofview.tactic = fun env cat ->
       | Ind (ind,_) -> Env.is_cat ind
       | _ -> false)
 
+let is_funct : Environ.env -> t -> (t*t) option Proofview.tactic = fun env funct ->
+  let* sigma = Proofview.tclEVARMAP in 
+  match EConstr.kind sigma funct with
+  | App (funct, [| src; dst |]) ->
+      begin match EConstr.kind sigma funct with
+      | Ind (funct,_) when Env.is_functor funct -> ret (Some (src,dst))
+      | _ -> ret None
+      end
+  | _ -> ret None
+
 let is_object : Environ.env -> t -> t option Proofview.tactic = fun env obj ->
   let* sigma = Proofview.tclEVARMAP in
   ret (match EConstr.kind sigma obj with

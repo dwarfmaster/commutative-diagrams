@@ -3,6 +3,7 @@ open Data
 
 type t =
   { categories : category array
+  ; functors   : funct array
   ; elems      : elem array
   ; morphisms  : morphism array
   ; faces      : face array
@@ -218,6 +219,7 @@ let array_find_id : ('a -> bool) -> 'a array -> int option = fun pred arr ->
 
 let empty_context =
   { categories = [| |]
+  ; functors   = [| |]
   ; elems      = [| |]
   ; morphisms  = [| |]
   ; faces      = [| |] }
@@ -233,12 +235,25 @@ let get_cat  = fun (cat : EConstr.t) store ->
   | Some id -> ret (id,store)
   | None -> let nid = Array.length store.categories in
     ret (nid,
-         { categories =
+         { store with categories =
              Array.append store.categories
-               [| { obj = cat; id = Array.length store.categories } |]
-         ; elems = store.elems
-         ; morphisms = store.morphisms
-         ; faces = store.faces })
+               [| { obj = cat; id = Array.length store.categories } |] })
+
+let get_funct (funct : EConstr.t) (tp : EConstr.t) (src : EConstr.t) (dst : EConstr.t) store =
+  let* env = Proofview.tclENV in 
+  let* sigma = Proofview.tclEVARMAP in 
+  let* (src_id,store) = get_cat src store in 
+  let* (dst_id,store) = get_cat dst store in
+  let id = array_find_id (fun(f : funct) -> comp_constr env sigma funct f.obj) store.functors in
+  match id with
+  | Some id -> ret (id,store)
+  | None ->
+      let nid = Array.length store.functors in 
+      let src = store.categories.(src_id) in 
+      let dst = store.categories.(dst_id) in
+      ret (nid,
+           { store with functors = Array.append store.functors
+               [| { obj = funct; tp = tp; id = nid; src = src; dst = dst; } |]})
 
 let get_elem = fun (cat : EConstr.t) elm store ->
   let* env = Proofview.tclENV in
@@ -250,10 +265,7 @@ let get_elem = fun (cat : EConstr.t) elm store ->
   | Some id -> ret (id,store)
   | None -> let nid = Array.length store.elems in
     ret (nid,
-         { categories = store.categories
-         ; elems = Array.append store.elems [| { obj = elm; id = nid; category = cat } |]
-         ; morphisms = store.morphisms
-         ; faces = store.faces })
+         { store with elems = Array.append store.elems [| { obj = elm; id = nid; category = cat } |] })
 
 let get_mph = fun (mph : morphismData) store ->
   let* env = Proofview.tclENV in
@@ -264,10 +276,8 @@ let get_mph = fun (mph : morphismData) store ->
   | None ->
     let nid = Array.length store.morphisms in
     ret (nid,
-         { categories = store.categories
-         ; elems = store.elems
-         ; morphisms = Array.append store.morphisms [| { data = mph; id = nid; mono = None; epi = None; iso = None } |]
-         ; faces = store.faces })
+         { store with morphisms =
+             Array.append store.morphisms [| { data = mph; id = nid; mono = None; epi = None; iso = None } |] })
 
 
 (*  _   _                            _ _           _   _              *)
@@ -358,10 +368,7 @@ let get_face = fun tp mph1 mph2 fce store ->
     let* (d2,p2,store) = normalize mph2 store in
     let nid = Array.length store.faces in
     ret (nid,
-         { categories = store.categories
-         ; elems = store.elems
-         ; morphisms = store.morphisms
-         ; faces = Array.append store.faces
+         { store with faces = Array.append store.faces
                [| { tp = tp
                   ; side1 = { mph = mph1; eq = p1; path = listToPath d1 }
                   ; side2 = { mph = mph2; eq = p2; path = listToPath d2 }
@@ -383,6 +390,14 @@ let parse_cat  = fun name cat store ->
   if isc
   then let* (id,store) = get_cat (EConstr.mkVar name) store in ret (store,Some id)
   else ret (store,None)
+
+let parse_funct name funct store =
+  let* env = Proofview.tclENV in 
+  let* parsed = Hott.is_funct env funct in 
+  match parsed with
+  | Some (src,dst) ->
+      let* (id,store) = get_funct (EConstr.mkVar name) funct src dst store in ret (store, Some id)
+  | _ -> ret (store, None)
 
 let parse_elem = fun name elm store ->
   let* env = Proofview.tclENV in

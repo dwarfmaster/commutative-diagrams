@@ -12,6 +12,8 @@ type t = EConstr.t
 (* Categories *)
 
 val is_cat : Environ.env -> t -> bool Proofview.tactic
+(* Gives the src and dst categories of the functor *)
+val is_funct : Environ.env -> t -> (t * t) option Proofview.tactic
 (* Gives the category of the object *)
 val is_object : Environ.env -> t -> t option Proofview.tactic
 (* cat -> src -> dst -> tp *)

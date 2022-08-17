@@ -84,6 +84,24 @@ let is_cat : Names.inductive -> bool = is_ind g_coq_cat g_coq_cat_names
 let mk_cat = fun _ -> mk_ind (get_cat ())
 
 
+
+(*  ___             _            *)
+(* | __|  _ _ _  __| |_ ___ _ _  *)
+(* | _| || | ' \/ _|  _/ _ \ '_| *)
+(* |_| \_,_|_||_\__|\__\___/_|   *)
+(*                               *)
+(* Functor *)
+let g_coq_functor : Names.inductive array ref = ref [| |]
+let g_coq_functor_names : string array =
+  [| "HoTT.Categories.Functor"
+   (* ; "HoTT.Categories.Functor.Core.Functor" *)
+   (* ; "HoTT.Categories.Functor" *)
+   (* ; "HoTT.Categories.Functor.Functor" *)
+  |]
+let get_functor = fun _ -> perform_locate g_coq_functor g_coq_functor_names locate_inductive
+let is_functor : Names.inductive -> bool = is_ind g_coq_functor g_coq_functor_names
+
+
 (*  ___ *)
 (* | __|__ _ *)
 (* | _|/ _` | *)

@@ -3,6 +3,7 @@
 open Data
 type t =
   { categories : category array
+  ; functors   : funct array
   ; elems      : elem array
   ; morphisms  : morphism array
   ; faces      : face array
@@ -65,6 +66,7 @@ val simpl_eq : eq -> eq
 
 val empty_context : t
 val get_cat  : EConstr.t -> t -> (cat_id * t) Proofview.tactic
+val get_funct : EConstr.t -> EConstr.t -> EConstr.t -> EConstr.t -> t -> (funct_id * t) Proofview.tactic
 val get_elem : EConstr.t -> EConstr.t -> t -> (elem_id * t) Proofview.tactic
 val get_mph  : morphismData -> t -> (mph_id * t) Proofview.tactic
 (* TODO remove *)
@@ -80,6 +82,7 @@ val get_face : morphismT -> EConstr.t -> EConstr.t -> EConstr.t -> t -> (face_id
 (* |_|   \__,_|_|  |___/_|_| |_|\__, | *)
 (*                              |___/  *)
 val parse_cat  : Names.Id.t -> EConstr.t -> t -> (t * cat_id  option) Proofview.tactic
+val parse_funct : Names.Id.t -> EConstr.t -> t -> (t * funct_id option) Proofview.tactic
 val parse_elem : Names.Id.t -> EConstr.t -> t -> (t * elem_id option) Proofview.tactic
 val parse_mph  : Names.Id.t -> EConstr.t -> t -> (t * mph_id  option) Proofview.tactic
 val read_face  : EConstr.t -> t -> (t * (path*path) option) Proofview.tactic

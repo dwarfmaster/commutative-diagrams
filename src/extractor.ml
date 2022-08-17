@@ -20,13 +20,14 @@ let extract_hyp : Environ.env -> Hyps.t
   let name,tp = match dec with
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
     | Context.Named.Declaration.LocalDef (name,_,tp) -> (name.binder_name, tp) in
-  let* (store,_) = Hyps.parse_cat  name tp store in
-  let* (store,_) = Hyps.parse_elem name tp store in
-  let* (store,_) = Hyps.parse_mph  name tp store in
-  let* (store,_) = Hyps.parse_face name tp store in
-  let* (store,_) = Hyps.parse_mono name tp store in
-  let* (store,_) = Hyps.parse_epi  name tp store in
-  let* (store,_) = Hyps.parse_iso  name tp store in
+  let* (store,_) = Hyps.parse_cat   name tp store in
+  let* (store,_) = Hyps.parse_funct name tp store in
+  let* (store,_) = Hyps.parse_elem  name tp store in
+  let* (store,_) = Hyps.parse_mph   name tp store in
+  let* (store,_) = Hyps.parse_face  name tp store in
+  let* (store,_) = Hyps.parse_mono  name tp store in
+  let* (store,_) = Hyps.parse_epi   name tp store in
+  let* (store,_) = Hyps.parse_iso   name tp store in
   (* The evar map may have been changed by the previous call, so we update it *)
   let* sigma = Proofview.tclEVARMAP in
   Proofview.tclUNIT store
