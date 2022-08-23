@@ -37,6 +37,13 @@ Definition left_inv (C : PreCategory) (a b : C) (m : morphism C a b) (H : IsIsom
   m o m^-1 = 1 :=
   @right_inverse C a b m H.
 
+Definition funct_obj (C D : PreCategory) (F : Functor C D) (x : object C) : object D :=
+  @object_of C D F x.
+Definition funct_mph (C D : PreCategory) (F : Functor C D) (x y : object C) (m : morphism C x y) :
+  morphism D (funct_obj C D F x) (funct_obj C D F y) :=
+  @morphism_of C D F x y m.
+
+
 Ltac reify_hyp H :=
   unfold mphT in H; unfold comp in H; unfold compose_eq in H; unfold assoc in H;
   unfold id in H; unfold left_id in H; unfold right_id in H;

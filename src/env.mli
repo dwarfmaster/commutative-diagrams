@@ -6,6 +6,8 @@ val app : EConstr.t Proofview.tactic -> EConstr.t array -> EConstr.t Proofview.t
 val is_cat  : Names.inductive -> bool
 val mk_cat  : unit -> EConstr.t Proofview.tactic
 val is_functor : Names.inductive -> bool
+val mk_funct_obj : unit -> EConstr.t Proofview.tactic
+val mk_funct_mph : unit -> EConstr.t Proofview.tactic
 
 val is_eq   : Names.inductive -> bool
 val mk_eq   : unit -> EConstr.t Proofview.tactic

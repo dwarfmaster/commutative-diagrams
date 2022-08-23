@@ -30,6 +30,13 @@ let is_funct : Environ.env -> t -> (t*t) option Proofview.tactic = fun env funct
       end
   | _ -> ret None
 
+let funct_obj (env : Environ.env) (f : Data.funct) (obj : t) : t Proofview.tactic =
+  Env.app (Env.mk_funct_obj ()) [| f.src.obj; f.dst.obj; f.obj; obj |]
+let funct_mph (env : Environ.env) (f : Data.funct) (mph : Data.morphismData) : t Proofview.tactic =
+  Env.app 
+    (Env.mk_funct_mph ())
+    [| f.src.obj; f.dst.obj; f.obj; mph.tp.src.obj; mph.tp.dst.obj; mph.obj |]
+
 let is_object : Environ.env -> t -> t option Proofview.tactic = fun env obj ->
   let* sigma = Proofview.tclEVARMAP in
   ret (match EConstr.kind sigma obj with

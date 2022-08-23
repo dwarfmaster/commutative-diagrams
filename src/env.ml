@@ -101,6 +101,17 @@ let g_coq_functor_names : string array =
 let get_functor = fun _ -> perform_locate g_coq_functor g_coq_functor_names locate_inductive
 let is_functor : Names.inductive -> bool = is_ind g_coq_functor g_coq_functor_names
 
+let g_coq_funct_obj : Names.Constant.t array ref = ref [| |]
+let g_coq_funct_obj_names : string array =
+  [| "Loader.funct_obj" |]
+let get_funct_obj = fun _ -> perform_locate g_coq_funct_obj g_coq_funct_obj_names locate_const
+let mk_funct_obj = fun _ -> mk_const (get_funct_obj ())
+let g_coq_funct_mph : Names.Constant.t array ref = ref [| |]
+let g_coq_funct_mph_names : string array =
+  [| "Loader.funct_mph" |]
+let get_funct_mph = fun _ -> perform_locate g_coq_funct_mph g_coq_funct_mph_names locate_const
+let mk_funct_mph = fun _ -> mk_const (get_funct_mph ())
+
 
 (*  ___ *)
 (* | __|__ _ *)
