@@ -72,12 +72,13 @@ and eq =
 (* The composed morphism of the path may not be in the context since we only keep the base *)
 type ('morphism,'path) pathComponent =
   | Base of 'morphism
+  | Functor of funct * 'path
 type path =
   { mph  : morphismData
   ; eq   : eq (* Equality from `mph` to `realize path` *)
   ; path : (morphism,path) pathComponent list
   }
-type pathSkeleton = (morphismData,pathSkeleton) pathComponent list
+type pathSkeleton = elem * ((morphismData,pathSkeleton) pathComponent list)
 val toSkeleton : path -> pathSkeleton
 type face =
   { tp    : morphismT

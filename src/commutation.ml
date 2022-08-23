@@ -54,7 +54,7 @@ let rec normalize_iso : Data.morphism list -> (Data.morphism list * Data.eq) opt
   | m1 :: m2 :: lst ->
     begin match m1.iso with
       | Some iso when iso.mph.id = m2.id && iso.inv.id = m1.id ->
-        let* m3 = Hyps.realize m1.data.tp.src (Hyps.extractSkel lst) in
+        let* m3 = Hyps.realize (Hyps.extractSkel m1.data.tp.src lst) in
         let* p_iso = Hyps.left_inv iso in
         let* p_iso = simplify_iso m1.data m2.data m3 p_iso in
         let* norm = normalize_iso lst in
@@ -62,7 +62,7 @@ let rec normalize_iso : Data.morphism list -> (Data.morphism list * Data.eq) opt
         | None -> ret (Some (lst,p_iso))
         | Some (lst,p) -> let* p = Hyps.concat p_iso p in ret (Some (lst,p)))
       | Some iso when iso.mph.id = m1.id && iso.inv.id = m2.id ->
-        let* m3 = Hyps.realize m1.data.tp.src (Hyps.extractSkel lst) in
+        let* m3 = Hyps.realize (Hyps.extractSkel m1.data.tp.src lst) in
         let* p_iso = Hyps.right_inv iso in
         let* p_iso = simplify_iso m1.data m2.data m3 p_iso in
         let* norm = normalize_iso lst in

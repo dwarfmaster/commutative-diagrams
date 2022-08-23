@@ -82,13 +82,14 @@ let rec extractPaths (ids : int M.t) (id : int) (paths : query list)
       (path :: paths, ids)
 
 let rec toSkeleton (paths : path array) (path : path) : Data.pathSkeleton =
-  List.map (toSkeletonComp paths) (snd path)
+  (fst path, List.map (toSkeletonComp paths) (snd path))
 and toSkeletonComp (paths : path array) (comp : component) : skelComponent =
   match comp with
   | Base m -> Base m.data
+  | Functor (f,p) -> Functor (f,toSkeleton paths paths.(p))
 
 let initCell (paths : path array) (i : int) (path : path) : cell Proofview.tactic =
-  let* eq = Hyps.refl @<< (Hyps.realize (fst path) (toSkeleton paths path)) in
+  let* eq = Hyps.refl @<< (Hyps.realize (toSkeleton paths path)) in
   ret { parent = i
       ; rank   = 1
       ; path   = path

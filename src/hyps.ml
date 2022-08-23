@@ -17,7 +17,7 @@ let (@<<) : ('a -> 'b Proofview.tactic) -> 'a Proofview.tactic -> 'b Proofview.t
 let ret = Proofview.tclUNIT
 
 let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
-let extractSkel : morphism list -> pathSkeleton = List.map (fun m -> Base m.data)
+let extractSkel (e : elem) (lst : morphism list) : pathSkeleton = (e, List.map (fun m -> Base m.data) lst)
 
 (*  __  __                  _     _ *)
 (* |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___ *)
@@ -52,16 +52,21 @@ let identity = fun (x : elem) ->
              ; dst = x
              ; obj = tp }
       }
-let rec realize (src : elem) (ms : pathSkeleton) : morphismData Proofview.tactic =
-  match ms with
-  | [] -> identity src
+let rec realize (ms : pathSkeleton) : morphismData Proofview.tactic =
+  match snd ms with
+  | [] -> identity (fst ms)
   | [ m ] -> realizeComp m
-  | m :: ms -> let* m = realizeComp m in compose m @<< realize m.tp.dst ms
+  | m :: ms -> let* m = realizeComp m in compose m @<< realize (m.tp.dst, ms)
 and realizeComp (m : (morphismData,pathSkeleton) pathComponent) : morphismData Proofview.tactic =
   match m with
   | Base m -> ret m
-let rpath (pth : path) =
-  realize pth.mph.tp.src (toSkeleton pth)
+  | Functor (f,p) ->
+      let* env = Proofview.tclENV in
+      let* p = realize p in 
+      let* fp = Hott.funct_mph env f p in
+      assert false (* TODO *)
+and rpath (pth : path) =
+  realize (toSkeleton pth)
 
 
 
@@ -287,8 +292,8 @@ let get_mph = fun (mph : morphismData) store ->
 (* |_| \_|\___/|_|  |_| |_| |_|\__,_|_|_|___/\__,_|\__|_|\___/|_| |_| *)
 
 
-let listToSkeleton (mphs : morphismData list) : pathSkeleton =
-  List.map (fun m -> Base m) mphs
+let listToSkeleton (src : elem) (mphs : morphismData list) : pathSkeleton =
+  (src, List.map (fun m -> Base m) mphs)
 
 (* [ m1 m2 m3 ] -> right -> (right o ((m3 o m2) o m1)) = right o m3 o m2 o m1  *)
 (* TODO(optimisation) avoid calling realize at each step *)
@@ -300,7 +305,7 @@ let rec repeat_assoc : morphismData list -> morphismData -> eq Proofview.tactic 
   | m :: mphs ->
     let* p = repeat_assoc mphs right in
     let* r = refl m in
-    let* mphs = realize m.tp.dst (listToSkeleton mphs) in
+    let* mphs = realize (listToSkeleton m.tp.dst mphs) in
     let* extract_first = assoc m mphs right in
     concat extract_first @<< composeP r p
 
@@ -329,9 +334,9 @@ let rec normalize = fun (m : morphismData) store ->
               ; obj = obj }
       } in
     let* (d1,p1,store) = normalize msi store in
-    let* m1 = realize m.tp.src (extractSkel d1) in
+    let* m1 = realize (extractSkel m.tp.src d1) in
     let* (d2,p2,store) = normalize mid store in
-    let* m2 = realize store.elems.(intId) (extractSkel d2) in
+    let* m2 = realize (extractSkel store.elems.(intId) d2) in
     let* p = composeP p1 p2 in
     (match d1,d2 with
      | [], _ -> right_id m2 >>= fun id -> concat p id >>= fun c -> ret (d2, c, store)
