@@ -18,11 +18,14 @@ type funct =
   ; src : category
   ; dst : category
   }
-type elem =
+type internedElem =
   { obj      : EConstr.t
   ; category : category
   ; id       : elem_id
   }
+type elem =
+  | Elem of internedElem
+  | FObj of funct * elem
 type morphismT =
   { category : category
   ; src      : elem
@@ -87,4 +90,6 @@ type face =
   ; obj   : eq (* Equality between side1.mph and side2.mph *)
   ; id    : face_id
   }
+
+val elemCategory : elem -> category
 

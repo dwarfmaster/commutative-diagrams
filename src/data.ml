@@ -18,11 +18,14 @@ type funct =
   ; src : category
   ; dst : category
   }
-type elem =
+type internedElem =
   { obj      : EConstr.t
   ; category : category
   ; id       : elem_id
   }
+type elem =
+  | Elem of internedElem
+  | FObj of funct * elem
 type morphismT =
   { category : category
   ; src      : elem
@@ -70,6 +73,7 @@ and eq =
 
 type ('morphism,'path) pathComponent =
   | Base of 'morphism
+  | Functor of funct * 'path
 type path =
   { mph  : morphismData
   ; eq   : eq (* Equality from `mph` to `realize path` *)
@@ -89,3 +93,9 @@ let rec toSkeleton (path : path) : pathSkeleton =
 and toSkeletonComp (comp : (morphism,path) pathComponent) : (morphismData,pathSkeleton) pathComponent =
   match comp with
   | Base m -> Base m.data
+  | Functor (f,p) -> Functor (f,toSkeleton p)
+
+  let elemCategory (e : elem) =
+    match e with
+    | Elem e -> e.category 
+    | FObj (f,_) -> f.dst

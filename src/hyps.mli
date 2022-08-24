@@ -4,7 +4,7 @@ open Data
 type t =
   { categories : category array
   ; functors   : funct array
-  ; elems      : elem array
+  ; elems      : internedElem array
   ; morphisms  : morphism array
   ; faces      : face array
   }
@@ -12,22 +12,6 @@ type t =
 exception Ill_typed
 val extract : morphism list -> morphismData list
 val extractSkel : elem -> morphism list -> pathSkeleton
-
-(*  __  __                  _     _ *)
-(* |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___ *)
-(* | |\/| |/ _ \| '__| '_ \| '_ \| / __| '_ ` _ \/ __| *)
-(* | |  | | (_) | |  | |_) | | | | \__ \ | | | | \__ \ *)
-(* |_|  |_|\___/|_|  | .__/|_| |_|_|___/_| |_| |_|___/ *)
-(*                   |_| *)
-(* m1 -> m2 -> m2 o m1 *)
-val compose : morphismData -> morphismData -> morphismData Proofview.tactic
-val composeT : morphismT -> morphismT -> morphismT Proofview.tactic
-(* [ m1, m2, m3 ] -> (m3 o m2) o m1 *)
-(* Raises Ill_typed if the list is not composable *)
-val realize : pathSkeleton -> morphismData Proofview.tactic
-val rpath : path -> morphismData Proofview.tactic
-(* a -> 1_a *)
-val identity : elem -> morphismData Proofview.tactic
 
 
 (*  _____                  _ _ _          *)

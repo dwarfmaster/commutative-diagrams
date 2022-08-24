@@ -16,10 +16,20 @@ module OrderedPaths = struct
   let comparePathComps = fun (p1 : component) (p2 : component) ->
     match p1, p2 with
     | Base m1, Base m2 -> compareMphs m1 m2
+    | Functor (f1,p1), Functor (f2,p2) ->
+        if f1.id == f2.id then p1 - p2 else f1.id - f2.id
+    | Base _, Functor _ -> -1
+    | Functor _, Base _ -> 1
+  let rec compareElems (e1 : Data.elem) (e2 : Data.elem) =
+    match e1, e2 with
+    | Elem e1, Elem e2 -> e1.id - e2.id 
+    | FObj (f1,e1), FObj (f2,e2) ->
+        if f1.id == f2.id then compareElems e1 e2 else f1.id - f2.id
+    | Elem _, FObj _ -> -1
+    | FObj _, Elem _ -> 1
   let compare = fun (p1 : path) (p2 : path) ->
-    if (fst p1).id = (fst p2).id
-    then CList.compare comparePathComps (snd p1) (snd p2)
-    else (fst p1).id - (fst p2).id
+    let c = compareElems (fst p1) (fst p2) in
+    if c == 0 then CList.compare comparePathComps (snd p1) (snd p2) else c
 end
 module M = struct
   include Map.Make(OrderedPaths)
@@ -35,6 +45,7 @@ let rec mkQuery (path : Data.path) : query =
 and mkQueryComp comp : queryComponent =
   match comp with
   | Base m -> Base m
+  | Functor (f,p) -> Functor (f,mkQuery p)
 
 let (let*) = Proofview.tclBIND
 let ret = Proofview.tclUNIT
@@ -62,6 +73,7 @@ and closePathComponents (acc : query list) (comps : queryComponent list) : query
 and closePathComponent (acc : query list) (comp : queryComponent) : query list =
   match comp with
   | Base _ -> acc
+  | Functor (_,p) -> closePath acc p
 
 let rec extractPath (ids : int M.t) (path : query) : path =
   let accum = fun comps comp -> extractPathComponent ids comp :: comps in
@@ -70,6 +82,7 @@ let rec extractPath (ids : int M.t) (path : query) : path =
 and extractPathComponent (ids : int M.t) (comp : queryComponent) : component =
   match comp with
   | Base m -> Base m
+  | Functor (f,p) -> Functor (f, M.find (extractPath ids p) ids)
 
 let rec extractPaths (ids : int M.t) (id : int) (paths : query list)
                    : path list * int M.t = 
@@ -89,7 +102,7 @@ and toSkeletonComp (paths : path array) (comp : component) : skelComponent =
   | Functor (f,p) -> Functor (f,toSkeleton paths paths.(p))
 
 let initCell (paths : path array) (i : int) (path : path) : cell Proofview.tactic =
-  let* eq = Hyps.refl @<< (Hyps.realize (toSkeleton paths path)) in
+  let* eq = Hyps.refl @<< (Hott.realize (toSkeleton paths path)) in
   ret { parent = i
       ; rank   = 1
       ; path   = path

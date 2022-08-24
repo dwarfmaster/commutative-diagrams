@@ -4,7 +4,7 @@ open Data
 type t =
   { categories : category array
   ; functors   : funct array
-  ; elems      : elem array
+  ; elems      : internedElem array
   ; morphisms  : morphism array
   ; faces      : face array
   }
@@ -18,58 +18,6 @@ let ret = Proofview.tclUNIT
 
 let extract : morphism list -> morphismData list = List.map (fun m -> m.data)
 let extractSkel (e : elem) (lst : morphism list) : pathSkeleton = (e, List.map (fun m -> Base m.data) lst)
-
-(*  __  __                  _     _ *)
-(* |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___ *)
-(* | |\/| |/ _ \| '__| '_ \| '_ \| / __| '_ ` _ \/ __| *)
-(* | |  | | (_) | |  | |_) | | | | \__ \ | | | | \__ \ *)
-(* |_|  |_|\___/|_|  | .__/|_| |_|_|___/_| |_| |_|___/ *)
-(*                   |_| *)
-
-let composeT = fun (mT1 : morphismT) (mT2 : morphismT) ->
-  let* env = Proofview.tclENV in
-  let* obj = Hott.morphism env mT1.category.obj mT1.src.obj mT2.dst.obj in
-  ret { Data.category = mT1.category
-      ; src = mT1.src
-      ; dst = mT2.dst
-      ; obj = obj
-      }
-let compose = fun (m1 : morphismData) (m2 : morphismData) ->
-  let* env = Proofview.tclENV in
-  let* obj =
-    Hott.compose env m1.tp.category.obj
-      m1.tp.src.obj m1.tp.dst.obj m2.tp.dst.obj
-      m1.obj m2.obj in
-  let* tp = composeT m1.tp m2.tp in
-  ret { Data.obj = obj; tp = tp }
-let identity = fun (x : elem) ->
-  let* env = Proofview.tclENV in
-  let* obj = Hott.identity env x.category.obj x.obj in
-  let* tp = Hott.morphism env x.category.obj x.obj x.obj in
-  ret { Data.obj = obj
-      ; tp = { category = x.category
-             ; src = x
-             ; dst = x
-             ; obj = tp }
-      }
-let rec realize (ms : pathSkeleton) : morphismData Proofview.tactic =
-  match snd ms with
-  | [] -> identity (fst ms)
-  | [ m ] -> realizeComp m
-  | m :: ms -> let* m = realizeComp m in compose m @<< realize (m.tp.dst, ms)
-and realizeComp (m : (morphismData,pathSkeleton) pathComponent) : morphismData Proofview.tactic =
-  match m with
-  | Base m -> ret m
-  | Functor (f,p) ->
-      let* env = Proofview.tclENV in
-      let* p = realize p in 
-      let* fp = Hott.funct_mph env f p in
-      assert false (* TODO *)
-and rpath (pth : path) =
-  realize (toSkeleton pth)
-
-
-
 
 (*  _____                  _ _ _          *)
 (* | ____|__ _ _   _  __ _| (_) |_ _   _  *)
@@ -101,26 +49,26 @@ let inv = fun (p : eq) ->
       ; eq  = Inv p }
 
 let composeP = fun p1 p2 ->
-  let* src = compose p1.src p2.src in
-  let* dst = compose p1.dst p2.dst in
-  let* tp  = composeT p1.tp p2.tp  in
+  let* src = Hott.composeM p1.src p2.src in
+  let* dst = Hott.composeM p1.dst p2.dst in
+  let* tp  = Hott.composeT p1.tp p2.tp  in
   ret { src = src; dst = dst; tp = tp; eq = Compose (p1,p2) }
 
 let assoc = fun m1 m2 m3 ->
-  let* src = compose m1 m2 >>= (fun m12 -> compose m12 m3) in
-  let* dst = compose m2 m3 >>= (fun m23 -> compose m1 m23) in
-  let* tp  = composeT m1.tp m2.tp >>= (fun mT12 -> composeT mT12 m3.tp) in
+  let* src = Hott.composeM m1 m2 >>= (fun m12 -> Hott.composeM m12 m3) in
+  let* dst = Hott.composeM m2 m3 >>= (fun m23 -> Hott.composeM m1 m23) in
+  let* tp  = Hott.composeT m1.tp m2.tp >>= (fun mT12 -> Hott.composeT mT12 m3.tp) in
   ret { src = src; dst = dst; tp = tp; eq = Assoc (m1,m2,m3) }
 
 let left_id = fun (m : morphismData) ->
-  let* src = identity m.tp.dst >>= (fun id -> compose m id) in
+  let* src = Hott.identityM m.tp.dst >>= (fun id -> Hott.composeM m id) in
   ret { src = src
       ; dst = m
       ; tp  = m.tp
       ; eq  = LeftId m }
 
 let right_id = fun (m : morphismData) ->
-  let* src = identity m.tp.src >>= (fun id -> compose id m) in
+  let* src = Hott.identityM m.tp.src >>= (fun id -> Hott.composeM id m) in
   ret { src = src
       ; dst = m
       ; tp  = m.tp
@@ -129,8 +77,8 @@ let right_id = fun (m : morphismData) ->
 let right_inv = fun (iso : isoData) ->
   let mph = iso.mph in
   let inv = iso.inv in
-  let* id = identity mph.data.tp.src  in
-  let* c  = compose mph.data inv.data in
+  let* id = Hott.identityM mph.data.tp.src  in
+  let* c  = Hott.composeM mph.data inv.data in
   ret { src = c
       ; dst = id
       ; tp  = id.tp
@@ -140,8 +88,8 @@ let right_inv = fun (iso : isoData) ->
 let left_inv = fun (iso : isoData) ->
   let mph = iso.mph in
   let inv = iso.inv in
-  let* id = identity mph.data.tp.dst  in
-  let* c  = compose inv.data mph.data in
+  let* id = Hott.identityM mph.data.tp.dst  in
+  let* c  = Hott.composeM inv.data mph.data in
   ret { src = c
       ; dst = id
       ; tp  = id.tp
@@ -265,7 +213,7 @@ let get_elem = fun (cat : EConstr.t) elm store ->
   let* sigma = Proofview.tclEVARMAP in
   let* (cid,store) = get_cat cat store in
   let cat = store.categories.(cid) in
-  let id = array_find_id (fun(e : elem) -> comp_constr env sigma elm e.obj) store.elems in
+  let id = array_find_id (fun(e : internedElem) -> comp_constr env sigma elm e.obj) store.elems in
   match id with
   | Some id -> ret (id,store)
   | None -> let nid = Array.length store.elems in
@@ -301,11 +249,11 @@ let rec repeat_assoc : morphismData list -> morphismData -> eq Proofview.tactic 
   fun mphs right ->
   match mphs with
   | [ ] -> refl right
-  | m :: [ ] -> refl @<< compose m right
+  | m :: [ ] -> refl @<< Hott.composeM m right
   | m :: mphs ->
     let* p = repeat_assoc mphs right in
     let* r = refl m in
-    let* mphs = realize (listToSkeleton m.tp.dst mphs) in
+    let* mphs = Hott.realize (listToSkeleton m.tp.dst mphs) in
     let* extract_first = assoc m mphs right in
     concat extract_first @<< composeP r p
 
@@ -322,21 +270,21 @@ let rec normalize = fun (m : morphismData) store ->
       { obj = msi
       ; tp = { category = m.tp.category
              ; src = m.tp.src
-             ; dst = store.elems.(intId)
+             ; dst = Elem store.elems.(intId)
              ; obj = obj }
       } in
     let* obj = Hott.morphism env m.tp.category.obj int dst in
     let mid =
       { obj = mid
       ; tp  = { category = m.tp.category
-              ; src = store.elems.(intId)
+              ; src = Elem store.elems.(intId)
               ; dst = m.tp.dst
               ; obj = obj }
       } in
     let* (d1,p1,store) = normalize msi store in
-    let* m1 = realize (extractSkel m.tp.src d1) in
+    let* m1 = Hott.realize (extractSkel m.tp.src d1) in
     let* (d2,p2,store) = normalize mid store in
-    let* m2 = realize (extractSkel store.elems.(intId) d2) in
+    let* m2 = Hott.realize (extractSkel (Elem store.elems.(intId)) d2) in
     let* p = composeP p1 p2 in
     (match d1,d2 with
      | [], _ -> right_id m2 >>= fun id -> concat p id >>= fun c -> ret (d2, c, store)
@@ -423,7 +371,7 @@ let read_mph : EConstr.t -> t -> (t * morphismT option) Proofview.tactic =
     let src = store.elems.(srcId) in
     let dst = store.elems.(dstId) in
     let cat = src.category in
-    ret (store, Some { category = cat; src = src; dst = dst; obj = mph })
+    ret (store, Some { category = cat; src = Elem src; dst = Elem dst; obj = mph })
   | _ -> ret (store,None)
 
 let parse_mph  = fun name mph store ->
@@ -481,7 +429,7 @@ let parse_mono = fun name mono store ->
     let* (mph,store) =
       get_mph
         { obj = mph
-        ; tp = { src = src; dst = dst; category = cat; obj = tp }
+        ; tp = { src = Elem src; dst = Elem dst; category = cat; obj = tp }
         } store in
     let mph = store.morphisms.(mph) in
     mph.mono <- Some (EConstr.mkVar name);
@@ -503,7 +451,7 @@ let parse_epi = fun name epi store ->
     let* (mph,store) =
       get_mph
         { obj = mph
-        ; tp = { src = src; dst = dst; category = cat; obj = tp }
+        ; tp = { src = Elem src; dst = Elem dst; category = cat; obj = tp }
         } store in
     let mph = store.morphisms.(mph) in
     mph.epi <- Some (EConstr.mkVar name);
@@ -526,7 +474,7 @@ let parse_iso = fun name iso store ->
     let* (mph,store) =
       get_mph
         { obj = mph
-        ; tp = { src = src; dst = dst; category = cat; obj = tp }
+        ; tp = { src = Elem src; dst = Elem dst; category = cat; obj = tp }
         } store in
     let mph = store.morphisms.(mph) in
     let hypo = EConstr.mkVar name in
@@ -535,7 +483,7 @@ let parse_iso = fun name iso store ->
     let* (inv,store) =
       get_mph
         { obj = inv
-        ; tp = { src = dst; dst = src; category = cat; obj = tp }
+        ; tp = { src = Elem dst; dst = Elem src; category = cat; obj = tp }
         } store in
     let data =
       { obj = hypo

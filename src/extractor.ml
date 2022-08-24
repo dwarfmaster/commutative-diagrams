@@ -80,13 +80,13 @@ let hole : Environ.env -> EConstr.t -> EConstr.t Proofview.tactic = fun env tp -
   ret hole
 
 let eqT : Data.path -> Data.path -> EConstr.t Proofview.tactic = fun side1 side2 ->
-  let* side1 = Hyps.rpath side1 in
-  let* side2 = Hyps.rpath side2 in
+  let* side1 = Hott.realizePath side1 in
+  let* side2 = Hott.realizePath side2 in
   Hyps.eqT side1 side2
 
 let eqHole : Environ.env -> Data.path -> Data.path -> Data.eq Proofview.tactic = fun env side1 side2 ->
-  let* pth1 = Hyps.rpath side1 in
-  let* pth2 = Hyps.rpath side2 in
+  let* pth1 = Hott.realizePath side1 in
+  let* pth2 = Hott.realizePath side2 in
   let* tp = Hyps.eqT pth1 pth2 in
   let* hl = hole env tp in
   let hl = Hyps.atom_eq hl in
@@ -108,7 +108,7 @@ let normalize' : Proofview.Goal.t -> unit Proofview.tactic = fun goal ->
     let* ngl = eqHole env side1 side2 in
     let* ngl = Hyps.concat side1.eq ngl in
     let* ngl = Hyps.concat ngl eq2 in
-    let* ngl = Hott.real_eq (Hyps.simpl_eq ngl) in
+    let* ngl = Hott.realizeEq (Hyps.simpl_eq ngl) in
     let* ngl = add_universes_constraints env ngl in
     Refine.refine ~typecheck:false (fun sigma -> (sigma, ngl))
 let normalize : unit -> unit Proofview.tactic = fun _ -> Proofview.Goal.enter_one normalize'
@@ -124,7 +124,7 @@ let solve' : int -> Proofview.Goal.t -> unit Proofview.tactic = fun level goal -
     | None -> Tacticals.tclFAIL 0 (Pp.str "Couldn't make goal commute")
     | Some eq ->
       let env = Proofview.Goal.env goal in
-      let* eq = Hott.real_eq (Hyps.simpl_eq eq) in
+      let* eq = Hott.realizeEq (Hyps.simpl_eq eq) in
       let* eq = add_universes_constraints env eq in
       Refine.refine ~typecheck:false (fun sigma -> (sigma, eq))
 let solve : int -> unit Proofview.tactic = fun level -> Proofview.Goal.enter_one (solve' level)
