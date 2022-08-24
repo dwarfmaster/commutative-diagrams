@@ -178,10 +178,19 @@ and realizeComp (m : (Data.morphismData,Data.pathSkeleton) Data.pathComponent) :
   match m with
   | Base m -> ret m
   | Functor (f,p) ->
+      let open Data in
       let* env = Proofview.tclENV in
       let* p = realize p in 
       let* fp = funct_mph env f p in
-      assert false (* TODO *)
+      let* src = funct_obj env f @<< realizeElem p.tp.src in
+      let* dst = funct_obj env f @<< realizeElem p.tp.dst in
+      let* tp = morphism env f.dst.obj src dst in
+      ret { obj = fp 
+          ; tp = { category = f.dst
+                 ; src = FObj (f,p.tp.src)
+                 ; dst = FObj (f,p.tp.dst)
+                 ; obj = tp; }
+          }
 let realizePath (pth : Data.path) = realize (Data.toSkeleton pth)
 
 
