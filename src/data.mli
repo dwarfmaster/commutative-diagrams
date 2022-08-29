@@ -1,95 +1,103 @@
 
-type kind = (EConstr.t,EConstr.t,EConstr.ESorts.t,EConstr.EInstance.t) Constr.kind_of_term
+module PA : sig
+  type t
+end
 
-type cat_id   = int
-type funct_id = int
-type elem_id  = int
-type mph_id   = int
-type face_id  = int
-
-type category =
-  { obj : EConstr.t
-  ; id  : cat_id
+type categoryData =
+  { cat_obj : PA.t
+  ; cat_id  : int
   }
-type funct =
-  { obj : EConstr.t 
-  ; tp  : EConstr.t
-  ; id  : funct_id
-  ; src : category
-  ; dst : category
+and category =
+  | AtomicCategory of categoryData
+and functData =
+  { funct_obj  : PA.t
+  ; funct_id   : int
+  ; funct_src_ : category
+  ; funct_dst_ : category
   }
-type internedElem =
-  { obj      : EConstr.t
-  ; category : category
-  ; id       : elem_id
+and funct =
+  | AtomicFunctor of functData
+and elemData =
+  { elem_obj  : PA.t
+  ; elem_cat_ : category
+  ; elem_id   : int
   }
-type elem =
-  | Elem of internedElem
+and elem =
+  | AtomicElem of elemData
   | FObj of funct * elem
-type morphismT =
-  { category : category
-  ; src      : elem
-  ; dst      : elem
-  ; obj      : EConstr.t
-  }
-type morphismData =
-  { obj : EConstr.t
-  ; tp  : morphismT
-  }
-type isoData =
-  { obj : EConstr.t
-  ; mph : morphism
-  ; inv : morphism
-  }
-and morphism =
-  { data : morphismData
-  ; id   : mph_id
-  ; mutable mono : EConstr.t option
-  ; mutable epi  : EConstr.t option
+and morphismData =
+  { mph_obj  : PA.t
+  ; mph_cat_ : category
+  ; mph_src_ : elem 
+  ; mph_dst_ : elem
+  ; mph_id   : int
+  ; mutable mono : PA.t option
+  ; mutable epi  : PA.t option
   ; mutable iso  : isoData option
   }
+and morphism =
+  | AtomicMorphism of morphismData
+  | Identity of elem
+  | Comp of morphism * morphism (* Comp (m1,m2) ~ m2 o m1 *)
+  | Inv of morphism
+  | FMph of funct * morphism
+and isoData =
+  { iso_obj : PA.t
+  ; iso_mph : morphism
+  ; iso_inv : morphism
+  }
+
+(* check_* check invariants about the structure assumed everywhere in the code
+   that are not enforced by the type system, for example that the composition
+   of two morphisms have the right endpoints.
+ *)
+val check_category : category -> bool
+val cmp_category : category -> category -> int
+
+val check_funct : funct -> bool
+val cmp_funct : funct -> funct -> int
+val funct_src : funct -> category 
+val funct_dst : funct -> category 
+
+val check_elem : elem -> bool
+val cmp_elem : elem -> elem -> int
+val elem_cat  : elem -> category 
+
+val check_morphism : morphism -> bool
+val cmp_morphism : morphism -> morphism -> int
+val morphism_cat : morphism -> category 
+val morphism_src : morphism -> elem 
+val morphism_dst : morphism -> elem
 
 (* Equality between uninterned morphisms *)
-type eqT =
-  | Refl of morphismData
+type eq =
+  | Refl of morphism
   | Concat of eq * eq
-  | Inv of eq
+  | InvEq of eq
   | Compose of eq * eq
-  | Assoc of morphismData * morphismData * morphismData
-  | LeftId of morphismData
-  | RightId of morphismData
-  | RAp of eq * morphismData
-  | LAp of morphismData * eq
+  | Assoc of morphism * morphism * morphism
+  | LeftId of morphism
+  | RightId of morphism
+  | RAp of eq * morphism
+  | LAp of morphism * eq
   | RInv of isoData
   | LInv of isoData
-  | Mono of EConstr.t * morphismData * morphismData * eq
-  | Epi of EConstr.t * morphismData * morphismData * eq
-  | Atom of EConstr.t
-and eq =
-  { src : morphismData
-  ; dst : morphismData
-  ; tp  : morphismT
-  ; eq  : eqT
+  | Mono of PA.t * morphism * morphism * eq
+  | Epi of PA.t * morphism * morphism * eq
+  | AtomicEq of eqData
+and eqData =
+  { eq_left_  : morphism
+  ; eq_right_ : morphism
+  ; eq_src_   : elem 
+  ; eq_dst_   : elem 
+  ; eq_cat_   : category
+  ; eq_obj    : PA.t
+  ; eq_id     : int
   }
-
-(* The composed morphism of the path may not be in the context since we only keep the base *)
-type ('morphism,'path) pathComponent =
-  | Base of 'morphism
-  | Functor of funct * 'path
-type path =
-  { mph  : morphismData
-  ; eq   : eq (* Equality from `mph` to `realize path` *)
-  ; path : (morphism,path) pathComponent list
-  }
-type pathSkeleton = elem * ((morphismData,pathSkeleton) pathComponent list)
-val toSkeleton : path -> pathSkeleton
-type face =
-  { tp    : morphismT
-  ; side1 : path
-  ; side2 : path
-  ; obj   : eq (* Equality between side1.mph and side2.mph *)
-  ; id    : face_id
-  }
-
-val elemCategory : elem -> category
+val check_eq : eq -> bool
+val eq_left  : eq -> morphism 
+val eq_right : eq -> morphism 
+val eq_src   : eq -> elem 
+val eq_dst   : eq -> elem 
+val eq_cat   : eq -> category
 
