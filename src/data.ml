@@ -333,3 +333,33 @@ let rec check_eq (e : eq) : bool =
                     && cmp_elem (morphism_src m1) (morphism_src m2) = 0
                     && cmp_elem (morphism_dst m2) (morphism_dst m2) = 0
   | AtomicEq _ -> true
+
+
+
+(*  __  __           _       _            *)
+(* |  \/  | ___   __| |_   _| | ___  ___  *)
+(* | |\/| |/ _ \ / _` | | | | |/ _ \/ __| *)
+(* | |  | | (_) | (_| | |_| | |  __/\__ \ *)
+(* |_|  |_|\___/ \__,_|\__,_|_|\___||___/ *)
+(*                                        *)
+(* Modules *)
+
+module EqCat : Map.OrderedType with type t = category = struct
+  type t = category 
+  let compare = cmp_category 
+end
+
+module EqFunct : Map.OrderedType with type t = funct = struct 
+  type t = funct
+  let compare = cmp_funct
+end
+
+module EqElem : Map.OrderedType with type t = elem = struct 
+  type t = elem 
+  let compare = cmp_elem
+end
+
+module EqMph : Map.OrderedType with type t = morphism = struct 
+  type t = morphism 
+  let compare = cmp_morphism 
+end

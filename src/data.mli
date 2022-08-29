@@ -101,3 +101,8 @@ val eq_src   : eq -> elem
 val eq_dst   : eq -> elem 
 val eq_cat   : eq -> category
 
+(* Comparison modules for convenience *)
+module EqCat : Map.OrderedType with type t = category
+module EqFunct : Map.OrderedType with type t = funct
+module EqElem : Map.OrderedType with type t = elem
+module EqMph : Map.OrderedType with type t = morphism
