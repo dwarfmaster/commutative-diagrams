@@ -1,108 +1,108 @@
 
-module PA : sig
-  type t
-end
-
-type categoryData =
-  { cat_obj : PA.t
+type 't categoryData =
+  { cat_obj : 't
   ; cat_id  : int
   }
-and category =
-  | AtomicCategory of categoryData
-and functData =
-  { funct_obj  : PA.t
+and 't category =
+  | AtomicCategory of 't categoryData
+and 't functData =
+  { funct_obj  : 't
   ; funct_id   : int
-  ; funct_src_ : category
-  ; funct_dst_ : category
+  ; funct_src_ : 't category
+  ; funct_dst_ : 't category
   }
-and funct =
-  | AtomicFunctor of functData
-and elemData =
-  { elem_obj  : PA.t
-  ; elem_cat_ : category
+and 't funct =
+  | AtomicFunctor of 't functData
+and 't elemData =
+  { elem_obj  : 't
+  ; elem_cat_ : 't category
   ; elem_id   : int
   }
-and elem =
-  | AtomicElem of elemData
-  | FObj of funct * elem
-and morphismData =
-  { mph_obj  : PA.t
-  ; mph_cat_ : category
-  ; mph_src_ : elem 
-  ; mph_dst_ : elem
+and 't elem =
+  | AtomicElem of 't elemData
+  | FObj of 't funct * 't elem
+and 't morphismData =
+  { mph_obj  : 't
+  ; mph_cat_ : 't category
+  ; mph_src_ : 't elem 
+  ; mph_dst_ : 't elem
   ; mph_id   : int
-  ; mutable mono : PA.t option
-  ; mutable epi  : PA.t option
-  ; mutable iso  : isoData option
+  ; mutable mono : 't option
+  ; mutable epi  : 't option
+  ; mutable iso  : 't isoData option
   }
-and morphism =
-  | AtomicMorphism of morphismData
-  | Identity of elem
-  | Comp of morphism * morphism (* Comp (m1,m2) ~ m2 o m1 *)
-  | Inv of morphism
-  | FMph of funct * morphism
-and isoData =
-  { iso_obj : PA.t
-  ; iso_mph : morphism
-  ; iso_inv : morphism
+and 't morphism =
+  | AtomicMorphism of 't morphismData
+  | Identity of 't elem
+  | Comp of 't morphism * 't morphism (* Comp (m1,m2) ~ m2 o m1 *)
+  | Inv of 't morphism
+  | FMph of 't funct * 't morphism
+and 't isoData =
+  { iso_obj : 't
+  ; iso_mph : 't morphism
+  ; iso_inv : 't morphism
   }
 
 (* check_* check invariants about the structure assumed everywhere in the code
    that are not enforced by the type system, for example that the composition
    of two morphisms have the right endpoints.
  *)
-val check_category : category -> bool
-val cmp_category : category -> category -> int
+val check_category : 't category -> bool
+val cmp_category : 't category -> 't category -> int
 
-val check_funct : funct -> bool
-val cmp_funct : funct -> funct -> int
-val funct_src : funct -> category 
-val funct_dst : funct -> category 
+val check_funct : 't funct -> bool
+val cmp_funct : 't funct -> 't funct -> int
+val funct_src : 't funct -> 't category 
+val funct_dst : 't funct -> 't category 
 
-val check_elem : elem -> bool
-val cmp_elem : elem -> elem -> int
-val elem_cat  : elem -> category 
+val check_elem : 't elem -> bool
+val cmp_elem : 't elem -> 't elem -> int
+val elem_cat  : 't elem -> 't category 
 
-val check_morphism : morphism -> bool
-val cmp_morphism : morphism -> morphism -> int
-val morphism_cat : morphism -> category 
-val morphism_src : morphism -> elem 
-val morphism_dst : morphism -> elem
+val check_morphism : 't morphism -> bool
+val cmp_morphism : 't morphism -> 't morphism -> int
+val morphism_cat : 't morphism -> 't category 
+val morphism_src : 't morphism -> 't elem 
+val morphism_dst : 't morphism -> 't elem
 
 (* Equality between uninterned morphisms *)
-type eq =
-  | Refl of morphism
-  | Concat of eq * eq
-  | InvEq of eq
-  | Compose of eq * eq
-  | Assoc of morphism * morphism * morphism
-  | LeftId of morphism
-  | RightId of morphism
-  | RAp of eq * morphism
-  | LAp of morphism * eq
-  | RInv of isoData
-  | LInv of isoData
-  | Mono of PA.t * morphism * morphism * eq
-  | Epi of PA.t * morphism * morphism * eq
-  | AtomicEq of eqData
-and eqData =
-  { eq_left_  : morphism
-  ; eq_right_ : morphism
-  ; eq_src_   : elem 
-  ; eq_dst_   : elem 
-  ; eq_cat_   : category
-  ; eq_obj    : PA.t
+type 't eq =
+  | Refl of 't morphism
+  | Concat of 't eq * 't eq
+  | InvEq of 't eq
+  | Compose of 't eq * 't eq
+  | Assoc of 't morphism * 't morphism * 't morphism
+  | LeftId of 't morphism
+  | RightId of 't morphism
+  | RAp of 't eq * 't morphism
+  | LAp of 't morphism * 't eq
+  | RInv of 't isoData
+  | LInv of 't isoData
+  | Mono of 't * 't morphism * 't morphism * 't eq
+  | Epi of 't * 't morphism * 't morphism * 't eq
+  | AtomicEq of 't eqData
+and 't eqData =
+  { eq_left_  : 't morphism
+  ; eq_right_ : 't morphism
+  ; eq_src_   : 't elem 
+  ; eq_dst_   : 't elem 
+  ; eq_cat_   : 't category
+  ; eq_obj    : 't
   ; eq_id     : int
   }
-val check_eq : eq -> bool
-val eq_left  : eq -> morphism 
-val eq_right : eq -> morphism 
-val eq_src   : eq -> elem 
-val eq_dst   : eq -> elem 
-val eq_cat   : eq -> category
+val check_eq : 't eq -> bool
+val eq_left  : 't eq -> 't morphism 
+val eq_right : 't eq -> 't morphism 
+val eq_src   : 't eq -> 't elem 
+val eq_dst   : 't eq -> 't elem 
+val eq_cat   : 't eq -> 't category
 
 (* Comparison modules for convenience *)
-module EqCat : Map.OrderedType with type t = category
-module EqFunct : Map.OrderedType with type t = funct
-module EqElem : Map.OrderedType with type t = elem
-module EqMph : Map.OrderedType with type t = morphism
+module type Type = sig
+  type t 
+end
+module EqCat(T:Type) : Map.OrderedType with type t = T.t category
+module EqFunct(T:Type) : Map.OrderedType with type t = T.t funct
+module EqElem(T:Type) : Map.OrderedType with type t = T.t elem
+module EqMph(T:Type) : Map.OrderedType with type t = T.t morphism
+

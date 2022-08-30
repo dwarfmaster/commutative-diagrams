@@ -3,56 +3,57 @@
    context.
 *)
 
-type 'a t
+type ('a,'t) t
 
 (* Monadic operations *)
-val ret    : 'a -> 'a t
-val bind   : 'a t -> ('a -> 'b t) -> 'b t
-val (let*) : 'a t -> ('a -> 'b t) -> 'b t
-val (>>=)  : 'a t -> ('a -> 'b t) -> 'b t
-val (@<<)  : ('a -> 'b t) -> 'a t -> 'b t
-val (<$>)  : ('a -> 'b) -> 'a t -> 'b t
-val run    : 'a t -> 'a
+val ret    : 'a -> ('a,'t) t
+val bind   : ('a,'t) t -> ('a -> ('b,'t) t) -> ('b,'t) t
+val (let*) : ('a,'t) t -> ('a -> ('b,'t) t) -> ('b,'t) t
+val (>>=)  : ('a,'t) t -> ('a -> ('b,'t) t) -> ('b,'t) t
+val (@<<)  : ('a -> ('b,'t) t) -> ('a,'t) t -> ('b,'t) t
+val (<$>)  : ('a -> 'b) -> ('a,'t) t -> ('b,'t) t
+val run    : ('a,'t) t -> 'a
 
 
 (* Support *)
-(* Register an equality predicate for Data.PA.t *)
-val registerEqPredicate : (Data.PA.t -> Data.PA.t -> bool) -> unit t
+(* Register an equality predicate for Data.Data.constr *)
+val registerEqPredicate : ('t -> 't -> bool) -> (unit,'t) t
 
 
 (* State operations *)
-val getCategories : Data.categoryData array t 
-val getCategory : int -> Data.categoryData t
-val registerCategory : Data.PA.t 
-                    -> Data.categoryData t
+val getCategories : unit -> ('t Data.categoryData array,'t) t 
+val getCategory : int -> ('t Data.categoryData,'t) t
+val registerCategory : cat:'t
+                    -> ('t Data.categoryData,'t) t
 
-val getFunctors : Data.functData array t 
-val getFunctor : int -> Data.functData t
-val registerFunctor : funct:Data.PA.t
-                   -> src:Data.category
-                   -> dst:Data.category
-                   -> Data.functData t
+val getFunctors : unit -> ('t Data.functData array,'t) t 
+val getFunctor : int -> ('t Data.functData,'t) t
+val registerFunctor : funct:'t
+                   -> src:'t Data.category
+                   -> dst:'t Data.category
+                   -> ('t Data.functData,'t) t
 
-val getElems : Data.elemData array t 
-val getElem : int -> Data.elemData t 
-val registerElem : elem:Data.PA.t 
-                -> cat:Data.category
-                -> Data.elemData t
+val getElems : unit -> ('t Data.elemData array,'t) t 
+val getElem : int -> ('t Data.elemData,'t) t 
+val registerElem : elem:'t 
+                -> cat:'t Data.category
+                -> ('t Data.elemData,'t) t
 
-val getMorphisms : Data.morphismData array t
-val getMorphism : int -> Data.morphismData t
-val registerMorphism : mph:Data.PA.t 
-                    -> cat:Data.category 
-                    -> src:Data.elem
-                    -> dst:Data.elem 
-                    -> Data.morphismData t
+val getMorphisms : unit -> ('t Data.morphismData array,'t) t
+val getMorphism : int -> ('t Data.morphismData,'t) t
+val registerMorphism : mph:'t 
+                    -> cat:'t Data.category 
+                    -> src:'t Data.elem
+                    -> dst:'t Data.elem 
+                    -> ('t Data.morphismData,'t) t
 
-val getEqs : Data.eqData array t 
-val getEq : int -> Data.eqData t 
-val registerEq : eq:Data.PA.t 
-              -> right:Data.morphism
-              -> left:Data.morphism
-              -> cat:Data.category
-              -> src:Data.elem
-              -> dst:Data.elem
-              -> Data.eqData t
+val getEqs : unit -> ('t Data.eqData array,'t) t 
+val getEq : int -> ('t Data.eqData,'t) t 
+val registerEq : eq:'t
+              -> right:'t Data.morphism
+              -> left:'t Data.morphism
+              -> cat:'t Data.category
+              -> src:'t Data.elem
+              -> dst:'t Data.elem
+              -> ('t Data.eqData,'t) t
+
