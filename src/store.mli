@@ -12,41 +12,47 @@ val (let*) : 'a t -> ('a -> 'b t) -> 'b t
 val (>>=)  : 'a t -> ('a -> 'b t) -> 'b t
 val (@<<)  : ('a -> 'b t) -> 'a t -> 'b t
 val (<$>)  : ('a -> 'b) -> 'a t -> 'b t
+val run    : 'a t -> 'a
+
+
+(* Support *)
+(* Register an equality predicate for Data.PA.t *)
+val registerEqPredicate : (Data.PA.t -> Data.PA.t -> bool) -> unit t
 
 
 (* State operations *)
-val getCategories : Data.category array t 
-val getCategory : int -> Data.category t
+val getCategories : Data.categoryData array t 
+val getCategory : int -> Data.categoryData t
 val registerCategory : Data.PA.t 
-                    -> int t
+                    -> Data.categoryData t
 
-val getFunctors : Data.funct array t 
-val getFunctor : int -> Data.funct t
+val getFunctors : Data.functData array t 
+val getFunctor : int -> Data.functData t
 val registerFunctor : funct:Data.PA.t
-                   -> src:Data.PA.t
-                   -> dst:Data.PA.t
-                   -> int t
+                   -> src:Data.category
+                   -> dst:Data.category
+                   -> Data.functData t
 
-val getElems : Data.elem array t 
-val getElem : int -> Data.elem t 
+val getElems : Data.elemData array t 
+val getElem : int -> Data.elemData t 
 val registerElem : elem:Data.PA.t 
-                -> cat:Data.PA.t 
-                -> int t
+                -> cat:Data.category
+                -> Data.elemData t
 
-val getMorphisms : Data.morphism array t
-val getMorphism : int -> Data.morphism t
+val getMorphisms : Data.morphismData array t
+val getMorphism : int -> Data.morphismData t
 val registerMorphism : mph:Data.PA.t 
-                    -> cat:Data.PA.t 
-                    -> src:Data.PA.t 
-                    -> dst:Data.PA.t 
-                    -> int t
+                    -> cat:Data.category 
+                    -> src:Data.elem
+                    -> dst:Data.elem 
+                    -> Data.morphismData t
 
-val getEqs : Data.eq array t 
-val getEq : int -> Data.eq t 
+val getEqs : Data.eqData array t 
+val getEq : int -> Data.eqData t 
 val registerEq : eq:Data.PA.t 
-              -> right:Data.PA.t 
-              -> left:Data.PA.t 
-              -> cat:Data.PA.t
-              -> src:Data.PA.t 
-              -> dst:Data.PA.t
-              -> int t
+              -> right:Data.morphism
+              -> left:Data.morphism
+              -> cat:Data.category
+              -> src:Data.elem
+              -> dst:Data.elem
+              -> Data.eqData t
