@@ -48,3 +48,19 @@ Ltac reify :=
   unfold r_ap; unfold l_ap;
   unfold mph_inv; unfold right_inv; unfold left_inv.
 
+Lemma test (C D : PreCategory) (F : Functor C D) (x : C) : D.
+Proof.
+  pose (obj := @object_of).
+  pose (y1 := @object_of C).
+  pose (y2 := @object_of C D).
+  pose (y3 := @object_of C D F).
+  pose (y4 := @object_of C D F x).
+  pose (y := (F _0 x)%object).
+  pose (m0 := @morphism).
+  pose (m1 := @morphism C).
+  diagram debug "y2".
+  diagram debug "y3".
+  diagram debug "m0".
+  diagram debug "m1".
+  exact y.
+Defined.
