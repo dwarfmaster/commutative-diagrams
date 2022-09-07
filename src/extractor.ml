@@ -127,3 +127,39 @@ let solve' : int -> Proofview.Goal.t -> unit Proofview.tactic = fun level goal -
       let* eq = add_universes_constraints env eq in
       Refine.refine ~typecheck:false (fun sigma -> (sigma, eq))
 let solve : int -> unit Proofview.tactic = fun level -> Proofview.Goal.enter_one (solve' level)
+
+let pretype env sigma (t : EConstr.t) : EConstr.t =
+  let (_,tp) = Typing.type_of env sigma t in tp
+let rec inspect_kind env sigma (t : EConstr.t) : Pp.t =
+  match EConstr.kind sigma t with 
+  | Rel i -> Pp.str "rel<" ++ Pp.int i ++ Pp.str ">"
+  | Var n -> Names.Id.print n
+  | Const (n,_) -> Pp.str "const(" ++ Names.Constant.print n ++ Pp.str ")"
+  | App (f, args) -> inspect_kind env sigma f ++ Pp.str "("
+                  ++ Pp.prvect_with_sep (fun _ -> Pp.str ", ") (inspect_kind env sigma) args
+                  ++ Pp.str ")"
+  | Proj (p,ec) ->
+      let tp = pretype env sigma ec in
+      inspect_kind env sigma ec ++ Pp.str ":" ++ inspect_kind env sigma tp  
+                                ++ Pp.str "->" ++ Names.Projection.print p
+  | Evar _ -> Pp.str "<?E>"
+  | Sort _ -> Pp.str "<?s>"
+  | Cast _ -> Pp.str "<?C>"
+  | Ind ((n,_),_) -> Pp.str "ind(" ++ Names.MutInd.print n ++ Pp.str ")"
+  | _ -> Pp.str "<?>"
+
+let debug_print' : string -> Proofview.Goal.t -> unit Proofview.tactic = fun name goal ->
+  let* sigma = Proofview.tclEVARMAP in
+  let env = Proofview.Goal.env goal in
+  let hyps = Proofview.Goal.hyps goal in
+  let with_name name hyp =
+    let target = Names.Id.of_string name in
+    match hyp with
+    | Context.Named.Declaration.LocalAssum (name,_) -> None
+    | Context.Named.Declaration.LocalDef (name,def,_) ->
+        if Names.Id.equal name.binder_name target then Some def else None in
+  let hyp = List.find_map (with_name name) hyps in
+  match hyp with
+  | None -> Feedback.msg_warning (Pp.str "No hypothesis found : " ++ Pp.str name); Proofview.tclUNIT ()
+  | Some def -> Feedback.msg_notice (inspect_kind env sigma def); Proofview.tclUNIT ()
+let debug_print (name : string) : unit Proofview.tactic = Proofview.Goal.enter_one (debug_print' name)

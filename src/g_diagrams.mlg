@@ -16,5 +16,7 @@ TACTIC EXTEND diagram
   { Extractor.solve n }
 | [ "diagram" "solve" ] ->
   { Extractor.solve 5 }
+| [ "diagram" "debug" string(name) ] ->
+  { Extractor.debug_print name }
 END
 
