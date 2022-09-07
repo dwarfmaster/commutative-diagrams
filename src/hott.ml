@@ -1,11 +1,281 @@
 
 type t = EConstr.t
 
-let (let*) = Proofview.tclBIND
-let ret = Proofview.tclUNIT
-let (@<<) : ('a -> 'b Proofview.tactic) -> 'a Proofview.tactic -> 'b Proofview.tactic =
-  fun f x -> Proofview.tclBIND x f
+module M = struct
+  type 'a m = 'a Proofview.tactic
+  let bind = Proofview.tclBIND
+  let return = Proofview.tclUNIT
+end
 
+module St = Store.Make(M)
+open St.Combinators
+type 'a m = ('a,EConstr.t) St.t
+let none () = ret None
+let some x = ret (Some x)
+let env () = lift Proofview.tclENV
+let evars () = lift Proofview.tclEVARMAP
+
+let getType (e : EConstr.t) : EConstr.t m =
+  let* env = env () in 
+  let* sigma = evars () in 
+  let (sigma,tp) = Typing.type_of env sigma e in 
+  let* _ = lift (Proofview.Unsafe.tclEVARS sigma) in 
+  ret tp
+
+let isProj sigma indPred name t =
+  match EConstr.kind sigma t with
+  | Proj (p,_) -> Env.is_projection p indPred name 
+  | _ -> false
+let isConst sigma pred t =
+  match EConstr.kind sigma t with 
+  | Const (name,_) -> pred name
+  | _ -> false
+let isInd sigma pred t =
+  match EConstr.kind sigma t with
+  | Ind (ind,_) -> pred ind 
+  | _ -> false
+
+(*  ____                _              *)
+(* |  _ \ __ _ _ __ ___(_)_ __   __ _  *)
+(* | |_) / _` | '__/ __| | '_ \ / _` | *)
+(* |  __/ (_| | |  \__ \ | | | | (_| | *)
+(* |_|   \__,_|_|  |___/_|_| |_|\__, | *)
+(*                              |___/  *)
+(* Parsing *)
+
+
+(*   ___      _                    _         *)
+(*  / __|__ _| |_ ___ __ _ ___ _ _(_)___ ___ *)
+(* | (__/ _` |  _/ -_) _` / _ \ '_| / -_|_-< *)
+(*  \___\__,_|\__\___\__, \___/_| |_\___/__/ *)
+(*                   |___/                   *)
+(* Categories *)
+
+let registerAtomCat (cat : EConstr.t) =
+  let* cat = St.registerCategory ~cat in 
+  ret (Data.AtomicCategory cat)
+
+let parseCategoryType (cat : EConstr.t) : bool m =
+  let* env = env () in
+  let* sigma = evars () in
+  ret (isInd sigma Env.is_cat cat)
+
+let parseCategoryTerm (cat : EConstr.t) =
+  registerAtomCat cat
+
+let parseCategory (cat : EConstr.t) (tp : EConstr.t) = 
+  let* is = parseCategoryType tp in
+  if is then some @<< parseCategoryTerm cat else none ()
+
+
+(*  ___             _               *)
+(* | __|  _ _ _  __| |_ ___ _ _ ___ *)
+(* | _| || | ' \/ _|  _/ _ \ '_(_-< *)
+(* |_| \_,_|_||_\__|\__\___/_| /__/ *)
+(*                                  *)
+(* Functors *)
+
+let registerAtomFunct funct src dst =
+  let* funct = St.registerFunctor ~funct ~src ~dst in 
+  ret (Data.AtomicFunctor funct)
+
+let parseFunctorType (funct : t) : (t*t) option m =
+  let* env = env () in
+  let* sigma = evars () in 
+  match EConstr.kind sigma funct with
+  | App (funct, [| src; dst |]) when isInd sigma Env.is_functor funct ->
+      some (src,dst)
+  | _ -> none ()
+
+let parseFunctorTerm (funct : t) src dst =
+  registerAtomFunct funct src dst
+
+let parseFunctor (funct : EConstr.t) (tp : EConstr.t) =
+  let* is = parseFunctorType tp in 
+  match is with 
+  | Some (src,dst) ->
+      let* src = parseCategoryTerm src in 
+      let* dst = parseCategoryTerm dst in 
+      some @<< parseFunctorTerm funct src dst
+  | None -> none ()
+
+
+
+(*  ___ _               *)
+(* | __| |___ _ __  ___ *)
+(* | _|| / -_) '  \(_-< *)
+(* |___|_\___|_|_|_/__/ *)
+(*                      *)
+(* Elems *)
+
+let registerAtomElem elem cat =
+  let* elem = St.registerElem ~elem ~cat in 
+  ret (Data.AtomicElem elem)
+
+let parseElemType (obj : t) : t option m =
+  let* env = env () in
+  let* sigma = evars () in
+  match EConstr.kind sigma obj with
+  | Proj (p,obj) when Env.is_projection p Env.is_cat "object" -> some obj
+  | _ -> none ()
+
+exception AtomElem
+let rec parseElemTerm (elem : EConstr.t) cat =
+  let* env = env () in 
+  let* sigma = evars () in 
+  try match EConstr.kind sigma elem with
+  | App (fobj, [| elem |]) ->
+      begin match EConstr.kind sigma fobj with
+      | Proj (fobj,funct) when Env.is_projection fobj Env.is_functor "object_of" ->
+          let* tp = parseFunctorType @<< getType funct in
+          begin match tp with
+          | None -> assert false (* Shouldn't happen *)
+          | Some (src,dst) ->
+              let* src = parseCategoryTerm src in
+              let* dst = parseCategoryTerm dst in 
+              let* funct = parseFunctorTerm funct src dst in
+              let* elem = parseElemTerm elem src in
+              ret (Data.FObj (funct,elem))
+          end
+      | _ -> raise AtomElem
+      end
+  | _ -> raise AtomElem
+  with AtomElem -> registerAtomElem elem cat
+
+let parseElem (elem : EConstr.t) (tp : EConstr.t) =
+  let* is = parseElemType tp in 
+  match is with
+  | Some cat ->
+      let* cat = registerAtomCat cat in 
+      some @<< registerAtomElem elem cat
+  | None -> none ()
+
+
+
+(*  __  __              _    _              *)
+(* |  \/  |___ _ _ _ __| |_ (_)____ __  ___ *)
+(* | |\/| / _ \ '_| '_ \ ' \| (_-< '  \(_-< *)
+(* |_|  |_\___/_| | .__/_||_|_/__/_|_|_/__/ *)
+(*                |_|                       *)
+(* Morphisms *)
+
+let registerAtomMorphism mph cat src dst =
+  let* mph = St.registerMorphism ~mph ~cat ~src ~dst in 
+  ret (Data.AtomicMorphism mph)
+
+let parseMorphismType (mph : t) : (t * t * t) option m =
+  let* sigma = evars () in
+  match EConstr.kind sigma mph with
+  | App (p, [| src; dst |]) ->
+    begin match EConstr.kind sigma p with
+      | Proj (p,cat) when Env.is_projection p Env.is_cat "morphism" ->
+          some (cat,src,dst)
+      | _ -> none ()
+    end
+  | _ -> none ()
+
+exception AtomMph
+let rec parseMorphismTerm mph cat src dst =
+  let* sigma = evars () in
+  try match EConstr.kind sigma mph with
+  | App (cmp, [| _; int; _; mid; msi |]) ->
+    begin match EConstr.kind sigma cmp with
+      | Proj (cmp,_) when Env.is_projection cmp Env.is_cat "compose" ->
+          let* int = parseElemTerm int cat in
+          let* msi = parseMorphismTerm msi cat src int in
+          let* mid = parseMorphismTerm mid cat int dst in
+          ret (Data.Comp (msi,mid))
+      | _ -> raise AtomMph
+    end
+  | App (funct, [| src; dst; mph |]) ->
+      begin match EConstr.kind sigma funct with
+      | Proj (mof,funct) when Env.is_projection mof Env.is_functor "morphism_of" ->
+          let* tp = parseFunctorType @<< getType funct in 
+          begin match tp with
+          | None -> assert false (* Shouldn't happen *)
+          | Some (src_cat,_) ->
+              let* src_cat = parseCategoryTerm src_cat in 
+              let* src = parseElemTerm src src_cat in 
+              let* dst = parseElemTerm dst src_cat in 
+              let* funct = parseFunctorTerm funct src_cat cat in
+              let* mph = parseMorphismTerm mph cat src dst in 
+              ret (Data.FMph (funct,mph))
+          end
+      | _ -> raise AtomMph 
+      end
+  | App (id, [| _; elem |]) ->
+      begin match EConstr.kind sigma id with
+      | Const (name,_) when Env.is_id name ->
+          let* elem = parseElemTerm elem cat in 
+          ret (Data.Identity elem)
+      | _ -> raise AtomMph
+      end 
+  | App (id, [| elem |]) ->
+      begin match EConstr.kind sigma id with
+      | Proj (id,_) when Env.is_projection id Env.is_cat "identity" ->
+          let* elem = parseElemTerm elem cat in 
+          ret (Data.Identity elem)
+      | _ -> raise AtomMph
+      end
+  | _ -> raise AtomMph
+  with AtomMph -> registerAtomMorphism mph cat src dst
+
+let parseMorphism mph tp =
+  let* tp = parseMorphismType tp in 
+  match tp with
+  | None -> none ()
+  | Some (cat,src,dst) ->
+      let* cat = parseCategoryTerm cat in 
+      let* src = parseElemTerm src cat in 
+      let* dst = parseElemTerm dst cat in 
+      some @<< parseMorphismTerm mph cat src dst
+
+
+
+(*  ___                _ _ _   _         *)
+(* | __|__ _ _  _ __ _| (_) |_(_)___ ___ *)
+(* | _|/ _` | || / _` | | |  _| / -_|_-< *)
+(* |___\__, |\_,_\__,_|_|_|\__|_\___/__/ *)
+(*        |_|                            *)
+(* Equalities *)
+
+let registerAtomEq eq right left cat src dst =
+  let* eq = St.registerEq ~eq ~right ~left ~cat ~src ~dst in 
+  ret (Data.AtomicEq eq)
+
+let parseEqType (eq : t) : (t * t * t * t * t) option m =
+  let* sigma = evars () in
+  match EConstr.kind sigma eq with
+  | App (eq, [| tp; left; right |]) ->
+    begin match EConstr.kind sigma eq with
+      | Ind (eq,_) when Env.is_eq eq ->
+          let* tp = parseMorphismType tp in 
+          begin match tp with
+          | Some (cat,src,dst) -> some (right,left,cat,src,dst)
+          | None -> none ()
+          end
+      | _ -> none ()
+    end
+  | _ -> none ()
+
+(* No need to parse the concrete eq terms *)
+let parseEqTerm eq right left cat src dst =
+  registerAtomEq eq right left cat src dst
+
+let parseEq eq tp =
+  let* tp = parseEqType tp in 
+  match tp with
+  | Some (right,left,cat,src,dst) ->
+      let* cat = parseCategoryTerm cat in 
+      let* src = parseElemTerm src cat in 
+      let* dst = parseElemTerm dst cat in 
+      let* right = parseMorphismTerm right cat src dst in
+      let* left = parseMorphismTerm left cat src dst in
+      some @<< parseEqTerm eq right left cat src dst
+  | _ -> none ()
+
+
+(* XXXXX *)
 
 (*   ____      _                        _ *)
 (*  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ *)
@@ -14,22 +284,6 @@ let (@<<) : ('a -> 'b Proofview.tactic) -> 'a Proofview.tactic -> 'b Proofview.t
 (*  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/ *)
 (*                     |___/ *)
 (* Categories *)
-
-let is_cat : Environ.env -> t -> bool Proofview.tactic = fun env cat ->
-  let* sigma = Proofview.tclEVARMAP in
-  ret (match EConstr.kind sigma cat with
-      | Ind (ind,_) -> Env.is_cat ind
-      | _ -> false)
-
-let is_funct : Environ.env -> t -> (t*t) option Proofview.tactic = fun env funct ->
-  let* sigma = Proofview.tclEVARMAP in 
-  match EConstr.kind sigma funct with
-  | App (funct, [| src; dst |]) ->
-      begin match EConstr.kind sigma funct with
-      | Ind (funct,_) when Env.is_functor funct -> ret (Some (src,dst))
-      | _ -> ret None
-      end
-  | _ -> ret None
 
 let funct_obj (env : Environ.env) (f : Data.funct) (obj : t) : t Proofview.tactic =
   Env.app (Env.mk_funct_obj ()) [| f.src.obj; f.dst.obj; f.obj; obj |]
@@ -40,12 +294,6 @@ let rec realizeElem (e : Data.elem) : EConstr.t Proofview.tactic =
   | Elem e -> ret e.obj
   | FObj (f,e) ->
       let* e = realizeElem e in funct_obj env f e 
-
-let is_object : Environ.env -> t -> t option Proofview.tactic = fun env obj ->
-  let* sigma = Proofview.tclEVARMAP in
-  ret (match EConstr.kind sigma obj with
-      | Proj (p,obj) when Env.is_projection p Env.is_cat "object" -> Some obj
-      | _ -> None)
 
 let morphism : Environ.env -> t -> t -> t -> t Proofview.tactic = fun env cat src dst ->
   Env.app (Env.mk_mphT ()) [| cat; src; dst |]

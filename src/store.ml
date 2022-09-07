@@ -36,14 +36,17 @@ module Make(M : Monad) = struct
   (* |_|  |_|\___/|_| |_|\__,_|\__,_| *)
   (*                                  *)
   (* Monadic operations *)
-  let ret x st = M.return (x,st)
-  let bind a f st = M.bind (a st) (fun (a,st) -> f a st)
-  let (let*) = bind
-  let (>>=)  = bind
-  let (@<<) f a = bind a f
-  let (<$>) f a = bind a (fun x -> ret (f x))
-  let run m = M.bind (m emptyStore) (fun (x,_) -> M.return x) 
-  let lift x st = M.bind x (fun x -> M.return (x,st))
+  module Combinators = struct
+    let ret x st = M.return (x,st)
+    let bind a f st = M.bind (a st) (fun (a,st) -> f a st)
+    let (let*) = bind
+    let (>>=)  = bind
+    let (@<<) f a = bind a f
+    let (<$>) f a = bind a (fun x -> ret (f x))
+    let run m = M.bind (m emptyStore) (fun (x,_) -> M.return x) 
+    let lift x st = M.bind x (fun x -> M.return (x,st))
+  end
+  open Combinators
   
   
   let get (f : 't store -> 'a) : ('a,'t) t = fun st -> ret (f st) st

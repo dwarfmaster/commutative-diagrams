@@ -13,14 +13,16 @@ module Make(M : Monad) : sig
   type ('a,'t) t
   
   (* Monadic operations *)
-  val ret    : 'a -> ('a,'t) t
-  val bind   : ('a,'t) t -> ('a -> ('b,'t) t) -> ('b,'t) t
-  val (let*) : ('a,'t) t -> ('a -> ('b,'t) t) -> ('b,'t) t
-  val (>>=)  : ('a,'t) t -> ('a -> ('b,'t) t) -> ('b,'t) t
-  val (@<<)  : ('a -> ('b,'t) t) -> ('a,'t) t -> ('b,'t) t
-  val (<$>)  : ('a -> 'b) -> ('a,'t) t -> ('b,'t) t
-  val run    : ('a,'t) t -> 'a M.m
-  val lift   : 'a M.m -> ('a,'t) t
+  module Combinators : sig
+    val ret    : 'a -> ('a,'t) t
+    val bind   : ('a,'t) t -> ('a -> ('b,'t) t) -> ('b,'t) t
+    val (let*) : ('a,'t) t -> ('a -> ('b,'t) t) -> ('b,'t) t
+    val (>>=)  : ('a,'t) t -> ('a -> ('b,'t) t) -> ('b,'t) t
+    val (@<<)  : ('a -> ('b,'t) t) -> ('a,'t) t -> ('b,'t) t
+    val (<$>)  : ('a -> 'b) -> ('a,'t) t -> ('b,'t) t
+    val run    : ('a,'t) t -> 'a M.m
+    val lift   : 'a M.m -> ('a,'t) t
+  end
   
   
   (* Support *)
