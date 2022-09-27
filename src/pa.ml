@@ -18,8 +18,9 @@ module type ProofAssistant = sig
   val parseFunctor : t -> t -> (t Data.funct option,t) Store.Make(M).t
   val parseElem : t -> t -> (t Data.elem option,t) Store.Make(M).t
   val parseMorphism : t -> t -> (t Data.morphism option,t) Store.Make(M).t
-  val parseEq : t -> t -> (t Data.morphism option,t) Store.Make(M).t
+  val parseEq : t -> t -> (t Data.eq option,t) Store.Make(M).t
+  val parseEqGoal : t -> ((t Data.morphism * t Data.morphism) option, t) Store.Make(M).t
 
   (* Utils *)
-  val eq : (t -> t -> bool) M.m
+  val eq : t -> t -> bool M.m
 end

@@ -52,6 +52,7 @@ and 't isoData =
 
 (* Equality between uninterned morphisms *)
 type 't eq =
+  | Hole of 't morphism * 't morphism
   | Refl of 't morphism
   | Concat of 't eq * 't eq
   | InvEq of 't eq
@@ -214,6 +215,7 @@ let rec cmp_morphism (m1 : 't morphism) (m2 : 't morphism) : int =
 (* Equality *)
 let rec eq_left (e : 't eq) : ' tmorphism = 
   match e with
+  | Hole (m1,_) -> m1
   | Refl m -> m 
   | Concat (e1,_) -> eq_left e1
   | InvEq e -> eq_right e
@@ -231,6 +233,7 @@ let rec eq_left (e : 't eq) : ' tmorphism =
 
 and eq_right (e : 't eq) : 't morphism = 
   match e with
+  | Hole (_,m2) -> m2
   | Refl m -> m 
   | Concat (_,e2) -> eq_right e2
   | InvEq e -> eq_left e
@@ -248,6 +251,7 @@ and eq_right (e : 't eq) : 't morphism =
 
 and eq_src (e : 't eq) : 't elem =
   match e with
+  | Hole (m,_) -> morphism_src m
   | Refl m -> morphism_src m 
   | Concat (e,_) -> morphism_src (eq_left e)
   | InvEq e -> morphism_src (eq_left e)
@@ -265,6 +269,7 @@ and eq_src (e : 't eq) : 't elem =
 
 and eq_dst (e : 't eq) : 't elem =
   match e with 
+  | Hole (m,_) -> morphism_dst m
   | Refl m -> morphism_dst m 
   | Concat (e,_) -> morphism_dst (eq_left e)
   | InvEq e -> morphism_dst (eq_left e)
@@ -282,6 +287,7 @@ and eq_dst (e : 't eq) : 't elem =
 
 and eq_cat (e : 't eq) : 't category =
   match e with 
+  | Hole (m,_) -> morphism_cat m
   | Refl m -> morphism_cat m 
   | Concat (e,_) -> morphism_cat (eq_left e)
   | InvEq e -> morphism_cat (eq_left e)
@@ -299,6 +305,11 @@ and eq_cat (e : 't eq) : 't category =
 
 let rec check_eq (e : 't eq) : bool =
   match e with
+  | Hole (m1,m2) -> check_morphism m1 
+                 && check_morphism m2 
+                 && cmp_category (morphism_cat m1) (morphism_cat m2) = 0
+                 && cmp_elem (morphism_src m1) (morphism_src m2) = 0
+                 && cmp_elem (morphism_dst m1) (morphism_dst m2) = 0
   | Refl m -> check_morphism m 
   | Concat (e1,e2) -> check_eq e1
                    && check_eq e2

@@ -274,6 +274,18 @@ let parseEq eq tp =
       some @<< parseEqTerm eq right left cat src dst
   | _ -> none ()
 
+let parseEqGoal goal =
+  let* goal = parseEqType goal in 
+  match goal with
+  | Some (right,left,cat,src,dst) ->
+      let* cat = parseCategoryTerm cat in 
+      let* src = parseElemTerm src cat in 
+      let* dst = parseElemTerm dst cat in 
+      let* right = parseMorphismTerm right cat src dst in
+      let* left = parseMorphismTerm left cat src dst in
+      some (left,right)
+  | _ -> none ()
+
 
 
 
@@ -357,6 +369,17 @@ let mphT m =
 let rec realizeEq eq =
   let open Data in
   match eq with
+  | Hole (m1,m2) ->
+      let$ tp = mphT m1 in
+      let$ m1 = realizeMorphism m1 in 
+      let$ m2 = realizeMorphism m2 in
+      let$ tp = Env.app (Env.mk_eq ()) [| tp; m1; m2 |] in
+      (* Create hole *)
+      let$ sigma = Proofview.tclEVARMAP in
+      let$ env = Proofview.tclENV in
+      let (sigma,hole) = Evarutil.new_evar ~principal:true env sigma tp in
+      let$ _ = Proofview.Unsafe.tclEVARS sigma in
+      pret hole
   | Refl m ->
       let$ tp  = mphT m in
       let$ m   = realizeMorphism m in

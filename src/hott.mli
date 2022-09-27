@@ -20,6 +20,8 @@ val parseFunctor : t -> t -> (t Data.funct option,t) St.t
 val parseElem : t -> t -> (t Data.elem option,t) St.t
 val parseMorphism : t -> t -> (t Data.morphism option,t) St.t
 val parseEq : t -> t -> (t Data.eq option,t) St.t
+val parseEqGoal : t -> ((t Data.morphism * t Data.morphism) option, t) Store.Make(M).t
+
 
 (* Utils *)
 val eq : t -> t -> bool Proofview.tactic

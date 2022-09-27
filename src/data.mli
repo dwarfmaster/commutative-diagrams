@@ -67,6 +67,7 @@ val morphism_dst : 't morphism -> 't elem
 
 (* Equality between uninterned morphisms *)
 type 't eq =
+  | Hole of 't morphism * 't morphism
   | Refl of 't morphism
   | Concat of 't eq * 't eq
   | InvEq of 't eq
