@@ -51,7 +51,7 @@ let extract' (path : string) (goal : Proofview.Goal.t) : unit m =
   let* _ = extract_hyps goal in
   let* sigma = lift Proofview.tclEVARMAP in
   let* env = lift Proofview.tclENV in
-  let pp = assert false (* HP.to_graphviz sigma env store *) in
+  let* pp = Renderer.to_graphviz sigma env in
   let oc = open_out path in
   Printf.fprintf oc "%s\n" (Pp.string_of_ppcmds pp);
   flush oc;
