@@ -48,6 +48,7 @@ let extract_hyps (goal : Proofview.Goal.t) : (Hott.t Data.morphism * Hott.t Data
   Hott.parseEqGoal goal
 
 let extract' (path : string) (goal : Proofview.Goal.t) : unit m =
+  let* _ = St.registerEqPredicate Hott.eq in
   let* _ = extract_hyps goal in
   let* sigma = lift Proofview.tclEVARMAP in
   let* env = lift Proofview.tclENV in
@@ -61,6 +62,7 @@ let extract (path : string) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> extract' path goal |> run)
 
 let normalize' (goal : Proofview.Goal.t) : unit m =
+  let* _ = St.registerEqPredicate Hott.eq in
   let* obj = extract_hyps goal in
   match obj with
   | None -> lift (Tacticals.tclFAIL 0 (Pp.str "Goal is not a face"))
@@ -80,6 +82,7 @@ let normalize (_ : unit) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> normalize' goal |> run)
 
 let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
+  let* _ = St.registerEqPredicate Hott.eq in
   let* obj = extract_hyps goal in
   match obj with
   | None -> lift (Tacticals.tclFAIL 0 (Pp.str "Goal is not a face"))
