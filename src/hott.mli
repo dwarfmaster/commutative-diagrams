@@ -22,4 +22,4 @@ val parseMorphism : t -> t -> (t Data.morphism option,t) St.t
 val parseEq : t -> t -> (t Data.eq option,t) St.t
 
 (* Utils *)
-val eq : (t -> t -> bool) Proofview.tactic
+val eq : t -> t -> bool Proofview.tactic

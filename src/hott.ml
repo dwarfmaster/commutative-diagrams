@@ -467,4 +467,7 @@ let rec realizeEq eq =
 (*  \___/ \__|_|_|___/ *)
 (*                     *)
 (* Utils *)
-let eq = assert false
+let eq e1 e2 = 
+  let$ env = Proofview.tclENV in 
+  let$ sigma = Proofview.tclEVARMAP in
+  pret (Reductionops.check_conv env sigma e1 e2)

@@ -15,7 +15,7 @@ module Make(M : Monad) = struct
     ; elems      : 't elemData array 
     ; morphisms  : 't morphismData array 
     ; faces      : 't eqData array
-    ; eqPred     : 't -> 't -> bool
+    ; eqPred     : 't -> 't -> bool M.m
     }
   let emptyStore : 't store =
     { categories = [| |]
@@ -23,10 +23,11 @@ module Make(M : Monad) = struct
     ; elems      = [| |]
     ; morphisms  = [| |]
     ; faces      = [| |]
-    ; eqPred     = fun _ _ -> false
+    ; eqPred     = fun _ _ -> M.return false
     }
   
-  type ('a,'t) t = 't store -> ('a * 't store) M.m
+  type ('a,'t) t = 
+    { runState : 't store -> ('a * 't store) M.m }
   
   
   (*  __  __                       _  *)
@@ -37,20 +38,20 @@ module Make(M : Monad) = struct
   (*                                  *)
   (* Monadic operations *)
   module Combinators = struct
-    let ret x st = M.return (x,st)
-    let bind a f st = M.bind (a st) (fun (a,st) -> f a st)
+    let ret x = { runState = fun st -> M.return (x,st) }
+    let bind a f = { runState = fun st -> M.bind (a.runState st) (fun (a,st) -> (f a).runState st) }
     let (let*) = bind
     let (>>=)  = bind
     let (@<<) f a = bind a f
     let (<$>) f a = bind a (fun x -> ret (f x))
-    let run m = M.bind (m emptyStore) (fun (x,_) -> M.return x) 
-    let lift x st = M.bind x (fun x -> M.return (x,st))
+    let run m = M.bind (m.runState emptyStore) (fun (x,_) -> M.return x) 
+    let lift (x : 'a M.m) : ('a,'t) t = { runState = fun st -> M.bind x (fun x -> M.return (x,st)) }
   end
   open Combinators
   
   
-  let get (f : 't store -> 'a) : ('a,'t) t = fun st -> ret (f st) st
-  let set (f : 't store -> 't store) : (unit,'t) t = fun st -> ret () (f st)
+  let get (f : 't store -> 'a) : ('a,'t) t = { runState = fun st -> (ret (f st)).runState st }
+  let set (f : 't store -> 't store) : (unit,'t) t = { runState = fun st -> (ret ()).runState (f st) }
   
   (*  ____                               _    *)
   (* / ___| _   _ _ __  _ __   ___  _ __| |_  *)
@@ -59,7 +60,7 @@ module Make(M : Monad) = struct
   (* |____/ \__,_| .__/| .__/ \___/|_|   \__| *)
   (*             |_|   |_|                    *)
   (* Support *)
-  let registerEqPredicate (eq : 't -> 't -> bool) =
+  let registerEqPredicate (eq : 't -> 't -> bool M.m) =
     set (fun st -> { st with eqPred = eq })
   
   
@@ -73,12 +74,22 @@ module Make(M : Monad) = struct
   
   let push_back (arr : 'a array) (x : 'a) : 'a array = Array.append arr [| x |]
   let eqPred () = get (fun st -> st.eqPred)
+
+  let rec arr_find_optM' (id : int) (pred : 'a -> bool M.m) (arr : 'a array) : 'a option M.m =
+    if id >= Array.length arr
+    then M.return None
+    else
+      M.bind
+        (pred arr.(id)) 
+        (fun p -> if p then M.return (Some arr.(id)) else arr_find_optM' (id + 1) pred arr)
+
+  let arr_find_optM pred (arr : 'a array) : ('a option,'t) t = lift (arr_find_optM' 0 pred arr)
   
   let getCategories () : ('t categoryData array,'t) t = get (fun (st : 't store) -> st.categories)
   let getCategory i = get (fun st -> st.categories.(i))
   let registerCategory ~cat =
     let* pred = eqPred () in
-    let* id = Array.find_opt (fun c -> pred c.cat_obj cat) <$> getCategories () in 
+    let* id = arr_find_optM (fun c -> pred c.cat_obj cat) @<< getCategories () in 
     match id with
     | Some cat -> ret cat
     | None ->
@@ -92,7 +103,7 @@ module Make(M : Monad) = struct
   let getFunctor i = get (fun st -> st.functors.(i))
   let registerFunctor ~funct ~src ~dst =
     let* pred = eqPred () in 
-    let* id = Array.find_opt (fun c -> pred c.funct_obj funct) <$> getFunctors () in 
+    let* id = arr_find_optM (fun c -> pred c.funct_obj funct) @<< getFunctors () in 
     match id with
     | Some funct -> ret funct
     | None ->
@@ -107,7 +118,7 @@ module Make(M : Monad) = struct
   let getElem i = get (fun st -> st.elems.(i))
   let registerElem ~elem ~cat =
     let* pred = eqPred () in 
-    let* id = Array.find_opt (fun e -> pred e.elem_obj elem) <$> getElems () in 
+    let* id = arr_find_optM (fun e -> pred e.elem_obj elem) @<< getElems () in 
     match id with
     | Some elem -> ret elem 
     | None ->
@@ -122,7 +133,7 @@ module Make(M : Monad) = struct
   let getMorphism i = get (fun st -> st.morphisms.(i))
   let registerMorphism ~mph ~cat ~src ~dst =
     let* pred = eqPred () in 
-    let* id = Array.find_opt (fun m -> pred m.mph_obj mph) <$> getMorphisms () in 
+    let* id = arr_find_optM (fun m -> pred m.mph_obj mph) @<< getMorphisms () in 
     match id with 
     | Some mph -> ret mph
     | None ->
@@ -138,7 +149,7 @@ module Make(M : Monad) = struct
   let getEq i = get (fun st -> st.faces.(i))
   let registerEq ~eq ~right ~left ~cat ~src ~dst =
     let* pred = eqPred () in 
-    let* id = Array.find_opt (fun e -> pred e.eq_obj eq) <$> getEqs () in
+    let* id = arr_find_optM (fun e -> pred e.eq_obj eq) @<< getEqs () in
     match id with 
     | Some eq -> ret eq 
     | None -> 

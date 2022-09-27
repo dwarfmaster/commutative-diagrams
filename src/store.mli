@@ -27,7 +27,7 @@ module Make(M : Monad) : sig
   
   (* Support *)
   (* Register an equality predicate for Data.Data.constr *)
-  val registerEqPredicate : ('t -> 't -> bool) -> (unit,'t) t
+  val registerEqPredicate : ('t -> 't -> bool M.m) -> (unit,'t) t
   
   
   (* State operations *)
