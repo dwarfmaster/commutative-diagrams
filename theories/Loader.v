@@ -64,3 +64,13 @@ Proof.
   diagram debug "m1".
   exact y.
 Defined.
+
+Lemma test2 (C D : PreCategory) (F : Functor C D) (x y : C) (m : morphism C x y)
+  : morphism D (F _0 x)%object (F _0 y)%object.
+Proof.
+  pose (m1 := F _1 m).
+  pose (m2 := morphism_of F m).
+  diagram debug "m1".
+  diagram debug "m2".
+  exact m1.
+Defined.
