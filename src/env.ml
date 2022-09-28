@@ -25,14 +25,20 @@ let locate_const : string -> Names.Constant.t = fun name ->
     | _ -> raise (Object_not_found name)
   with Not_found -> raise (Object_not_found name)
 
-let perform_locate : 'a array ref -> string array -> (string -> 'a) -> 'a array =
-  fun objs names locate ->
+let array_filter_map (arr : 'a array) (f : 'a -> 'b option) : 'b array =
+  Array.of_list (List.filter_map f (Array.to_list arr))
+
+let perform_locate (objs : 'a array ref) (names : string array) (locate : string -> 'a) : 'a array =
   if Array.length !objs != 0
   then !objs
-  else begin
-    objs := Array.map locate names;
-    !objs
-  end
+  else 
+    let loc = fun name -> try Some (locate name) with _ -> None
+    in begin
+      objs := array_filter_map names loc;
+      if Array.length !objs = 0
+      then raise (Object_not_found names.(0))
+      else !objs
+    end
 
 let is_cached : 'a array ref -> string array -> 'a -> (string -> 'a) -> ('a -> 'a -> bool) -> bool =
   fun objs names obj locate pred ->
@@ -74,10 +80,10 @@ let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string ->
 let g_coq_cat : Names.inductive array ref = ref [| |]
 let g_coq_cat_names : string array =
   [| "HoTT.Categories.Category.Core.PreCategory"
-   (* ; "HoTT.Categories.Category.PreCategory" *)
-   (* ; "HoTT.Categories.PreCategory" *)
-   (* ; "Categories.Category.PreCategory" *)
-   (* ; "Categories.PreCategory" *)
+   ; "HoTT.Categories.Category.PreCategory"
+   ; "HoTT.Categories.PreCategory"
+   ; "Categories.Category.PreCategory"
+   ; "Categories.PreCategory"
   |]
 let get_cat = fun _ -> perform_locate g_coq_cat g_coq_cat_names locate_inductive
 let is_cat : Names.inductive -> bool = is_ind g_coq_cat g_coq_cat_names
@@ -94,9 +100,9 @@ let mk_cat = fun _ -> mk_ind (get_cat ())
 let g_coq_functor : Names.inductive array ref = ref [| |]
 let g_coq_functor_names : string array =
   [| "HoTT.Categories.Functor"
-   (* ; "HoTT.Categories.Functor.Core.Functor" *)
-   (* ; "HoTT.Categories.Functor" *)
-   (* ; "HoTT.Categories.Functor.Functor" *)
+   ; "HoTT.Categories.Functor.Core.Functor"
+   ; "HoTT.Categories.Functor"
+   ; "HoTT.Categories.Functor.Functor"
   |]
 let get_functor = fun _ -> perform_locate g_coq_functor g_coq_functor_names locate_inductive
 let is_functor : Names.inductive -> bool = is_ind g_coq_functor g_coq_functor_names
@@ -276,10 +282,10 @@ let mk_rap = fun _ -> mk_const (get_rap ())
 let g_coq_mono : Names.Constant.t array ref = ref [| |]
 let g_coq_mono_names : string array =
   [| "HoTT.Categories.Category.Morphisms.IsMonomorphism"
-   (* ; "HoTT.Categories.Category.IsMonomorphism" *)
-   (* ; "Category.IsMonomorphism" *)
-   (* ; "Morphisms.IsMonomorphism" *)
-   (* ; "Morphisms.IsMonomorphism" *)
+   ; "HoTT.Categories.Category.IsMonomorphism"
+   ; "Category.IsMonomorphism"
+   ; "Morphisms.IsMonomorphism"
+   ; "Morphisms.IsMonomorphism"
   |]
 let get_mono = fun _ -> perform_locate g_coq_mono g_coq_mono_names locate_const
 let is_mono = is_const g_coq_mono g_coq_mono_names
@@ -295,10 +301,10 @@ let mk_mono = fun _ -> mk_const (get_mono ())
 let g_coq_epi : Names.Constant.t array ref = ref [| |]
 let g_coq_epi_names : string array =
   [| "HoTT.Categories.Category.Morphisms.IsEpimorphism"
-   (* ; "HoTT.Categories.Category.IsEpimorphism" *)
-   (* ; "Category.IsEpimorphism" *)
-   (* ; "Morphisms.IsEpimorphism" *)
-   (* ; "Morphisms.IsEpimorphism" *)
+   ; "HoTT.Categories.Category.IsEpimorphism"
+   ; "Category.IsEpimorphism"
+   ; "Morphisms.IsEpimorphism"
+   ; "Morphisms.IsEpimorphism"
   |]
 let get_epi = fun _ -> perform_locate g_coq_epi g_coq_epi_names locate_const
 let is_epi = is_const g_coq_epi g_coq_epi_names
@@ -314,7 +320,7 @@ let mk_epi = fun _ -> mk_const (get_epi ())
 let g_coq_iso : Names.inductive array ref = ref [| |]
 let g_coq_iso_names : string array =
   [| "HoTT.Categories.Category.Morphisms.IsIsomorphism"
-   (* ; "HoTT.Categories.Category.IsIsomorphism" *)
+   ; "HoTT.Categories.Category.IsIsomorphism"
   |]
 let get_iso = fun _ -> perform_locate g_coq_iso g_coq_iso_names locate_inductive
 let is_iso = is_ind g_coq_iso g_coq_iso_names
