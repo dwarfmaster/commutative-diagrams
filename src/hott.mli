@@ -1,17 +1,21 @@
 
 type t = EConstr.t
 module M : sig
-  type 'a m = 'a Proofview.tactic
-  val bind : 'a Proofview.tactic -> ('a -> 'b Proofview.tactic) -> 'b Proofview.tactic
-  val return : 'a -> 'a Proofview.tactic
+  type 'a m
+  val bind : 'a m -> ('a -> 'b m) -> 'b m
+  val return : 'a -> 'a m
+
+  val env : unit -> Environ.env m
+  val lift : 'a Proofview.tactic -> 'a m
+  val run : Environ.env -> 'a m -> 'a Proofview.tactic
 end
 
 (* Realization *)
-val realizeCategory : t Data.category -> t Proofview.tactic
-val realizeFunctor : t Data.funct -> t Proofview.tactic
-val realizeElem : t Data.elem -> t Proofview.tactic
-val realizeMorphism : t Data.morphism -> t Proofview.tactic
-val realizeEq : t Data.eq -> t Proofview.tactic
+val realizeCategory : t Data.category -> t M.m
+val realizeFunctor : t Data.funct -> t M.m
+val realizeElem : t Data.elem -> t M.m
+val realizeMorphism : t Data.morphism -> t M.m
+val realizeEq : t Data.eq -> t M.m
 
 (* Parsing *)
 module St := Store.Make(M)
@@ -24,4 +28,4 @@ val parseEqGoal : t -> ((t Data.morphism * t Data.morphism) option, t) Store.Mak
 
 
 (* Utils *)
-val eq : t -> t -> bool Proofview.tactic
+val eq : t -> t -> bool M.m

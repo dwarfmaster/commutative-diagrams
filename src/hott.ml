@@ -2,24 +2,32 @@
 type t = EConstr.t
 
 module M = struct
-  type 'a m = 'a Proofview.tactic
-  let bind = Proofview.tclBIND
-  let return = Proofview.tclUNIT
+  (* A reader monad over Proofview.tactic giving access to the goal environment *)
+  type 'a m = { runEnv : Environ.env -> 'a Proofview.tactic }
+  let bind a f =
+    { runEnv = fun env -> let a = a.runEnv env in Proofview.tclBIND a (fun x -> (f x).runEnv env) }
+  let return x =
+    { runEnv = fun env -> Proofview.tclUNIT x }
+
+  let env () = { runEnv = fun env -> Proofview.tclUNIT env }
+  let lift a = { runEnv = fun env -> a }
+  let run env a = a.runEnv env
 end
 
 module St = Store.Make(M)
 open St.Combinators
 type 'a m = ('a,EConstr.t) St.t
+let liftP a = lift (M.lift a)
 let none () = ret None
 let some x = ret (Some x)
-let env () = lift Proofview.tclENV
-let evars () = lift Proofview.tclEVARMAP
+let env () = lift (M.env ())
+let evars () = liftP Proofview.tclEVARMAP
 
 let getType (e : EConstr.t) : EConstr.t m =
   let* env = env () in 
   let* sigma = evars () in 
   let (sigma,tp) = Typing.type_of env sigma e in 
-  let* _ = lift (Proofview.Unsafe.tclEVARS sigma) in 
+  let* _ = liftP (Proofview.Unsafe.tclEVARS sigma) in 
   ret tp
 
 let isProj sigma indPred name t =
@@ -297,8 +305,9 @@ let parseEqGoal goal =
 (*                                                  *)
 (* Realization *)
 
-let (let$) = Proofview.tclBIND
-let pret = Proofview.tclUNIT
+let (let$) = M.bind
+let pret = M.return
+let app f args = M.lift (Env.app f args)
 
 let realizeCategory cat =
   let open Data in
@@ -319,7 +328,7 @@ let rec realizeElem elem =
       let$ dst = realizeCategory (funct_dst funct) in
       let$ funct = realizeFunctor funct in 
       let$ elem = realizeElem elem in
-      Env.app 
+      app 
         (Env.mk_funct_obj ())
         [| src; dst; funct; elem |]
 
@@ -330,7 +339,7 @@ let rec realizeMorphism mph =
   | Identity elem ->
       let$ cat = realizeCategory (elem_cat elem) in
       let$ elem = realizeElem elem in 
-      Env.app (Env.mk_id ()) [| cat; elem |]
+      app (Env.mk_id ()) [| cat; elem |]
   | Comp (m1,m2) ->
       let$ cat = realizeCategory (morphism_cat m1) in 
       let$ src = realizeElem (morphism_src m1) in
@@ -338,14 +347,14 @@ let rec realizeMorphism mph =
       let$ dst = realizeElem (morphism_dst m2) in
       let$ m1  = realizeMorphism m1 in 
       let$ m2  = realizeMorphism m2 in
-      Env.app (Env.mk_comp ()) [| cat; src; mid; dst; m1; m2 |]
+      app (Env.mk_comp ()) [| cat; src; mid; dst; m1; m2 |]
   | Inv (AtomicMorphism m) ->
       begin match m.iso with
       | Some iso ->
           let$ cat = realizeCategory m.mph_cat_ in 
           let$ src = realizeElem m.mph_src_ in 
           let$ dst = realizeElem m.mph_dst_ in 
-          Env.app (Env.mk_inv ()) [| cat; src; dst; m.mph_obj; iso.iso_obj |]
+          app (Env.mk_inv ()) [| cat; src; dst; m.mph_obj; iso.iso_obj |]
       | None -> assert false (* Shouldn't happen *)
       end
   | Inv _ -> assert false (* Not supported yet *)
@@ -356,7 +365,7 @@ let rec realizeMorphism mph =
       let$ src     = realizeElem (morphism_src mph) in 
       let$ dst     = realizeElem (morphism_dst mph) in 
       let$ mph     = realizeMorphism mph in
-      Env.app (Env.mk_funct_mph ()) [| cat_src; cat_dst; funct; src; dst; mph |]
+      app (Env.mk_funct_mph ()) [| cat_src; cat_dst; funct; src; dst; mph |]
 
 
 let mphT m =
@@ -364,7 +373,7 @@ let mphT m =
   let$ cat = realizeCategory (morphism_cat m) in 
   let$ src = realizeElem (morphism_src m) in 
   let$ dst = realizeElem (morphism_dst m) in 
-  Env.app (Env.mk_mphT ()) [| cat; src; dst |]
+  app (Env.mk_mphT ()) [| cat; src; dst |]
 
 let rec realizeEq eq =
   let open Data in
@@ -373,17 +382,17 @@ let rec realizeEq eq =
       let$ tp = mphT m1 in
       let$ m1 = realizeMorphism m1 in 
       let$ m2 = realizeMorphism m2 in
-      let$ tp = Env.app (Env.mk_eq ()) [| tp; m1; m2 |] in
+      let$ tp = app (Env.mk_eq ()) [| tp; m1; m2 |] in
       (* Create hole *)
-      let$ sigma = Proofview.tclEVARMAP in
-      let$ env = Proofview.tclENV in
+      let$ sigma = M.lift Proofview.tclEVARMAP in
+      let$ env = M.env () in
       let (sigma,hole) = Evarutil.new_evar ~principal:true env sigma tp in
-      let$ _ = Proofview.Unsafe.tclEVARS sigma in
+      let$ _ = M.lift (Proofview.Unsafe.tclEVARS sigma) in
       pret hole
   | Refl m ->
       let$ tp  = mphT m in
       let$ m   = realizeMorphism m in
-      Env.app (Env.mk_refl ()) [| tp; m |]
+      app (Env.mk_refl ()) [| tp; m |]
   | Concat (p1,p2) ->
       let$ tp  = mphT (eq_right p1) in
       let$ left = realizeMorphism (eq_left p1) in 
@@ -391,13 +400,13 @@ let rec realizeEq eq =
       let$ right = realizeMorphism (eq_right p2) in
       let$ p1 = realizeEq p1 in 
       let$ p2 = realizeEq p2 in
-      Env.app (Env.mk_concat ()) [| tp; left; mid; right; p1; p2 |]
+      app (Env.mk_concat ()) [| tp; left; mid; right; p1; p2 |]
   | InvEq p ->
       let$ tp = mphT (eq_right p) in
       let$ left = realizeMorphism (eq_left p) in 
       let$ right = realizeMorphism (eq_right p) in
       let$ p = realizeEq p in
-      Env.app (Env.mk_inv ()) [| tp; left; right; p |]
+      app (Env.mk_inv ()) [| tp; left; right; p |]
   | Compose (p1,p2) ->
       let$ cat = realizeCategory (eq_cat p1) in
       let$ src = realizeElem (eq_src p1) in 
@@ -409,7 +418,7 @@ let rec realizeEq eq =
       let$ m2r = realizeMorphism (eq_right p2) in
       let$ p1  = realizeEq p1 in 
       let$ p2  = realizeEq p2 in
-      Env.app 
+      app 
         (Env.mk_compose_eq ())
         [| cat; src; mid; dst; m1l; m1r; m2l; m2r; p1; p2 |]
   | Assoc (m1,m2,m3) ->
@@ -421,19 +430,19 @@ let rec realizeEq eq =
       let$ m1 = realizeMorphism m1 in
       let$ m2 = realizeMorphism m2 in
       let$ m3 = realizeMorphism m3 in
-      Env.app (Env.mk_assoc ()) [| cat; src; mid1; mid2; dst; m1; m2; m3 |]
+      app (Env.mk_assoc ()) [| cat; src; mid1; mid2; dst; m1; m2; m3 |]
   | LeftId m ->
       let$ cat = realizeCategory (morphism_cat m) in 
       let$ src = realizeElem (morphism_src m) in 
       let$ dst = realizeElem (morphism_dst m) in 
       let$ m = realizeMorphism m in 
-      Env.app (Env.mk_left_id ()) [| cat; src; dst; m |]
+      app (Env.mk_left_id ()) [| cat; src; dst; m |]
   | RightId m ->
       let$ cat = realizeCategory (morphism_cat m) in 
       let$ src = realizeElem (morphism_src m) in 
       let$ dst = realizeElem (morphism_dst m) in 
       let$ m = realizeMorphism m in 
-      Env.app (Env.mk_right_id ()) [| cat; src; dst; m |]
+      app (Env.mk_right_id ()) [| cat; src; dst; m |]
   | RAp (p,m) ->
       let$ cat = realizeCategory (eq_cat p) in 
       let$ src = realizeElem (eq_src p) in 
@@ -443,7 +452,7 @@ let rec realizeEq eq =
       let$ right = realizeMorphism (eq_right p) in 
       let$ m = realizeMorphism m in 
       let$ p = realizeEq p in
-      Env.app (Env.mk_rap ()) [| cat; src; mid; dst; left; right; m; p |]
+      app (Env.mk_rap ()) [| cat; src; mid; dst; left; right; m; p |]
   | LAp (m,p) ->
       let$ cat = realizeCategory (eq_cat p) in 
       let$ src = realizeElem (morphism_src m) in 
@@ -453,21 +462,21 @@ let rec realizeEq eq =
       let$ right = realizeMorphism (eq_right p) in 
       let$ m = realizeMorphism m in 
       let$ p = realizeEq p in
-      Env.app (Env.mk_lap ()) [| cat; src; mid; dst; m; left; right; p |]
+      app (Env.mk_lap ()) [| cat; src; mid; dst; m; left; right; p |]
   | RInv iso ->
       let m = iso.iso_mph in 
       let$ cat = realizeCategory (morphism_cat m) in 
       let$ src = realizeElem (morphism_src m) in 
       let$ dst = realizeElem (morphism_dst m) in 
       let$ m = realizeMorphism m in
-      Env.app (Env.mk_right_inv ()) [| cat; src; dst; m; iso.iso_obj |]
+      app (Env.mk_right_inv ()) [| cat; src; dst; m; iso.iso_obj |]
   | LInv iso ->
       let m = iso.iso_mph in 
       let$ cat = realizeCategory (morphism_cat m) in 
       let$ src = realizeElem (morphism_src m) in 
       let$ dst = realizeElem (morphism_dst m) in 
       let$ m = realizeMorphism m in
-      Env.app (Env.mk_left_inv ()) [| cat; src; dst; m; iso.iso_obj |]
+      app (Env.mk_left_inv ()) [| cat; src; dst; m; iso.iso_obj |]
   | Mono (ec,m1,m2,p) ->
       let$ src = realizeElem (eq_src p) in
       let$ m1  = realizeMorphism m1 in 
@@ -491,6 +500,6 @@ let rec realizeEq eq =
 (*                     *)
 (* Utils *)
 let eq e1 e2 = 
-  let$ env = Proofview.tclENV in 
-  let$ sigma = Proofview.tclEVARMAP in
+  let$ env = M.env () in 
+  let$ sigma = M.lift Proofview.tclEVARMAP in
   pret (Reductionops.check_conv env sigma e1 e2)
