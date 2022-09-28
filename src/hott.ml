@@ -489,6 +489,32 @@ let rec realizeEq eq =
       let$ m2  = realizeMorphism m2 in 
       let$ p   = realizeEq p in
       pret (EConstr.mkApp (ec, [| dst; m1; m2; p |]))
+  | FId (f,e) ->
+      let$ c = realizeCategory (funct_src f) in 
+      let$ d = realizeCategory (funct_dst f) in
+      let$ f = realizeFunctor f in
+      let$ e = realizeElem e in
+      app (Env.mk_funct_id ()) [| c; d; f; e |]
+  | FComp (f,m1,m2) ->
+      let$ c = realizeCategory (funct_src f) in 
+      let$ d = realizeCategory (funct_dst f) in
+      let$ f = realizeFunctor f in
+      let$ x = realizeElem (morphism_src m1) in 
+      let$ y = realizeElem (morphism_dst m1) in 
+      let$ z = realizeElem (morphism_dst m2) in
+      let$ m1 = realizeMorphism m1 in
+      let$ m2 = realizeMorphism m2 in
+      app (Env.mk_funct_comp ()) [| c; d; f; x; y; z; m1; m2 |]
+  | FCtx (f,e) ->
+      let$ c = realizeCategory (funct_src f) in 
+      let$ d = realizeCategory (funct_dst f) in
+      let$ f = realizeFunctor f in
+      let$ x = realizeElem (eq_src e) in
+      let$ y = realizeElem (eq_dst e) in
+      let$ m1 = realizeMorphism (eq_left e) in
+      let$ m2 = realizeMorphism (eq_right e) in
+      let$ e = realizeEq e in
+      app (Env.mk_funct_ctx ()) [| c; d; f; x; y; m1; m2; e |]
   | AtomicEq eq -> pret eq.eq_obj
 
 

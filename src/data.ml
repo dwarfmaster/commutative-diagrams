@@ -66,6 +66,9 @@ type 't eq =
   | LInv of 't isoData
   | Mono of 't * 't morphism * 't morphism * 't eq
   | Epi of 't * 't morphism * 't morphism * 't eq
+  | FId of 't funct * 't elem 
+  | FComp of 't funct * 't morphism * 't morphism
+  | FCtx of 't funct * 't eq
   | AtomicEq of 't eqData
 and 't eqData =
   { eq_left_  : 't morphism
@@ -229,6 +232,9 @@ let rec eq_left (e : 't eq) : ' tmorphism =
   | LInv i -> Comp (i.iso_mph, i.iso_inv)
   | Mono (_,m,_,_) -> m 
   | Epi (_,m,_,_) -> m
+  | FId (f,e) -> FMph (f, Identity e)
+  | FComp (f,m1,m2) -> FMph (f, Comp (m1,m2))
+  | FCtx (f,e) -> FMph (f,eq_left e)
   | AtomicEq e -> e.eq_left_
 
 and eq_right (e : 't eq) : 't morphism = 
@@ -247,6 +253,9 @@ and eq_right (e : 't eq) : 't morphism =
   | LInv i -> Identity (morphism_dst i.iso_mph)
   | Mono (_,_,m,_) -> m 
   | Epi (_,_,m,_) -> m
+  | FId (f,e) -> Identity (FObj (f,e))
+  | FComp (f,m1,m2) -> Comp (FMph (f,m1), FMph (f,m2))
+  | FCtx (f,e) -> FMph (f,eq_right e)
   | AtomicEq e -> e.eq_right_
 
 and eq_src (e : 't eq) : 't elem =
@@ -265,6 +274,9 @@ and eq_src (e : 't eq) : 't elem =
   | LInv i -> morphism_dst i.iso_mph
   | Mono (_,_,m,_) -> morphism_src m
   | Epi (_,_,m,_) -> morphism_src m
+  | FId (f,e) -> FObj (f,e)
+  | FComp (f,m1,_) -> FObj (f, morphism_src m1)
+  | FCtx (f,e) -> FObj (f, eq_src e)
   | AtomicEq e -> e.eq_src_
 
 and eq_dst (e : 't eq) : 't elem =
@@ -283,6 +295,9 @@ and eq_dst (e : 't eq) : 't elem =
   | LInv i -> morphism_src i.iso_mph 
   | Mono (_,_,m,_) -> morphism_dst m
   | Epi (_,_,m,_) -> morphism_dst m
+  | FId (f,e) -> FObj (f,e)
+  | FComp (f,_,m2) -> FObj (f, morphism_dst m2)
+  | FCtx (f,e) -> FObj (f, eq_dst e)
   | AtomicEq e -> e.eq_dst_
 
 and eq_cat (e : 't eq) : 't category =
@@ -301,6 +316,9 @@ and eq_cat (e : 't eq) : 't category =
   | LInv i -> morphism_cat i.iso_mph 
   | Mono (_,_,m,_) -> morphism_cat m
   | Epi (_,_,m,_) -> morphism_cat m
+  | FId (f,_) -> funct_dst f 
+  | FComp (f,_,_) -> funct_dst f 
+  | FCtx (f,_) -> funct_dst f
   | AtomicEq e -> e.eq_cat_
 
 let rec check_eq (e : 't eq) : bool =
@@ -339,6 +357,18 @@ let rec check_eq (e : 't eq) : bool =
                     && check_morphism m2 
                     && cmp_elem (morphism_src m1) (morphism_src m2) = 0
                     && cmp_elem (morphism_dst m2) (morphism_dst m2) = 0
+  | FId (f,e) -> check_funct f 
+              && check_elem e 
+              && cmp_category (funct_src f) (elem_cat e) = 0
+  | FComp (f,m1,m2) -> check_funct f 
+                    && check_morphism m1 
+                    && check_morphism m2 
+                    && cmp_category (funct_src f) (morphism_cat m1) = 0
+                    && cmp_category (funct_src f) (morphism_cat m2) = 0
+                    && cmp_elem (morphism_dst m1) (morphism_src m2) = 0
+  | FCtx (f,e) -> check_funct f 
+               && check_eq e 
+               && cmp_category (funct_src f) (eq_cat e) = 0
   | AtomicEq _ -> true
 
 

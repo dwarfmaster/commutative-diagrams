@@ -118,6 +118,22 @@ let g_coq_funct_mph_names : string array =
 let get_funct_mph = fun _ -> perform_locate g_coq_funct_mph g_coq_funct_mph_names locate_const
 let mk_funct_mph = fun _ -> mk_const (get_funct_mph ())
 
+let g_coq_funct_id : Names.Constant.t array ref = ref [| |]
+let g_coq_funct_id_names : string array =
+  [| "Loader.funct_id" |]
+let get_funct_id = fun _ -> perform_locate g_coq_funct_id g_coq_funct_id_names locate_const
+let mk_funct_id = fun _ -> mk_const (get_funct_id ())
+let g_coq_funct_comp : Names.Constant.t array ref = ref [| |]
+let g_coq_funct_comp_names : string array =
+  [| "Loader.funct_comp" |]
+let get_funct_comp = fun _ -> perform_locate g_coq_funct_comp g_coq_funct_comp_names locate_const
+let mk_funct_comp = fun _ -> mk_const (get_funct_comp ())
+let g_coq_funct_ctx : Names.Constant.t array ref = ref [| |]
+let g_coq_funct_ctx_names : string array =
+  [| "Loader.funct_ctx" |]
+let get_funct_ctx = fun _ -> perform_locate g_coq_funct_ctx g_coq_funct_ctx_names locate_const
+let mk_funct_ctx = fun _ -> mk_const (get_funct_ctx ())
+
 
 (*  ___ *)
 (* | __|__ _ *)

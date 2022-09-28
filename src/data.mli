@@ -81,6 +81,9 @@ type 't eq =
   | LInv of 't isoData
   | Mono of 't * 't morphism * 't morphism * 't eq
   | Epi of 't * 't morphism * 't morphism * 't eq
+  | FId of 't funct * 't elem
+  | FComp of 't funct * 't morphism * 't morphism
+  | FCtx of 't funct * 't eq
   | AtomicEq of 't eqData
 and 't eqData =
   { eq_left_  : 't morphism

@@ -42,6 +42,16 @@ Definition funct_obj (C D : PreCategory) (F : Functor C D) (x : object C) : obje
 Definition funct_mph (C D : PreCategory) (F : Functor C D) (x y : object C) (m : morphism C x y) :
   morphism D (funct_obj C D F x) (funct_obj C D F y) :=
   @morphism_of C D F x y m.
+Definition funct_id (C D : PreCategory) (F : Functor C D) (x : object C) :
+  F _1 (identity x) = identity (F _0 x)%object :=
+  @identity_of C D F x.
+Definition funct_comp (C D : PreCategory) (F : Functor C D) (x y z : object C)
+                      (m1 : morphism C x y) (m2 : morphism C y z) :
+  F _1 (m2 o m1) = F _1 m2 o F _1 m1 :=
+  @composition_of C D F x y z m1 m2.
+Definition funct_ctx (C D : PreCategory) (F : Functor C D) (x y : object C)
+                     (m1 m2 : morphism C x y) (p : m1 = m2) : F _1 m1 = F _1 m2 :=
+  ap (fun m => F _1 m) p.
 
 
 Ltac reify_hyp H :=
