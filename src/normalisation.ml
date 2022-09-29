@@ -16,6 +16,18 @@ let raiseComp functs m1 m2 =
     (fun (m1,m2,eq) f -> FMph (f,m1), FMph (f,m2), Concat (FCtx (f,eq), FComp (f,m1,m2)))
     (m1,m2,Refl (Comp (m1,m2))) functs
 
+let rec postCompose' m post =
+  match m with
+  | Identity e -> post, RightId post
+  | Comp (m1,m2) ->
+      let r, req = postCompose' m2 post in
+      Comp (m1, r), Concat (Assoc (m1,m2,post), LAp (m1, req))
+  | _ -> Comp (m,post), Refl (Comp (m,post))
+let postCompose m post =
+  match post with
+  | Identity e -> m, LeftId m
+  | _ -> postCompose' m post
+
 let rec normUnderFunctors functs m =
   match m with
   | Identity e -> let e, eq = raiseEquality functs e in Identity e, eq
@@ -24,12 +36,8 @@ let rec normUnderFunctors functs m =
       let m1, eq1 = normUnderFunctors functs m1 in 
       let m2, eq2 = normUnderFunctors functs m2 in
       let eq = Concat (eq, Compose (eq1, eq2)) in
-      begin match m1, m2 with
-      | Identity e, _ -> m2, Concat (eq, LeftId m2)
-      | _, Identity e -> m1, Concat (eq, RightId m1)
-      | Comp (m11,m12), _ -> Comp(m11,Comp(m12,m2)), Concat (eq, Assoc (m11,m12,m2))
-      | _ -> Comp (m1, m2), eq
-      end
+      let r, req = postCompose m1 m2 in 
+      r, Concat (eq, req)
   | FMph (f, m) -> normUnderFunctors (f :: functs) m
   | Inv m ->
       begin match m with
