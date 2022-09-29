@@ -9,6 +9,7 @@ let (++) = Pp.(++)
 (*           |_| *)
 (* Top-level *)
 module St = Store.Make(Hott.M)
+module Enum = Enumerate.Make(Hott)
 type 'a m = ('a,Hott.t) St.t
 open St.Combinators
 let (let$) = Proofview.tclBIND
@@ -89,7 +90,9 @@ let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
   match obj with
   | None -> fail "Goal is not a face"
   | Some (side1,side2) ->
-      assert false
+      let* paths = Enum.enumerate_paths ~size:level in
+      Feedback.msg_info (Pp.str "Found paths: #" ++ Pp.int (Array.length paths.paths));
+      ret ()
     (* let* commuter = Commutation.build store level in *)
     (* let* sol = Commutation.query side1 side2 commuter in *)
     (* match sol with *)

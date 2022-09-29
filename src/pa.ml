@@ -7,7 +7,7 @@ module type ProofAssistant = sig
 
   (* Realisation *)
   val realizeCategory : t Data.category -> t M.m 
-  val realizeFunctor : t Data.category -> t M.m
+  val realizeFunctor : t Data.funct -> t M.m
   val realizeElem : t Data.elem -> t M.m 
   val realizeMorphism : t Data.morphism -> t M.m
   val realizeEq : t Data.eq -> t M.m
