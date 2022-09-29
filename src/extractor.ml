@@ -73,17 +73,13 @@ let normalize' (goal : Proofview.Goal.t) : unit m =
   match obj with
   | None -> fail "Goal is not a face"
   | Some (side1,side2) ->
-      assert false
-    (* let env = Proofview.Goal.env goal in *)
-    (* let* side1 = Commutation.normalize_iso_in_path side1 in *)
-    (* let* side2 = Commutation.normalize_iso_in_path side2 in *)
-    (* let* eq2 = Hyps.inv side2.eq in *)
-    (* let* ngl = eqHole env side1 side2 in *)
-    (* let* ngl = Hyps.concat side1.eq ngl in *)
-    (* let* ngl = Hyps.concat ngl eq2 in *)
-    (* let* ngl = Hott.realizeEq (Hyps.simpl_eq ngl) in *)
-    (* let* ngl = add_universes_constraints env ngl in *)
-    (* Refine.refine ~typecheck:false (fun sigma -> (sigma, ngl)) *)
+    let env = Proofview.Goal.env goal in
+    let side1, eq1 = Normalisation.normalizeMorphism side1 in
+    let side2, eq2 = Normalisation.normalizeMorphism side2 in
+    let eq = Data.Concat (eq1, Data.Concat (Hole (side1,side2), Data.InvEq eq2)) in
+    let* eq = lift (Hott.realizeEq eq) in
+    let* eq = lift (Hott.M.lift (add_universes_constraints env eq)) in
+    lift (Hott.M.lift (Refine.refine ~typecheck:false (fun sigma -> (sigma, eq))))
 let normalize (_ : unit) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> normalize' goal |> runWithGoal goal)
 
