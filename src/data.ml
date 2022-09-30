@@ -202,7 +202,7 @@ let rec cmp_morphism (m1 : 't morphism) (m2 : 't morphism) : int =
   | Identity e1, Identity e2 -> cmp_elem e1 e2
   | Comp (m11,m12), Comp (m21,m22) ->
       let d = cmp_morphism m11 m21 in 
-      if d = 0 then cmp_morphism m21 m22 else d
+      if d = 0 then cmp_morphism m12 m22 else d
   | Inv m1, Inv m2 -> cmp_morphism m1 m2 
   | FMph (f1,m1), FMph (f2,m2) ->
       let d = cmp_funct f1 f2 in 
