@@ -90,7 +90,7 @@ let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
   match obj with
   | None -> fail "Goal is not a face"
   | Some (side1,side2) ->
-      let* paths = Enum.enumerate_paths ~size:level in
+      let* paths = Enum.enumerate_paths ~asrt:true level in
       Feedback.msg_info (Pp.str "Found paths: #" ++ Pp.int (Array.length paths.paths));
       ret ()
     (* let* commuter = Commutation.build store level in *)

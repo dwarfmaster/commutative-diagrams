@@ -6,6 +6,6 @@ module Make(PA : Pa.ProofAssistant) : sig
     ; indices : int Map.Make(Data.EqMph(PA)).t
     }
 
-  val enumerate_paths : size:int -> (enumeration,PA.t) Store.Make(PA.M).t
+  val enumerate_paths : ?asrt:bool -> int -> (enumeration,PA.t) Store.Make(PA.M).t
 
 end

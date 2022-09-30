@@ -57,3 +57,17 @@ let rec normUnderFunctors functs m =
 
 let normalizeMorphism m = normUnderFunctors [] m
 
+(* Check if there is a redex at head for performance, otherwise do the reduction and compare *)
+let isNormal m =
+  match m with
+  | Identity _ -> true
+  | Comp (Comp (_,_), _) -> false
+  | Inv _ -> false
+  | Comp (Identity _, _) -> false
+  | Comp (_, Identity _) -> false
+  | FMph (_, Comp (_,_)) -> false 
+  | FMph (_, Identity _) -> false
+  | _ ->
+      let (red,_) = normalizeMorphism m in
+      Data.cmp_morphism m red = 0
+

@@ -40,6 +40,10 @@ module Make(PA : Pa.ProofAssistant) = struct
 
   let forL (lst : 'a list) (f : 'a -> unit) : unit = List.iter f lst
 
+  let maybe (pred : 'a -> bool) (vl : 'a) (lst : 'a list) =
+    if pred vl then vl :: lst else lst
+  let may_norm = maybe Normalisation.isNormal
+
   (* Update enum by side-effect *)
   let step size enum : unit =
     assert (size >= 1);
@@ -56,14 +60,14 @@ module Make(PA : Pa.ProofAssistant) = struct
     for id = 0 to size - 1 do 
       forL enum.morphisms.(id)
         (fun m1 -> forL enum.morphisms.(size - 1 - id)
-          (fun m2 -> enum.morphisms.(size) <- Comp (m1,m2) :: enum.morphisms.(size)))
+          (fun m2 -> enum.morphisms.(size) <- may_norm (Comp (m1,m2)) enum.morphisms.(size)))
     done;
     (* We don't want to include Inv here *)
     (* FMph *)
     for id = 0 to size - 1 do
       forL enum.functors.(id)
         (fun f -> forL enum.morphisms.(size - 1 - id)
-          (fun m -> enum.morphisms.(size) <- FMph (f,m) :: enum.morphisms.(size)))
+          (fun m -> enum.morphisms.(size) <- may_norm (FMph (f,m)) enum.morphisms.(size)))
     done;
     ()
 
@@ -73,10 +77,15 @@ module Make(PA : Pa.ProofAssistant) = struct
     { paths = paths |> Array.of_list
     ; indices = ids |> List.to_seq |> MphMap.of_seq }
 
-  let enumerate_paths ~size =
+  let check_all mphs =
+    Array.iter (fun mph -> assert (Data.check_morphism mph)) mphs
+
+  let enumerate_paths ?(asrt = false) size =
     let* enum = init_partial size in
     for sz = 1 to size do
       step sz enum
     done;
-    ret (construct_from_partial enum)
+    let r = construct_from_partial enum in
+    if asrt then check_all r.paths else ();
+    ret r
 end
