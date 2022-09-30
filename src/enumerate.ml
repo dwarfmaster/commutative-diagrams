@@ -43,6 +43,7 @@ module Make(PA : Pa.ProofAssistant) = struct
   let maybe (pred : 'a -> bool) (vl : 'a) (lst : 'a list) =
     if pred vl then vl :: lst else lst
   let may_norm = maybe Normalisation.isNormal
+  let may b = maybe (fun mph -> b && Normalisation.isNormal mph)
 
   (* Update enum by side-effect *)
   let step size enum : unit =
@@ -60,14 +61,16 @@ module Make(PA : Pa.ProofAssistant) = struct
     for id = 0 to size - 1 do 
       forL enum.morphisms.(id)
         (fun m1 -> forL enum.morphisms.(size - 1 - id)
-          (fun m2 -> enum.morphisms.(size) <- may_norm (Comp (m1,m2)) enum.morphisms.(size)))
+          (fun m2 -> enum.morphisms.(size) <-
+            may (cmp_elem (morphism_dst m1) (morphism_src m2) = 0) (Comp (m1,m2)) enum.morphisms.(size)))
     done;
     (* We don't want to include Inv here *)
     (* FMph *)
     for id = 0 to size - 1 do
       forL enum.functors.(id)
         (fun f -> forL enum.morphisms.(size - 1 - id)
-          (fun m -> enum.morphisms.(size) <- may_norm (FMph (f,m)) enum.morphisms.(size)))
+          (fun m -> enum.morphisms.(size) <-
+            may (cmp_category (funct_src f) (morphism_cat m) = 0) (FMph (f,m)) enum.morphisms.(size)))
     done;
     ()
 
