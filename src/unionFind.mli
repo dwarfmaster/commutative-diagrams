@@ -1,11 +1,15 @@
 
-(* t is mutable *)
-(* type t *)
-(* type query = Data.elem * (Data.morphism,query) Data.pathComponent list *)
-(**)
-(* val mkQuery : Data.path -> query *)
-(**)
-(* val init       : query list -> t Proofview.tactic *)
-(* (* Returns false if nothing was done *) *)
-(* val connect    : query -> query -> Data.eq -> t -> bool Proofview.tactic *)
-(* val query_conn : query -> query -> t -> Data.eq option Proofview.tactic *)
+module Make(PA : Pa.ProofAssistant) : sig
+
+  (* t is mutable *)
+  type t
+  
+  (* Init the structure *)
+  val init : Enumerate.Make(PA).enumeration -> t
+  (* Returns false if nothing was done *)
+  (* connect assumes the sides of the equality are normalised *)
+  (* Both connect and query will abort if the morphisms were not in the enumeration *)
+  val connect : PA.t Data.eq -> t -> bool
+  val query : PA.t Data.morphism -> PA.t Data.morphism -> t -> PA.t Data.eq option
+
+end

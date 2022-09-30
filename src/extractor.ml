@@ -10,6 +10,9 @@ let (++) = Pp.(++)
 (* Top-level *)
 module St = Store.Make(Hott.M)
 module Enum = Enumerate.Make(Hott)
+module Norm = Normalisation
+module UF = UnionFind.Make(Hott)
+module M = Map.Make(Data.EqMph(Hott))
 type 'a m = ('a,Hott.t) St.t
 open St.Combinators
 let (let$) = Proofview.tclBIND
@@ -40,12 +43,8 @@ let rec forM (pred : 'a -> unit m) : 'a list -> unit m =
     | [ ] -> ret ()
     | x :: xs -> let* _ = pred x in forM pred xs
 
-let add_universes_constraints (env : Environ.env) (c : Hott.t) : Hott.t Proofview.tactic =
-  let$ sigma = Proofview.tclEVARMAP in
-  let (sigma,_) = Typing.solve_evars env sigma c in
-  Proofview.tclTHEN
-    (Proofview.Unsafe.tclEVARS sigma)
-    (Proofview.tclUNIT c)
+let add_universes_constraints (env : Environ.env) (c : Hott.t) (sigma : Evd.evar_map) : Evd.evar_map * Hott.t =
+  Typing.solve_evars env sigma c
 
 let extract_hyps (goal : Proofview.Goal.t) : (Hott.t Data.morphism * Hott.t Data.morphism) option m =
   let env = Proofview.Goal.env goal in
@@ -79,10 +78,17 @@ let normalize' (goal : Proofview.Goal.t) : unit m =
     let side2, eq2 = Normalisation.normalizeMorphism side2 in
     let eq = Data.Concat (eq1, Data.Concat (Hole (side1,side2), Data.InvEq eq2)) in
     let* eq = lift (Hott.realizeEq eq) in
-    let* eq = lift (Hott.M.lift (add_universes_constraints env eq)) in
-    lift (Hott.M.lift (Refine.refine ~typecheck:false (fun sigma -> (sigma, eq))))
+    lift (Hott.M.lift (Refine.refine ~typecheck:false
+      (add_universes_constraints env eq)))
 let normalize (_ : unit) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> normalize' goal |> runWithGoal goal)
+
+let connect enum uf eq =
+  let left, leq = Normalisation.normalizeMorphism eq.Data.eq_left_ in
+  let right, req = Normalisation.normalizeMorphism eq.Data.eq_right_ in
+  if M.mem left enum.Enum.indices && M.mem right enum.Enum.indices
+  then let _ = UF.connect (Data.Concat (Data.InvEq leq, Data.Concat (Data.AtomicEq eq, req))) uf in ()
+  else ()
 
 let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
   let* _ = St.registerEqPredicate Hott.eq in
@@ -91,16 +97,21 @@ let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
   | None -> fail "Goal is not a face"
   | Some (side1,side2) ->
       let* paths = Enum.enumerate_paths ~asrt:true level in
-      Feedback.msg_info (Pp.str "Found paths: #" ++ Pp.int (Array.length paths.paths));
-      ret ()
-    (* let* commuter = Commutation.build store level in *)
-    (* let* sol = Commutation.query side1 side2 commuter in *)
-    (* match sol with *)
-    (* | None -> Tacticals.tclFAIL 0 (Pp.str "Couldn't make goal commute") *)
-    (* | Some eq -> *)
-    (*   let env = Proofview.Goal.env goal in *)
-    (*   let* eq = Hott.realizeEq (Hyps.simpl_eq eq) in *)
-    (*   let* eq = add_universes_constraints env eq in *)
-    (*   Refine.refine ~typecheck:false (fun sigma -> (sigma, eq)) *)
+      let uf = UF.init paths in
+      (* Fill uf with faces *)
+      let* faces = St.getEqs () in
+      Array.iter (connect paths uf) faces;
+      (* TODO congurence closure *)
+      (* Test result *)
+      let side1,eq1 = Normalisation.normalizeMorphism side1 in 
+      let side2,eq2 = Normalisation.normalizeMorphism side2 in
+      if not (M.mem side1 paths.Enum.indices) || not (M.mem side2 paths.Enum.indices)
+      then fail "Couldn't make goal commute: goal is bigger than max size"
+      else match UF.query side1 side2 uf with
+      | None -> fail "Couldn't make goal commute"
+      | Some eq ->
+          let* eq = lift (Hott.realizeEq (Data.Concat (eq1, Data.Concat (eq, Data.InvEq eq2)))) in
+          lift (Hott.M.lift (Refine.refine ~typecheck:false
+            (add_universes_constraints (Proofview.Goal.env goal) eq)))
 let solve (level : int) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> solve' level goal |> runWithGoal goal)

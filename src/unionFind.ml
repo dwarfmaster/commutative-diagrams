@@ -1,183 +1,71 @@
 
-(* type skelComponent = (Data.morphismData,Data.pathSkeleton) Data.pathComponent *)
-(* type component = (Data.morphism,int) Data.pathComponent *)
-(* type path = Data.elem * component list *)
-(* type queryComponent = (Data.morphism,query) Data.pathComponent *)
-(* and query = Data.elem * queryComponent list *)
-(* type cell = *)
-(*   { mutable parent : int *)
-(*   ; mutable rank   : int *)
-(*   ; path           : path *)
-(*   ; mutable eq     : Data.eq *)
-(*   } *)
-(* module OrderedPaths = struct *)
-(*   type t = path *)
-(*   let compareMphs = fun (m1 : Data.morphism) (m2 : Data.morphism) -> m1.id - m2.id *)
-(*   let comparePathComps = fun (p1 : component) (p2 : component) -> *)
-(*     match p1, p2 with *)
-(*     | Base m1, Base m2 -> compareMphs m1 m2 *)
-(*     | Functor (f1,p1), Functor (f2,p2) -> *)
-(*         if f1.id == f2.id then p1 - p2 else f1.id - f2.id *)
-(*     | Base _, Functor _ -> -1 *)
-(*     | Functor _, Base _ -> 1 *)
-(*   let rec compareElems (e1 : Data.elem) (e2 : Data.elem) = *)
-(*     match e1, e2 with *)
-(*     | Elem e1, Elem e2 -> e1.id - e2.id  *)
-(*     | FObj (f1,e1), FObj (f2,e2) -> *)
-(*         if f1.id == f2.id then compareElems e1 e2 else f1.id - f2.id *)
-(*     | Elem _, FObj _ -> -1 *)
-(*     | FObj _, Elem _ -> 1 *)
-(*   let compare = fun (p1 : path) (p2 : path) -> *)
-(*     let c = compareElems (fst p1) (fst p2) in *)
-(*     if c == 0 then CList.compare comparePathComps (snd p1) (snd p2) else c *)
-(* end *)
-(* module M = struct *)
-(*   include Map.Make(OrderedPaths) *)
-(*   let of_list : (path * 'a) list -> 'a t = fun l -> of_seq (List.to_seq l) *)
-(* end *)
-(* type t = *)
-(*   { cells : cell array *)
-(*   ; map : int M.t *)
-(*   } *)
-(**)
-(* let rec mkQuery (path : Data.path) : query = *)
-(*   (path.mph.tp.src, List.map mkQueryComp path.path) *)
-(* and mkQueryComp comp : queryComponent = *)
-(*   match comp with *)
-(*   | Base m -> Base m *)
-(*   | Functor (f,p) -> Functor (f,mkQuery p) *)
-(**)
-(* let (let* ) = Proofview.tclBIND *)
-(* let ret = Proofview.tclUNIT *)
-(* let (<$>) : ('a -> 'b) -> 'a Proofview.tactic -> 'b Proofview.tactic = fun f m -> *)
-(*   Proofview.tclBIND m (fun x -> ret (f x)) *)
-(* let (@<<) : ('a -> 'b Proofview.tactic) -> 'a Proofview.tactic -> 'b Proofview.tactic = *)
-(*   fun f x -> Proofview.tclBIND x f *)
-(**)
-(* let rec sequenceM : 'a Proofview.tactic list -> 'a list Proofview.tactic = function *)
-(*   | [] -> ret [] *)
-(*   | m :: ms -> *)
-(*     let* x = m in *)
-(*     let* xs = sequenceM ms in *)
-(*     ret (x :: xs) *)
-(* let mapiM : (int -> 'a -> 'b Proofview.tactic) -> 'a list -> 'b list Proofview.tactic = *)
-(*   fun f arr -> sequenceM (List.mapi f arr) *)
-(**)
-(* (* Whenever a path appear in the component of another, it is listed first in the result *) *)
-(* let rec closePaths (acc : query list) (paths : query list) : query list = *)
-(*   List.fold_left closePath acc paths *)
-(* and closePath (acc : query list) (path : query) : query list = *)
-(*   closePathComponents (path :: acc) (snd path) *)
-(* and closePathComponents (acc : query list) (comps : queryComponent list) : query list = *)
-(*   List.fold_left closePathComponent acc comps *)
-(* and closePathComponent (acc : query list) (comp : queryComponent) : query list = *)
-(*   match comp with *)
-(*   | Base _ -> acc *)
-(*   | Functor (_,p) -> closePath acc p *)
-(**)
-(* let rec extractPath (ids : int M.t) (path : query) : path = *)
-(*   let accum = fun comps comp -> extractPathComponent ids comp :: comps in *)
-(*   let comps = List.fold_left accum [] (snd path) in *)
-(*   (fst path, List.rev comps) *)
-(* and extractPathComponent (ids : int M.t) (comp : queryComponent) : component = *)
-(*   match comp with *)
-(*   | Base m -> Base m *)
-(*   | Functor (f,p) -> Functor (f, M.find (extractPath ids p) ids) *)
-(**)
-(* let rec extractPaths (ids : int M.t) (id : int) (paths : query list) *)
-(*                    : path list * int M.t =  *)
-(*   match paths with *)
-(*   | [] -> ([],ids) *)
-(*   | path :: paths -> *)
-(*       let path = extractPath ids path in *)
-(*       let ids  = M.add path id ids in *)
-(*       let (paths, ids) = extractPaths ids (id + 1) paths in *)
-(*       (path :: paths, ids) *)
-(**)
-(* let rec toSkeleton (paths : path array) (path : path) : Data.pathSkeleton = *)
-(*   (fst path, List.map (toSkeletonComp paths) (snd path)) *)
-(* and toSkeletonComp (paths : path array) (comp : component) : skelComponent = *)
-(*   match comp with *)
-(*   | Base m -> Base m.data *)
-(*   | Functor (f,p) -> Functor (f,toSkeleton paths paths.(p)) *)
-(**)
-(* let initCell (paths : path array) (i : int) (path : path) : cell Proofview.tactic = *)
-(*   let* eq = Hyps.refl @<< (Hott.realize (toSkeleton paths path)) in *)
-(*   ret { parent = i *)
-(*       ; rank   = 1 *)
-(*       ; path   = path *)
-(*       ; eq     = eq *)
-(*       } *)
-(**)
-(* let init = fun paths -> *)
-(*   let (paths,ids) = extractPaths M.empty 0 (closePaths [] paths) in *)
-(*   let paths_arr = Array.of_list paths in *)
-(*   let* cells = Array.of_list <$> mapiM (initCell paths_arr) paths in *)
-(*   ret { cells = cells *)
-(*       ; map   = ids } *)
-(**)
-(* let rec find (id : int) store = *)
-(*   if id = store.(id).parent *)
-(*   then ret (id,store.(id).eq) *)
-(*   else *)
-(*     let* pid,peq = find store.(id).parent store in *)
-(*     store.(id).parent <- pid; *)
-(*     let* eq = Hyps.concat store.(id).eq peq in *)
-(*     store.(id).eq <- eq; *)
-(*     ret (pid,eq) *)
-(* let query_conn (p1 : query) (p2 : query) (store : t) = *)
-(*   let p1 = extractPath store.map p1 in  *)
-(*   let p2 = extractPath store.map p2 in *)
-(*   let* (id1,eq1) = find (M.find p1 store.map) store.cells in *)
-(*   let* (id2,eq2) = find (M.find p2 store.map) store.cells in *)
-(*   if id1 = id2 *)
-(*   then (fun x -> Some x) <$> Hyps.concat eq1 @<< Hyps.inv eq2 *)
-(*   else ret None *)
-(**)
-(* let conjugate : Data.eq -> Data.eq -> Data.eq -> Data.eq Proofview.tactic = *)
-(*   fun eq1 eq eq2 -> *)
-(*   let* eq1 = Hyps.inv eq1 in *)
-(*   let* c = Hyps.concat eq1 eq in *)
-(*   Hyps.concat c eq2 *)
-(**)
-(* let union = fun id1 id2 eq store -> *)
-(*   let* parent1,eq1 = find id1 store in *)
-(*   let* parent2,eq2 = find id2 store in *)
-(*   if parent1 = parent2 then ret false *)
-(*   else if store.(parent1).rank < store.(parent2).rank *)
-(*   then begin *)
-(*     let* eq = Hyps.inv eq in *)
-(*     let* eq = conjugate eq2 eq eq1 in *)
-(*     store.(parent2).parent <- parent1; *)
-(*     store.(parent2).eq     <- eq; *)
-(*     store.(parent1).rank   <- store.(parent1).rank + store.(parent2).rank; *)
-(*     ret true *)
-(*   end else begin *)
-(*     let* eq = conjugate eq1 eq eq2 in *)
-(*     store.(parent1).parent <- parent2; *)
-(*     store.(parent1).eq     <- eq; *)
-(*     store.(parent2).rank   <- store.(parent1).rank + store.(parent2).rank; *)
-(*     ret true *)
-(*   end *)
-(**)
-(* let connect (p1 : query) (p2 : query) eq store = *)
-(*   let p1 = extractPath store.map p1 in  *)
-(*   let p2 = extractPath store.map p2 in *)
-(*   union (M.find p1 store.map) (M.find p2 store.map) eq store.cells *)
-(**)
-(* (* let rec print_path = fun (p : path) -> *) *)
-(* (*   let (++) = Pp.(++) in *) *)
-(* (*   match snd p with *) *)
-(* (*   | [] -> *) *)
-(* (*     let* env = Proofview.tclENV in *) *)
-(* (*     let* sigma = Proofview.tclEVARMAP in *) *)
-(* (*     ret (Pp.str "id_(" ++ Printer.pr_econstr_env env sigma (fst p).obj ++ Pp.str ")") *) *)
-(* (*   | m :: [] -> *) *)
-(* (*     let* env = Proofview.tclENV in *) *)
-(* (*     let* sigma = Proofview.tclEVARMAP in *) *)
-(* (*     ret (Printer.pr_econstr_env env sigma m.data.obj) *) *)
-(* (*   | m :: ms -> *) *)
-(* (*     let* mph = print_path (m.data.tp.dst,ms) in *) *)
-(* (*     let* env = Proofview.tclENV in *) *)
-(* (*     let* sigma = Proofview.tclEVARMAP in *) *)
-(* (*     ret (Printer.pr_econstr_env env sigma m.data.obj ++ Pp.str ">" ++ mph) *) *)
+module Make(PA : Pa.ProofAssistant) = struct
+
+  module Enum = Enumerate.Make(PA)
+  module M = Map.Make(Data.EqMph(PA))
+
+  type cell =
+    { mutable parent : int
+    ; mutable rank   : int
+    ; mph            : PA.t Data.morphism
+    ; mutable eq     : PA.t Data.eq
+    }
+  type t =
+    { cells : cell array
+    ; morphisms : Enum.enumeration
+    }
+  
+  let initCell id mph =
+    { parent = id
+    ; rank   = 1
+    ; mph    = mph
+    ; eq     = Data.Refl mph
+    }
+  
+  let init (enum : Enum.enumeration) =
+    { cells = Array.mapi initCell enum.paths
+    ; morphisms = enum }
+  
+  let rec find (id : int) cells =
+    if id = cells.(id).parent
+    then (id,cells.(id).eq)
+    else
+      let pid,peq = find cells.(id).parent cells in
+      cells.(id).parent <- pid;
+      let eq = Data.Concat (cells.(id).eq, peq) in
+      cells.(id).eq <- eq;
+      (pid,eq)
+
+  let query m1 m2 uf = 
+    let id1,eq1 = find (M.find m1 uf.morphisms.indices) uf.cells in
+    let id2,eq2 = find (M.find m2 uf.morphisms.indices) uf.cells in
+    if id1 = id2
+    then Some (Data.Concat (eq1, Data.InvEq eq2))
+    else None
+  
+  (* Returns true if id1 and id2 were disjoint before *)
+  let union id1 id2 eq cells =
+    let parent1,eq1 = find id1 cells in
+    let parent2,eq2 = find id2 cells in
+    if parent1 = parent2 then false
+    else
+      let eq = Data.Concat (eq1, Data.Concat (eq, Data.InvEq eq2)) in
+      if cells.(parent1).rank < cells.(parent2).rank
+      then begin
+        cells.(parent2).parent <- parent1;
+        cells.(parent2).eq     <- Data.InvEq eq;
+        cells.(parent1).rank   <- cells.(parent1).rank + cells.(parent2).rank;
+        true
+      end else begin
+        cells.(parent1).parent <- parent2;
+        cells.(parent1).eq     <- eq;
+        cells.(parent2).rank   <- cells.(parent1).rank + cells.(parent2).rank;
+        true
+      end
+  
+  let connect eq uf =
+    let p1 = Data.eq_left eq in
+    let p2 = Data.eq_right eq in
+    union (M.find p1 uf.morphisms.indices) (M.find p2 uf.morphisms.indices) eq uf.cells
+
+end
