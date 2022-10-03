@@ -77,7 +77,7 @@ let normalize' (goal : Proofview.Goal.t) : unit m =
     let side1, eq1 = Normalisation.normalizeMorphism side1 in
     let side2, eq2 = Normalisation.normalizeMorphism side2 in
     let eq = Data.Concat (eq1, Data.Concat (Hole (side1,side2), Data.InvEq eq2)) in
-    let* eq = lift (Hott.realizeEq eq) in
+    let* eq = lift (Hott.realizeEq (SimplEq.simpl eq)) in
     lift (Hott.M.lift (Refine.refine ~typecheck:false
       (add_universes_constraints env eq)))
 let normalize (_ : unit) : unit Proofview.tactic =
@@ -122,7 +122,8 @@ let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
       else match UF.query side1 side2 uf with
       | None -> fail "Couldn't make goal commute"
       | Some eq ->
-          let* eq = lift (Hott.realizeEq (Data.Concat (eq1, Data.Concat (eq, Data.InvEq eq2)))) in
+          let eq = Data.Concat (eq1, Data.Concat (eq, Data.InvEq eq2)) in
+          let* eq = lift (Hott.realizeEq (SimplEq.simpl eq)) in
           lift (Hott.M.lift (Refine.refine ~typecheck:false
             (add_universes_constraints (Proofview.Goal.env goal) eq)))
 let solve (level : int) : unit Proofview.tactic =
