@@ -90,6 +90,16 @@ let connect enum uf eq =
   then let _ = UF.connect (Data.Concat (Data.InvEq leq, Data.Concat (Data.AtomicEq eq, req))) uf in ()
   else ()
 
+let setup_hooks uf =
+  let* mphs = St.getMorphisms () in
+  let module Post = PostComposeHook.Make(Hott) in
+  let posts = Array.map Post.hook mphs in
+  let module Pre = PreComposeHook.Make(Hott) in
+  let pres = Array.map Pre.hook mphs in
+  Array.iter (UF.registerHook uf) posts;
+  Array.iter (UF.registerHook uf) pres;
+  ret ()
+
 let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
   let* _ = St.registerEqPredicate Hott.eq in
   let* obj = extract_hyps goal in
@@ -98,6 +108,8 @@ let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
   | Some (side1,side2) ->
       let* paths = Enum.enumerate_paths ~asrt:true level in
       let uf = UF.init paths in
+      (* Setup hooks *)
+      let* _ = setup_hooks uf in
       (* Fill uf with faces *)
       let* faces = St.getEqs () in
       Array.iter (connect paths uf) faces;

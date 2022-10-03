@@ -57,6 +57,11 @@ let rec normUnderFunctors functs m =
 
 let normalizeMorphism m = normUnderFunctors [] m
 
+let normalizeEq eq =
+  let _, eq1 = normalizeMorphism (eq_left eq) in
+  let _, eq2 = normalizeMorphism (eq_right eq) in
+  Concat (InvEq eq1, Concat (eq, eq2))
+
 (* Check if there is a redex at head for performance, otherwise do the reduction and compare *)
 let isNormal m =
   match m with
