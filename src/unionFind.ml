@@ -4,6 +4,7 @@ module Make(PA : Pa.ProofAssistant) = struct
   module Enum = Enumerate.Make(PA)
   module M = Map.Make(Data.EqMph(PA))
 
+  type hook = PA.t Data.eq -> PA.t Data.eq list
   type cell =
     { mutable parent : int
     ; mutable rank   : int
@@ -13,6 +14,7 @@ module Make(PA : Pa.ProofAssistant) = struct
   type t =
     { cells : cell array
     ; morphisms : Enum.enumeration
+    ; mutable hooks : hook list
     }
   
   let initCell id mph =
@@ -24,7 +26,10 @@ module Make(PA : Pa.ProofAssistant) = struct
   
   let init (enum : Enum.enumeration) =
     { cells = Array.mapi initCell enum.paths
-    ; morphisms = enum }
+    ; morphisms = enum 
+    ; hooks = [] }
+
+  let registerHook uf hk = uf.hooks <- hk :: uf.hooks
   
   let rec find (id : int) cells =
     if id = cells.(id).parent
@@ -62,10 +67,21 @@ module Make(PA : Pa.ProofAssistant) = struct
         cells.(parent2).rank   <- cells.(parent1).rank + cells.(parent2).rank;
         true
       end
+
+  let rec connectWithHooks eqs uf =
+    match eqs with
+    | [] -> false
+    | eq :: eqs ->
+        let p1 = Data.eq_left eq in
+        let p2 = Data.eq_right eq in
+        let b = union (M.find p1 uf.morphisms.indices) (M.find p2 uf.morphisms.indices) eq uf.cells in
+        if b then begin
+          let new_eqs = List.concat_map (fun hk -> hk eq) uf.hooks in
+          let _ = connectWithHooks (List.append new_eqs eqs) uf in
+          true
+        end else false
   
   let connect eq uf =
-    let p1 = Data.eq_left eq in
-    let p2 = Data.eq_right eq in
-    union (M.find p1 uf.morphisms.indices) (M.find p2 uf.morphisms.indices) eq uf.cells
+    connectWithHooks [eq] uf
 
 end
