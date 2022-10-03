@@ -100,6 +100,11 @@ let setup_hooks uf =
   Array.iter (UF.registerHook uf) pres;
   ret ()
 
+let debug_hook sigma env eq =
+  Feedback.msg_info (Pp.str "Adding eq : " ++ Renderer.mph sigma env (Data.eq_left eq)
+                   ++ Pp.str " = " ++ Renderer.mph sigma env (Data.eq_right eq));
+  []
+
 let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
   let* _ = St.registerEqPredicate Hott.eq in
   let* obj = extract_hyps goal in
@@ -110,6 +115,9 @@ let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
       let uf = UF.init paths in
       (* Setup hooks *)
       let* _ = setup_hooks uf in
+      (* let* sigma = lift (Hott.M.lift Proofview.tclEVARMAP) in *)
+      (* let* env = lift (Hott.M.lift Proofview.tclENV) in *)
+      (* let _ = UF.registerHook uf (debug_hook sigma env) in *)
       (* Fill uf with faces *)
       let* faces = St.getEqs () in
       Array.iter (connect paths uf) faces;
