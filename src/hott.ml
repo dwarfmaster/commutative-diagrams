@@ -321,11 +321,11 @@ let parsePropType sigma (prop : EConstr.t) =
 let parseProperties hyp prop =
   let* sigma = evars () in 
   match EConstr.kind sigma prop with
-  | App (prop, [| cat; src; dst; mph |]) when parsePropType sigma prop <> Nothing ->
-      let* cat = parseCategoryTerm cat in
-      let* src = parseElemTerm src cat in
-      let* dst = parseElemTerm dst cat in
-      let* mph = parseMorphismTerm mph cat src dst in
+  | App (prop, [| catEC; srcEC; dstEC; mphEC |]) when parsePropType sigma prop <> Nothing ->
+      let* cat = parseCategoryTerm catEC in
+      let* src = parseElemTerm srcEC cat in
+      let* dst = parseElemTerm dstEC cat in
+      let* mph = parseMorphismTerm mphEC cat src dst in
       let* mphData =
         match mph with
         | AtomicMorphism dt -> ret dt
@@ -333,7 +333,16 @@ let parseProperties hyp prop =
       begin match parsePropType sigma prop with
       | Epi -> mphData.epi <- Some hyp; ret ()
       | Mono -> mphData.mono <- Some hyp; ret ()
-      | Iso -> assert false (* TODO *)
+      | Iso ->
+          let* inv = liftP (Env.app (Env.mk_inv_mph ()) [| catEC; srcEC; dstEC; mphEC; hyp |]) in
+          let* inv = St.registerMorphism ~mph:inv ~cat ~src:dst ~dst:src in
+          let iso = 
+            { Data.iso_obj = hyp
+            ; Data.iso_mph = mphData
+            ; Data.iso_inv = inv } in
+          mphData.iso <- Some iso;
+          inv.iso <- Some iso;
+          ret ()
       | Nothing -> ret ()
       end
   | _ -> ret ()
@@ -506,17 +515,17 @@ let rec realizeEq eq =
       app (Env.mk_lap ()) [| cat; src; mid; dst; m; left; right; p |]
   | RInv iso ->
       let m = iso.iso_mph in 
-      let$ cat = realizeCategory (morphism_cat m) in 
-      let$ src = realizeElem (morphism_src m) in 
-      let$ dst = realizeElem (morphism_dst m) in 
-      let$ m = realizeMorphism m in
+      let$ cat = realizeCategory m.mph_cat_ in 
+      let$ src = realizeElem m.mph_src_ in 
+      let$ dst = realizeElem m.mph_dst_ in 
+      let m = m.mph_obj in
       app (Env.mk_right_inv ()) [| cat; src; dst; m; iso.iso_obj |]
   | LInv iso ->
       let m = iso.iso_mph in 
-      let$ cat = realizeCategory (morphism_cat m) in 
-      let$ src = realizeElem (morphism_src m) in 
-      let$ dst = realizeElem (morphism_dst m) in 
-      let$ m = realizeMorphism m in
+      let$ cat = realizeCategory m.mph_cat_ in 
+      let$ src = realizeElem m.mph_src_ in 
+      let$ dst = realizeElem m.mph_dst_ in 
+      let m = m.mph_obj in
       app (Env.mk_left_inv ()) [| cat; src; dst; m; iso.iso_obj |]
   | Mono (ec,m1,m2,p) ->
       let$ src = realizeElem (eq_src p) in

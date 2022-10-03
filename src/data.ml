@@ -38,17 +38,17 @@ and 't morphismData =
   ; mutable epi  : 't option
   ; mutable iso  : 't isoData option
   }
+and 't isoData =
+  { iso_obj : 't
+  ; iso_mph : 't morphismData
+  ; iso_inv : 't morphismData
+  }
 and 't morphism =
   | AtomicMorphism of 't morphismData
   | Identity of 't elem
   | Comp of 't morphism * 't morphism (* Comp (m1,m2) ~ m2 o m1 *)
   | Inv of 't morphism
   | FMph of 't funct * 't morphism
-and 't isoData =
-  { iso_obj : 't
-  ; iso_mph : 't morphism
-  ; iso_inv : 't morphism
-  }
 
 (* Equality between uninterned morphisms *)
 type 't eq =
@@ -228,8 +228,8 @@ let rec eq_left (e : 't eq) : ' tmorphism =
   | RightId m -> Comp (Identity (morphism_src m),m)
   | RAp (e,m) -> Comp (eq_left e,m)
   | LAp (m,e) -> Comp (m,eq_left e)
-  | RInv i -> Comp (i.iso_inv, i.iso_mph)
-  | LInv i -> Comp (i.iso_mph, i.iso_inv)
+  | RInv i -> Comp (AtomicMorphism i.iso_inv, AtomicMorphism i.iso_mph)
+  | LInv i -> Comp (AtomicMorphism i.iso_mph, AtomicMorphism i.iso_inv)
   | Mono (_,m,_,_) -> m 
   | Epi (_,m,_,_) -> m
   | FId (f,e) -> FMph (f, Identity e)
@@ -249,8 +249,8 @@ and eq_right (e : 't eq) : 't morphism =
   | RightId m -> m
   | RAp (e,m) -> Comp (eq_right e,m)
   | LAp (m,e) -> Comp (m,eq_right e)
-  | RInv i -> Identity (morphism_src i.iso_mph)
-  | LInv i -> Identity (morphism_dst i.iso_mph)
+  | RInv i -> Identity i.iso_mph.mph_src_
+  | LInv i -> Identity i.iso_mph.mph_dst_
   | Mono (_,_,m,_) -> m 
   | Epi (_,_,m,_) -> m
   | FId (f,e) -> Identity (FObj (f,e))
@@ -270,8 +270,8 @@ and eq_src (e : 't eq) : 't elem =
   | RightId m -> morphism_src m
   | RAp (e,m) -> eq_src e
   | LAp (m,e) -> morphism_src m
-  | RInv i -> morphism_src i.iso_mph
-  | LInv i -> morphism_dst i.iso_mph
+  | RInv i -> i.iso_mph.mph_src_
+  | LInv i -> i.iso_mph.mph_dst_
   | Mono (_,_,m,_) -> morphism_src m
   | Epi (_,_,m,_) -> morphism_src m
   | FId (f,e) -> FObj (f,e)
@@ -291,8 +291,8 @@ and eq_dst (e : 't eq) : 't elem =
   | RightId m -> morphism_dst m
   | RAp (e,m) -> morphism_dst m 
   | LAp (m,e) -> eq_dst e
-  | RInv i -> morphism_dst i.iso_mph 
-  | LInv i -> morphism_src i.iso_mph 
+  | RInv i -> i.iso_mph.mph_dst_ 
+  | LInv i -> i.iso_mph.mph_src_
   | Mono (_,_,m,_) -> morphism_dst m
   | Epi (_,_,m,_) -> morphism_dst m
   | FId (f,e) -> FObj (f,e)
@@ -312,8 +312,8 @@ and eq_cat (e : 't eq) : 't category =
   | RightId m -> morphism_cat m
   | RAp (e,m) -> morphism_cat m 
   | LAp (m,e) -> morphism_cat (eq_left e)
-  | RInv i -> morphism_cat i.iso_mph 
-  | LInv i -> morphism_cat i.iso_mph 
+  | RInv i -> i.iso_mph.mph_cat_
+  | LInv i -> i.iso_mph.mph_cat_
   | Mono (_,_,m,_) -> morphism_cat m
   | Epi (_,_,m,_) -> morphism_cat m
   | FId (f,_) -> funct_dst f 

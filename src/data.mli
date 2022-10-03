@@ -31,17 +31,17 @@ and 't morphismData =
   ; mutable epi  : 't option
   ; mutable iso  : 't isoData option
   }
+and 't isoData =
+  { iso_obj : 't
+  ; iso_mph : 't morphismData
+  ; iso_inv : 't morphismData
+  }
 and 't morphism =
   | AtomicMorphism of 't morphismData
   | Identity of 't elem
   | Comp of 't morphism * 't morphism (* Comp (m1,m2) ~ m2 o m1 *)
   | Inv of 't morphism
   | FMph of 't funct * 't morphism
-and 't isoData =
-  { iso_obj : 't
-  ; iso_mph : 't morphism
-  ; iso_inv : 't morphism
-  }
 
 (* check_* check invariants about the structure assumed everywhere in the code
    that are not enforced by the type system, for example that the composition

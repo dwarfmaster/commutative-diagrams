@@ -44,10 +44,10 @@ let rec normUnderFunctors functs m =
       | AtomicMorphism m ->
           begin match m.iso with
           | Some iso ->
-              let m = if Data.cmp_morphism iso.iso_mph (AtomicMorphism m) = 0
+              let m = if iso.iso_mph.mph_id = m.mph_id
                       then iso.iso_inv
                       else iso.iso_mph in
-              let m = applyFunctors functs m in 
+              let m = applyFunctors functs (AtomicMorphism m) in 
               m, Refl m
           | None -> assert false (* Shouldn't happen *)
           end
