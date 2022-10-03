@@ -42,11 +42,15 @@ module Make(PA : Pa.ProofAssistant) = struct
       (pid,eq)
 
   let query m1 m2 uf = 
-    let id1,eq1 = find (M.find m1 uf.morphisms.indices) uf.cells in
-    let id2,eq2 = find (M.find m2 uf.morphisms.indices) uf.cells in
-    if id1 = id2
-    then Some (Data.Concat (eq1, Data.InvEq eq2))
-    else None
+    if not (M.mem m1 uf.morphisms.indices) || not (M.mem m2 uf.morphisms.indices)
+    then None
+    else begin
+      let id1,eq1 = find (M.find m1 uf.morphisms.indices) uf.cells in
+      let id2,eq2 = find (M.find m2 uf.morphisms.indices) uf.cells in
+      if id1 = id2
+      then Some (Data.Concat (eq1, Data.InvEq eq2))
+      else None
+    end
   
   (* Returns true if id1 and id2 were disjoint before *)
   let union id1 id2 eq cells =
@@ -54,7 +58,7 @@ module Make(PA : Pa.ProofAssistant) = struct
     let parent2,eq2 = find id2 cells in
     if parent1 = parent2 then false
     else
-      let eq = Data.Concat (eq1, Data.Concat (eq, Data.InvEq eq2)) in
+      let eq = Data.Concat (Data.InvEq eq1, Data.Concat (eq, eq2)) in
       if cells.(parent1).rank < cells.(parent2).rank
       then begin
         cells.(parent2).parent <- parent1;
@@ -74,12 +78,15 @@ module Make(PA : Pa.ProofAssistant) = struct
     | eq :: eqs ->
         let p1 = Data.eq_left eq in
         let p2 = Data.eq_right eq in
-        let b = union (M.find p1 uf.morphisms.indices) (M.find p2 uf.morphisms.indices) eq uf.cells in
-        if b then begin
-          let new_eqs = List.concat_map (fun hk -> hk eq) uf.hooks in
-          let _ = connectWithHooks (List.append new_eqs eqs) uf in
-          true
-        end else false
+        if M.mem p1 uf.morphisms.indices && M.mem p2 uf.morphisms.indices
+        then begin
+          let b = union (M.find p1 uf.morphisms.indices) (M.find p2 uf.morphisms.indices) eq uf.cells in
+          if b then
+            let new_eqs = List.concat_map (fun hk -> hk eq) uf.hooks in
+            let _ = connectWithHooks (List.append new_eqs eqs) uf in
+            true
+          else connectWithHooks eqs uf
+        end else connectWithHooks eqs uf
   
   let connect eq uf =
     connectWithHooks [eq] uf

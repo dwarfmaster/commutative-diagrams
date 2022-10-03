@@ -224,8 +224,8 @@ let rec eq_left (e : 't eq) : ' tmorphism =
   | InvEq e -> eq_right e
   | Compose (e1,e2) -> Comp (eq_left e1,eq_left e2)
   | Assoc (m1,m2,m3) -> Comp (Comp (m1,m2),m3)
-  | LeftId m -> Comp (Identity (morphism_src m),m)
-  | RightId m -> Comp (m,Identity (morphism_dst m))
+  | LeftId m -> Comp (m,Identity (morphism_dst m))
+  | RightId m -> Comp (Identity (morphism_src m),m)
   | RAp (e,m) -> Comp (eq_left e,m)
   | LAp (m,e) -> Comp (m,eq_left e)
   | RInv i -> Comp (i.iso_inv, i.iso_mph)
@@ -262,13 +262,13 @@ and eq_src (e : 't eq) : 't elem =
   match e with
   | Hole (m,_) -> morphism_src m
   | Refl m -> morphism_src m 
-  | Concat (e,_) -> morphism_src (eq_left e)
-  | InvEq e -> morphism_src (eq_left e)
-  | Compose (e1,_) -> morphism_src (eq_left e1)
+  | Concat (e,_) -> eq_src e
+  | InvEq e -> eq_src e
+  | Compose (e1,_) -> eq_src e1
   | Assoc (m1,_,_) -> morphism_src m1
   | LeftId m -> morphism_src m
   | RightId m -> morphism_src m
-  | RAp (e,m) -> morphism_src (eq_left e)
+  | RAp (e,m) -> eq_src e
   | LAp (m,e) -> morphism_src m
   | RInv i -> morphism_src i.iso_mph
   | LInv i -> morphism_dst i.iso_mph
@@ -283,14 +283,14 @@ and eq_dst (e : 't eq) : 't elem =
   match e with 
   | Hole (m,_) -> morphism_dst m
   | Refl m -> morphism_dst m 
-  | Concat (e,_) -> morphism_dst (eq_left e)
-  | InvEq e -> morphism_dst (eq_left e)
-  | Compose (_,e2) -> morphism_dst (eq_left e2)
-  | Assoc (m1,_,_) -> morphism_dst m1
+  | Concat (e,_) -> eq_dst e
+  | InvEq e -> eq_dst e
+  | Compose (_,e2) -> eq_dst e2
+  | Assoc (_,_,m3) -> morphism_dst m3
   | LeftId m -> morphism_dst m 
   | RightId m -> morphism_dst m
   | RAp (e,m) -> morphism_dst m 
-  | LAp (m,e) -> morphism_dst (eq_left e)
+  | LAp (m,e) -> eq_dst e
   | RInv i -> morphism_dst i.iso_mph 
   | LInv i -> morphism_src i.iso_mph 
   | Mono (_,_,m,_) -> morphism_dst m
