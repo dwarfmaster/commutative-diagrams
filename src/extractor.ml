@@ -29,11 +29,12 @@ let extract_hyp (env : Environ.env) (dec : EConstr.named_declaration) : unit m =
   let name,tp = match dec with
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
     | Context.Named.Declaration.LocalDef (name,_,tp) -> (name.binder_name, tp) in
-  let* _ = Hott.parseCategory (EConstr.mkVar name) tp in
-  let* _ = Hott.parseFunctor  (EConstr.mkVar name) tp in
-  let* _ = Hott.parseElem     (EConstr.mkVar name) tp in
-  let* _ = Hott.parseMorphism (EConstr.mkVar name) tp in
-  let* _ = Hott.parseEq       (EConstr.mkVar name) tp in
+  let* _ = Hott.parseCategory   (EConstr.mkVar name) tp in
+  let* _ = Hott.parseFunctor    (EConstr.mkVar name) tp in
+  let* _ = Hott.parseElem       (EConstr.mkVar name) tp in
+  let* _ = Hott.parseMorphism   (EConstr.mkVar name) tp in
+  let* _ = Hott.parseEq         (EConstr.mkVar name) tp in
+  let* _ = Hott.parseProperties (EConstr.mkVar name) tp in
   ret ()
 
 let name : string -> Names.Name.t = fun s -> Names.Name.mk_name (Names.Id.of_string s)
@@ -96,8 +97,12 @@ let setup_hooks uf =
   let posts = Array.map Post.hook mphs in
   let module Pre = PreComposeHook.Make(Hott) in
   let pres = Array.map Pre.hook mphs in
+  let module Mono = MonomorphismHook.Make(Hott) in
+  let module Epi = EpimorphismHook.Make(Hott) in
   Array.iter (UF.registerHook uf) posts;
   Array.iter (UF.registerHook uf) pres;
+  UF.registerHook uf Mono.hook;
+  UF.registerHook uf Epi.hook;
   ret ()
 
 let debug_hook sigma env eq =

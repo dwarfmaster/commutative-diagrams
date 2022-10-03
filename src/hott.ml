@@ -296,6 +296,47 @@ let parseEqGoal goal =
 
 
 
+(*  ___                       _   _         *)
+(* | _ \_ _ ___ _ __  ___ _ _| |_(_)___ ___ *)
+(* |  _/ '_/ _ \ '_ \/ -_) '_|  _| / -_|_-< *)
+(* |_| |_| \___/ .__/\___|_|  \__|_\___/__/ *)
+(*             |_|                          *)
+(* Properties *)
+
+type propType = Mono
+              | Epi
+              | Iso
+              | Nothing
+
+let parsePropType sigma (prop : EConstr.t) =
+  match EConstr.kind sigma prop with
+  | Const (prop,_) ->
+      if Env.is_epi prop then Epi
+      else if Env.is_mono prop then Mono
+      else Nothing
+  | Ind (prop,_) ->
+      if Env.is_iso prop then Iso else Nothing
+  | _ -> Nothing
+
+let parseProperties hyp prop =
+  let* sigma = evars () in 
+  match EConstr.kind sigma prop with
+  | App (prop, [| cat; src; dst; mph |]) when parsePropType sigma prop <> Nothing ->
+      let* cat = parseCategoryTerm cat in
+      let* src = parseElemTerm src cat in
+      let* dst = parseElemTerm dst cat in
+      let* mph = parseMorphismTerm mph cat src dst in
+      let* mphData =
+        match mph with
+        | AtomicMorphism dt -> ret dt
+        | _ -> assert false (* TODO *) in
+      begin match parsePropType sigma prop with
+      | Epi -> mphData.epi <- Some hyp; ret ()
+      | Mono -> mphData.mono <- Some hyp; ret ()
+      | Iso -> assert false (* TODO *)
+      | Nothing -> ret ()
+      end
+  | _ -> ret ()
 
 (*  ____            _ _          _   _              *)
 (* |  _ \ ___  __ _| (_)______ _| |_(_) ___  _ __   *)

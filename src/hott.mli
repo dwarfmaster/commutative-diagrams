@@ -25,6 +25,7 @@ val parseElem : t -> t -> (t Data.elem option,t) St.t
 val parseMorphism : t -> t -> (t Data.morphism option,t) St.t
 val parseEq : t -> t -> (t Data.eq option,t) St.t
 val parseEqGoal : t -> ((t Data.morphism * t Data.morphism) option, t) Store.Make(M).t
+val parseProperties : t -> t -> (unit,t) Store.Make(M).t
 
 
 (* Utils *)

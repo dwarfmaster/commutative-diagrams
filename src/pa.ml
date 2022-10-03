@@ -21,6 +21,10 @@ module type ProofAssistant = sig
   val parseEq : t -> t -> (t Data.eq option,t) Store.Make(M).t
   val parseEqGoal : t -> ((t Data.morphism * t Data.morphism) option, t) Store.Make(M).t
 
+  (* Properties on objects *)
+  (* Expected to parse monomorphisms, epimorphisms and isomorphisms *)
+  val parseProperties : t -> t -> (unit, t) Store.Make(M).t
+
   (* Utils *)
   val eq : t -> t -> bool M.m
 end
