@@ -16,17 +16,19 @@ let raiseComp functs m1 m2 =
     (fun (m1,m2,eq) f -> FMph (f,m1), FMph (f,m2), Concat (FCtx (f,eq), FComp (f,m1,m2)))
     (m1,m2,Refl (Comp (m1,m2))) functs
 
-let mutualInverse m1 m2 =
+let rec mutualInverse m1 m2 =
   match m1, m2 with
   | AtomicMorphism m1, AtomicMorphism m2 ->
       begin match m1.iso with
       | Some iso1 -> iso1.iso_inv.mph_id = m2.mph_id || iso1.iso_mph.mph_id = m2.mph_id
       | _ -> false
       end
+  | FMph (f1,m1), FMph (f2,m2) ->
+      cmp_funct f1 f2 = 0 && mutualInverse m1 m2
   | _ -> false
 
 (* Assumes m1 and m2 are mutual inverse. m1 >> m2 = id *)
-let invert m1 m2 =
+let rec invert m1 m2 =
   match m1, m2 with
   | AtomicMorphism m1, AtomicMorphism m2 ->
       begin match m1.iso with
@@ -34,6 +36,9 @@ let invert m1 m2 =
       | Some iso1 when iso1.iso_mph.mph_id = m2.mph_id -> LInv iso1
       | _ -> assert false (* Shouldn't happen *)
       end
+  | FMph (f,m1), FMph (_,m2) ->
+      let eq = invert m1 m2 in
+      Concat (InvEq (FComp (f,m1,m2)), Concat (FCtx (f,eq), FId (f, morphism_src m1)))
   | _ -> assert false (* Shouldn't happen *)
 
 (* (m1 >> m2 >> ...) >> post -> m1 >> m2 >> ... >> post, eq *)
@@ -49,7 +54,7 @@ let rec postCompose m post =
       | Comp (m21, m22) when mutualInverse m1 m21 ->
           m22, Concat (Concat (eq, InvEq (Assoc (m1,m21,m22))),
                        Concat (RAp (invert m1 m21, m22), RightId m22))
-      | AtomicMorphism _ when mutualInverse m1 r ->
+      | _ when mutualInverse m1 r ->
           Identity (morphism_src m1), Concat (eq, invert m1 r)
       | Identity _ -> m1, Concat (eq, LeftId m1)
       | _ -> Comp(m1,r), eq
@@ -58,7 +63,7 @@ let rec postCompose m post =
       begin match post with
       | Comp (p1,p2) when mutualInverse m p1 ->
           p2, Concat (InvEq (Assoc (m,p1,p2)), Concat (RAp (invert m p1, p2), RightId p2))
-      | AtomicMorphism _ when mutualInverse m post ->
+      | _ when mutualInverse m post ->
           Identity (morphism_src m), invert m post
       | Identity _ -> m, LeftId m
       | _ -> Comp (m,post), Refl (Comp (m,post))

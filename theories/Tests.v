@@ -75,3 +75,15 @@ Lemma test_norm (C : PreCategory) (a b c d : C)
   (iso2^-1 o (iso2 o 1 o 1) o m) o (1 o (1 o iso1) o iso1^-1 o iso1) =
     m o iso1.
 Proof. norm. reflexivity. Defined.
+
+Lemma test_funct_iso (C D E F : PreCategory) (a b : C)
+                     (iso : morphism C a b) (Hiso : IsIsomorphism iso)
+                     (F1 : Functor C D) (F2 : Functor D E) (F3 : Functor E F)
+                     : F3 _1 (F2 _1 (F1 _1 iso)) o F3 _1 (F2 _1 (F1 _1 iso^-1)) = 1.
+Proof. diagram solve 3. Defined.
+
+Lemma test_funct_iso2 (C D E F : PreCategory) (a b : C)
+                      (iso : morphism C a b) (Hiso : IsIsomorphism iso)
+                      (F1 : Functor C D) (F2 : Functor D E) (F3 : Functor E F)
+                     : F3 _1 (F2 _1 (F1 _1 (iso o iso^-1))) = 1.
+Proof. diagram solve 3. Defined.
