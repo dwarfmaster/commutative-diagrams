@@ -65,13 +65,26 @@ let allElems mphs : eNums =
 let elem_graphviz sigma env nums e =
   Pp.str "e" ++ Pp.int (ElemMap.find e nums) ++ Pp.str " [ label=\"" ++ elem sigma env e ++ Pp.str "\"];"
 
+let isMono m =
+  match m with
+  | AtomicMorphism m -> m.mono != None
+  | _ -> false
+let isEpi m =
+  match m with
+  | AtomicMorphism m -> m.epi != None
+  | _ -> false
+let isIso m =
+  match m with
+  | AtomicMorphism m -> m.iso != None
+  | _ -> false
+
 let mph_graphviz sigma env nums m =
   Pp.str "e" ++ Pp.int (ElemMap.find (morphism_src m) nums)
   ++ Pp.str " -> e" ++ Pp.int (ElemMap.find (morphism_dst m) nums)
   ++ Pp.str " [label=\"" ++ mph sigma env m ++ Pp.str "\""
-  (* ++ (if m.mono != None then Pp.str ",arrowhead=\"oldiamond\"" else Pp.str "") *)
-  (* ++ (if m.epi  != None then Pp.str ",arrowhead=\"onormalonormal\"" else Pp.str "") *)
-  (* ++ (if m.iso  != None then Pp.str ",color=\"red\"" else Pp.str "") *)
+  ++ (if isMono m then Pp.str ",arrowhead=\"oldiamond\"" else Pp.str "")
+  ++ (if isEpi m  then Pp.str ",arrowhead=\"onormalonormal\"" else Pp.str "")
+  ++ (if isIso m  then Pp.str ",color=\"red\"" else Pp.str "")
   ++ Pp.str "];"
 
 let to_graphviz sigma env =
