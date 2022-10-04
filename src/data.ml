@@ -1,4 +1,10 @@
 
+let cmp2 i1 i2 = if i1 = 0 then i2 else i1
+let cmp3 i1 i2 i3 =
+  if i1 <> 0 then i1
+  else if i2 <> 0 then i2
+  else i3
+
 (*  _____                       *)
 (* |_   _|   _ _ __   ___  ___  *)
 (*   | || | | | '_ \ / _ \/ __| *)
@@ -371,6 +377,52 @@ let rec check_eq (e : 't eq) : bool =
                && cmp_category (funct_src f) (eq_cat e) = 0
   | AtomicEq _ -> true
 
+let eq_constructor_id eq =
+  match eq with
+  | Hole _ -> 0
+  | Refl _ -> 1
+  | Concat _ -> 2
+  | InvEq _ -> 3
+  | Compose _ -> 4
+  | Assoc _ -> 5
+  | LeftId _ -> 6
+  | RightId _ -> 7
+  | RAp _ -> 8
+  | LAp _ -> 9
+  | RInv _ -> 10
+  | LInv _ -> 11
+  | Mono _ -> 12
+  | Epi _ -> 13
+  | FId _ -> 14
+  | FComp _ -> 15
+  | FCtx _ -> 16
+  | AtomicEq _ -> 17
+
+let rec cmp_eq eq1 eq2 =
+  match eq1, eq2 with
+  | Hole (m11,m12), Hole (m21,m22) -> cmp2 (cmp_morphism m11 m21) (cmp_morphism m12 m22)
+  | Refl m1, Refl m2 -> cmp_morphism m1 m2
+  | Concat (eq11,eq12), Concat (eq21,eq22) -> cmp2 (cmp_eq eq11 eq21) (cmp_eq eq12 eq22)
+  | InvEq eq1, InvEq eq2 -> cmp_eq eq1 eq2
+  | Compose (eq11,eq12), Compose (eq21,eq22) -> cmp2 (cmp_eq eq11 eq21) (cmp_eq eq12 eq22)
+  | Assoc (m11,m12,m13), Assoc (m21,m22,m23) ->
+      cmp3 (cmp_morphism m11 m21) (cmp_morphism m12 m22) (cmp_morphism m13 m23)
+  | LeftId m1, LeftId m2 -> cmp_morphism m1 m2
+  | RightId m1, RightId m2 -> cmp_morphism m1 m2
+  | RAp (eq1,m1), RAp (eq2,m2) -> cmp2 (cmp_eq eq1 eq2) (cmp_morphism m1 m2)
+  | LAp (m1,eq1), LAp (m2,eq2) -> cmp2 (cmp_morphism m1 m2) (cmp_eq eq1 eq2)
+  | RInv iso1, RInv iso2 -> iso2.iso_mph.mph_id - iso1.iso_mph.mph_id
+  | LInv iso1, LInv iso2 -> iso2.iso_mph.mph_id - iso1.iso_mph.mph_id
+  | Mono (_,m11,m12,eq1), Mono (_,m21,m22,eq2) ->
+      cmp3 (cmp_morphism m11 m21) (cmp_morphism m12 m22) (cmp_eq eq1 eq2)
+  | Epi (_,m11,m12,eq1), Epi (_,m21,m22,eq2) ->
+      cmp3 (cmp_morphism m11 m21) (cmp_morphism m12 m22) (cmp_eq eq1 eq2)
+  | FId (f1,e1), FId (f2,e2) -> cmp2 (cmp_funct f1 f2) (cmp_elem e1 e2)
+  | FComp (f1,m11,m12), FComp (f2,m21,m22) ->
+      cmp3 (cmp_funct f1 f2) (cmp_morphism m11 m21) (cmp_morphism m12 m22)
+  | FCtx (f1,eq1), FCtx (f2,eq2) -> cmp2 (cmp_funct f1 f2) (cmp_eq eq1 eq2)
+  | AtomicEq eq1, AtomicEq eq2 -> eq2.eq_id - eq1.eq_id
+  | _, _ -> eq_constructor_id eq2 - eq_constructor_id eq1
 
 
 (*  __  __           _       _            *)
@@ -403,5 +455,10 @@ end
 module EqMph(T:Type) = struct 
   type t = T.t morphism 
   let compare = cmp_morphism 
+end
+
+module EqEq(T:Type) = struct
+  type t = T.t eq
+  let compare = cmp_eq
 end
 

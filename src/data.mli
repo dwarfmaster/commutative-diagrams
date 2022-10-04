@@ -95,6 +95,7 @@ and 't eqData =
   ; eq_id     : int
   }
 val check_eq : 't eq -> bool
+val cmp_eq : 't eq -> 't eq -> int
 val eq_left  : 't eq -> 't morphism 
 val eq_right : 't eq -> 't morphism 
 val eq_src   : 't eq -> 't elem 
@@ -109,4 +110,5 @@ module EqCat(T:Type) : Map.OrderedType with type t = T.t category
 module EqFunct(T:Type) : Map.OrderedType with type t = T.t funct
 module EqElem(T:Type) : Map.OrderedType with type t = T.t elem
 module EqMph(T:Type) : Map.OrderedType with type t = T.t morphism
+module EqEq(T:Type) : Map.OrderedType with type t = T.t eq
 
