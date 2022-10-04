@@ -5,9 +5,15 @@ From HoTT Require Import Categories.Category.Morphisms.
 Require Import CommutativeDiagrams.Loader.
 Local Open Scope morphism.
 
+Ltac norm := unshelve (diagram norm); reify.
+
 Lemma test_concat (C : PreCategory) (a b : C) (m1 m2 m3 : morphism C a b)
       (H12 : 1 o m1 = m2 o 1) (H32 : 1 o m3 o 1 = m2) : m1 = m3.
 Proof. diagram solve. Defined.
+
+Lemma test_functor (C D : PreCategory) (a : C) (F : Functor C D)
+                 : F _1 (identity a) = identity (F _0 a).
+Proof. norm. reflexivity. Defined.
 
 Lemma test_context (C : PreCategory) (a b c d : C)
       (mab : morphism C a b) (mbc : morphism C b c) (mcd : morphism C c d)
@@ -32,7 +38,7 @@ Lemma test_id_l (C : PreCategory) (a b c : C)
       (i1 : morphism C b c) (i2 : morphism C c b)
       (m : morphism C a b) (H : i2 o i1 = 1) :
   m = i2 o i1 o m.
-Proof. diagram solve. Defined.
+Proof. diagram solve 3. Defined.
 
 Lemma test_id_r (C : PreCategory) (a b c : C)
       (i1 : morphism C a b) (i2 : morphism C b a)
@@ -44,7 +50,7 @@ Lemma test_id (C : PreCategory) (a b c d : C)
       (j1 : morphism C c d) (j2 : morphism C d c) (Hj : j2 o j1 = 1)
       (i1 : morphism C a b) (i2 : morphism C b a) (Hi : i1 o i2 = 1)
       (m : morphism C b c) : m = j2 o j1 o m o i1 o i2.
-Proof. diagram solve 6. Defined.
+Proof. diagram solve. Defined.
 
 Lemma test_basic_iso_r (C : PreCategory) (a b : C)
       (iso : morphism C a b) (Hiso : IsIsomorphism iso) :
@@ -68,4 +74,4 @@ Lemma test_norm (C : PreCategory) (a b c d : C)
       (H1 : IsIsomorphism iso1) (H2 : IsIsomorphism iso2) :
   (iso2^-1 o (iso2 o 1 o 1) o m) o (1 o (1 o iso1) o iso1^-1 o iso1) =
     m o iso1.
-Proof. unshelve (diagram norm); reify. reflexivity. Defined.
+Proof. norm. reflexivity. Defined.
