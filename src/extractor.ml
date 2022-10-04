@@ -117,16 +117,15 @@ let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
   | None -> fail "Goal is not a face"
   | Some (side1,side2) ->
       let* paths = Enum.enumerate_paths ~asrt:true level in
+      let* sigma = lift (Hott.M.lift Proofview.tclEVARMAP) in
+      let* env = lift (Hott.M.lift Proofview.tclENV) in
       let uf = UF.init paths in
       (* Setup hooks *)
       let* _ = setup_hooks uf in
-      (* let* sigma = lift (Hott.M.lift Proofview.tclEVARMAP) in *)
-      (* let* env = lift (Hott.M.lift Proofview.tclENV) in *)
       (* let _ = UF.registerHook uf (debug_hook sigma env) in *)
       (* Fill uf with faces *)
       let* faces = St.getEqs () in
       Array.iter (connect paths uf) faces;
-      (* TODO congurence closure *)
       (* Test result *)
       let side1,eq1 = Normalisation.normalizeMorphism side1 in 
       let side2,eq2 = Normalisation.normalizeMorphism side2 in

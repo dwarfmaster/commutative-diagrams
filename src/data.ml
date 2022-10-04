@@ -228,8 +228,8 @@ let rec eq_left (e : 't eq) : ' tmorphism =
   | RightId m -> Comp (Identity (morphism_src m),m)
   | RAp (e,m) -> Comp (eq_left e,m)
   | LAp (m,e) -> Comp (m,eq_left e)
-  | RInv i -> Comp (AtomicMorphism i.iso_inv, AtomicMorphism i.iso_mph)
-  | LInv i -> Comp (AtomicMorphism i.iso_mph, AtomicMorphism i.iso_inv)
+  | RInv i -> Comp (AtomicMorphism i.iso_mph, AtomicMorphism i.iso_inv)
+  | LInv i -> Comp (AtomicMorphism i.iso_inv, AtomicMorphism i.iso_mph)
   | Mono (_,m,_,_) -> m 
   | Epi (_,m,_,_) -> m
   | FId (f,e) -> FMph (f, Identity e)
@@ -291,8 +291,8 @@ and eq_dst (e : 't eq) : 't elem =
   | RightId m -> morphism_dst m
   | RAp (e,m) -> morphism_dst m 
   | LAp (m,e) -> eq_dst e
-  | RInv i -> i.iso_mph.mph_dst_ 
-  | LInv i -> i.iso_mph.mph_src_
+  | RInv i -> i.iso_mph.mph_src_ 
+  | LInv i -> i.iso_mph.mph_dst_
   | Mono (_,_,m,_) -> morphism_dst m
   | Epi (_,_,m,_) -> morphism_dst m
   | FId (f,e) -> FObj (f,e)
