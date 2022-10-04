@@ -58,10 +58,11 @@ Ltac reify_hyp H :=
   unfold mphT in H; unfold comp in H; unfold compose_eq in H; unfold assoc in H;
   unfold id in H; unfold left_id in H; unfold right_id in H;
   unfold r_ap in H; unfold l_ap in H;
-  unfold mph_inv in H; unfold right_inv in H; unfold left_inv in H.
+  unfold mph_inv in H; unfold right_inv in H; unfold left_inv in H;
+  unfold funct_obj in H; unfold funct_mph in H; unfold funct_id in H; unfold funct_comp in H; unfold funct_ctx.
 Ltac reify :=
   unfold mphT; unfold comp; unfold compose_eq; unfold assoc;
   unfold id; unfold left_id; unfold right_id;
   unfold r_ap; unfold l_ap;
-  unfold mph_inv; unfold right_inv; unfold left_inv.
-
+  unfold mph_inv; unfold right_inv; unfold left_inv;
+  unfold funct_obj; unfold funct_mph; unfold funct_id; unfold funct_comp; unfold funct_ctx.
