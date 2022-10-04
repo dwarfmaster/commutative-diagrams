@@ -329,8 +329,13 @@ let parseProperties hyp prop =
       let* mphData =
         match mph with
         | AtomicMorphism dt -> ret dt
-        | _ -> assert false (* TODO *) in
-      begin match parsePropType sigma prop with
+        | _ ->
+            let* mphAtom = St.registerMorphism ~mph:mphEC ~cat ~src ~dst in
+            let* tp = liftP (Env.app (Env.mk_mphT ()) [| catEC; srcEC; dstEC |]) in
+            let* eq = liftP (Env.app (Env.mk_refl ()) [| tp; mphEC |]) in
+            let* _ = registerAtomEq eq (AtomicMorphism mphAtom) mph cat src dst in
+            ret mphAtom
+      in begin match parsePropType sigma prop with
       | Epi -> mphData.epi <- Some hyp; ret ()
       | Mono -> mphData.mono <- Some hyp; ret ()
       | Iso ->

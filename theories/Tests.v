@@ -87,3 +87,9 @@ Lemma test_funct_iso2 (C D E F : PreCategory) (a b : C)
                       (F1 : Functor C D) (F2 : Functor D E) (F3 : Functor E F)
                      : F3 _1 (F2 _1 (F1 _1 (iso o iso^-1))) = 1.
 Proof. diagram solve 3. Defined.
+
+Lemma test_iso_complex (C : PreCategory) (a b c : C)
+                       (mab : morphism C a b) (mbc : morphism C b c) (mca : morphism C c a)
+                       (Hiso : IsIsomorphism (mbc o mab)) (p : (mbc o mab)^-1 = mca)
+                       : mca o mbc o mab = 1.
+Proof. diagram solve 3. Defined.
