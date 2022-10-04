@@ -22,6 +22,8 @@ let rec simpl_inv inv eq =
       | Refl m1, Refl m2 -> Refl (Comp (m1,m2))
       | Refl m1, eq2 -> LAp (m1, eq2)
       | eq1, Refl m2 -> RAp (eq1, m2)
+      | eq1, InvEq eq2 when cmp_eq eq1 eq2 = 0 -> Refl (eq_left eq1)
+      | InvEq eq1, eq2 when cmp_eq eq1 eq2 = 0 -> Refl (eq_right eq1)
       | _, _ -> Compose (eq1, eq2)
       end
   | RAp (eq,m) ->
