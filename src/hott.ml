@@ -283,6 +283,9 @@ let parseEq eq tp =
   | _ -> none ()
 
 let parseEqGoal goal =
+  let* env = env () in
+  let* sigma = evars () in
+  let goal = Reductionops.nf_all env sigma goal in
   let* goal = parseEqType goal in 
   match goal with
   | Some (right,left,cat,src,dst) ->
