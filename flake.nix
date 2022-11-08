@@ -21,13 +21,9 @@
       coq-hott_8_15 = hott;
     };
 
-    shell = pkgs.mkShell {
+    shell-coq = pkgs.mkShell {
       # Build tools
       nativeBuildInputs = builtins.attrValues {
-        inherit (pkgs)
-          cargo
-          rustc
-          ;
         inherit (ocamlPackages)
           ocaml 
           findlib
@@ -39,8 +35,20 @@
       # Dependencies
       inputsFrom = [ pkg ];
     };
+    shell-engine = pkgs.mkShell {
+      nativeBuildInputs = builtins.attrValues {
+        inherit (pkgs)
+          cargo
+          rustc
+          ;
+      };
+    };
   in {
-    devShells.x86_64-linux.default = shell;
+    devShells.x86_64-linux = {
+      coq-plugin = shell-coq;
+      engine = shell-engine;
+      default = shell-coq;
+    };
     packages.x86_64-linux = {
       commutative-diagrams = pkg;
       default = pkg;
