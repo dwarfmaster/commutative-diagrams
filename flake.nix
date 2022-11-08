@@ -24,6 +24,10 @@
     shell = pkgs.mkShell {
       # Build tools
       nativeBuildInputs = builtins.attrValues {
+        inherit (pkgs)
+          cargo
+          rustc
+          ;
         inherit (ocamlPackages)
           ocaml 
           findlib
