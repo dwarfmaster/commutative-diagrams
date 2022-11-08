@@ -16,7 +16,7 @@
     coqPackages = pkgs.mkCoqPackages coq;
     hott = coqPackages.callPackage ./hott.nix {};
 
-    pkg = ocamlPackages.callPackage ./default.nix {
+    pkg = ocamlPackages.callPackage ./coq {
       coq_8_15 = coq;
       coq-hott_8_15 = hott;
     };
