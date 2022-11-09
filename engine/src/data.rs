@@ -1,11 +1,10 @@
-
 use std::cmp::Ordering;
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct ProofObject {
-    pub id : u32,
-    pub printed : String,
+    pub id: u32,
+    pub printed: String,
 }
 impl PartialEq for ProofObject {
     #[inline]
@@ -13,7 +12,7 @@ impl PartialEq for ProofObject {
         self.id.eq(&other.id)
     }
 }
-impl Eq for ProofObject { }
+impl Eq for ProofObject {}
 impl PartialOrd for ProofObject {
     #[inline]
     fn partial_cmp(&self, other: &ProofObject) -> Option<Ordering> {
@@ -27,45 +26,42 @@ impl Ord for ProofObject {
     }
 }
 
-
-//   ____      _                        _           
-//  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ 
+//   ____      _                        _
+//  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
 // | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
 // | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
 //  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-//                     |___/                        
+//                     |___/
 // Categories
-#[derive(Debug,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CategoryData {
-    pobj : ProofObject,
+    pobj: ProofObject,
 }
-#[derive(Debug,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Category {
     Atomic(CategoryData),
 }
 
 impl Category {
     pub fn check(&self) -> bool {
-        return true
+        return true;
     }
 }
 
-
-
-//  _____                 _                 
-// |  ___|   _ _ __   ___| |_ ___  _ __ ___ 
+//  _____                 _
+// |  ___|   _ _ __   ___| |_ ___  _ __ ___
 // | |_ | | | | '_ \ / __| __/ _ \| '__/ __|
 // |  _|| |_| | | | | (__| || (_) | |  \__ \
 // |_|   \__,_|_| |_|\___|\__\___/|_|  |___/
-//                                          
+//
 // Functors
-#[derive(Debug,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FunctorData {
-    pobj : ProofObject,
-    src : Rc<Category>,
-    dst : Rc<Category>,
+    pobj: ProofObject,
+    src: Rc<Category>,
+    dst: Rc<Category>,
 }
-#[derive(Debug,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Functor {
     Atomic(FunctorData),
 }
@@ -91,24 +87,22 @@ impl Functor {
     }
 }
 
-
-
-//   ___  _     _           _      
+//   ___  _     _           _
 //  / _ \| |__ (_) ___  ___| |_ ___
 // | | | | '_ \| |/ _ \/ __| __/ __|
 // | |_| | |_) | |  __/ (__| |_\__ \
 //  \___/|_.__// |\___|\___|\__|___/
-//           |__/                  
+//           |__/
 // Objects
-#[derive(Debug,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectData {
-    pobj : ProofObject,
-    category : Rc<Category>,
+    pobj: ProofObject,
+    category: Rc<Category>,
 }
-#[derive(Debug,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Object {
     Atomic(ObjectData),
-    Funct(Rc<Functor>,Rc<Object>),
+    Funct(Rc<Functor>, Rc<Object>),
 }
 
 impl Object {
@@ -116,46 +110,42 @@ impl Object {
         use Object::*;
         match self {
             Atomic(data) => data.category.clone(),
-            Funct(funct,_) => funct.dst(),
+            Funct(funct, _) => funct.dst(),
         }
     }
     pub fn check(&self) -> bool {
         use Object::*;
         match self {
             Atomic(data) => data.category.check(),
-            Funct(funct,obj) =>
-                funct.check() && obj.check() && funct.src() == obj.cat(),
+            Funct(funct, obj) => funct.check() && obj.check() && funct.src() == obj.cat(),
         }
     }
 }
 
-
-
-
-//  __  __                  _     _                  
+//  __  __                  _     _
 // |  \/  | ___  _ __ _ __ | |__ (_)___ _ __ ___  ___
 // | |\/| |/ _ \| '__| '_ \| '_ \| / __| '_ ` _ \/ __|
 // | |  | | (_) | |  | |_) | | | | \__ \ | | | | \__ \
 // |_|  |_|\___/|_|  | .__/|_| |_|_|___/_| |_| |_|___/
-//                   |_|                             
+//                   |_|
 // Morphisms
 // TODO isomorphisms
-#[derive(Debug,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MorphismData {
-    pobj : ProofObject,
-    category : Rc<Category>,
-    src : Rc<Object>,
-    dst : Rc<Object>,
+    pobj: ProofObject,
+    category: Rc<Category>,
+    src: Rc<Object>,
+    dst: Rc<Object>,
 }
-#[derive(Debug,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Morphism {
     Atomic(MorphismData),
     Identity(Rc<Object>),
-    Comp(Rc<Morphism>,Rc<Morphism>), // Comp(m1,m2) is m2 o m1
-    Funct(Rc<Functor>,Rc<Morphism>),
+    Comp(Rc<Morphism>, Rc<Morphism>), // Comp(m1,m2) is m2 o m1
+    Funct(Rc<Functor>, Rc<Morphism>),
 }
-fn comp(m1 : &Rc<Morphism>, m2 : &Rc<Morphism>) -> Rc<Morphism> {
-    Rc::new(Morphism::Comp(m1.clone(),m2.clone()))
+fn comp(m1: &Rc<Morphism>, m2: &Rc<Morphism>) -> Rc<Morphism> {
+    Rc::new(Morphism::Comp(m1.clone(), m2.clone()))
 }
 
 impl Morphism {
@@ -164,8 +154,8 @@ impl Morphism {
         match self {
             Atomic(data) => data.category.clone(),
             Identity(obj) => obj.cat(),
-            Comp(m1,_) => m1.cat(),
-            Funct(f,_) => f.dst(),
+            Comp(m1, _) => m1.cat(),
+            Funct(f, _) => f.dst(),
         }
     }
     pub fn src(&self) -> Rc<Object> {
@@ -173,8 +163,8 @@ impl Morphism {
         match self {
             Atomic(data) => data.src.clone(),
             Identity(obj) => obj.clone(),
-            Comp(m1,_) => m1.src(),
-            Funct(f,m) => Rc::new(Object::Funct(f.clone(),m.src())),
+            Comp(m1, _) => m1.src(),
+            Funct(f, m) => Rc::new(Object::Funct(f.clone(), m.src())),
         }
     }
     pub fn dst(&self) -> Rc<Object> {
@@ -182,8 +172,8 @@ impl Morphism {
         match self {
             Atomic(data) => data.dst.clone(),
             Identity(obj) => obj.clone(),
-            Comp(_,m2) => m2.dst(),
-            Funct(f,m) => Rc::new(Object::Funct(f.clone(),m.dst())),
+            Comp(_, m2) => m2.dst(),
+            Funct(f, m) => Rc::new(Object::Funct(f.clone(), m.dst())),
         }
     }
     pub fn check(&self) -> bool {
@@ -191,47 +181,44 @@ impl Morphism {
         match self {
             Atomic(data) => data.category.check() && data.src.check() && data.dst.check(),
             Identity(obj) => obj.check(),
-            Comp(m1,m2) => m1.check() && m2.check() && m1.dst() == m2.src(),
-            Funct(f,m) => f.check() && m.check() && f.src() == m.cat(),
+            Comp(m1, m2) => m1.check() && m2.check() && m1.dst() == m2.src(),
+            Funct(f, m) => f.check() && m.check() && f.src() == m.cat(),
         }
     }
 }
 
-
-
-
-//  _____                  _ _ _   _           
-// | ____|__ _ _   _  __ _| (_) |_(_) ___  ___ 
+//  _____                  _ _ _   _
+// | ____|__ _ _   _  __ _| (_) |_(_) ___  ___
 // |  _| / _` | | | |/ _` | | | __| |/ _ \/ __|
 // | |__| (_| | |_| | (_| | | | |_| |  __/\__ \
 // |_____\__, |\__,_|\__,_|_|_|\__|_|\___||___/
-//          |_|                                
+//          |_|
 // Equalities
-#[derive(Debug,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EqualityData {
-    pobj : ProofObject,
-    category : Rc<Category>,
-    src : Rc<Object>,
-    dst : Rc<Object>,
-    left : Rc<Morphism>,
-    right : Rc<Morphism>,
+    pobj: ProofObject,
+    category: Rc<Category>,
+    src: Rc<Object>,
+    dst: Rc<Object>,
+    left: Rc<Morphism>,
+    right: Rc<Morphism>,
 }
-#[derive(Debug,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Equality {
     Atomic(EqualityData),
-    Hole(Rc<Morphism>,Rc<Morphism>),
+    Hole(Rc<Morphism>, Rc<Morphism>),
     Refl(Rc<Morphism>),
-    Concat(Rc<Equality>,Rc<Equality>),
+    Concat(Rc<Equality>, Rc<Equality>),
     Inv(Rc<Equality>),
-    Compose(Rc<Equality>,Rc<Equality>),
-    Assoc(Rc<Morphism>,Rc<Morphism>,Rc<Morphism>),
+    Compose(Rc<Equality>, Rc<Equality>),
+    Assoc(Rc<Morphism>, Rc<Morphism>, Rc<Morphism>),
     LeftId(Rc<Morphism>),
     RightId(Rc<Morphism>),
-    RAp(Rc<Equality>,Rc<Morphism>),
-    LAp(Rc<Morphism>,Rc<Equality>),
-    FunctId(Rc<Functor>,Rc<Object>),
-    FunctComp(Rc<Functor>,Rc<Morphism>,Rc<Morphism>),
-    FunctCtx(Rc<Functor>,Rc<Equality>),
+    RAp(Rc<Equality>, Rc<Morphism>),
+    LAp(Rc<Morphism>, Rc<Equality>),
+    FunctId(Rc<Functor>, Rc<Object>),
+    FunctComp(Rc<Functor>, Rc<Morphism>, Rc<Morphism>),
+    FunctCtx(Rc<Functor>, Rc<Equality>),
 }
 
 impl Equality {
@@ -239,123 +226,137 @@ impl Equality {
         use Equality::*;
         match self {
             Atomic(data) => data.category.clone(),
-            Hole(l,_) => l.cat(),
+            Hole(l, _) => l.cat(),
             Refl(m) => m.cat(),
-            Concat(eq1,_) => eq1.cat(),
+            Concat(eq1, _) => eq1.cat(),
             Inv(eq) => eq.cat(),
-            Compose(eq1,_) => eq1.cat(),
-            Assoc(m1,_,_) => m1.cat(),
+            Compose(eq1, _) => eq1.cat(),
+            Assoc(m1, _, _) => m1.cat(),
             LeftId(m) => m.cat(),
             RightId(m) => m.cat(),
-            RAp(_,m) => m.cat(),
-            LAp(m,_) => m.cat(),
-            FunctId(f,_) => f.dst(),
-            FunctComp(f,_,_) => f.dst(),
-            FunctCtx(f,_) => f.dst(),
+            RAp(_, m) => m.cat(),
+            LAp(m, _) => m.cat(),
+            FunctId(f, _) => f.dst(),
+            FunctComp(f, _, _) => f.dst(),
+            FunctCtx(f, _) => f.dst(),
         }
     }
     pub fn src(&self) -> Rc<Object> {
         use Equality::*;
         match self {
             Atomic(data) => data.src.clone(),
-            Hole(l,_) => l.src(),
+            Hole(l, _) => l.src(),
             Refl(m) => m.src(),
-            Concat(eq1,_) => eq1.src(),
+            Concat(eq1, _) => eq1.src(),
             Inv(eq) => eq.src(),
-            Compose(eq1,_) => eq1.src(),
-            Assoc(m1,_,_) => m1.src(),
+            Compose(eq1, _) => eq1.src(),
+            Assoc(m1, _, _) => m1.src(),
             LeftId(m) => m.src(),
             RightId(m) => m.src(),
-            RAp(eq,_) => eq.src(),
-            LAp(m,_) => m.src(),
-            FunctId(f,o) => Rc::new(Object::Funct(f.clone(),o.clone())),
-            FunctComp(f,m1,_) => Rc::new(Object::Funct(f.clone(),m1.src())),
-            FunctCtx(f,eq) => Rc::new(Object::Funct(f.clone(),eq.src())),
+            RAp(eq, _) => eq.src(),
+            LAp(m, _) => m.src(),
+            FunctId(f, o) => Rc::new(Object::Funct(f.clone(), o.clone())),
+            FunctComp(f, m1, _) => Rc::new(Object::Funct(f.clone(), m1.src())),
+            FunctCtx(f, eq) => Rc::new(Object::Funct(f.clone(), eq.src())),
         }
     }
     pub fn dst(&self) -> Rc<Object> {
         use Equality::*;
         match self {
             Atomic(data) => data.dst.clone(),
-            Hole(l,_) => l.dst(),
+            Hole(l, _) => l.dst(),
             Refl(m) => m.dst(),
-            Concat(eq1,_) => eq1.dst(),
+            Concat(eq1, _) => eq1.dst(),
             Inv(eq) => eq.dst(),
-            Compose(_,eq2) => eq2.dst(),
-            Assoc(_,_,m3) => m3.dst(),
+            Compose(_, eq2) => eq2.dst(),
+            Assoc(_, _, m3) => m3.dst(),
             LeftId(m) => m.dst(),
             RightId(m) => m.dst(),
-            RAp(_,m) => m.dst(),
-            LAp(_,eq) => eq.dst(),
-            FunctId(f,o) => Rc::new(Object::Funct(f.clone(),o.clone())),
-            FunctComp(f,_,m2) => Rc::new(Object::Funct(f.clone(),m2.dst())),
-            FunctCtx(f,eq) => Rc::new(Object::Funct(f.clone(),eq.dst())),
+            RAp(_, m) => m.dst(),
+            LAp(_, eq) => eq.dst(),
+            FunctId(f, o) => Rc::new(Object::Funct(f.clone(), o.clone())),
+            FunctComp(f, _, m2) => Rc::new(Object::Funct(f.clone(), m2.dst())),
+            FunctCtx(f, eq) => Rc::new(Object::Funct(f.clone(), eq.dst())),
         }
     }
     pub fn left(&self) -> Rc<Morphism> {
         use Equality::*;
         match self {
             Atomic(data) => data.left.clone(),
-            Hole(l,_) => l.clone(),
+            Hole(l, _) => l.clone(),
             Refl(m) => m.clone(),
-            Concat(eq1,_) => eq1.left(),
+            Concat(eq1, _) => eq1.left(),
             Inv(eq) => eq.right(),
-            Compose(eq1,eq2) => comp(&eq1.left(),&eq2.left()),
-            Assoc(m1,m2,m3) => comp(&comp(m1,m2),m3),
+            Compose(eq1, eq2) => comp(&eq1.left(), &eq2.left()),
+            Assoc(m1, m2, m3) => comp(&comp(m1, m2), m3),
             LeftId(m) => comp(&Rc::new(Morphism::Identity(m.src())), m),
             RightId(m) => comp(m, &Rc::new(Morphism::Identity(m.dst()))),
-            RAp(eq,m) => comp(&eq.left(),m),
-            LAp(m,eq) => comp(m, &eq.left()),
-            FunctId(f,o) => Rc::new(Morphism::Funct(f.clone(), Rc::new(Morphism::Identity(o.clone())))),
-            FunctComp(f,m1,m2) => Rc::new(Morphism::Funct(f.clone(), comp(m1,m2))),
-            FunctCtx(f,eq) => Rc::new(Morphism::Funct(f.clone(), eq.left())),
+            RAp(eq, m) => comp(&eq.left(), m),
+            LAp(m, eq) => comp(m, &eq.left()),
+            FunctId(f, o) => Rc::new(Morphism::Funct(
+                f.clone(),
+                Rc::new(Morphism::Identity(o.clone())),
+            )),
+            FunctComp(f, m1, m2) => Rc::new(Morphism::Funct(f.clone(), comp(m1, m2))),
+            FunctCtx(f, eq) => Rc::new(Morphism::Funct(f.clone(), eq.left())),
         }
     }
     pub fn right(&self) -> Rc<Morphism> {
         use Equality::*;
         match self {
             Atomic(data) => data.right.clone(),
-            Hole(_,r) => r.clone(),
+            Hole(_, r) => r.clone(),
             Refl(m) => m.clone(),
-            Concat(_,eq2) => eq2.right(),
+            Concat(_, eq2) => eq2.right(),
             Inv(eq) => eq.left(),
-            Compose(eq1,eq2) => comp(&eq1.right(),&eq2.right()),
-            Assoc(m1,m2,m3) => comp(m1,&comp(m2,m3)),
+            Compose(eq1, eq2) => comp(&eq1.right(), &eq2.right()),
+            Assoc(m1, m2, m3) => comp(m1, &comp(m2, m3)),
             LeftId(m) => m.clone(),
             RightId(m) => m.clone(),
-            RAp(eq,m) => comp(&eq.right(),m),
-            LAp(m,eq) => comp(m, &eq.right()),
-            FunctId(f,o) => Rc::new(Morphism::Identity(Rc::new(Object::Funct(f.clone(), o.clone())))),
-            FunctComp(f,m1,m2) => comp(&Rc::new(Morphism::Funct(f.clone(),m1.clone())),
-                                       &Rc::new(Morphism::Funct(f.clone(),m2.clone()))),
-            FunctCtx(f,eq) => Rc::new(Morphism::Funct(f.clone(), eq.right())),
+            RAp(eq, m) => comp(&eq.right(), m),
+            LAp(m, eq) => comp(m, &eq.right()),
+            FunctId(f, o) => Rc::new(Morphism::Identity(Rc::new(Object::Funct(
+                f.clone(),
+                o.clone(),
+            )))),
+            FunctComp(f, m1, m2) => comp(
+                &Rc::new(Morphism::Funct(f.clone(), m1.clone())),
+                &Rc::new(Morphism::Funct(f.clone(), m2.clone())),
+            ),
+            FunctCtx(f, eq) => Rc::new(Morphism::Funct(f.clone(), eq.right())),
         }
     }
     pub fn check(&self) -> bool {
         use Equality::*;
         match self {
-            Atomic(data) =>
+            Atomic(data) => {
                 data.category.check()
-                && data.src.check() && data.dst.check() 
-                && data.left.check() && data.right.check(),
-            Hole(l,r) => l.check() && r.check() && l.src() == r.src() && l.dst() == r.dst(),
+                    && data.src.check()
+                    && data.dst.check()
+                    && data.left.check()
+                    && data.right.check()
+            }
+            Hole(l, r) => l.check() && r.check() && l.src() == r.src() && l.dst() == r.dst(),
             Refl(m) => m.check(),
-            Concat(eq1,eq2) => eq1.check() && eq2.check() && eq1.right() == eq2.left(),
+            Concat(eq1, eq2) => eq1.check() && eq2.check() && eq1.right() == eq2.left(),
             Inv(eq) => eq.check(),
-            Compose(eq1,eq2) => eq1.check() && eq2.check() && eq1.dst() == eq2.src(),
-            Assoc(m1,m2,m3) =>
-                m1.check() && m2.check() && m3.check()
-                && m1.dst() == m2.src() && m2.dst() == m3.src(),
+            Compose(eq1, eq2) => eq1.check() && eq2.check() && eq1.dst() == eq2.src(),
+            Assoc(m1, m2, m3) => {
+                m1.check()
+                    && m2.check()
+                    && m3.check()
+                    && m1.dst() == m2.src()
+                    && m2.dst() == m3.src()
+            }
             LeftId(m) => m.check(),
             RightId(m) => m.check(),
-            RAp(eq,m) => eq.check() && m.check() && eq.dst() == m.src(),
-            LAp(m,eq) => m.check() && eq.check() && m.dst() == eq.src(),
-            FunctId(f,o) => f.check() && o.check() && f.src() == o.cat(),
-            FunctComp(f,m1,m2) =>
-                f.check() && m1.check() && m2.check()
-                && f.src() == m1.cat() && m1.dst() == m2.src(),
-            FunctCtx(f,eq) => f.check() && eq.check() && f.src() == eq.cat(),
+            RAp(eq, m) => eq.check() && m.check() && eq.dst() == m.src(),
+            LAp(m, eq) => m.check() && eq.check() && m.dst() == eq.src(),
+            FunctId(f, o) => f.check() && o.check() && f.src() == o.cat(),
+            FunctComp(f, m1, m2) => {
+                f.check() && m1.check() && m2.check() && f.src() == m1.cat() && m1.dst() == m2.src()
+            }
+            FunctCtx(f, eq) => f.check() && eq.check() && f.src() == eq.cat(),
         }
     }
 }
-
