@@ -40,14 +40,19 @@
         inherit (pkgs)
           cargo
           rustc
+          rust-analyzer
+          rustfmt
           ;
       };
+    };
+    shell = pkgs.mkShell {
+      inputsFrom = [ shell-coq shell-engine ];
     };
   in {
     devShells.x86_64-linux = {
       coq-plugin = shell-coq;
       engine = shell-engine;
-      default = shell-coq;
+      default = shell;
     };
     packages.x86_64-linux = {
       commutative-diagrams = pkg;
