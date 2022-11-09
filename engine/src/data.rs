@@ -1,10 +1,11 @@
+use either::Either;
 use std::cmp::Ordering;
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProofObject {
     pub id: u32,
-    pub printed: String,
+    pub printed: Rc<String>,
 }
 impl PartialEq for ProofObject {
     #[inline]
@@ -33,9 +34,9 @@ impl Ord for ProofObject {
 //  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
 //                     |___/
 // Categories
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct CategoryData {
-    pobj: ProofObject,
+    pub pobj: Either<ProofObject, u64>,
 }
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Category {
@@ -55,11 +56,11 @@ impl Category {
 // |_|   \__,_|_| |_|\___|\__\___/|_|  |___/
 //
 // Functors
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct FunctorData {
-    pobj: ProofObject,
-    src: Rc<Category>,
-    dst: Rc<Category>,
+    pub pobj: Either<ProofObject, u64>,
+    pub src: Rc<Category>,
+    pub dst: Rc<Category>,
 }
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Functor {
@@ -94,10 +95,10 @@ impl Functor {
 //  \___/|_.__// |\___|\___|\__|___/
 //           |__/
 // Objects
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ObjectData {
-    pobj: ProofObject,
-    category: Rc<Category>,
+    pub pobj: Either<ProofObject, u64>,
+    pub category: Rc<Category>,
 }
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Object {
@@ -130,12 +131,12 @@ impl Object {
 //                   |_|
 // Morphisms
 // TODO isomorphisms
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct MorphismData {
-    pobj: ProofObject,
-    category: Rc<Category>,
-    src: Rc<Object>,
-    dst: Rc<Object>,
+    pub pobj: Either<ProofObject, u64>,
+    pub category: Rc<Category>,
+    pub src: Rc<Object>,
+    pub dst: Rc<Object>,
 }
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Morphism {
@@ -194,14 +195,14 @@ impl Morphism {
 // |_____\__, |\__,_|\__,_|_|_|\__|_|\___||___/
 //          |_|
 // Equalities
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct EqualityData {
-    pobj: ProofObject,
-    category: Rc<Category>,
-    src: Rc<Object>,
-    dst: Rc<Object>,
-    left: Rc<Morphism>,
-    right: Rc<Morphism>,
+    pub pobj: Either<ProofObject, u64>,
+    pub category: Rc<Category>,
+    pub src: Rc<Object>,
+    pub dst: Rc<Object>,
+    pub left: Rc<Morphism>,
+    pub right: Rc<Morphism>,
 }
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Equality {
