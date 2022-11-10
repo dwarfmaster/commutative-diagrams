@@ -1,30 +1,58 @@
-use either::Either;
 use std::cmp::Ordering;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-pub struct ProofObject {
-    pub id: u32,
-    pub printed: Rc<String>,
+pub enum ProofObject {
+    Term(u64, Rc<String>),
+    Existential(u64),
+}
+impl ProofObject {
+    fn cmp_impl(&self, other: &ProofObject) -> Ordering {
+        use ProofObject::*;
+        match (self, other) {
+            (Term(id1, _), Term(id2, _)) => id1.cmp(id2),
+            (Existential(e1), Existential(e2)) => e1.cmp(e2),
+            (Term(_, _), Existential(_)) => Ordering::Less,
+            (Existential(_), Term(_, _)) => Ordering::Greater,
+        }
+    }
 }
 impl PartialEq for ProofObject {
     #[inline]
     fn eq(&self, other: &ProofObject) -> bool {
-        self.id.eq(&other.id)
+        use ProofObject::*;
+        match (self, other) {
+            (Term(id1, _), Term(id2, _)) => id1.eq(id2),
+            (Existential(e1), Existential(e2)) => e1.eq(e2),
+            _ => false,
+        }
     }
 }
 impl Eq for ProofObject {}
 impl PartialOrd for ProofObject {
     #[inline]
     fn partial_cmp(&self, other: &ProofObject) -> Option<Ordering> {
-        Some(self.id.cmp(&other.id))
+        Some(self.cmp_impl(other))
     }
 }
 impl Ord for ProofObject {
     #[inline]
     fn cmp(&self, other: &ProofObject) -> Ordering {
-        self.id.cmp(&other.id)
+        self.cmp_impl(other)
     }
+}
+
+pub trait IsPOBacked {
+    fn pobj(&self) -> ProofObject;
+}
+macro_rules! derive_pobacked {
+    ($t:ty) => {
+        impl IsPOBacked for $t {
+            fn pobj(&self) -> ProofObject {
+                self.pobj.clone()
+            }
+        }
+    };
 }
 
 //   ____      _                        _
@@ -36,8 +64,9 @@ impl Ord for ProofObject {
 // Categories
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct CategoryData {
-    pub pobj: Either<ProofObject, u64>,
+    pub pobj: ProofObject,
 }
+derive_pobacked!(CategoryData);
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Category {
     Atomic(CategoryData),
@@ -58,10 +87,11 @@ impl Category {
 // Functors
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct FunctorData {
-    pub pobj: Either<ProofObject, u64>,
+    pub pobj: ProofObject,
     pub src: Rc<Category>,
     pub dst: Rc<Category>,
 }
+derive_pobacked!(FunctorData);
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Functor {
     Atomic(FunctorData),
@@ -97,9 +127,10 @@ impl Functor {
 // Objects
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ObjectData {
-    pub pobj: Either<ProofObject, u64>,
+    pub pobj: ProofObject,
     pub category: Rc<Category>,
 }
+derive_pobacked!(ObjectData);
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Object {
     Atomic(ObjectData),
@@ -133,11 +164,12 @@ impl Object {
 // TODO isomorphisms
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct MorphismData {
-    pub pobj: Either<ProofObject, u64>,
+    pub pobj: ProofObject,
     pub category: Rc<Category>,
     pub src: Rc<Object>,
     pub dst: Rc<Object>,
 }
+derive_pobacked!(MorphismData);
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Morphism {
     Atomic(MorphismData),
@@ -197,13 +229,14 @@ impl Morphism {
 // Equalities
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct EqualityData {
-    pub pobj: Either<ProofObject, u64>,
+    pub pobj: ProofObject,
     pub category: Rc<Category>,
     pub src: Rc<Object>,
     pub dst: Rc<Object>,
     pub left: Rc<Morphism>,
     pub right: Rc<Morphism>,
 }
+derive_pobacked!(EqualityData);
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Equality {
     Atomic(EqualityData),

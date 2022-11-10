@@ -1,5 +1,5 @@
+use crate::data::ProofObject::{Existential, Term};
 use crate::data::{Category, Functor, Morphism, Object};
-use either::Either::{Left, Right};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -18,6 +18,15 @@ impl Substitution {
             && self.objects.iter().all(|(_, o)| o.check())
             && self.morphisms.iter().all(|(_, m)| m.check())
     }
+
+    pub fn new() -> Substitution {
+        Substitution {
+            categories: HashMap::new(),
+            functors: HashMap::new(),
+            objects: HashMap::new(),
+            morphisms: HashMap::new(),
+        }
+    }
 }
 
 impl Category {
@@ -25,8 +34,8 @@ impl Category {
         use Category::*;
         match self {
             Atomic(data) => match data.pobj {
-                Left(_) => Rc::new(Atomic(data.clone())),
-                Right(e) => sigma
+                Term(_, _) => Rc::new(Atomic(data.clone())),
+                Existential(e) => sigma
                     .categories
                     .get(&e)
                     .unwrap_or(&Rc::new(Atomic(data.clone())))
@@ -54,8 +63,8 @@ impl Functor {
                     dst: data.dst.subst_impl(sigma),
                 }));
                 match data.pobj {
-                    Left(_) => old,
-                    Right(e) => {
+                    Term(_, _) => old,
+                    Existential(e) => {
                         let res = sigma.functors.get(&e).unwrap_or(&old).clone();
                         assert!(
                             res.src() == old.src(),
@@ -90,8 +99,8 @@ impl Object {
                     category: data.category.subst_impl(sigma),
                 }));
                 match data.pobj {
-                    Left(_) => old,
-                    Right(e) => {
+                    Term(_, _) => old,
+                    Existential(e) => {
                         let res = sigma.objects.get(&e).unwrap_or(&old).clone();
                         assert!(
                             res.cat() == old.cat(),
@@ -125,8 +134,8 @@ impl Morphism {
                     dst: data.dst.subst_impl(sigma),
                 }));
                 match data.pobj {
-                    Left(_) => old,
-                    Right(e) => {
+                    Term(_, _) => old,
+                    Existential(e) => {
                         let res = sigma.morphisms.get(&e).unwrap_or(&old).clone();
                         assert!(
                             res.cat() == old.cat(),
