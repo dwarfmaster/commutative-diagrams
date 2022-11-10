@@ -1,45 +1,17 @@
-use std::cmp::Ordering;
-use std::rc::Rc;
+use hashconsing::{HConsed, HConsign, HashConsign};
+use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+//  ____                   __    ___  _     _           _
+// |  _ \ _ __ ___   ___  / _|  / _ \| |__ (_) ___  ___| |_
+// | |_) | '__/ _ \ / _ \| |_  | | | | '_ \| |/ _ \/ __| __|
+// |  __/| | | (_) | (_) |  _| | |_| | |_) | |  __/ (__| |_
+// |_|   |_|  \___/ \___/|_|    \___/|_.__// |\___|\___|\__|
+//                                       |__/
+// Proof Object
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProofObject {
-    Term(u64, Rc<String>),
+    Term(u64),
     Existential(u64),
-}
-impl ProofObject {
-    fn cmp_impl(&self, other: &ProofObject) -> Ordering {
-        use ProofObject::*;
-        match (self, other) {
-            (Term(id1, _), Term(id2, _)) => id1.cmp(id2),
-            (Existential(e1), Existential(e2)) => e1.cmp(e2),
-            (Term(_, _), Existential(_)) => Ordering::Less,
-            (Existential(_), Term(_, _)) => Ordering::Greater,
-        }
-    }
-}
-impl PartialEq for ProofObject {
-    #[inline]
-    fn eq(&self, other: &ProofObject) -> bool {
-        use ProofObject::*;
-        match (self, other) {
-            (Term(id1, _), Term(id2, _)) => id1.eq(id2),
-            (Existential(e1), Existential(e2)) => e1.eq(e2),
-            _ => false,
-        }
-    }
-}
-impl Eq for ProofObject {}
-impl PartialOrd for ProofObject {
-    #[inline]
-    fn partial_cmp(&self, other: &ProofObject) -> Option<Ordering> {
-        Some(self.cmp_impl(other))
-    }
-}
-impl Ord for ProofObject {
-    #[inline]
-    fn cmp(&self, other: &ProofObject) -> Ordering {
-        self.cmp_impl(other)
-    }
 }
 
 pub trait IsPOBacked {
@@ -62,18 +34,19 @@ macro_rules! derive_pobacked {
 //  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
 //                     |___/
 // Categories
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CategoryData {
     pub pobj: ProofObject,
 }
 derive_pobacked!(CategoryData);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Category {
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ActualCategory {
     Atomic(CategoryData),
 }
+pub type Category = HConsed<ActualCategory>;
 
-impl Category {
-    pub fn check(&self) -> bool {
+impl ActualCategory {
+    pub fn check(&self, _ctx: &mut Context) -> bool {
         return true;
     }
 }
@@ -85,35 +58,36 @@ impl Category {
 // |_|   \__,_|_| |_|\___|\__\___/|_|  |___/
 //
 // Functors
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FunctorData {
     pub pobj: ProofObject,
-    pub src: Rc<Category>,
-    pub dst: Rc<Category>,
+    pub src: Category,
+    pub dst: Category,
 }
 derive_pobacked!(FunctorData);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Functor {
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ActualFunctor {
     Atomic(FunctorData),
 }
+pub type Functor = HConsed<ActualFunctor>;
 
-impl Functor {
-    pub fn src(&self) -> Rc<Category> {
-        use Functor::*;
+impl ActualFunctor {
+    pub fn src(&self, _ctx: &mut Context) -> Category {
+        use ActualFunctor::*;
         match self {
             Atomic(data) => data.src.clone(),
         }
     }
-    pub fn dst(&self) -> Rc<Category> {
-        use Functor::*;
+    pub fn dst(&self, _ctx: &mut Context) -> Category {
+        use ActualFunctor::*;
         match self {
             Atomic(data) => data.dst.clone(),
         }
     }
-    pub fn check(&self) -> bool {
-        use Functor::*;
+    pub fn check(&self, ctx: &mut Context) -> bool {
+        use ActualFunctor::*;
         match self {
-            Atomic(data) => data.src.check() && data.dst.check(),
+            Atomic(data) => data.src.check(ctx) && data.dst.check(ctx),
         }
     }
 }
@@ -125,31 +99,34 @@ impl Functor {
 //  \___/|_.__// |\___|\___|\__|___/
 //           |__/
 // Objects
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectData {
     pub pobj: ProofObject,
-    pub category: Rc<Category>,
+    pub category: Category,
 }
 derive_pobacked!(ObjectData);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Object {
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ActualObject {
     Atomic(ObjectData),
-    Funct(Rc<Functor>, Rc<Object>),
+    Funct(Functor, Object),
 }
+pub type Object = HConsed<ActualObject>;
 
-impl Object {
-    pub fn cat(&self) -> Rc<Category> {
-        use Object::*;
+impl ActualObject {
+    pub fn cat(&self, ctx: &mut Context) -> Category {
+        use ActualObject::*;
         match self {
             Atomic(data) => data.category.clone(),
-            Funct(funct, _) => funct.dst(),
+            Funct(funct, _) => funct.dst(ctx),
         }
     }
-    pub fn check(&self) -> bool {
-        use Object::*;
+    pub fn check(&self, ctx: &mut Context) -> bool {
+        use ActualObject::*;
         match self {
-            Atomic(data) => data.category.check(),
-            Funct(funct, obj) => funct.check() && obj.check() && funct.src() == obj.cat(),
+            Atomic(data) => data.category.check(ctx),
+            Funct(funct, obj) => {
+                funct.check(ctx) && obj.check(ctx) && funct.src(ctx) == obj.cat(ctx)
+            }
         }
     }
 }
@@ -162,60 +139,64 @@ impl Object {
 //                   |_|
 // Morphisms
 // TODO isomorphisms
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MorphismData {
     pub pobj: ProofObject,
-    pub category: Rc<Category>,
-    pub src: Rc<Object>,
-    pub dst: Rc<Object>,
+    pub category: Category,
+    pub src: Object,
+    pub dst: Object,
 }
 derive_pobacked!(MorphismData);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Morphism {
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ActualMorphism {
     Atomic(MorphismData),
-    Identity(Rc<Object>),
-    Comp(Rc<Morphism>, Rc<Morphism>), // Comp(m1,m2) is m2 o m1
-    Funct(Rc<Functor>, Rc<Morphism>),
+    Identity(Object),
+    Comp(Morphism, Morphism), // Comp(m1,m2) is m2 o m1
+    Funct(Functor, Morphism),
 }
-fn comp(m1: &Rc<Morphism>, m2: &Rc<Morphism>) -> Rc<Morphism> {
-    Rc::new(Morphism::Comp(m1.clone(), m2.clone()))
-}
+pub type Morphism = HConsed<ActualMorphism>;
 
-impl Morphism {
-    pub fn cat(&self) -> Rc<Category> {
-        use Morphism::*;
+impl ActualMorphism {
+    pub fn cat(&self, ctx: &mut Context) -> Category {
+        use ActualMorphism::*;
         match self {
             Atomic(data) => data.category.clone(),
-            Identity(obj) => obj.cat(),
-            Comp(m1, _) => m1.cat(),
-            Funct(f, _) => f.dst(),
+            Identity(obj) => obj.cat(ctx),
+            Comp(m1, _) => m1.cat(ctx),
+            Funct(f, _) => f.dst(ctx),
         }
     }
-    pub fn src(&self) -> Rc<Object> {
-        use Morphism::*;
+    pub fn src(&self, ctx: &mut Context) -> Object {
+        use ActualMorphism::*;
         match self {
             Atomic(data) => data.src.clone(),
             Identity(obj) => obj.clone(),
-            Comp(m1, _) => m1.src(),
-            Funct(f, m) => Rc::new(Object::Funct(f.clone(), m.src())),
+            Comp(m1, _) => m1.src(ctx),
+            Funct(f, m) => {
+                let src = m.src(ctx);
+                ctx.fobj(f.clone(), src)
+            }
         }
     }
-    pub fn dst(&self) -> Rc<Object> {
-        use Morphism::*;
+    pub fn dst(&self, ctx: &mut Context) -> Object {
+        use ActualMorphism::*;
         match self {
             Atomic(data) => data.dst.clone(),
             Identity(obj) => obj.clone(),
-            Comp(_, m2) => m2.dst(),
-            Funct(f, m) => Rc::new(Object::Funct(f.clone(), m.dst())),
+            Comp(_, m2) => m2.dst(ctx),
+            Funct(f, m) => {
+                let dst = m.dst(ctx);
+                ctx.fobj(f.clone(), dst)
+            }
         }
     }
-    pub fn check(&self) -> bool {
-        use Morphism::*;
+    pub fn check(&self, ctx: &mut Context) -> bool {
+        use ActualMorphism::*;
         match self {
-            Atomic(data) => data.category.check() && data.src.check() && data.dst.check(),
-            Identity(obj) => obj.check(),
-            Comp(m1, m2) => m1.check() && m2.check() && m1.dst() == m2.src(),
-            Funct(f, m) => f.check() && m.check() && f.src() == m.cat(),
+            Atomic(data) => data.category.check(ctx) && data.src.check(ctx) && data.dst.check(ctx),
+            Identity(obj) => obj.check(ctx),
+            Comp(m1, m2) => m1.check(ctx) && m2.check(ctx) && m1.dst(ctx) == m2.src(ctx),
+            Funct(f, m) => f.check(ctx) && m.check(ctx) && f.src(ctx) == m.cat(ctx),
         }
     }
 }
@@ -227,170 +208,320 @@ impl Morphism {
 // |_____\__, |\__,_|\__,_|_|_|\__|_|\___||___/
 //          |_|
 // Equalities
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EqualityData {
     pub pobj: ProofObject,
-    pub category: Rc<Category>,
-    pub src: Rc<Object>,
-    pub dst: Rc<Object>,
-    pub left: Rc<Morphism>,
-    pub right: Rc<Morphism>,
+    pub category: Category,
+    pub src: Object,
+    pub dst: Object,
+    pub left: Morphism,
+    pub right: Morphism,
 }
 derive_pobacked!(EqualityData);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Equality {
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ActualEquality {
     Atomic(EqualityData),
-    Hole(Rc<Morphism>, Rc<Morphism>),
-    Refl(Rc<Morphism>),
-    Concat(Rc<Equality>, Rc<Equality>),
-    Inv(Rc<Equality>),
-    Compose(Rc<Equality>, Rc<Equality>),
-    Assoc(Rc<Morphism>, Rc<Morphism>, Rc<Morphism>),
-    LeftId(Rc<Morphism>),
-    RightId(Rc<Morphism>),
-    RAp(Rc<Equality>, Rc<Morphism>),
-    LAp(Rc<Morphism>, Rc<Equality>),
-    FunctId(Rc<Functor>, Rc<Object>),
-    FunctComp(Rc<Functor>, Rc<Morphism>, Rc<Morphism>),
-    FunctCtx(Rc<Functor>, Rc<Equality>),
+    Hole(Morphism, Morphism),
+    Refl(Morphism),
+    Concat(Equality, Equality),
+    Inv(Equality),
+    Compose(Equality, Equality),
+    Assoc(Morphism, Morphism, Morphism),
+    LeftId(Morphism),
+    RightId(Morphism),
+    RAp(Equality, Morphism),
+    LAp(Morphism, Equality),
+    FunctId(Functor, Object),
+    FunctComp(Functor, Morphism, Morphism),
+    FunctCtx(Functor, Equality),
 }
+pub type Equality = HConsed<ActualEquality>;
 
-impl Equality {
-    pub fn cat(&self) -> Rc<Category> {
-        use Equality::*;
+impl ActualEquality {
+    pub fn cat(&self, ctx: &mut Context) -> Category {
+        use ActualEquality::*;
         match self {
             Atomic(data) => data.category.clone(),
-            Hole(l, _) => l.cat(),
-            Refl(m) => m.cat(),
-            Concat(eq1, _) => eq1.cat(),
-            Inv(eq) => eq.cat(),
-            Compose(eq1, _) => eq1.cat(),
-            Assoc(m1, _, _) => m1.cat(),
-            LeftId(m) => m.cat(),
-            RightId(m) => m.cat(),
-            RAp(_, m) => m.cat(),
-            LAp(m, _) => m.cat(),
-            FunctId(f, _) => f.dst(),
-            FunctComp(f, _, _) => f.dst(),
-            FunctCtx(f, _) => f.dst(),
+            Hole(l, _) => l.cat(ctx),
+            Refl(m) => m.cat(ctx),
+            Concat(eq1, _) => eq1.cat(ctx),
+            Inv(eq) => eq.cat(ctx),
+            Compose(eq1, _) => eq1.cat(ctx),
+            Assoc(m1, _, _) => m1.cat(ctx),
+            LeftId(m) => m.cat(ctx),
+            RightId(m) => m.cat(ctx),
+            RAp(_, m) => m.cat(ctx),
+            LAp(m, _) => m.cat(ctx),
+            FunctId(f, _) => f.dst(ctx),
+            FunctComp(f, _, _) => f.dst(ctx),
+            FunctCtx(f, _) => f.dst(ctx),
         }
     }
-    pub fn src(&self) -> Rc<Object> {
-        use Equality::*;
+    pub fn src(&self, ctx: &mut Context) -> Object {
+        use ActualEquality::*;
         match self {
             Atomic(data) => data.src.clone(),
-            Hole(l, _) => l.src(),
-            Refl(m) => m.src(),
-            Concat(eq1, _) => eq1.src(),
-            Inv(eq) => eq.src(),
-            Compose(eq1, _) => eq1.src(),
-            Assoc(m1, _, _) => m1.src(),
-            LeftId(m) => m.src(),
-            RightId(m) => m.src(),
-            RAp(eq, _) => eq.src(),
-            LAp(m, _) => m.src(),
-            FunctId(f, o) => Rc::new(Object::Funct(f.clone(), o.clone())),
-            FunctComp(f, m1, _) => Rc::new(Object::Funct(f.clone(), m1.src())),
-            FunctCtx(f, eq) => Rc::new(Object::Funct(f.clone(), eq.src())),
+            Hole(l, _) => l.src(ctx),
+            Refl(m) => m.src(ctx),
+            Concat(eq1, _) => eq1.src(ctx),
+            Inv(eq) => eq.src(ctx),
+            Compose(eq1, _) => eq1.src(ctx),
+            Assoc(m1, _, _) => m1.src(ctx),
+            LeftId(m) => m.src(ctx),
+            RightId(m) => m.src(ctx),
+            RAp(eq, _) => eq.src(ctx),
+            LAp(m, _) => m.src(ctx),
+            FunctId(f, o) => ctx.fobj(f.clone(), o.clone()),
+            FunctComp(f, m1, _) => {
+                let src = m1.src(ctx);
+                ctx.fobj(f.clone(), src)
+            }
+            FunctCtx(f, eq) => {
+                let src = eq.src(ctx);
+                ctx.fobj(f.clone(), src)
+            }
         }
     }
-    pub fn dst(&self) -> Rc<Object> {
-        use Equality::*;
+    pub fn dst(&self, ctx: &mut Context) -> Object {
+        use ActualEquality::*;
         match self {
             Atomic(data) => data.dst.clone(),
-            Hole(l, _) => l.dst(),
-            Refl(m) => m.dst(),
-            Concat(eq1, _) => eq1.dst(),
-            Inv(eq) => eq.dst(),
-            Compose(_, eq2) => eq2.dst(),
-            Assoc(_, _, m3) => m3.dst(),
-            LeftId(m) => m.dst(),
-            RightId(m) => m.dst(),
-            RAp(_, m) => m.dst(),
-            LAp(_, eq) => eq.dst(),
-            FunctId(f, o) => Rc::new(Object::Funct(f.clone(), o.clone())),
-            FunctComp(f, _, m2) => Rc::new(Object::Funct(f.clone(), m2.dst())),
-            FunctCtx(f, eq) => Rc::new(Object::Funct(f.clone(), eq.dst())),
+            Hole(l, _) => l.dst(ctx),
+            Refl(m) => m.dst(ctx),
+            Concat(eq1, _) => eq1.dst(ctx),
+            Inv(eq) => eq.dst(ctx),
+            Compose(_, eq2) => eq2.dst(ctx),
+            Assoc(_, _, m3) => m3.dst(ctx),
+            LeftId(m) => m.dst(ctx),
+            RightId(m) => m.dst(ctx),
+            RAp(_, m) => m.dst(ctx),
+            LAp(_, eq) => eq.dst(ctx),
+            FunctId(f, o) => ctx.fobj(f.clone(), o.clone()),
+            FunctComp(f, _, m2) => {
+                let dst = m2.dst(ctx);
+                ctx.fobj(f.clone(), dst)
+            }
+            FunctCtx(f, eq) => {
+                let dst = eq.dst(ctx);
+                ctx.fobj(f.clone(), dst)
+            }
         }
     }
-    pub fn left(&self) -> Rc<Morphism> {
-        use Equality::*;
+    pub fn left(&self, ctx: &mut Context) -> Morphism {
+        use ActualEquality::*;
         match self {
             Atomic(data) => data.left.clone(),
             Hole(l, _) => l.clone(),
             Refl(m) => m.clone(),
-            Concat(eq1, _) => eq1.left(),
-            Inv(eq) => eq.right(),
-            Compose(eq1, eq2) => comp(&eq1.left(), &eq2.left()),
-            Assoc(m1, m2, m3) => comp(&comp(m1, m2), m3),
-            LeftId(m) => comp(&Rc::new(Morphism::Identity(m.src())), m),
-            RightId(m) => comp(m, &Rc::new(Morphism::Identity(m.dst()))),
-            RAp(eq, m) => comp(&eq.left(), m),
-            LAp(m, eq) => comp(m, &eq.left()),
-            FunctId(f, o) => Rc::new(Morphism::Funct(
-                f.clone(),
-                Rc::new(Morphism::Identity(o.clone())),
-            )),
-            FunctComp(f, m1, m2) => Rc::new(Morphism::Funct(f.clone(), comp(m1, m2))),
-            FunctCtx(f, eq) => Rc::new(Morphism::Funct(f.clone(), eq.left())),
+            Concat(eq1, _) => eq1.left(ctx),
+            Inv(eq) => eq.right(ctx),
+            Compose(eq1, eq2) => {
+                let l1 = eq1.left(ctx);
+                let l2 = eq2.left(ctx);
+                ctx.comp(l1, l2)
+            }
+            Assoc(m1, m2, m3) => {
+                let cmp = ctx.comp(m1.clone(), m2.clone());
+                ctx.comp(cmp, m3.clone())
+            }
+            LeftId(m) => {
+                let src = m.src(ctx);
+                let id = ctx.id(src);
+                ctx.comp(id, m.clone())
+            }
+            RightId(m) => {
+                let dst = m.dst(ctx);
+                let id = ctx.id(dst);
+                ctx.comp(m.clone(), id)
+            }
+            RAp(eq, m) => {
+                let l = eq.left(ctx);
+                ctx.comp(l, m.clone())
+            }
+            LAp(m, eq) => {
+                let l = eq.left(ctx);
+                ctx.comp(m.clone(), l)
+            }
+            FunctId(f, o) => {
+                let id = ctx.id(o.clone());
+                ctx.fmph(f.clone(), id)
+            }
+            FunctComp(f, m1, m2) => {
+                let cmp = ctx.comp(m1.clone(), m2.clone());
+                ctx.fmph(f.clone(), cmp)
+            }
+            FunctCtx(f, eq) => {
+                let l = eq.left(ctx);
+                ctx.fmph(f.clone(), l)
+            }
         }
     }
-    pub fn right(&self) -> Rc<Morphism> {
-        use Equality::*;
+    pub fn right(&self, ctx: &mut Context) -> Morphism {
+        use ActualEquality::*;
         match self {
             Atomic(data) => data.right.clone(),
             Hole(_, r) => r.clone(),
             Refl(m) => m.clone(),
-            Concat(_, eq2) => eq2.right(),
-            Inv(eq) => eq.left(),
-            Compose(eq1, eq2) => comp(&eq1.right(), &eq2.right()),
-            Assoc(m1, m2, m3) => comp(m1, &comp(m2, m3)),
+            Concat(_, eq2) => eq2.right(ctx),
+            Inv(eq) => eq.left(ctx),
+            Compose(eq1, eq2) => {
+                let r1 = eq1.right(ctx);
+                let r2 = eq2.right(ctx);
+                ctx.comp(r1, r2)
+            }
+            Assoc(m1, m2, m3) => {
+                let cmp = ctx.comp(m2.clone(), m3.clone());
+                ctx.comp(m1.clone(), cmp)
+            }
             LeftId(m) => m.clone(),
             RightId(m) => m.clone(),
-            RAp(eq, m) => comp(&eq.right(), m),
-            LAp(m, eq) => comp(m, &eq.right()),
-            FunctId(f, o) => Rc::new(Morphism::Identity(Rc::new(Object::Funct(
-                f.clone(),
-                o.clone(),
-            )))),
-            FunctComp(f, m1, m2) => comp(
-                &Rc::new(Morphism::Funct(f.clone(), m1.clone())),
-                &Rc::new(Morphism::Funct(f.clone(), m2.clone())),
-            ),
-            FunctCtx(f, eq) => Rc::new(Morphism::Funct(f.clone(), eq.right())),
+            RAp(eq, m) => {
+                let r = eq.right(ctx);
+                ctx.comp(r, m.clone())
+            }
+            LAp(m, eq) => {
+                let r = eq.right(ctx);
+                ctx.comp(m.clone(), r)
+            }
+            FunctId(f, o) => {
+                let o = ctx.fobj(f.clone(), o.clone());
+                ctx.id(o)
+            }
+            FunctComp(f, m1, m2) => {
+                let f1 = ctx.fmph(f.clone(), m1.clone());
+                let f2 = ctx.fmph(f.clone(), m2.clone());
+                ctx.comp(f1, f2)
+            }
+            FunctCtx(f, eq) => {
+                let r = eq.right(ctx);
+                ctx.fmph(f.clone(), r)
+            }
         }
     }
-    pub fn check(&self) -> bool {
-        use Equality::*;
+    pub fn check(&self, ctx: &mut Context) -> bool {
+        use ActualEquality::*;
         match self {
             Atomic(data) => {
-                data.category.check()
-                    && data.src.check()
-                    && data.dst.check()
-                    && data.left.check()
-                    && data.right.check()
+                data.category.check(ctx)
+                    && data.src.check(ctx)
+                    && data.dst.check(ctx)
+                    && data.left.check(ctx)
+                    && data.right.check(ctx)
             }
-            Hole(l, r) => l.check() && r.check() && l.src() == r.src() && l.dst() == r.dst(),
-            Refl(m) => m.check(),
-            Concat(eq1, eq2) => eq1.check() && eq2.check() && eq1.right() == eq2.left(),
-            Inv(eq) => eq.check(),
-            Compose(eq1, eq2) => eq1.check() && eq2.check() && eq1.dst() == eq2.src(),
+            Hole(l, r) => {
+                l.check(ctx) && r.check(ctx) && l.src(ctx) == r.src(ctx) && l.dst(ctx) == r.dst(ctx)
+            }
+            Refl(m) => m.check(ctx),
+            Concat(eq1, eq2) => eq1.check(ctx) && eq2.check(ctx) && eq1.right(ctx) == eq2.left(ctx),
+            Inv(eq) => eq.check(ctx),
+            Compose(eq1, eq2) => eq1.check(ctx) && eq2.check(ctx) && eq1.dst(ctx) == eq2.src(ctx),
             Assoc(m1, m2, m3) => {
-                m1.check()
-                    && m2.check()
-                    && m3.check()
-                    && m1.dst() == m2.src()
-                    && m2.dst() == m3.src()
+                m1.check(ctx)
+                    && m2.check(ctx)
+                    && m3.check(ctx)
+                    && m1.dst(ctx) == m2.src(ctx)
+                    && m2.dst(ctx) == m3.src(ctx)
             }
-            LeftId(m) => m.check(),
-            RightId(m) => m.check(),
-            RAp(eq, m) => eq.check() && m.check() && eq.dst() == m.src(),
-            LAp(m, eq) => m.check() && eq.check() && m.dst() == eq.src(),
-            FunctId(f, o) => f.check() && o.check() && f.src() == o.cat(),
+            LeftId(m) => m.check(ctx),
+            RightId(m) => m.check(ctx),
+            RAp(eq, m) => eq.check(ctx) && m.check(ctx) && eq.dst(ctx) == m.src(ctx),
+            LAp(m, eq) => m.check(ctx) && eq.check(ctx) && m.dst(ctx) == eq.src(ctx),
+            FunctId(f, o) => f.check(ctx) && o.check(ctx) && f.src(ctx) == o.cat(ctx),
             FunctComp(f, m1, m2) => {
-                f.check() && m1.check() && m2.check() && f.src() == m1.cat() && m1.dst() == m2.src()
+                f.check(ctx)
+                    && m1.check(ctx)
+                    && m2.check(ctx)
+                    && f.src(ctx) == m1.cat(ctx)
+                    && m1.dst(ctx) == m2.src(ctx)
             }
-            FunctCtx(f, eq) => f.check() && eq.check() && f.src() == eq.cat(),
+            FunctCtx(f, eq) => f.check(ctx) && eq.check(ctx) && f.src(ctx) == eq.cat(ctx),
         }
+    }
+}
+
+//   ____            _            _
+//  / ___|___  _ __ | |_ _____  _| |_
+// | |   / _ \| '_ \| __/ _ \ \/ / __|
+// | |__| (_) | | | | ||  __/>  <| |_
+//  \____\___/|_| |_|\__\___/_/\_\\__|
+//
+// Context
+/// Stores the context in which terms must be interpreted
+pub struct Context {
+    /// The names of the terms proofobjects
+    terms: HashMap<u64, String>,
+    cat_factory: HConsign<ActualCategory>,
+    funct_factory: HConsign<ActualFunctor>,
+    obj_factory: HConsign<ActualObject>,
+    mph_factory: HConsign<ActualMorphism>,
+    eq_factory: HConsign<ActualEquality>,
+}
+
+pub trait ContextMakable {
+    fn make(self, ctx: &mut Context) -> HConsed<Self>
+    where
+        Self: Sized;
+}
+impl ContextMakable for ActualCategory {
+    fn make(self, ctx: &mut Context) -> HConsed<Self> {
+        ctx.cat_factory.mk(self)
+    }
+}
+impl ContextMakable for ActualFunctor {
+    fn make(self, ctx: &mut Context) -> HConsed<Self> {
+        ctx.funct_factory.mk(self)
+    }
+}
+impl ContextMakable for ActualObject {
+    fn make(self, ctx: &mut Context) -> HConsed<Self> {
+        ctx.obj_factory.mk(self)
+    }
+}
+impl ContextMakable for ActualMorphism {
+    fn make(self, ctx: &mut Context) -> HConsed<Self> {
+        ctx.mph_factory.mk(self)
+    }
+}
+impl ContextMakable for ActualEquality {
+    fn make(self, ctx: &mut Context) -> HConsed<Self> {
+        ctx.eq_factory.mk(self)
+    }
+}
+
+impl Context {
+    pub fn new() -> Context {
+        Context {
+            terms: HashMap::new(),
+            cat_factory: HConsign::empty(),
+            funct_factory: HConsign::empty(),
+            obj_factory: HConsign::empty(),
+            mph_factory: HConsign::empty(),
+            eq_factory: HConsign::empty(),
+        }
+    }
+
+    pub fn term(&self, term: u64) -> Option<&str> {
+        self.terms.get(&term).map(|s| &s[..])
+    }
+
+    pub fn mk<T: ContextMakable>(&mut self, act: T) -> HConsed<T> {
+        act.make(self)
+    }
+
+    // Some Helper functions
+    pub fn comp(&mut self, m1: Morphism, m2: Morphism) -> Morphism {
+        self.mk(ActualMorphism::Comp(m1, m2))
+    }
+
+    pub fn id(&mut self, o: Object) -> Morphism {
+        self.mk(ActualMorphism::Identity(o))
+    }
+
+    pub fn fobj(&mut self, f: Functor, o: Object) -> Object {
+        self.mk(ActualObject::Funct(f, o))
+    }
+
+    pub fn fmph(&mut self, f: Functor, m: Morphism) -> Morphism {
+        self.mk(ActualMorphism::Funct(f, m))
     }
 }

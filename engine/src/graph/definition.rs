@@ -1,7 +1,4 @@
-use crate::data::Equality;
-use crate::data::Morphism;
-use crate::data::Object;
-use std::rc::Rc;
+use crate::data::{Context, Equality, Morphism, Object};
 use std::vec::Vec;
 
 /// A pair of two paths in a graph with the same start and end
@@ -15,8 +12,8 @@ pub struct Face {
 
 /// Adjacency list 2-graph of morphisms
 pub struct Graph {
-    pub nodes: Vec<Rc<Object>>,
-    pub edges: Vec<Vec<(usize, Rc<Morphism>)>>,
+    pub nodes: Vec<Object>,
+    pub edges: Vec<Vec<(usize, Morphism)>>,
     pub faces: Vec<Face>,
 }
 
@@ -33,7 +30,7 @@ impl Face {
         }
     }
 
-    pub fn check(&self, gr: &Graph) -> bool {
+    pub fn check(&self, ctx: &mut Context, gr: &Graph) -> bool {
         self.start < gr.nodes.len()
             && self.end < gr.nodes.len()
             && Face::check_path(&self.left, gr, self.start, 0)
@@ -42,19 +39,19 @@ impl Face {
             && Face::check_path(&self.right, gr, self.start, 0)
                 .map(|node| node == self.end)
                 .unwrap_or(false)
-            && self.eq.check()
+            && self.eq.check(ctx)
     }
 }
 
 impl Graph {
-    pub fn check(&self) -> bool {
+    pub fn check(&self, ctx: &mut Context) -> bool {
         self.nodes.len() == self.edges.len()
-            && self.nodes.iter().all(|o| o.check())
+            && self.nodes.iter().all(|o| o.check(ctx))
             && self.edges.iter().enumerate().all(|(start, out)| {
                 out.iter().all(|(next, mph)| {
-                    mph.src() == self.nodes[start] && mph.dst() == self.nodes[*next]
+                    mph.src(ctx) == self.nodes[start] && mph.dst(ctx) == self.nodes[*next]
                 })
             })
-            && self.faces.iter().all(|fce| fce.check(self))
+            && self.faces.iter().all(|fce| fce.check(ctx, self))
     }
 }

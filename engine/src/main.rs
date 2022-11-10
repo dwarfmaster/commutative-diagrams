@@ -1,20 +1,18 @@
 pub mod data;
 pub mod graph;
-pub mod substitution;
+// pub mod substitution;
+// pub mod unification;
 
-use std::rc::Rc;
 use std::vec::Vec;
 
 fn main() {
-    let po: data::ProofObject = data::ProofObject {
-        id: 1,
-        printed: Rc::new(String::from("Coucou")),
-    };
+    let mut ctx = data::Context::new();
+    let po: data::ProofObject = data::ProofObject::Term(1);
     let gr: graph::Graph = graph::Graph {
         nodes: Vec::new(),
         edges: Vec::new(),
         faces: Vec::new(),
     };
     println!("{:#?}", po);
-    println!("{}", gr.check());
+    println!("{}", gr.check(&mut ctx));
 }
