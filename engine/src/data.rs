@@ -221,7 +221,6 @@ derive_pobacked!(EqualityData);
 #[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ActualEquality {
     Atomic(EqualityData),
-    Hole(Morphism, Morphism),
     Refl(Morphism),
     Concat(Equality, Equality),
     Inv(Equality),
@@ -242,7 +241,6 @@ impl ActualEquality {
         use ActualEquality::*;
         match self {
             Atomic(data) => data.category.clone(),
-            Hole(l, _) => l.cat(ctx),
             Refl(m) => m.cat(ctx),
             Concat(eq1, _) => eq1.cat(ctx),
             Inv(eq) => eq.cat(ctx),
@@ -261,7 +259,6 @@ impl ActualEquality {
         use ActualEquality::*;
         match self {
             Atomic(data) => data.src.clone(),
-            Hole(l, _) => l.src(ctx),
             Refl(m) => m.src(ctx),
             Concat(eq1, _) => eq1.src(ctx),
             Inv(eq) => eq.src(ctx),
@@ -286,7 +283,6 @@ impl ActualEquality {
         use ActualEquality::*;
         match self {
             Atomic(data) => data.dst.clone(),
-            Hole(l, _) => l.dst(ctx),
             Refl(m) => m.dst(ctx),
             Concat(eq1, _) => eq1.dst(ctx),
             Inv(eq) => eq.dst(ctx),
@@ -311,7 +307,6 @@ impl ActualEquality {
         use ActualEquality::*;
         match self {
             Atomic(data) => data.left.clone(),
-            Hole(l, _) => l.clone(),
             Refl(m) => m.clone(),
             Concat(eq1, _) => eq1.left(ctx),
             Inv(eq) => eq.right(ctx),
@@ -360,7 +355,6 @@ impl ActualEquality {
         use ActualEquality::*;
         match self {
             Atomic(data) => data.right.clone(),
-            Hole(_, r) => r.clone(),
             Refl(m) => m.clone(),
             Concat(_, eq2) => eq2.right(ctx),
             Inv(eq) => eq.left(ctx),
@@ -407,9 +401,6 @@ impl ActualEquality {
                     && data.dst.check(ctx)
                     && data.left.check(ctx)
                     && data.right.check(ctx)
-            }
-            Hole(l, r) => {
-                l.check(ctx) && r.check(ctx) && l.src(ctx) == r.src(ctx) && l.dst(ctx) == r.dst(ctx)
             }
             Refl(m) => m.check(ctx),
             Concat(eq1, eq2) => eq1.check(ctx) && eq2.check(ctx) && eq1.right(ctx) == eq2.left(ctx),

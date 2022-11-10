@@ -1,6 +1,6 @@
 pub mod data;
 pub mod graph;
-// pub mod substitution;
+pub mod substitution;
 // pub mod unification;
 
 use std::vec::Vec;
