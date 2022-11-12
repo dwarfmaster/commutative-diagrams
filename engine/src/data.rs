@@ -1,4 +1,7 @@
+use core::ops::Deref;
 use hashconsing::{HConsed, HConsign, HashConsign};
+use serde::ser::{SerializeStruct, SerializeTupleVariant};
+use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
 
 //  ____                   __    ___  _     _           _
@@ -8,7 +11,7 @@ use std::collections::HashMap;
 // |_|   |_|  \___/ \___/|_|    \___/|_.__// |\___|\___|\__|
 //                                       |__/
 // Proof Object
-#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProofObject {
     Term(u64),
     Existential(u64),
@@ -48,6 +51,28 @@ pub type Category = HConsed<ActualCategory>;
 impl ActualCategory {
     pub fn check(&self, _ctx: &mut Context) -> bool {
         return true;
+    }
+}
+
+impl Serialize for CategoryData {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut cat = s.serialize_struct("categoryData", 1)?;
+        cat.serialize_field("pobj", &self.pobj)?;
+        cat.end()
+    }
+}
+impl Serialize for ActualCategory {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use ActualCategory::*;
+        match self {
+            Atomic(data) => s.serialize_newtype_variant("category", 0, "atomic", data),
+        }
     }
 }
 
@@ -92,6 +117,30 @@ impl ActualFunctor {
     }
 }
 
+impl Serialize for FunctorData {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut f = s.serialize_struct("functorData", 3)?;
+        f.serialize_field("pobj", &self.pobj)?;
+        f.serialize_field("src", &self.src.deref())?;
+        f.serialize_field("dst", &self.dst.deref())?;
+        f.end()
+    }
+}
+impl Serialize for ActualFunctor {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use ActualFunctor::*;
+        match self {
+            Atomic(data) => s.serialize_newtype_variant("functor", 0, "atomic", data),
+        }
+    }
+}
+
 //   ___  _     _           _
 //  / _ \| |__ (_) ___  ___| |_ ___
 // | | | | '_ \| |/ _ \/ __| __/ __|
@@ -126,6 +175,35 @@ impl ActualObject {
             Atomic(data) => data.category.check(ctx),
             Funct(funct, obj) => {
                 funct.check(ctx) && obj.check(ctx) && funct.src(ctx) == obj.cat(ctx)
+            }
+        }
+    }
+}
+
+impl Serialize for ObjectData {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut o = s.serialize_struct("objectData", 2)?;
+        o.serialize_field("pobj", &self.pobj)?;
+        o.serialize_field("category", &self.category.deref())?;
+        o.end()
+    }
+}
+impl Serialize for ActualObject {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use ActualObject::*;
+        match self {
+            Atomic(data) => s.serialize_newtype_variant("object", 0, "atomic", data),
+            Funct(f, o) => {
+                let mut x = s.serialize_tuple_variant("object", 1, "funct", 2)?;
+                x.serialize_field(f.deref())?;
+                x.serialize_field(o.deref())?;
+                x.end()
             }
         }
     }
@@ -197,6 +275,44 @@ impl ActualMorphism {
             Identity(obj) => obj.check(ctx),
             Comp(m1, m2) => m1.check(ctx) && m2.check(ctx) && m1.dst(ctx) == m2.src(ctx),
             Funct(f, m) => f.check(ctx) && m.check(ctx) && f.src(ctx) == m.cat(ctx),
+        }
+    }
+}
+
+impl Serialize for MorphismData {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut m = s.serialize_struct("objectData", 4)?;
+        m.serialize_field("pobj", &self.pobj)?;
+        m.serialize_field("category", &self.category.deref())?;
+        m.serialize_field("src", &self.src.deref())?;
+        m.serialize_field("dst", &self.dst.deref())?;
+        m.end()
+    }
+}
+impl Serialize for ActualMorphism {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use ActualMorphism::*;
+        match self {
+            Atomic(data) => s.serialize_newtype_variant("morphism", 0, "atomic", data),
+            Identity(o) => s.serialize_newtype_variant("morphism", 1, "identity", o.deref()),
+            Comp(m1, m2) => {
+                let mut x = s.serialize_tuple_variant("morphism", 2, "comp", 2)?;
+                x.serialize_field(m1.deref())?;
+                x.serialize_field(m2.deref())?;
+                x.end()
+            }
+            Funct(f, m) => {
+                let mut x = s.serialize_tuple_variant("morphism", 3, "funct", 2)?;
+                x.serialize_field(f.deref())?;
+                x.serialize_field(m.deref())?;
+                x.end()
+            }
         }
     }
 }
@@ -430,6 +546,87 @@ impl ActualEquality {
     }
 }
 
+impl Serialize for EqualityData {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut e = s.serialize_struct("equalityData:", 6)?;
+        e.serialize_field("pobj", &self.pobj)?;
+        e.serialize_field("category", &self.category.deref())?;
+        e.serialize_field("src", &self.src.deref())?;
+        e.serialize_field("dst", &self.dst.deref())?;
+        e.serialize_field("left", &self.left.deref())?;
+        e.serialize_field("right", &self.right.deref())?;
+        e.end()
+    }
+}
+impl Serialize for ActualEquality {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use ActualEquality::*;
+        match self {
+            Atomic(data) => s.serialize_newtype_variant("equality", 0, "atomic", data),
+            Refl(m) => s.serialize_newtype_variant("equality", 1, "refl", m.deref()),
+            Concat(eq1, eq2) => {
+                let mut x = s.serialize_tuple_variant("equality", 2, "concat", 2)?;
+                x.serialize_field(eq1.deref())?;
+                x.serialize_field(eq2.deref())?;
+                x.end()
+            }
+            Inv(eq) => s.serialize_newtype_variant("equality", 3, "inv", eq.deref()),
+            Compose(eq1, eq2) => {
+                let mut x = s.serialize_tuple_variant("equality", 4, "compose", 2)?;
+                x.serialize_field(eq1.deref())?;
+                x.serialize_field(eq2.deref())?;
+                x.end()
+            }
+            Assoc(m1, m2, m3) => {
+                let mut x = s.serialize_tuple_variant("equality", 5, "assoc", 3)?;
+                x.serialize_field(m1.deref())?;
+                x.serialize_field(m2.deref())?;
+                x.serialize_field(m3.deref())?;
+                x.end()
+            }
+            LeftId(m) => s.serialize_newtype_variant("equality", 6, "left_id", m.deref()),
+            RightId(m) => s.serialize_newtype_variant("equality", 7, "right_id", m.deref()),
+            RAp(eq, m) => {
+                let mut x = s.serialize_tuple_variant("equality", 8, "rap", 2)?;
+                x.serialize_field(eq.deref())?;
+                x.serialize_field(m.deref())?;
+                x.end()
+            }
+            LAp(m, eq) => {
+                let mut x = s.serialize_tuple_variant("equality", 9, "lap", 2)?;
+                x.serialize_field(m.deref())?;
+                x.serialize_field(eq.deref())?;
+                x.end()
+            }
+            FunctId(f, o) => {
+                let mut x = s.serialize_tuple_variant("equality", 10, "funct_id", 2)?;
+                x.serialize_field(f.deref())?;
+                x.serialize_field(o.deref())?;
+                x.end()
+            }
+            FunctComp(f, m1, m2) => {
+                let mut x = s.serialize_tuple_variant("equality", 11, "funct_comp", 3)?;
+                x.serialize_field(f.deref())?;
+                x.serialize_field(m1.deref())?;
+                x.serialize_field(m2.deref())?;
+                x.end()
+            }
+            FunctCtx(f, eq) => {
+                let mut x = s.serialize_tuple_variant("equality", 12, "funct_ctx", 2)?;
+                x.serialize_field(f.deref())?;
+                x.serialize_field(eq.deref())?;
+                x.end()
+            }
+        }
+    }
+}
+
 //   ____            _            _
 //  / ___|___  _ __ | |_ _____  _| |_
 // | |   / _ \| '_ \| __/ _ \ \/ / __|
@@ -495,6 +692,10 @@ impl Context {
         self.terms.get(&term).map(|s| &s[..])
     }
 
+    pub fn new_term(&mut self, id: u64, name: &str) {
+        self.terms.insert(id, name.to_string());
+    }
+
     pub fn mk<T: ContextMakable>(&mut self, act: T) -> HConsed<T> {
         act.make(self)
     }
@@ -515,4 +716,51 @@ impl Context {
     pub fn fmph(&mut self, f: Functor, m: Morphism) -> Morphism {
         self.mk(ActualMorphism::Funct(f, m))
     }
+}
+
+//  _____         _
+// |_   _|__  ___| |_ ___
+//   | |/ _ \/ __| __/ __|
+//   | |  __/\__ \ |_\__ \
+//   |_|\___||___/\__|___/
+//
+// Tests
+#[test]
+fn build_term() {
+    let mut ctx = Context::new();
+    ctx.new_term(0, "C");
+    ctx.new_term(1, "a");
+    ctx.new_term(2, "b");
+    ctx.new_term(3, "c");
+    let cat = ctx.mk(ActualCategory::Atomic(CategoryData {
+        pobj: ProofObject::Term(0),
+    }));
+    let a = ctx.mk(ActualObject::Atomic(ObjectData {
+        pobj: ProofObject::Term(1),
+        category: cat.clone(),
+    }));
+    let b = ctx.mk(ActualObject::Atomic(ObjectData {
+        pobj: ProofObject::Term(2),
+        category: cat.clone(),
+    }));
+    let c = ctx.mk(ActualObject::Atomic(ObjectData {
+        pobj: ProofObject::Term(2),
+        category: cat.clone(),
+    }));
+    let m1 = ctx.mk(ActualMorphism::Atomic(MorphismData {
+        pobj: ProofObject::Existential(0),
+        category: cat.clone(),
+        src: a.clone(),
+        dst: b.clone(),
+    }));
+    let m2 = ctx.mk(ActualMorphism::Atomic(MorphismData {
+        pobj: ProofObject::Existential(1),
+        category: cat.clone(),
+        src: b.clone(),
+        dst: c.clone(),
+    }));
+    let m = ctx.comp(m1.clone(), m2.clone());
+    assert!(m.check(&mut ctx), "m is ill typed");
+    let m_ = ctx.comp(m1.clone(), m2.clone());
+    assert_eq!(m.uid(), m_.uid(), "Hash-consing should get the same object");
 }

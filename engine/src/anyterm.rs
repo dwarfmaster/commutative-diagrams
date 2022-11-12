@@ -1,6 +1,7 @@
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
 use crate::data::{Category, Context, Equality, Functor, Morphism, Object};
 use core::ops::Deref;
+use serde::{Serialize, Serializer};
 
 /// Represent an arbitrary term
 #[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -275,6 +276,22 @@ impl Iterator for TermIterator {
                     _ => None,
                 }
             }
+        }
+    }
+}
+
+impl Serialize for AnyTerm {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use AnyTerm::*;
+        match self {
+            Cat(c) => s.serialize_newtype_variant("term", 0, "category", c.deref()),
+            Funct(f) => s.serialize_newtype_variant("term", 1, "functor", f.deref()),
+            Obj(o) => s.serialize_newtype_variant("term", 2, "object", o.deref()),
+            Mph(m) => s.serialize_newtype_variant("term", 3, "morphism", m.deref()),
+            Eq(e) => s.serialize_newtype_variant("term", 4, "equality", e.deref()),
         }
     }
 }
