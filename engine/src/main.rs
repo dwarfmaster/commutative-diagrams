@@ -2,7 +2,7 @@ pub mod anyterm;
 pub mod data;
 pub mod graph;
 pub mod substitution;
-// pub mod unification;
+pub mod unification;
 
 use std::vec::Vec;
 
