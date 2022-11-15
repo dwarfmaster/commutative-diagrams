@@ -208,3 +208,36 @@ pub fn unify(t1: AnyTerm, t2: AnyTerm) -> Option<Substitution> {
     // If we reached this point we've succeeded
     Some(sigma)
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::anyterm::AnyTerm;
+    use crate::data::{ActualCategory, ActualMorphism, ActualObject};
+    use crate::data::{CategoryData, MorphismData, ObjectData};
+    use crate::data::{Context, ProofObject};
+    use crate::dsl::{cat, mph, obj};
+    use crate::substitution::Substitutable;
+    use crate::unification::unify;
+
+    #[test]
+    pub fn simple() {
+        // This is the same example as the paper, encoded into our theory with
+        //     x1, x2, x3 : cat(o,o)
+        //     G(x) : 1_o o x
+        //     F(x,y) : y o x
+        let mut ctx = Context::new();
+        let cat = cat!(ctx, :0);
+        let o = obj!(ctx, (:1) in cat);
+        let x1 = mph!(ctx, (?0) : o -> o);
+        let x2 = mph!(ctx, (?1) : o -> o);
+        let x3 = mph!(ctx, (?2) : o -> o);
+        let m1 = mph!(ctx, (x2 >> (id o)) >> (x3 >> (id o)));
+        let m2 = mph!(ctx, x1 >> x2);
+        let sigma = unify(AnyTerm::Mph(m1.clone()), AnyTerm::Mph(m2.clone()))
+            .ok_or("Couldn't unify m1 and m2")
+            .unwrap();
+        let m1 = m1.subst(&mut ctx, &sigma);
+        let m2 = m2.subst(&mut ctx, &sigma);
+        assert_eq!(m1, m2, "Unifier is wrong");
+    }
+}
