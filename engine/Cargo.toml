@@ -7,3 +7,4 @@ edition = "2021"
 [dependencies]
 hashconsing = "1.5.1"
 serde = { version = "1.0.147", features = [ "derive" ] }
+serde_json = "1.0"
