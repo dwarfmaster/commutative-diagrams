@@ -11,10 +11,15 @@ pub enum AnyTerm {
     Obj(Object),
     Mph(Morphism),
     Eq(Equality),
+    TypedCat(Category),
+    TypedFunct(Functor),
+    TypedObj(Object),
+    TypedMph(Morphism),
+    TypedEq(Equality),
 }
 
 impl AnyTerm {
-    pub fn check(&self, ctx: &mut Context) -> bool {
+    pub fn check(&self, ctx: &Context) -> bool {
         use AnyTerm::*;
         match self {
             Cat(cat) => cat.check(ctx),
@@ -22,6 +27,23 @@ impl AnyTerm {
             Obj(o) => o.check(ctx),
             Mph(m) => m.check(ctx),
             Eq(eq) => eq.check(ctx),
+            TypedCat(cat) => cat.check(ctx),
+            TypedFunct(f) => f.check(ctx),
+            TypedObj(o) => o.check(ctx),
+            TypedMph(m) => m.check(ctx),
+            TypedEq(eq) => eq.check(ctx),
+        }
+    }
+
+    pub fn to_typed(self) -> Self {
+        use AnyTerm::*;
+        match self {
+            Cat(cat) => TypedCat(cat),
+            Funct(f) => TypedFunct(f),
+            Obj(o) => TypedObj(o),
+            Mph(m) => TypedMph(m),
+            Eq(eq) => TypedEq(eq),
+            _ => self,
         }
     }
 
@@ -54,17 +76,18 @@ impl AnyTerm {
                 ActualEquality::Atomic(data) => AnyTerm::pobj_as_var(data.clone()),
                 _ => None,
             },
+            _ => None,
         }
     }
 
-    pub fn expect_cat(&self, _ctx: &mut Context) -> Category {
+    pub fn expect_cat(&self, _ctx: &Context) -> Category {
         match self {
             AnyTerm::Cat(cat) => cat.clone(),
             _ => panic!("Tried to substitute something else for a category"),
         }
     }
 
-    pub fn expect_funct(&self, ctx: &mut Context, src: Category, dst: Category) -> Functor {
+    pub fn expect_funct(&self, ctx: &Context, src: Category, dst: Category) -> Functor {
         match self {
             AnyTerm::Funct(f) => {
                 assert_eq!(
@@ -83,7 +106,7 @@ impl AnyTerm {
         }
     }
 
-    pub fn expect_obj(&self, ctx: &mut Context, cat: Category) -> Object {
+    pub fn expect_obj(&self, ctx: &Context, cat: Category) -> Object {
         match self {
             AnyTerm::Obj(o) => {
                 assert_eq!(
@@ -97,13 +120,7 @@ impl AnyTerm {
         }
     }
 
-    pub fn expect_mph(
-        &self,
-        ctx: &mut Context,
-        cat: Category,
-        src: Object,
-        dst: Object,
-    ) -> Morphism {
+    pub fn expect_mph(&self, ctx: &Context, cat: Category, src: Object, dst: Object) -> Morphism {
         match self {
             AnyTerm::Mph(m) => {
                 assert_eq!(
@@ -129,7 +146,7 @@ impl AnyTerm {
 
     pub fn expect_eq(
         &self,
-        ctx: &mut Context,
+        ctx: &Context,
         cat: Category,
         src: Object,
         dst: Object,
@@ -170,23 +187,21 @@ impl AnyTerm {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TermIterator {
     term: AnyTerm,
     child: usize,
+    ctx: Context,
 }
 
 pub trait IsTerm {
     fn term(self) -> AnyTerm;
-    fn subterms(self) -> TermIterator
+    fn typed(self) -> AnyTerm
     where
         Self: Sized,
     {
-        TermIterator {
-            term: self.term(),
-            child: 0,
-        }
+        self.term().to_typed()
     }
+    fn subterms(self, ctx: Context) -> TermIterator;
     /// Checks if the two terms have the same head.
     /// Behaviour unspecified if one of the two is a variable.
     fn same_head(&self, other: &Self) -> bool;
@@ -196,6 +211,15 @@ impl IsTerm for AnyTerm {
     fn term(self) -> AnyTerm {
         self
     }
+
+    fn subterms(self, ctx: Context) -> TermIterator {
+        TermIterator {
+            term: self,
+            child: 0,
+            ctx,
+        }
+    }
+
     fn same_head(&self, other: &Self) -> bool {
         use AnyTerm::*;
         match (self, other) {
@@ -204,6 +228,11 @@ impl IsTerm for AnyTerm {
             (Obj(o1), Obj(o2)) => o1.same_head(o2),
             (Mph(m1), Mph(m2)) => m1.same_head(m2),
             (Eq(e1), Eq(e2)) => e1.same_head(e2),
+            (TypedCat(..), TypedCat(..)) => true,
+            (TypedFunct(..), TypedFunct(..)) => true,
+            (TypedObj(..), TypedObj(..)) => true,
+            (TypedMph(..), TypedMph(..)) => true,
+            (TypedEq(..), TypedEq(..)) => true,
             _ => false,
         }
     }
@@ -222,6 +251,14 @@ impl IsTerm for Category {
         AnyTerm::Cat(self)
     }
 
+    fn subterms(self, ctx: Context) -> TermIterator {
+        TermIterator {
+            term: self.term(),
+            child: 0,
+            ctx,
+        }
+    }
+
     fn same_head(&self, other: &Self) -> bool {
         use ActualCategory::*;
         match (self.deref(), other.deref()) {
@@ -234,6 +271,14 @@ impl IsTerm for Functor {
         AnyTerm::Funct(self)
     }
 
+    fn subterms(self, ctx: Context) -> TermIterator {
+        TermIterator {
+            term: self.term(),
+            child: 0,
+            ctx,
+        }
+    }
+
     fn same_head(&self, other: &Self) -> bool {
         use ActualFunctor::*;
         match (self.deref(), other.deref()) {
@@ -244,6 +289,14 @@ impl IsTerm for Functor {
 impl IsTerm for Object {
     fn term(self) -> AnyTerm {
         AnyTerm::Obj(self)
+    }
+
+    fn subterms(self, ctx: Context) -> TermIterator {
+        TermIterator {
+            term: self.term(),
+            child: 0,
+            ctx,
+        }
     }
 
     fn same_head(&self, other: &Self) -> bool {
@@ -260,6 +313,14 @@ impl IsTerm for Morphism {
         AnyTerm::Mph(self)
     }
 
+    fn subterms(self, ctx: Context) -> TermIterator {
+        TermIterator {
+            term: self.term(),
+            child: 0,
+            ctx,
+        }
+    }
+
     fn same_head(&self, other: &Self) -> bool {
         use ActualMorphism::*;
         match (self.deref(), other.deref()) {
@@ -274,6 +335,14 @@ impl IsTerm for Morphism {
 impl IsTerm for Equality {
     fn term(self) -> AnyTerm {
         AnyTerm::Eq(self)
+    }
+
+    fn subterms(self, ctx: Context) -> TermIterator {
+        TermIterator {
+            term: self.term(),
+            child: 0,
+            ctx,
+        }
     }
 
     fn same_head(&self, other: &Self) -> bool {
@@ -303,56 +372,81 @@ impl Iterator for TermIterator {
         use AnyTerm::*;
         let child = self.child;
         self.child += 1;
-        match self.term.clone() {
-            Cat(_) => None,
-            Funct(_) => None,
-            Obj(o) => {
+        match (self.term.clone(), child) {
+            // TypedCat
+            (TypedCat(c), 0) => Some(c.term()),
+            // TypedFunct
+            (TypedFunct(f), 0) => Some(f.src(&self.ctx).typed()),
+            (TypedFunct(f), 1) => Some(f.dst(&self.ctx).typed()),
+            (TypedFunct(f), 2) => Some(f.term()),
+            // TypedObj
+            (TypedObj(o), 0) => Some(o.cat(&self.ctx).typed()),
+            (TypedObj(o), 1) => Some(o.term()),
+            // TypedMph
+            (TypedMph(m), 0) => Some(m.cat(&self.ctx).typed()),
+            (TypedMph(m), 1) => Some(m.src(&self.ctx).typed()),
+            (TypedMph(m), 2) => Some(m.dst(&self.ctx).typed()),
+            (TypedMph(m), 3) => Some(m.term()),
+            // TypedEq
+            (TypedEq(e), 0) => Some(e.cat(&self.ctx).typed()),
+            (TypedEq(e), 1) => Some(e.src(&self.ctx).typed()),
+            (TypedEq(e), 2) => Some(e.dst(&self.ctx).typed()),
+            (TypedEq(e), 3) => Some(e.left(&self.ctx).typed()),
+            (TypedEq(e), 4) => Some(e.right(&self.ctx).typed()),
+            (TypedEq(e), 5) => Some(e.term()),
+            // Cat
+            // Funct
+            // Obj
+            (Obj(o), _) => {
                 use ActualObject::*;
                 match (o.deref(), child) {
-                    (Funct(f, _), 0) => Some(f.clone().term()),
-                    (Funct(_, o), 1) => Some(o.clone().term()),
+                    (Funct(f, _), 0) => Some(f.clone().typed()),
+                    (Funct(_, o), 1) => Some(o.clone().typed()),
                     _ => None,
                 }
             }
-            Mph(m) => {
+            // Mph
+            (Mph(m), _) => {
                 use ActualMorphism::*;
                 match (m.deref(), child) {
-                    (Identity(o), 0) => Some(o.clone().term()),
-                    (Comp(m1, _), 0) => Some(m1.clone().term()),
-                    (Comp(_, m2), 1) => Some(m2.clone().term()),
-                    (Funct(f, _), 0) => Some(f.clone().term()),
-                    (Funct(_, m), 1) => Some(m.clone().term()),
+                    (Identity(o), 0) => Some(o.clone().typed()),
+                    (Comp(m1, _), 0) => Some(m1.clone().typed()),
+                    (Comp(_, m2), 1) => Some(m2.clone().typed()),
+                    (Funct(f, _), 0) => Some(f.clone().typed()),
+                    (Funct(_, m), 1) => Some(m.clone().typed()),
                     _ => None,
                 }
             }
-            Eq(e) => {
+            // Eq
+            (Eq(e), _) => {
                 use ActualEquality::*;
                 match (e.deref(), child) {
-                    (Refl(m), 0) => Some(m.clone().term()),
-                    (Concat(e1, _), 0) => Some(e1.clone().term()),
-                    (Concat(_, e2), 1) => Some(e2.clone().term()),
-                    (Inv(e), 0) => Some(e.clone().term()),
-                    (Compose(e1, _), 0) => Some(e1.clone().term()),
-                    (Compose(_, e2), 1) => Some(e2.clone().term()),
-                    (Assoc(m1, _, _), 0) => Some(m1.clone().term()),
-                    (Assoc(_, m2, _), 1) => Some(m2.clone().term()),
-                    (Assoc(_, _, m3), 2) => Some(m3.clone().term()),
-                    (LeftId(m), 0) => Some(m.clone().term()),
-                    (RightId(m), 0) => Some(m.clone().term()),
-                    (RAp(eq, _), 0) => Some(eq.clone().term()),
-                    (RAp(_, m), 1) => Some(m.clone().term()),
-                    (LAp(m, _), 0) => Some(m.clone().term()),
-                    (LAp(_, eq), 1) => Some(eq.clone().term()),
-                    (FunctId(f, _), 0) => Some(f.clone().term()),
-                    (FunctId(_, o), 1) => Some(o.clone().term()),
-                    (FunctComp(f, _, _), 0) => Some(f.clone().term()),
-                    (FunctComp(_, m1, _), 1) => Some(m1.clone().term()),
-                    (FunctComp(_, _, m2), 2) => Some(m2.clone().term()),
-                    (FunctCtx(f, _), 0) => Some(f.clone().term()),
-                    (FunctCtx(_, eq), 1) => Some(eq.clone().term()),
+                    (Refl(m), 0) => Some(m.clone().typed()),
+                    (Concat(e1, _), 0) => Some(e1.clone().typed()),
+                    (Concat(_, e2), 1) => Some(e2.clone().typed()),
+                    (Inv(e), 0) => Some(e.clone().typed()),
+                    (Compose(e1, _), 0) => Some(e1.clone().typed()),
+                    (Compose(_, e2), 1) => Some(e2.clone().typed()),
+                    (Assoc(m1, _, _), 0) => Some(m1.clone().typed()),
+                    (Assoc(_, m2, _), 1) => Some(m2.clone().typed()),
+                    (Assoc(_, _, m3), 2) => Some(m3.clone().typed()),
+                    (LeftId(m), 0) => Some(m.clone().typed()),
+                    (RightId(m), 0) => Some(m.clone().typed()),
+                    (RAp(eq, _), 0) => Some(eq.clone().typed()),
+                    (RAp(_, m), 1) => Some(m.clone().typed()),
+                    (LAp(m, _), 0) => Some(m.clone().typed()),
+                    (LAp(_, eq), 1) => Some(eq.clone().typed()),
+                    (FunctId(f, _), 0) => Some(f.clone().typed()),
+                    (FunctId(_, o), 1) => Some(o.clone().typed()),
+                    (FunctComp(f, _, _), 0) => Some(f.clone().typed()),
+                    (FunctComp(_, m1, _), 1) => Some(m1.clone().typed()),
+                    (FunctComp(_, _, m2), 2) => Some(m2.clone().typed()),
+                    (FunctCtx(f, _), 0) => Some(f.clone().typed()),
+                    (FunctCtx(_, eq), 1) => Some(eq.clone().typed()),
                     _ => None,
                 }
             }
+            _ => None,
         }
     }
 }
@@ -369,6 +463,12 @@ impl Serialize for AnyTerm {
             Obj(o) => s.serialize_newtype_variant("term", 2, "object", o.deref()),
             Mph(m) => s.serialize_newtype_variant("term", 3, "morphism", m.deref()),
             Eq(e) => s.serialize_newtype_variant("term", 4, "equality", e.deref()),
+            // TODO is that really what we want ?
+            TypedCat(c) => s.serialize_newtype_variant("term", 0, "category", c.deref()),
+            TypedFunct(f) => s.serialize_newtype_variant("term", 1, "functor", f.deref()),
+            TypedObj(o) => s.serialize_newtype_variant("term", 2, "object", o.deref()),
+            TypedMph(m) => s.serialize_newtype_variant("term", 3, "morphism", m.deref()),
+            TypedEq(e) => s.serialize_newtype_variant("term", 4, "equality", e.deref()),
         }
     }
 }

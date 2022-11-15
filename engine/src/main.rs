@@ -4,7 +4,7 @@ pub mod dsl;
 pub mod graph;
 pub mod parser;
 pub mod substitution;
-// pub mod unification;
+pub mod unification;
 
 use data::ProofObject;
 use data::{ActualCategory, ActualFunctor, ActualMorphism, ActualObject};

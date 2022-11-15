@@ -43,6 +43,11 @@ impl Substitutable for AnyTerm {
             Obj(o) => Obj(o.subst_slice(ctx, sigma)),
             Mph(m) => Mph(m.subst_slice(ctx, sigma)),
             Eq(eq) => Eq(eq.subst_slice(ctx, sigma)),
+            TypedCat(cat) => TypedCat(cat.subst_slice(ctx, sigma)),
+            TypedFunct(f) => TypedFunct(f.subst_slice(ctx, sigma)),
+            TypedObj(o) => TypedObj(o.subst_slice(ctx, sigma)),
+            TypedMph(m) => TypedMph(m.subst_slice(ctx, sigma)),
+            TypedEq(eq) => TypedEq(eq.subst_slice(ctx, sigma)),
         }
     }
 }

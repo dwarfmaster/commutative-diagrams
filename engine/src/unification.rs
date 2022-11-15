@@ -1,5 +1,6 @@
 use crate::anyterm::AnyTerm;
 use crate::anyterm::IsTerm;
+use crate::data::Context;
 use crate::substitution::Substitution;
 use std::collections::HashMap;
 use std::vec::Vec;
@@ -46,14 +47,14 @@ struct Graph {
 }
 
 impl Node {
-    fn new(gr: &Graph, term: AnyTerm) -> Node {
+    fn new(gr: &Graph, ctx: &Context, term: AnyTerm) -> Node {
         use NodeStatus::*;
         Node {
             status: term.as_var().map(|e| Variable(e)).unwrap_or(Live),
             ancestors: Vec::new(),
             descendants: term
                 .clone()
-                .subterms()
+                .subterms(ctx.clone())
                 .map(|sub| gr.get(sub, "Children must be added to the graph first (0)"))
                 .collect(),
             siblings: Vec::new(),
@@ -82,31 +83,32 @@ impl Graph {
 
     /// Insert a new node and takes cares of updating the ancestors of all its descendents Assumes
     /// term subterms are already present in the graph
-    fn insert_node(&mut self, term: AnyTerm) -> usize {
+    fn insert_node(&mut self, ctx: &Context, term: AnyTerm) -> usize {
         let id = self.nodes.len();
         self.mapping.insert(term.clone(), id);
-        let node = Node::new(self, term.clone());
+        let node = Node::new(self, ctx, term.clone());
         self.nodes.push(node);
-        term.subterms().for_each(|sub| self.add_ancestor(sub, id));
+        term.subterms(ctx.clone())
+            .for_each(|sub| self.add_ancestor(sub, id));
         id
     }
 
     /// Insert a node only if it wasn't present on the graph
     #[inline]
-    fn may_insert(&mut self, term: AnyTerm) -> usize {
+    fn may_insert(&mut self, ctx: &Context, term: AnyTerm) -> usize {
         let pos = self.mapping.get(&term);
         match pos {
             Some(id) => *id,
-            None => self.insert_node(term),
+            None => self.insert_node(ctx, term),
         }
     }
 
     /// Insert a term and all its subterms
-    fn insert(&mut self, term: AnyTerm) -> usize {
-        term.clone().subterms().for_each(|sub| {
-            self.insert(sub);
+    fn insert(&mut self, ctx: &Context, term: AnyTerm) -> usize {
+        term.clone().subterms(ctx.clone()).for_each(|sub| {
+            self.insert(ctx, sub);
         });
-        self.may_insert(term)
+        self.may_insert(ctx, term)
     }
 
     /// Connect two terms with an undirected edge
@@ -179,11 +181,11 @@ fn finish(mut gr: &mut Graph, mut sigma: &mut Substitution, r: usize) -> bool {
 ///     Paterson, M.S., and M.N. Wegman. “Linear Unification.”
 ///     Journal of Computer and System Sciences 16, no. 2 (April 1978): 158–67.
 ///     https://doi.org/10.1016/0022-0000(78)90043-0.
-pub fn unify(t1: AnyTerm, t2: AnyTerm) -> Option<Substitution> {
+pub fn unify(ctx: &Context, t1: AnyTerm, t2: AnyTerm) -> Option<Substitution> {
     // Build the DAG of subterms of the two terms to unify
     let mut gr = Graph::new();
-    let id1 = gr.insert(t1);
-    let id2 = gr.insert(t2);
+    let id1 = gr.insert(ctx, t1.to_typed());
+    let id2 = gr.insert(ctx, t2.to_typed());
     gr.connect(id1, id2);
     let size = gr.nodes.len();
 
@@ -230,7 +232,7 @@ mod tests {
         //     x1, x2, x3 : cat(o,o)
         //     G(x) : 1_o o x
         //     F(x,y) : y o x
-        let mut ctx = Context::new();
+        let ctx = Context::new();
         let cat = cat!(ctx, :0);
         let o = obj!(ctx, (:1) in cat);
         let x1 = mph!(ctx, (?0) : o -> o);
@@ -238,11 +240,54 @@ mod tests {
         let x3 = mph!(ctx, (?2) : o -> o);
         let m1 = mph!(ctx, (x2 >> (id o)) >> (x3 >> (id o)));
         let m2 = mph!(ctx, x1 >> x2);
-        let sigma = unify(AnyTerm::Mph(m1.clone()), AnyTerm::Mph(m2.clone()))
+        let sigma = unify(&ctx, AnyTerm::Mph(m1.clone()), AnyTerm::Mph(m2.clone()))
             .ok_or("Couldn't unify m1 and m2")
             .unwrap();
-        let m1 = m1.subst(&mut ctx, &sigma);
-        let m2 = m2.subst(&mut ctx, &sigma);
+        let m1 = m1.subst(&ctx, &sigma);
+        let m2 = m2.subst(&ctx, &sigma);
         assert_eq!(m1, m2, "Unifier is wrong");
+    }
+
+    #[test]
+    pub fn in_type() {
+        let ctx = Context::new();
+        let cat = cat!(ctx, :0);
+        let o = obj!(ctx, (:1) in cat);
+        let o_ex = obj!(ctx, (?42) in cat);
+        let m1_ex = mph!(ctx, (:2) : o -> o_ex);
+        let m2_ex = mph!(ctx, (:3) : o_ex -> o);
+        let m1 = mph!(ctx, (:2) : o -> o);
+        let m2 = mph!(ctx, (:3) : o -> o);
+        let m_ex = mph!(ctx, m1_ex >> m2_ex);
+        let m = mph!(ctx, m1 >> m2);
+        assert!(m_ex.check(&ctx), "m_ex is invalid");
+        assert!(m.check(&ctx), "m is invalid");
+        let sigma = unify(&ctx, AnyTerm::Mph(m_ex.clone()), AnyTerm::Mph(m.clone()))
+            .ok_or("Couldn't unify m and m_ex")
+            .unwrap();
+        let m_ex = m_ex.subst(&ctx, &sigma);
+        let m = m.subst(&ctx, &sigma);
+        assert_eq!(m_ex, m, "Unifier is wrong");
+    }
+
+    #[test]
+    pub fn ununifyable() {
+        let ctx = Context::new();
+        let cat = cat!(ctx, :0);
+        let a = obj!(ctx, (:1) in cat);
+        let b = obj!(ctx, (:2) in cat);
+        let mab = mph!(ctx, (?0) : a -> b);
+        let mba = mph!(ctx, (?1) : b -> a);
+        let maa1 = mph!(ctx, (:3) : a -> a);
+        let maa2 = mph!(ctx, (:4) : a -> a);
+        let m_ex = mph!(ctx, mab >> mba);
+        let m = mph!(ctx, maa1 >> maa2);
+        assert!(m_ex.check(&ctx), "m_ex is invalid");
+        assert!(m.check(&ctx), "m is invalid");
+        let sigma = unify(&ctx, AnyTerm::Mph(m_ex.clone()), AnyTerm::Mph(m.clone()));
+        match sigma {
+            Some(_) => panic!("Unification succeeded when it should have failed"),
+            None => (),
+        }
     }
 }
