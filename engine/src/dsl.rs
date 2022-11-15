@@ -156,7 +156,7 @@ macro_rules! mph {
     };
     ($ctx:expr, ?$m:expr, $s:expr, $d:expr) => {
         {
-            let cat = ($s).cat(&mut $ctx);
+            let cat = ($s).cat(&$ctx);
             $ctx.mk(ActualMorphism::Atomic(MorphismData {
                 pobj: ProofObject::Existential($m),
                 category: cat,
@@ -172,7 +172,7 @@ macro_rules! mph {
         {
             let name = format!("mph-{}", $m);
             let _ = $ctx.new_term($m, name.as_str());
-            let cat = ($s).cat(&mut $ctx);
+            let cat = ($s).cat(&$ctx);
             $ctx.mk(ActualMorphism::Atomic(MorphismData {
                 pobj: ProofObject::Term($m),
                 category: cat,
@@ -198,35 +198,43 @@ mod test {
 
     #[test]
     pub fn cat_macro() {
-        let mut ctx = Context::new();
+        let ctx = Context::new();
         let cat1 = cat!(ctx, :5);
-        assert!(cat1.check(&mut ctx), "cat1 is invalid");
-        assert_eq!(ctx.term(5), Some("cat-5"), "cat term has not been created");
+        assert!(cat1.check(&ctx), "cat1 is invalid");
+        assert_eq!(
+            ctx.term(5),
+            Some(String::from("cat-5")),
+            "cat term has not been created"
+        );
         let cat2 = cat!(ctx, (?10));
-        assert!(cat2.check(&mut ctx), "cat2 is invalid");
+        assert!(cat2.check(&ctx), "cat2 is invalid");
     }
 
     #[test]
     pub fn funct_macro() {
-        let mut ctx = Context::new();
+        let ctx = Context::new();
         let f = funct!(ctx, (?3) : (:4) => (:3));
-        assert!(f.check(&mut ctx), "f is invalid");
-        assert_eq!(ctx.term(3), Some("cat-3"), "cat term has not been created");
+        assert!(f.check(&ctx), "f is invalid");
+        assert_eq!(
+            ctx.term(3),
+            Some(String::from("cat-3")),
+            "cat term has not been created"
+        );
     }
 
     #[test]
     pub fn obj_macro() {
-        let mut ctx = Context::new();
+        let ctx = Context::new();
         let o = obj!(ctx, (:3) in (?2));
-        assert!(o.check(&mut ctx), "o is invalid");
+        assert!(o.check(&ctx), "o is invalid");
         let f = funct!(ctx, (?1) : (?2) => (:1));
         let o2 = obj!(ctx, ((?0) : (:1) => (:2)) _0 (f _0 o));
-        assert!(o2.check(&mut ctx), "o2 is invalid");
+        assert!(o2.check(&ctx), "o2 is invalid");
     }
 
     #[test]
     pub fn mph_macro() {
-        let mut ctx = Context::new();
+        let ctx = Context::new();
         let cat1 = cat!(ctx, :0);
         let cat2 = cat!(ctx, :1);
         let f = funct!(ctx, (:2) : cat1 => cat2);
@@ -239,6 +247,6 @@ mod test {
         let mcd = mph!(ctx, (:9) : c -> d);
         let mde = mph!(ctx, (:10) : d -> e);
         let mph = mph!(ctx, (f _1 mab) >> ((:11) : (f _0 b) -> c) >> mcd >> (id d) >> mde);
-        assert!(mph.check(&mut ctx), "mph not valid");
+        assert!(mph.check(&ctx), "mph not valid");
     }
 }

@@ -10,7 +10,7 @@ use core::ops::Deref;
 /// also applying on the previous one
 pub type Substitution = Vec<(u64, AnyTerm)>;
 
-pub fn check_subst(sigma: &Substitution, ctx: &mut Context) -> bool {
+pub fn check_subst(sigma: &Substitution, ctx: &Context) -> bool {
     sigma.iter().all(|(_, term)| term.check(ctx))
 }
 
@@ -23,10 +23,10 @@ fn find_applicable(sigma: &[(u64, AnyTerm)], e: u64) -> Option<(usize, AnyTerm)>
 }
 
 pub trait Substitutable {
-    fn subst_slice(self, ctx: &mut Context, sigma: &[(u64, AnyTerm)]) -> Self
+    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self
     where
         Self: Sized;
-    fn subst(self, ctx: &mut Context, sigma: &Substitution) -> Self
+    fn subst(self, ctx: &Context, sigma: &Substitution) -> Self
     where
         Self: Sized,
     {
@@ -35,7 +35,7 @@ pub trait Substitutable {
 }
 
 impl Substitutable for AnyTerm {
-    fn subst_slice(self, ctx: &mut Context, sigma: &[(u64, AnyTerm)]) -> Self {
+    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
         use AnyTerm::*;
         match self {
             Cat(cat) => Cat(cat.subst_slice(ctx, sigma)),
@@ -48,7 +48,7 @@ impl Substitutable for AnyTerm {
 }
 
 impl Substitutable for Category {
-    fn subst_slice(self, ctx: &mut Context, sigma: &[(u64, AnyTerm)]) -> Category {
+    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Category {
         use ActualCategory::*;
         match self.deref() {
             Atomic(data) => match data.pobj {
@@ -62,7 +62,7 @@ impl Substitutable for Category {
 }
 
 impl Substitutable for Functor {
-    fn subst_slice(self, ctx: &mut Context, sigma: &[(u64, AnyTerm)]) -> Self {
+    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
         use ActualFunctor::*;
         match self.deref() {
             Atomic(data) => {
@@ -87,7 +87,7 @@ impl Substitutable for Functor {
 }
 
 impl Substitutable for Object {
-    fn subst_slice(self, ctx: &mut Context, sigma: &[(u64, AnyTerm)]) -> Self {
+    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
         use ActualObject::*;
         match self.deref() {
             Atomic(data) => {
@@ -115,7 +115,7 @@ impl Substitutable for Object {
 }
 
 impl Substitutable for Morphism {
-    fn subst_slice(self, ctx: &mut Context, sigma: &[(u64, AnyTerm)]) -> Self {
+    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
         use ActualMorphism::*;
         match self.deref() {
             Atomic(data) => {
@@ -156,7 +156,7 @@ impl Substitutable for Morphism {
 }
 
 impl Substitutable for Equality {
-    fn subst_slice(self, ctx: &mut Context, sigma: &[(u64, AnyTerm)]) -> Self {
+    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
         use ActualEquality::*;
         match self.deref() {
             Atomic(data) => {
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     pub fn simple_subst() {
-        let mut ctx = Context::new();
+        let ctx = Context::new();
         let cat = cat!(ctx, :0);
         let a = obj!(ctx, (:1) in cat);
         let b = obj!(ctx, (:2) in cat);
@@ -272,14 +272,14 @@ mod tests {
 
         let subst = vec![(0, AnyTerm::Obj(c.clone())), (1, AnyTerm::Mph(m2.clone()))];
         assert_eq!(
-            m_ex.clone().subst(&mut ctx, &subst),
+            m_ex.clone().subst(&ctx, &subst),
             m.clone(),
             "Substitution failed"
         );
 
         let subst2 = vec![(1, AnyTerm::Mph(m2.clone())), (0, AnyTerm::Obj(c.clone()))];
         assert_eq!(
-            m_ex.clone().subst(&mut ctx, &subst2),
+            m_ex.clone().subst(&ctx, &subst2),
             m.clone(),
             "Substitution 2 failed"
         );

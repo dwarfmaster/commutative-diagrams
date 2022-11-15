@@ -30,7 +30,7 @@ impl Face {
         }
     }
 
-    pub fn check(&self, ctx: &mut Context, gr: &Graph) -> bool {
+    pub fn check(&self, ctx: &Context, gr: &Graph) -> bool {
         self.start < gr.nodes.len()
             && self.end < gr.nodes.len()
             && Face::check_path(&self.left, gr, self.start, 0)
@@ -44,7 +44,7 @@ impl Face {
 }
 
 impl Graph {
-    pub fn check(&self, ctx: &mut Context) -> bool {
+    pub fn check(&self, ctx: &Context) -> bool {
         self.nodes.len() == self.edges.len()
             && self.nodes.iter().all(|o| o.check(ctx))
             && self.edges.iter().enumerate().all(|(start, out)| {

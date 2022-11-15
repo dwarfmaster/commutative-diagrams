@@ -2,7 +2,9 @@ use core::ops::Deref;
 use hashconsing::{HConsed, HConsign, HashConsign};
 use serde::ser::{SerializeStruct, SerializeTupleVariant};
 use serde::{Deserialize, Serialize, Serializer};
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 //  ____                   __    ___  _     _           _
 // |  _ \ _ __ ___   ___  / _|  / _ \| |__ (_) ___  ___| |_
@@ -49,7 +51,7 @@ pub enum ActualCategory {
 pub type Category = HConsed<ActualCategory>;
 
 impl ActualCategory {
-    pub fn check(&self, ctx: &mut Context) -> bool {
+    pub fn check(&self, ctx: &Context) -> bool {
         use ActualCategory::*;
         match self {
             Atomic(data) => ctx.has_po(&data.pobj),
@@ -100,19 +102,19 @@ pub enum ActualFunctor {
 pub type Functor = HConsed<ActualFunctor>;
 
 impl ActualFunctor {
-    pub fn src(&self, _ctx: &mut Context) -> Category {
+    pub fn src(&self, _ctx: &Context) -> Category {
         use ActualFunctor::*;
         match self {
             Atomic(data) => data.src.clone(),
         }
     }
-    pub fn dst(&self, _ctx: &mut Context) -> Category {
+    pub fn dst(&self, _ctx: &Context) -> Category {
         use ActualFunctor::*;
         match self {
             Atomic(data) => data.dst.clone(),
         }
     }
-    pub fn check(&self, ctx: &mut Context) -> bool {
+    pub fn check(&self, ctx: &Context) -> bool {
         use ActualFunctor::*;
         match self {
             Atomic(data) => data.src.check(ctx) && data.dst.check(ctx) && ctx.has_po(&data.pobj),
@@ -165,14 +167,14 @@ pub enum ActualObject {
 pub type Object = HConsed<ActualObject>;
 
 impl ActualObject {
-    pub fn cat(&self, ctx: &mut Context) -> Category {
+    pub fn cat(&self, ctx: &Context) -> Category {
         use ActualObject::*;
         match self {
             Atomic(data) => data.category.clone(),
             Funct(funct, _) => funct.dst(ctx),
         }
     }
-    pub fn check(&self, ctx: &mut Context) -> bool {
+    pub fn check(&self, ctx: &Context) -> bool {
         use ActualObject::*;
         match self {
             Atomic(data) => data.category.check(ctx) && ctx.has_po(&data.pobj),
@@ -238,7 +240,7 @@ pub enum ActualMorphism {
 pub type Morphism = HConsed<ActualMorphism>;
 
 impl ActualMorphism {
-    pub fn cat(&self, ctx: &mut Context) -> Category {
+    pub fn cat(&self, ctx: &Context) -> Category {
         use ActualMorphism::*;
         match self {
             Atomic(data) => data.category.clone(),
@@ -247,7 +249,7 @@ impl ActualMorphism {
             Funct(f, _) => f.dst(ctx),
         }
     }
-    pub fn src(&self, ctx: &mut Context) -> Object {
+    pub fn src(&self, ctx: &Context) -> Object {
         use ActualMorphism::*;
         match self {
             Atomic(data) => data.src.clone(),
@@ -259,7 +261,7 @@ impl ActualMorphism {
             }
         }
     }
-    pub fn dst(&self, ctx: &mut Context) -> Object {
+    pub fn dst(&self, ctx: &Context) -> Object {
         use ActualMorphism::*;
         match self {
             Atomic(data) => data.dst.clone(),
@@ -271,7 +273,7 @@ impl ActualMorphism {
             }
         }
     }
-    pub fn check(&self, ctx: &mut Context) -> bool {
+    pub fn check(&self, ctx: &Context) -> bool {
         use ActualMorphism::*;
         match self {
             Atomic(data) => {
@@ -363,7 +365,7 @@ pub enum ActualEquality {
 pub type Equality = HConsed<ActualEquality>;
 
 impl ActualEquality {
-    pub fn cat(&self, ctx: &mut Context) -> Category {
+    pub fn cat(&self, ctx: &Context) -> Category {
         use ActualEquality::*;
         match self {
             Atomic(data) => data.category.clone(),
@@ -381,7 +383,7 @@ impl ActualEquality {
             FunctCtx(f, _) => f.dst(ctx),
         }
     }
-    pub fn src(&self, ctx: &mut Context) -> Object {
+    pub fn src(&self, ctx: &Context) -> Object {
         use ActualEquality::*;
         match self {
             Atomic(data) => data.src.clone(),
@@ -405,7 +407,7 @@ impl ActualEquality {
             }
         }
     }
-    pub fn dst(&self, ctx: &mut Context) -> Object {
+    pub fn dst(&self, ctx: &Context) -> Object {
         use ActualEquality::*;
         match self {
             Atomic(data) => data.dst.clone(),
@@ -429,7 +431,7 @@ impl ActualEquality {
             }
         }
     }
-    pub fn left(&self, ctx: &mut Context) -> Morphism {
+    pub fn left(&self, ctx: &Context) -> Morphism {
         use ActualEquality::*;
         match self {
             Atomic(data) => data.left.clone(),
@@ -477,7 +479,7 @@ impl ActualEquality {
             }
         }
     }
-    pub fn right(&self, ctx: &mut Context) -> Morphism {
+    pub fn right(&self, ctx: &Context) -> Morphism {
         use ActualEquality::*;
         match self {
             Atomic(data) => data.right.clone(),
@@ -518,7 +520,7 @@ impl ActualEquality {
             }
         }
     }
-    pub fn check(&self, ctx: &mut Context) -> bool {
+    pub fn check(&self, ctx: &Context) -> bool {
         use ActualEquality::*;
         match self {
             Atomic(data) => {
@@ -652,92 +654,94 @@ impl Serialize for ActualEquality {
 //
 // Context
 /// Stores the context in which terms must be interpreted
+#[derive(Clone)]
 pub struct Context {
     /// The names of the terms proofobjects
-    terms: HashMap<u64, String>,
-    cat_factory: HConsign<ActualCategory>,
-    funct_factory: HConsign<ActualFunctor>,
-    obj_factory: HConsign<ActualObject>,
-    mph_factory: HConsign<ActualMorphism>,
-    eq_factory: HConsign<ActualEquality>,
+    terms: Rc<RefCell<HashMap<u64, String>>>,
+    cat_factory: Rc<RefCell<HConsign<ActualCategory>>>,
+    funct_factory: Rc<RefCell<HConsign<ActualFunctor>>>,
+    obj_factory: Rc<RefCell<HConsign<ActualObject>>>,
+    mph_factory: Rc<RefCell<HConsign<ActualMorphism>>>,
+    eq_factory: Rc<RefCell<HConsign<ActualEquality>>>,
 }
 
 pub trait ContextMakable {
-    fn make(self, ctx: &mut Context) -> HConsed<Self>
+    fn make(self, ctx: &Context) -> HConsed<Self>
     where
         Self: Sized;
 }
 impl ContextMakable for ActualCategory {
-    fn make(self, ctx: &mut Context) -> HConsed<Self> {
-        ctx.cat_factory.mk(self)
+    fn make(self, ctx: &Context) -> HConsed<Self> {
+        ctx.cat_factory.borrow_mut().mk(self)
     }
 }
 impl ContextMakable for ActualFunctor {
-    fn make(self, ctx: &mut Context) -> HConsed<Self> {
-        ctx.funct_factory.mk(self)
+    fn make(self, ctx: &Context) -> HConsed<Self> {
+        ctx.funct_factory.borrow_mut().mk(self)
     }
 }
 impl ContextMakable for ActualObject {
-    fn make(self, ctx: &mut Context) -> HConsed<Self> {
-        ctx.obj_factory.mk(self)
+    fn make(self, ctx: &Context) -> HConsed<Self> {
+        ctx.obj_factory.borrow_mut().mk(self)
     }
 }
 impl ContextMakable for ActualMorphism {
-    fn make(self, ctx: &mut Context) -> HConsed<Self> {
-        ctx.mph_factory.mk(self)
+    fn make(self, ctx: &Context) -> HConsed<Self> {
+        ctx.mph_factory.borrow_mut().mk(self)
     }
 }
 impl ContextMakable for ActualEquality {
-    fn make(self, ctx: &mut Context) -> HConsed<Self> {
-        ctx.eq_factory.mk(self)
+    fn make(self, ctx: &Context) -> HConsed<Self> {
+        ctx.eq_factory.borrow_mut().mk(self)
     }
 }
 
 impl Context {
     pub fn new() -> Context {
         Context {
-            terms: HashMap::new(),
-            cat_factory: HConsign::empty(),
-            funct_factory: HConsign::empty(),
-            obj_factory: HConsign::empty(),
-            mph_factory: HConsign::empty(),
-            eq_factory: HConsign::empty(),
+            terms: Rc::new(RefCell::new(HashMap::new())),
+            cat_factory: Rc::new(RefCell::new(HConsign::empty())),
+            funct_factory: Rc::new(RefCell::new(HConsign::empty())),
+            obj_factory: Rc::new(RefCell::new(HConsign::empty())),
+            mph_factory: Rc::new(RefCell::new(HConsign::empty())),
+            eq_factory: Rc::new(RefCell::new(HConsign::empty())),
         }
     }
 
     fn has_po(&self, po: &ProofObject) -> bool {
         match po {
-            ProofObject::Term(id) => self.terms.contains_key(&id),
+            ProofObject::Term(id) => self.terms.borrow().contains_key(&id),
             ProofObject::Existential(_) => true,
         }
     }
 
-    pub fn term(&self, term: u64) -> Option<&str> {
-        self.terms.get(&term).map(|s| &s[..])
+    // TODO could be better handled
+    pub fn term(&self, term: u64) -> Option<String> {
+        self.terms.borrow().get(&term).map(|s| s.clone())
     }
 
-    pub fn new_term(&mut self, id: u64, name: &str) {
-        self.terms.insert(id, name.to_string());
+    pub fn new_term(&self, id: u64, name: &str) {
+        self.terms.borrow_mut().insert(id, name.to_string());
     }
 
-    pub fn mk<T: ContextMakable>(&mut self, act: T) -> HConsed<T> {
+    pub fn mk<T: ContextMakable>(&self, act: T) -> HConsed<T> {
         act.make(self)
     }
 
     // Some Helper functions
-    pub fn comp(&mut self, m1: Morphism, m2: Morphism) -> Morphism {
+    pub fn comp(&self, m1: Morphism, m2: Morphism) -> Morphism {
         self.mk(ActualMorphism::Comp(m1, m2))
     }
 
-    pub fn id(&mut self, o: Object) -> Morphism {
+    pub fn id(&self, o: Object) -> Morphism {
         self.mk(ActualMorphism::Identity(o))
     }
 
-    pub fn fobj(&mut self, f: Functor, o: Object) -> Object {
+    pub fn fobj(&self, f: Functor, o: Object) -> Object {
         self.mk(ActualObject::Funct(f, o))
     }
 
-    pub fn fmph(&mut self, f: Functor, m: Morphism) -> Morphism {
+    pub fn fmph(&self, f: Functor, m: Morphism) -> Morphism {
         self.mk(ActualMorphism::Funct(f, m))
     }
 }
@@ -751,7 +755,7 @@ impl Context {
 // Tests
 #[test]
 fn build_term() {
-    let mut ctx = Context::new();
+    let ctx = Context::new();
     ctx.new_term(0, "C");
     ctx.new_term(1, "a");
     ctx.new_term(2, "b");
@@ -784,7 +788,7 @@ fn build_term() {
         dst: c.clone(),
     }));
     let m = ctx.comp(m1.clone(), m2.clone());
-    assert!(m.check(&mut ctx), "m is ill typed");
+    assert!(m.check(&ctx), "m is ill typed");
     let m_ = ctx.comp(m1.clone(), m2.clone());
     assert_eq!(m.uid(), m_.uid(), "Hash-consing should get the same object");
 }

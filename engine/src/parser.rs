@@ -8,8 +8,6 @@ use serde::de::{DeserializeSeed, Error, Visitor};
 use serde::de::{EnumAccess, MapAccess, SeqAccess, VariantAccess};
 use serde::Deserializer;
 use serde_json;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 //  ____
 // |  _ \ __ _ _ __ ___  ___ _ __
@@ -20,7 +18,7 @@ use std::rc::Rc;
 // Parser
 #[derive(Clone)]
 struct Parser<T> {
-    ctx: Rc<RefCell<Context>>,
+    ctx: Context,
     _marker: PhantomData<T>,
 }
 
@@ -35,17 +33,14 @@ impl<T> Parser<T> {
 
 macro_rules! make_parser {
     ($f:ident, $t:ty) => {
-        pub fn $f(self, str: &str) -> (Context, Result<$t, serde_json::Error>) {
+        pub fn $f(self, str: &str) -> Result<$t, serde_json::Error> {
             let parser: Parser<$t> = Parser {
-                ctx: Rc::new(RefCell::new(self)),
+                ctx: self,
                 _marker: PhantomData::default(),
             };
             let mut deserializer =
                 serde_json::de::Deserializer::new(serde_json::de::StrRead::new(str));
-            let res = parser.clone().deserialize(&mut deserializer);
-            let cell =
-                Rc::try_unwrap(parser.ctx).unwrap_or_else(|_| panic!("Uncounted references left"));
-            (cell.into_inner(), res)
+            parser.clone().deserialize(&mut deserializer)
         }
     };
 }
@@ -237,7 +232,7 @@ impl<'a> Visitor<'a> for Parser<Category> {
             "atomic" => {
                 let pobj = variant.newtype_variant_seed(self.to::<CategoryData>())?;
                 let cat = ActualCategory::Atomic(pobj);
-                Ok(self.ctx.borrow_mut().mk(cat))
+                Ok(self.ctx.mk(cat))
             }
             _ => return Err(Error::unknown_variant(id.as_str(), &["atomic"])),
         }
@@ -305,7 +300,7 @@ impl<'a> Visitor<'a> for Parser<Functor> {
             "atomic" => {
                 let pobj = variant.newtype_variant_seed(self.to::<FunctorData>())?;
                 let fun = ActualFunctor::Atomic(pobj);
-                Ok(self.ctx.borrow_mut().mk(fun))
+                Ok(self.ctx.mk(fun))
             }
             _ => return Err(Error::unknown_variant(id.as_str(), &["atomic"])),
         }
@@ -367,11 +362,11 @@ impl<'a> Visitor<'a> for Parser<Object> {
             "atomic" => {
                 let pobj = variant.newtype_variant_seed(self.to::<ObjectData>())?;
                 let obj = ActualObject::Atomic(pobj);
-                Ok(self.ctx.borrow_mut().mk(obj))
+                Ok(self.ctx.mk(obj))
             }
             "funct" => {
                 let funct = variant.tuple_variant(2, self.to::<parsers::object::Funct>())?;
-                Ok(self.ctx.borrow_mut().mk(funct))
+                Ok(self.ctx.mk(funct))
             }
             _ => return Err(Error::unknown_variant(id.as_str(), &["atomic", "funct"])),
         }
@@ -455,20 +450,20 @@ impl<'a> Visitor<'a> for Parser<Morphism> {
             "atomic" => {
                 let pobj = variant.newtype_variant_seed(self.to::<MorphismData>())?;
                 let mph = ActualMorphism::Atomic(pobj);
-                Ok(self.ctx.borrow_mut().mk(mph))
+                Ok(self.ctx.mk(mph))
             }
             "identity" => {
                 let obj = variant.newtype_variant_seed(self.to::<Object>())?;
                 let mph = ActualMorphism::Identity(obj);
-                Ok(self.ctx.borrow_mut().mk(mph))
+                Ok(self.ctx.mk(mph))
             }
             "comp" => {
                 let comp = variant.tuple_variant(2, self.to::<parsers::morphism::Comp>())?;
-                Ok(self.ctx.borrow_mut().mk(comp))
+                Ok(self.ctx.mk(comp))
             }
             "funct" => {
                 let funct = variant.tuple_variant(2, self.to::<parsers::morphism::Funct>())?;
-                Ok(self.ctx.borrow_mut().mk(funct))
+                Ok(self.ctx.mk(funct))
             }
             _ => {
                 return Err(Error::unknown_variant(
@@ -575,59 +570,59 @@ impl<'a> Visitor<'a> for Parser<Equality> {
             "atomic" => {
                 let pobj = variant.newtype_variant_seed(self.to::<EqualityData>())?;
                 let eq = ActualEquality::Atomic(pobj);
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "refl" => {
                 let mph = variant.newtype_variant_seed(self.to::<Morphism>())?;
                 let eq = ActualEquality::Refl(mph);
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "concat" => {
                 let eq = variant.tuple_variant(2, self.to::<parsers::eq::Concat>())?;
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "inv" => {
                 let mph = variant.newtype_variant_seed(self.to::<Equality>())?;
                 let eq = ActualEquality::Inv(mph);
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "compose" => {
                 let eq = variant.tuple_variant(2, self.to::<parsers::eq::Compose>())?;
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "assoc" => {
                 let eq = variant.tuple_variant(3, self.to::<parsers::eq::Assoc>())?;
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "left_id" => {
                 let mph = variant.newtype_variant_seed(self.to::<Morphism>())?;
                 let eq = ActualEquality::LeftId(mph);
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "right_id" => {
                 let mph = variant.newtype_variant_seed(self.to::<Morphism>())?;
                 let eq = ActualEquality::RightId(mph);
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "rap" => {
                 let eq = variant.tuple_variant(2, self.to::<parsers::eq::RAp>())?;
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "lap" => {
                 let eq = variant.tuple_variant(2, self.to::<parsers::eq::LAp>())?;
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "funct_id" => {
                 let eq = variant.tuple_variant(2, self.to::<parsers::eq::FunctId>())?;
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "funct_comp" => {
                 let eq = variant.tuple_variant(3, self.to::<parsers::eq::FunctComp>())?;
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             "funct_ctx" => {
                 let eq = variant.tuple_variant(2, self.to::<parsers::eq::FunctCtx>())?;
-                Ok(self.ctx.borrow_mut().mk(eq))
+                Ok(self.ctx.mk(eq))
             }
             _ => {
                 return Err(Error::unknown_variant(
