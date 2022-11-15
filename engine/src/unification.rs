@@ -126,7 +126,12 @@ fn finish(mut gr: &mut Graph, mut sigma: &mut Substitution, r: usize) -> bool {
         let mut stack: Vec<usize> = Vec::new();
         stack.push(r);
         while let Some(s) = stack.pop() {
-            // TODO check if r and s have compatible function symbols
+            if !gr.nodes[r].status.is_var().is_some()
+                && !gr.nodes[s].status.is_var().is_some()
+                && !gr.nodes[r].value.same_head(&gr.nodes[s].value)
+            {
+                return false;
+            }
 
             {
                 // I don't think I can avoid this clone without a lot refactoring to separate

@@ -1,5 +1,5 @@
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
-use crate::data::{Category, Context, Equality, Functor, Morphism, Object};
+use crate::data::{Category, Context, Equality, Functor, Morphism, Object, ProofObject};
 use core::ops::Deref;
 use serde::{Serialize, Serializer};
 
@@ -187,36 +187,113 @@ pub trait IsTerm {
             child: 0,
         }
     }
+    /// Checks if the two terms have the same head.
+    /// Behaviour unspecified if one of the two is a variable.
+    fn same_head(&self, other: &Self) -> bool;
 }
 
 impl IsTerm for AnyTerm {
     fn term(self) -> AnyTerm {
         self
     }
+    fn same_head(&self, other: &Self) -> bool {
+        use AnyTerm::*;
+        match (self, other) {
+            (Cat(c1), Cat(c2)) => c1.same_head(c2),
+            (Funct(f1), Funct(f2)) => f1.same_head(f2),
+            (Obj(o1), Obj(o2)) => o1.same_head(o2),
+            (Mph(m1), Mph(m2)) => m1.same_head(m2),
+            (Eq(e1), Eq(e2)) => e1.same_head(e2),
+            _ => false,
+        }
+    }
 }
+
+fn pobj_same(p1: &ProofObject, p2: &ProofObject) -> bool {
+    use ProofObject::*;
+    match (p1, p2) {
+        (Term(t1), Term(t2)) => t1 == t2,
+        _ => false,
+    }
+}
+
 impl IsTerm for Category {
     fn term(self) -> AnyTerm {
         AnyTerm::Cat(self)
+    }
+
+    fn same_head(&self, other: &Self) -> bool {
+        use ActualCategory::*;
+        match (self.deref(), other.deref()) {
+            (Atomic(d1), Atomic(d2)) => pobj_same(&d1.pobj, &d2.pobj),
+        }
     }
 }
 impl IsTerm for Functor {
     fn term(self) -> AnyTerm {
         AnyTerm::Funct(self)
     }
+
+    fn same_head(&self, other: &Self) -> bool {
+        use ActualFunctor::*;
+        match (self.deref(), other.deref()) {
+            (Atomic(d1), Atomic(d2)) => pobj_same(&d1.pobj, &d2.pobj),
+        }
+    }
 }
 impl IsTerm for Object {
     fn term(self) -> AnyTerm {
         AnyTerm::Obj(self)
+    }
+
+    fn same_head(&self, other: &Self) -> bool {
+        use ActualObject::*;
+        match (self.deref(), other.deref()) {
+            (Atomic(d1), Atomic(d2)) => pobj_same(&d1.pobj, &d2.pobj),
+            (Funct(..), Funct(..)) => true,
+            _ => false,
+        }
     }
 }
 impl IsTerm for Morphism {
     fn term(self) -> AnyTerm {
         AnyTerm::Mph(self)
     }
+
+    fn same_head(&self, other: &Self) -> bool {
+        use ActualMorphism::*;
+        match (self.deref(), other.deref()) {
+            (Atomic(d1), Atomic(d2)) => pobj_same(&d1.pobj, &d2.pobj),
+            (Identity(..), Identity(..)) => true,
+            (Comp(..), Comp(..)) => true,
+            (Funct(..), Funct(..)) => true,
+            _ => false,
+        }
+    }
 }
 impl IsTerm for Equality {
     fn term(self) -> AnyTerm {
         AnyTerm::Eq(self)
+    }
+
+    fn same_head(&self, other: &Self) -> bool {
+        use ActualEquality::*;
+        match (self.deref(), other.deref()) {
+            (Atomic(d1), Atomic(d2)) => pobj_same(&d1.pobj, &d2.pobj),
+            (Refl(..), Refl(..)) => true,
+            (Concat(..), Concat(..)) => true,
+            (Inv(..), Inv(..)) => true,
+            (Compose(..), Compose(..)) => true,
+            (Assoc(..), Assoc(..)) => true,
+            (LeftId(..), LeftId(..)) => true,
+            (RightId(..), RightId(..)) => true,
+            (RAp(..), RAp(..)) => true,
+            (LAp(..), LAp(..)) => true,
+            (FunctId(..), FunctId(..)) => true,
+            (FunctComp(..), FunctComp(..)) => true,
+            (FunctCtx(..), FunctCtx(..)) => true,
+            _ => false,
+        }
     }
 }
 
