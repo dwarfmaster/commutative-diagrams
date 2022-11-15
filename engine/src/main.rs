@@ -1,57 +1,28 @@
 pub mod anyterm;
 pub mod data;
+pub mod dsl;
 pub mod graph;
 pub mod parser;
 pub mod substitution;
 pub mod unification;
 
+use data::ProofObject;
+use data::{ActualCategory, ActualFunctor, ActualMorphism, ActualObject};
+use data::{CategoryData, FunctorData, MorphismData, ObjectData};
+use dsl::{cat, funct, mph, obj};
+
 use std::vec::Vec;
 
 fn serialize() {
     let mut ctx = data::Context::new();
-    ctx.new_term(0, "C");
-    ctx.new_term(1, "I");
-    ctx.new_term(2, "a");
-    ctx.new_term(3, "b");
-    ctx.new_term(4, "c");
-    ctx.new_term(5, "F");
-    let cat = ctx.mk(data::ActualCategory::Atomic(data::CategoryData {
-        pobj: data::ProofObject::Term(0),
-    }));
-    let src_cat = ctx.mk(data::ActualCategory::Atomic(data::CategoryData {
-        pobj: data::ProofObject::Term(1),
-    }));
-    let a = ctx.mk(data::ActualObject::Atomic(data::ObjectData {
-        pobj: data::ProofObject::Term(2),
-        category: cat.clone(),
-    }));
-    let b = ctx.mk(data::ActualObject::Atomic(data::ObjectData {
-        pobj: data::ProofObject::Term(3),
-        category: cat.clone(),
-    }));
-    let c = ctx.mk(data::ActualObject::Atomic(data::ObjectData {
-        pobj: data::ProofObject::Term(4),
-        category: src_cat.clone(),
-    }));
-    let f = ctx.mk(data::ActualFunctor::Atomic(data::FunctorData {
-        pobj: data::ProofObject::Term(5),
-        src: src_cat.clone(),
-        dst: cat.clone(),
-    }));
-    let c = ctx.mk(data::ActualObject::Funct(f, c));
-    let m1 = ctx.mk(data::ActualMorphism::Atomic(data::MorphismData {
-        pobj: data::ProofObject::Existential(0),
-        category: cat.clone(),
-        src: a.clone(),
-        dst: b.clone(),
-    }));
-    let m2 = ctx.mk(data::ActualMorphism::Atomic(data::MorphismData {
-        pobj: data::ProofObject::Existential(1),
-        category: cat.clone(),
-        src: b.clone(),
-        dst: c.clone(),
-    }));
-    let m = ctx.comp(m1.clone(), m2.clone());
+    let cat = cat!(ctx, :0);
+    let src_cat = cat!(ctx, :1);
+    let a = obj!(ctx, (:2) in cat);
+    let b = obj!(ctx, (:3) in cat);
+    let c = obj!(ctx, (:4) in src_cat);
+    let f = funct!(ctx, (:5) : src_cat => cat);
+    let c = obj!(ctx, f _0 c);
+    let m = mph!(ctx, ((?0) : a -> b) >> ((?1) : b -> c));
     let eq = ctx.mk(data::ActualEquality::Refl(m));
     assert!(eq.check(&mut ctx));
     let term = anyterm::AnyTerm::Eq(eq);
