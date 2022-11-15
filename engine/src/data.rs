@@ -49,8 +49,11 @@ pub enum ActualCategory {
 pub type Category = HConsed<ActualCategory>;
 
 impl ActualCategory {
-    pub fn check(&self, _ctx: &mut Context) -> bool {
-        return true;
+    pub fn check(&self, ctx: &mut Context) -> bool {
+        use ActualCategory::*;
+        match self {
+            Atomic(data) => ctx.has_po(&data.pobj),
+        }
     }
 }
 
@@ -112,7 +115,7 @@ impl ActualFunctor {
     pub fn check(&self, ctx: &mut Context) -> bool {
         use ActualFunctor::*;
         match self {
-            Atomic(data) => data.src.check(ctx) && data.dst.check(ctx),
+            Atomic(data) => data.src.check(ctx) && data.dst.check(ctx) && ctx.has_po(&data.pobj),
         }
     }
 }
@@ -172,7 +175,7 @@ impl ActualObject {
     pub fn check(&self, ctx: &mut Context) -> bool {
         use ActualObject::*;
         match self {
-            Atomic(data) => data.category.check(ctx),
+            Atomic(data) => data.category.check(ctx) && ctx.has_po(&data.pobj),
             Funct(funct, obj) => {
                 funct.check(ctx) && obj.check(ctx) && funct.src(ctx) == obj.cat(ctx)
             }
@@ -271,7 +274,14 @@ impl ActualMorphism {
     pub fn check(&self, ctx: &mut Context) -> bool {
         use ActualMorphism::*;
         match self {
-            Atomic(data) => data.category.check(ctx) && data.src.check(ctx) && data.dst.check(ctx),
+            Atomic(data) => {
+                data.category.check(ctx)
+                    && data.src.check(ctx)
+                    && data.dst.check(ctx)
+                    && data.src.cat(ctx) == data.category
+                    && data.dst.cat(ctx) == data.category
+                    && ctx.has_po(&data.pobj)
+            }
             Identity(obj) => obj.check(ctx),
             Comp(m1, m2) => m1.check(ctx) && m2.check(ctx) && m1.dst(ctx) == m2.src(ctx),
             Funct(f, m) => f.check(ctx) && m.check(ctx) && f.src(ctx) == m.cat(ctx),
@@ -517,6 +527,13 @@ impl ActualEquality {
                     && data.dst.check(ctx)
                     && data.left.check(ctx)
                     && data.right.check(ctx)
+                    && data.src.cat(ctx) == data.category
+                    && data.dst.cat(ctx) == data.category
+                    && data.left.src(ctx) == data.src
+                    && data.left.dst(ctx) == data.dst
+                    && data.right.src(ctx) == data.src
+                    && data.right.dst(ctx) == data.dst
+                    && ctx.has_po(&data.pobj)
             }
             Refl(m) => m.check(ctx),
             Concat(eq1, eq2) => eq1.check(ctx) && eq2.check(ctx) && eq1.right(ctx) == eq2.left(ctx),
@@ -685,6 +702,13 @@ impl Context {
             obj_factory: HConsign::empty(),
             mph_factory: HConsign::empty(),
             eq_factory: HConsign::empty(),
+        }
+    }
+
+    fn has_po(&self, po: &ProofObject) -> bool {
+        match po {
+            ProofObject::Term(id) => self.terms.contains_key(&id),
+            ProofObject::Existential(_) => true,
         }
     }
 
