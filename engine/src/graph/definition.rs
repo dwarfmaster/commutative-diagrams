@@ -1,4 +1,6 @@
+use crate::anyterm::AnyTerm;
 use crate::data::{Context, Equality, Morphism, Object};
+use crate::substitution::Substitutable;
 use std::vec::Vec;
 
 /// A pair of two paths in a graph with the same start and end
@@ -43,6 +45,18 @@ impl Face {
     }
 }
 
+impl Substitutable for Face {
+    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
+        Face {
+            start: self.start,
+            end: self.end,
+            left: self.left,
+            right: self.right,
+            eq: self.eq.subst_slice(ctx, sigma),
+        }
+    }
+}
+
 impl Graph {
     pub fn check(&self, ctx: &Context) -> bool {
         self.nodes.len() == self.edges.len()
@@ -53,5 +67,32 @@ impl Graph {
                 })
             })
             && self.faces.iter().all(|fce| fce.check(ctx, self))
+    }
+}
+
+impl Substitutable for Graph {
+    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
+        Graph {
+            nodes: self
+                .nodes
+                .into_iter()
+                .map(|node| node.subst_slice(ctx, sigma))
+                .collect(),
+            edges: self
+                .edges
+                .into_iter()
+                .map(|edges| {
+                    edges
+                        .into_iter()
+                        .map(|(dst, edge)| (dst, edge.subst_slice(ctx, sigma)))
+                        .collect()
+                })
+                .collect(),
+            faces: self
+                .faces
+                .into_iter()
+                .map(|face| face.subst_slice(ctx, sigma))
+                .collect(),
+        }
     }
 }
