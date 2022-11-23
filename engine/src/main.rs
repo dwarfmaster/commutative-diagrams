@@ -40,14 +40,6 @@ fn deserialize() {
     }
 }
 
-fn test_mces() {
-    let g1 : crate::graph::Graph = todo!();
-    let g2 : crate::graph::Graph = todo!();
-    let (span,sigma) = crate::graph::mces::mces(g1, g2);
-    println!("{:#?}", span);
-    println!("{:#?}", sigma)
-}
-
 fn main() {
     let ctx = data::Context::new();
     let po: data::ProofObject = data::ProofObject::Term(1);
