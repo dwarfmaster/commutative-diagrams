@@ -174,9 +174,7 @@ impl MCES {
             lnode += 1;
             rnode = 0;
         }
-        if lnode < self.llen {
-            self.stack.push((MCESState::Node { lnode, rnode }, state))
-        }
+        self.stack.push((MCESState::Node { lnode, rnode }, state))
     }
 
     #[inline]
@@ -231,11 +229,9 @@ impl MCES {
             redge = 0;
         }
         if ledge >= self.left.edges[lnode].len() {
-            ledge = 0;
             if let Some(nfrom) = queue.pop() {
-                from = nfrom
-            } else {
-                return;
+                from = nfrom;
+                ledge = 0;
             }
         }
         self.stack.push((
@@ -424,13 +420,14 @@ mod tests {
             edges: vec![Vec::new(); 2],
             faces: Vec::new(),
         };
-        let sols : Vec<Vec<(usize,usize)>> = mces::MCES::new(g1, g2).map(|(sp,_)| sp.nodes).collect();
+        let sols: Vec<Vec<(usize, usize)>> =
+            mces::MCES::new(g1, g2).map(|(sp, _)| sp.nodes).collect();
         // println!("Solution: {:#?}", sols);
         let nb = sols.len();
         // let nb = mces::mces(g1, g2).len();
         assert_eq!(
-            nb, 17,
-            "17? possible matching between 2 node graph and 4 node graph"
+            nb, 21,
+            "21 possible matching between 2 node graph and 4 node graph"
         );
     }
 }
