@@ -5,7 +5,7 @@ use crate::substitution::Substitution;
 use std::collections::HashMap;
 use std::vec::Vec;
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum NodeStatus {
     Deleted,
     Variable(u64),
@@ -13,10 +13,12 @@ enum NodeStatus {
 }
 
 struct Node {
+    init_status: NodeStatus,
     status: NodeStatus,
     ancestors: Vec<usize>,
     descendants: Vec<usize>,
     siblings: Vec<usize>,
+    initial_siblings: usize,
     pointer: Option<usize>,
     value: AnyTerm,
 }
@@ -49,8 +51,10 @@ struct Graph {
 impl Node {
     fn new(gr: &Graph, ctx: &Context, term: AnyTerm) -> Node {
         use NodeStatus::*;
+        let status = term.as_var().map(|e| Variable(e)).unwrap_or(Live);
         Node {
-            status: term.as_var().map(|e| Variable(e)).unwrap_or(Live),
+            init_status: status,
+            status,
             ancestors: Vec::new(),
             descendants: term
                 .clone()
@@ -58,9 +62,16 @@ impl Node {
                 .map(|sub| gr.get(sub, "Children must be added to the graph first (0)"))
                 .collect(),
             siblings: Vec::new(),
+            initial_siblings: 0,
             pointer: None,
             value: term,
         }
+    }
+
+    fn reset(&mut self) {
+        self.status = self.init_status;
+        self.pointer = None;
+        self.siblings.truncate(self.initial_siblings);
     }
 }
 
@@ -112,108 +123,187 @@ impl Graph {
     }
 
     /// Connect two terms with an undirected edge
+    /// The graph must be in initial state
     fn connect(&mut self, t1: usize, t2: usize) {
         self.nodes[t1].siblings.push(t2);
         self.nodes[t2].siblings.push(t1);
     }
+
+    /// Mark two term as an unification goal
+    fn add_goal(&mut self, t1: usize, t2: usize) {
+        self.connect(t1, t2);
+        self.nodes[t1].initial_siblings += 1;
+        self.nodes[t2].initial_siblings += 1;
+    }
+
+    /// Remove an unification goal between two terms
+    /// The goal MUST have been added before, and the graph must be in initial state
+    fn remove_goal(&mut self, t1: usize, t2: usize) {
+        let id1 = self.nodes[t1]
+            .siblings
+            .iter()
+            .enumerate()
+            .find(|(_, v)| **v == t2)
+            .unwrap()
+            .0;
+        self.nodes[t1].siblings.swap_remove(id1);
+        self.nodes[t1].initial_siblings -= 1;
+        let id2 = self.nodes[t2]
+            .siblings
+            .iter()
+            .enumerate()
+            .find(|(_, v)| **v == t1)
+            .unwrap()
+            .0;
+        self.nodes[t2].siblings.swap_remove(id2);
+        self.nodes[t2].initial_siblings -= 1;
+    }
+
+    /// Reset the graph into an initial state
+    fn reset(&mut self) {
+        self.nodes.iter_mut().for_each(|n| n.reset())
+    }
 }
 
-fn finish(mut gr: &mut Graph, mut sigma: &mut Substitution, r: usize) -> bool {
-    if gr.nodes[r].status.is_deleted() {
-        true
-    } else if gr.nodes[r].pointer.is_some() {
-        false
-    } else {
-        gr.nodes[r].pointer = Some(r);
-        let mut stack: Vec<usize> = Vec::new();
-        stack.push(r);
-        while let Some(s) = stack.pop() {
-            if !gr.nodes[r].status.is_var().is_some()
-                && !gr.nodes[s].status.is_var().is_some()
-                && !gr.nodes[r].value.same_head(&gr.nodes[s].value)
-            {
-                return false;
-            }
+pub struct UnifState {
+    gr: Graph,
+}
 
-            {
-                // I don't think I can avoid this clone without a lot refactoring to separate
-                // dynamic from static data in Graph
-                let ancestors = gr.nodes[s].ancestors.clone();
-                if !ancestors.iter().all(|a| finish(&mut gr, &mut sigma, *a)) {
+impl UnifState {
+    /// Initialize an empty state
+    pub fn new() -> Self {
+        Self { gr: Graph::new() }
+    }
+
+    /// Add a new term to the state
+    pub fn add(&mut self, ctx: &Context, term: AnyTerm) {
+        self.gr.insert(ctx, term.to_typed());
+    }
+
+    /// Add a goal of unification between two subterms
+    /// The terms must have been added before
+    pub fn add_goal(&mut self, t1: AnyTerm, t2: AnyTerm) {
+        let id1 = self.gr.mapping.get(&t1.to_typed()).unwrap().clone();
+        let id2 = self.gr.mapping.get(&t2.to_typed()).unwrap().clone();
+        self.gr.add_goal(id1, id2)
+    }
+
+    /// Remove a previously added goal
+    pub fn rm_goal(&mut self, t1: AnyTerm, t2: AnyTerm) {
+        let id1 = self.gr.mapping.get(&t1.to_typed()).unwrap().clone();
+        let id2 = self.gr.mapping.get(&t2.to_typed()).unwrap().clone();
+        self.gr.remove_goal(id1, id2)
+    }
+
+    /// Helper function taken from Paterson paper
+    fn finish(&mut self, mut sigma: &mut Substitution, r: usize) -> bool {
+        if self.gr.nodes[r].status.is_deleted() {
+            true
+        } else if self.gr.nodes[r].pointer.is_some() {
+            false
+        } else {
+            self.gr.nodes[r].pointer = Some(r);
+            let mut stack: Vec<usize> = Vec::new();
+            stack.push(r);
+            while let Some(s) = stack.pop() {
+                if !self.gr.nodes[r].status.is_var().is_some()
+                    && !self.gr.nodes[s].status.is_var().is_some()
+                    && !self.gr.nodes[r].value.same_head(&self.gr.nodes[s].value)
+                {
                     return false;
                 }
-            }
 
-            // Process siblings
-            while let Some(t) = gr.nodes[s].siblings.pop() {
-                let ptr = gr.nodes[t].pointer.get_or_insert(r);
-                if *ptr != r {
-                    return false;
-                };
-                stack.push(t)
-            }
-
-            // Propagate siblings or extend substitution
-            if s != r {
-                if let Some(s) = gr.nodes[s].status.is_var() {
-                    sigma.push((s, gr.nodes[r].value.clone()))
-                }
-                if gr.nodes[s].status.is_live() {
-                    let descendants = gr.nodes[s].descendants.len();
-                    assert_eq!(
-                        descendants,
-                        gr.nodes[r].descendants.len(),
-                        "Same symbols should have same number of descendants"
-                    );
-                    for id in 0..descendants {
-                        gr.connect(gr.nodes[s].descendants[id], gr.nodes[r].descendants[id])
+                {
+                    // I don't think I can avoid this clone without a lot refactoring to separate
+                    // dynamic from static data in Graph
+                    let ancestors = self.gr.nodes[s].ancestors.clone();
+                    if !ancestors.iter().all(|a| self.finish(&mut sigma, *a)) {
+                        return false;
                     }
                 }
-                gr.nodes[s].status = NodeStatus::Deleted;
+
+                // Process siblings
+                while let Some(t) = self.gr.nodes[s].siblings.pop() {
+                    let ptr = self.gr.nodes[t].pointer.get_or_insert(r);
+                    if *ptr != r {
+                        return false;
+                    };
+                    stack.push(t)
+                }
+
+                // Propagate siblings or extend substitution
+                if s != r {
+                    if let Some(s) = self.gr.nodes[s].status.is_var() {
+                        sigma.push((s, self.gr.nodes[r].value.clone()))
+                    }
+                    if self.gr.nodes[s].status.is_live() {
+                        let descendants = self.gr.nodes[s].descendants.len();
+                        assert_eq!(
+                            descendants,
+                            self.gr.nodes[r].descendants.len(),
+                            "Same symbols should have same number of descendants"
+                        );
+                        for id in 0..descendants {
+                            self.gr.connect(
+                                self.gr.nodes[s].descendants[id],
+                                self.gr.nodes[r].descendants[id],
+                            )
+                        }
+                    }
+                    self.gr.nodes[s].status = NodeStatus::Deleted;
+                }
+            }
+            self.gr.nodes[r].status = NodeStatus::Deleted;
+            true
+        }
+    }
+
+    /// Try to solve for all the goals in the unification state
+    /// Find the MGU of pairs of terms in linear time using the algorithm C described in the paper:
+    ///     Paterson, M.S., and M.N. Wegman. “Linear Unification.”
+    ///     Journal of Computer and System Sciences 16, no. 2 (April 1978): 158–67.
+    ///     https://doi.org/10.1016/0022-0000(78)90043-0.
+    pub fn solve(&mut self) -> Option<Substitution> {
+        let size = self.gr.nodes.len();
+
+        // Prepare the substitution
+        let mut sigma = Substitution::new();
+
+        // Iterate over all nodes
+        for id in 0..size {
+            if !self.gr.nodes[id].status.is_live() {
+                continue;
+            }
+            if !self.finish(&mut sigma, id) {
+                self.gr.reset();
+                return None;
             }
         }
-        gr.nodes[r].status = NodeStatus::Deleted;
-        true
+
+        // Iterate over all variables
+        for id in 0..size {
+            if !self.gr.nodes[id].status.is_var().is_some() {
+                continue;
+            }
+            if !self.finish(&mut sigma, id) {
+                self.gr.reset();
+                return None;
+            }
+        }
+
+        // If we reached this point we've succeeded
+        self.gr.reset();
+        Some(sigma)
     }
 }
 
-/// Find the MGU of two terms in linear time using the algorithm C described in the paper:
-///     Paterson, M.S., and M.N. Wegman. “Linear Unification.”
-///     Journal of Computer and System Sciences 16, no. 2 (April 1978): 158–67.
-///     https://doi.org/10.1016/0022-0000(78)90043-0.
+/// Wrapper over UnifState when we only want to unify two terms
 pub fn unify(ctx: &Context, t1: AnyTerm, t2: AnyTerm) -> Option<Substitution> {
-    // Build the DAG of subterms of the two terms to unify
-    let mut gr = Graph::new();
-    let id1 = gr.insert(ctx, t1.to_typed());
-    let id2 = gr.insert(ctx, t2.to_typed());
-    gr.connect(id1, id2);
-    let size = gr.nodes.len();
-
-    // Prepare the substitution
-    let mut sigma = Substitution::new();
-
-    // Iterate over all nodes
-    for id in 0..size {
-        if !gr.nodes[id].status.is_live() {
-            continue;
-        }
-        if !finish(&mut gr, &mut sigma, id) {
-            return None;
-        }
-    }
-
-    // Iterate over all variables
-    for id in 0..size {
-        if !gr.nodes[id].status.is_var().is_some() {
-            continue;
-        }
-        if !finish(&mut gr, &mut sigma, id) {
-            return None;
-        }
-    }
-
-    // If we reached this point we've succeeded
-    Some(sigma)
+    let mut unif = UnifState::new();
+    unif.add(ctx, t1.clone());
+    unif.add(ctx, t2.clone());
+    unif.add_goal(t1, t2);
+    unif.solve()
 }
 
 #[cfg(test)]
@@ -224,7 +314,7 @@ mod tests {
     use crate::data::{Context, ProofObject};
     use crate::dsl::{cat, mph, obj};
     use crate::substitution::Substitutable;
-    use crate::unification::unify;
+    use crate::unification::{unify, UnifState};
 
     #[test]
     pub fn simple() {
@@ -289,5 +379,36 @@ mod tests {
             Some(_) => panic!("Unification succeeded when it should have failed"),
             None => (),
         }
+    }
+
+    #[test]
+    pub fn multiple() {
+        let ctx = Context::new();
+        let mut unif = UnifState::new();
+        let cat = cat!(ctx, :0);
+        let a = obj!(ctx, (:1) in cat);
+        let b = obj!(ctx, (:2) in cat);
+        let m1 = mph!(ctx, (:4) : a -> ((?1) in cat));
+        let m2 = mph!(ctx, (:4) : ((?0) in cat) -> b);
+        let m = mph!(ctx, (:4) : ((?0) in cat) -> ((?1) in cat));
+        unif.add(&ctx, AnyTerm::Mph(m1.clone()));
+        unif.add(&ctx, AnyTerm::Mph(m2.clone()));
+        unif.add(&ctx, AnyTerm::Mph(m.clone()));
+        unif.add_goal(AnyTerm::Mph(m1.clone()), AnyTerm::Mph(m.clone()));
+        unif.add_goal(AnyTerm::Mph(m2.clone()), AnyTerm::Mph(m.clone()));
+        let sigma = unif
+            .solve()
+            .ok_or("Couldn't unify m with m1 and m2 silmutaneously")
+            .unwrap();
+        assert_eq!(
+            m1.subst(&ctx, &sigma),
+            m.clone().subst(&ctx, &sigma),
+            "m1 and m weren't successfully unified"
+        );
+        assert_eq!(
+            m2.subst(&ctx, &sigma),
+            m.clone().subst(&ctx, &sigma),
+            "m2 and m weren't successfully unified"
+        );
     }
 }
