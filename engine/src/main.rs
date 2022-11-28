@@ -15,6 +15,7 @@ use std::vec::Vec;
 
 fn main() {
     let mut ctx = data::Context::new();
+
     let cat = cat!(ctx, :0);
     let src_cat = cat!(ctx, :1);
     let a = obj!(ctx, (:2) in cat);
@@ -24,12 +25,27 @@ fn main() {
     let c = obj!(ctx, f _0 c);
     let m1 = mph!(ctx, (?0) : a -> b);
     let m2 = mph!(ctx, (?1) : b -> c);
-
     let gr: graph::Graph = graph::Graph {
         nodes: vec![a, b, c],
         edges: vec![vec![(1, m1)], vec![(2, m2)], Vec::new()],
         faces: Vec::new(),
     };
 
-    graph::viz(&gr, &mut ctx);
+    let cat_unk = cat!(ctx, ?2);
+    let x = obj!(ctx, (?3) in cat_unk);
+    let y = obj!(ctx, (?4) in cat_unk);
+    let f = mph!(ctx, (?5) : x -> y);
+    let gr2: graph::Graph = graph::Graph {
+        nodes: vec![x, y],
+        edges: vec![vec![(1, f)], Vec::new()],
+        faces: Vec::new(),
+    };
+
+    let gr_ = gr.clone();
+    let gr2_ = gr2.clone();
+
+    let mces = graph::mces::MCES::new(&mut ctx, gr, gr2);
+    for (sol, _sigma) in mces {
+        graph::span_viz(&gr_, &gr2_, &sol)
+    }
 }

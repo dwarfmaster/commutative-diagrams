@@ -4,6 +4,7 @@ use crate::substitution::Substitutable;
 use std::vec::Vec;
 
 /// A pair of two paths in a graph with the same start and end
+#[derive(Clone)]
 pub struct Face {
     pub start: usize,
     pub end: usize,
@@ -13,6 +14,7 @@ pub struct Face {
 }
 
 /// Adjacency list 2-graph of morphisms
+#[derive(Clone)]
 pub struct Graph {
     pub nodes: Vec<Object>,
     pub edges: Vec<Vec<(usize, Morphism)>>,
