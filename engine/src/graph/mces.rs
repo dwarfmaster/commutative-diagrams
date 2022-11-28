@@ -1,5 +1,8 @@
+use crate::anyterm::{AnyTerm, IsTerm};
+use crate::data::Context;
 use crate::graph::Graph;
 use crate::substitution::Substitution;
+use crate::unification::UnifState;
 use std::vec::Vec;
 
 //  ____
@@ -81,24 +84,32 @@ pub struct MCES {
     redge_inv: Vec<Vec<Option<usize>>>,
     // Exploration stack
     stack: Vec<(MCESState, SpanState)>,
+    unif: UnifState,
+    unif_goals: Vec<(AnyTerm, AnyTerm)>,
 }
 
 enum MCESState {
     Node {
         lnode: usize,
         rnode: usize,
+        unif: usize,
     },
     Edge {
         queue: Vec<usize>,
         from: usize,
         ledge: usize,
         redge: usize,
+        unif: usize,
     },
 }
 
 impl MCES {
-    pub fn new(left: Graph, right: Graph) -> Self {
-        let first_state = MCESState::Node { lnode: 0, rnode: 0 };
+    pub fn new(ctx: &mut Context, left: Graph, right: Graph) -> Self {
+        let first_state = MCESState::Node {
+            lnode: 0,
+            rnode: 0,
+            unif: 0,
+        };
         let empty_span_state = SpanState {
             node_size: 0,
             edge_size: Vec::new(),
@@ -115,6 +126,23 @@ impl MCES {
             .iter()
             .map(|edges| vec![None; edges.len()])
             .collect();
+        let mut unif = UnifState::new();
+        left.nodes
+            .iter()
+            .for_each(|n| unif.add(&ctx, n.clone().term()));
+        right
+            .nodes
+            .iter()
+            .for_each(|n| unif.add(&ctx, n.clone().term()));
+        left.edges
+            .iter()
+            .flatten()
+            .for_each(|(_, e)| unif.add(&ctx, e.clone().term()));
+        right
+            .edges
+            .iter()
+            .flatten()
+            .for_each(|(_, e)| unif.add(&ctx, e.clone().term()));
         MCES {
             left,
             right,
@@ -126,6 +154,8 @@ impl MCES {
             ledge_inv,
             redge_inv,
             stack: vec![(first_state, empty_span_state)],
+            unif,
+            unif_goals: Vec::new(),
         }
     }
 
@@ -174,7 +204,14 @@ impl MCES {
             lnode += 1;
             rnode = 0;
         }
-        self.stack.push((MCESState::Node { lnode, rnode }, state))
+        self.stack.push((
+            MCESState::Node {
+                lnode,
+                rnode,
+                unif: self.unif_goals.len(),
+            },
+            state,
+        ))
     }
 
     #[inline]
@@ -184,10 +221,16 @@ impl MCES {
             return false;
         }
 
-        // TODO test if unifiable
-        // assume yes at that point
+        let lobj = self.left.nodes[lnode].clone().term();
+        let robj = self.right.nodes[rnode].clone().term();
+        self.unif.add_goal(lobj.clone(), robj.clone());
+        if self.unif.solve().is_none() {
+            self.unif.rm_goal(lobj, robj);
+            return false;
+        }
 
         self.push_node(lnode, rnode);
+        self.unif_goals.push((lobj, robj));
         let nnode = self.connect(lnode, rnode);
         self.restart_edges(Vec::new(), nnode, 0, 0);
         true
@@ -240,6 +283,7 @@ impl MCES {
                 from,
                 ledge,
                 redge,
+                unif: self.unif_goals.len(),
             },
             state,
         ))
@@ -260,8 +304,13 @@ impl MCES {
             return false;
         }
 
-        // TODO test if unifiable
-        // assume yes at that point
+        let lobj = self.left.edges[lnode][ledge].1.clone().term();
+        let robj = self.right.edges[rnode][redge].1.clone().term();
+        self.unif.add_goal(lobj.clone(), robj.clone());
+        if self.unif.solve().is_none() {
+            self.unif.rm_goal(lobj.clone(), robj.clone());
+            return false;
+        }
 
         let ldst = self.left.edges[lnode][ledge].0;
         let rdst = self.right.edges[rnode][redge].0;
@@ -272,6 +321,7 @@ impl MCES {
                 // We can safely assume the destinations are unifiable since the
                 // morphisms themselves are
                 self.push_edge(queue.clone(), from, lnode, rnode);
+                self.unif_goals.push((lobj, robj));
                 let nnode = self.connect(ldst, rdst);
                 queue.push(nnode)
             }
@@ -279,12 +329,16 @@ impl MCES {
             // continue, otherwise this edge binding is impossible
             (Some(nl), Some(nr)) => {
                 if nl != nr {
+                    self.unif.rm_goal(lobj.clone(), robj.clone());
                     return false;
                 }
             }
             // If only one is bound, we cannot bind the other to the same since we ask
             // the binding to be bijective, so this edge binding is impossible
-            _ => return false,
+            _ => {
+                self.unif.rm_goal(lobj.clone(), robj.clone());
+                return false;
+            }
         }
 
         let nedge = self.current_span.edges[from].len();
@@ -336,21 +390,38 @@ impl MCES {
         }
     }
 
+    fn restore_unif(&mut self, unif: usize) {
+        self.unif_goals[unif..]
+            .iter()
+            .for_each(|(t1, t2)| self.unif.rm_goal(t1.clone(), t2.clone()));
+        self.unif_goals.truncate(unif)
+    }
+
     fn restart(&mut self) -> Option<(Span, Substitution)> {
         if let Some(state) = self.stack.pop() {
             use MCESState::*;
             self.restore(&state.1);
             match state.0 {
-                Node { lnode, rnode } => self.restart_node(lnode, rnode),
+                Node { lnode, rnode, unif } => {
+                    self.restore_unif(unif);
+                    self.restart_node(lnode, rnode)
+                }
                 Edge {
                     queue,
                     from,
                     ledge,
                     redge,
-                } => self.restart_edges(queue, from, ledge, redge),
+                    unif,
+                } => {
+                    self.restore_unif(unif);
+                    self.restart_edges(queue, from, ledge, redge)
+                }
             }
-            // TODO compute substitution
-            let sigma = Substitution::new();
+            let sigma = self
+                .unif
+                .solve()
+                .ok_or("Unification should have succeeded at that point")
+                .unwrap();
             Some((self.current_span.clone(), sigma))
         } else {
             None
@@ -366,8 +437,8 @@ impl Iterator for MCES {
     }
 }
 
-pub fn mces(g1: Graph, g2: Graph) -> Vec<(Span, Substitution)> {
-    let mces = MCES::new(g1, g2);
+pub fn mces(ctx: &mut Context, g1: Graph, g2: Graph) -> Vec<(Span, Substitution)> {
+    let mces = MCES::new(ctx, g1, g2);
     mces.collect()
 }
 
@@ -375,13 +446,14 @@ pub fn mces(g1: Graph, g2: Graph) -> Vec<(Span, Substitution)> {
 mod tests {
     use crate::data::Context;
     use crate::data::ProofObject;
-    use crate::data::{ActualCategory, ActualObject};
-    use crate::data::{CategoryData, ObjectData};
-    use crate::dsl::{cat, obj};
+    use crate::data::{ActualCategory, ActualMorphism, ActualObject};
+    use crate::data::{CategoryData, MorphismData, ObjectData};
+    use crate::dsl::{cat, mph, obj};
     use crate::graph::*;
 
     #[test]
     fn empty_graphs() {
+        let mut ctx = Context::new();
         let g1 = Graph {
             nodes: Vec::new(),
             edges: Vec::new(),
@@ -392,7 +464,7 @@ mod tests {
             edges: Vec::new(),
             faces: Vec::new(),
         };
-        let nb = mces::mces(g1, g2).len();
+        let nb = mces::mces(&mut ctx, g1, g2).len();
         assert_eq!(
             nb, 1,
             "Only one matching should be found between empty graphs"
@@ -401,7 +473,7 @@ mod tests {
 
     #[test]
     fn nodes_only() {
-        let ctx = Context::new();
+        let mut ctx = Context::new();
         let cat = cat!(ctx, :0);
         let a = obj!(ctx, (:1) in cat);
         let b = obj!(ctx, (:2) in cat);
@@ -420,14 +492,43 @@ mod tests {
             edges: vec![Vec::new(); 2],
             faces: Vec::new(),
         };
-        let sols: Vec<Vec<(usize, usize)>> =
-            mces::MCES::new(g1, g2).map(|(sp, _)| sp.nodes).collect();
-        // println!("Solution: {:#?}", sols);
+        let sols: Vec<Vec<(usize, usize)>> = mces::MCES::new(&mut ctx, g1, g2)
+            .map(|(sp, _)| sp.nodes)
+            .collect();
         let nb = sols.len();
-        // let nb = mces::mces(g1, g2).len();
         assert_eq!(
             nb, 21,
             "21 possible matching between 2 node graph and 4 node graph"
+        );
+    }
+
+    #[test]
+    fn test_unification() {
+        let mut ctx = Context::new();
+        let cat = cat!(ctx, :0);
+        let a = obj!(ctx, (:1) in cat);
+        let b = obj!(ctx, (:2) in cat);
+        let m = mph!(ctx, (?0) : a -> b);
+        let x = obj!(ctx, (?1) in cat);
+        let y = obj!(ctx, (?2) in cat);
+        let f = mph!(ctx, (:3) : x -> y);
+
+        let g1: Graph = Graph {
+            nodes: vec![a, b],
+            edges: vec![vec![(1, m)], Vec::new()],
+            faces: Vec::new(),
+        };
+        let g2: Graph = Graph {
+            nodes: vec![x, y],
+            edges: vec![vec![(1, f)], Vec::new()],
+            faces: Vec::new(),
+        };
+        let sols: Vec<_> = mces::MCES::new(&mut ctx, g1, g2).collect();
+        assert_eq!(sols.len(), 7, "Unexpected matchings");
+        assert_eq!(
+            sols.iter().map(|(_, sigma)| sigma.len()).max(),
+            Some(3),
+            "Should have found a maximum solution"
         );
     }
 }
