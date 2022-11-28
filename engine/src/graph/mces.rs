@@ -16,8 +16,8 @@ use std::vec::Vec;
 /// A structure that identifies a common subgraph of two graphs
 #[derive(Clone, Debug)]
 pub struct Span {
-    nodes: Vec<(usize, usize)>,
-    edges: Vec<Vec<(usize, usize)>>,
+    pub nodes: Vec<(usize, usize)>,
+    pub edges: Vec<Vec<(usize, usize)>>,
     // TODO faces
 }
 

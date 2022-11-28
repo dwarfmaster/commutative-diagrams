@@ -1,6 +1,6 @@
 mod definition;
 pub mod mces;
-// mod span;
+mod graphviz;
 
 pub use definition::*;
-// pub use span::Span;
+pub use graphviz::viz;
