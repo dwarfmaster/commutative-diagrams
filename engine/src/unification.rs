@@ -5,11 +5,33 @@ use crate::substitution::Substitution;
 use std::collections::HashMap;
 use std::vec::Vec;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum NodeStatus {
     Deleted,
     Variable(u64),
     Live,
+}
+
+#[derive(Clone)]
+enum NodeValue {
+    RootLeft,
+    RootRight,
+    Term(AnyTerm),
+}
+
+impl NodeValue {
+    fn same_head(&self, other: &Self) -> bool {
+        use NodeValue::*;
+        match (self, other) {
+            // The two roots must be unifiable, so they must have the same head
+            (RootLeft, RootLeft) => true,
+            (RootRight, RootRight) => true,
+            (RootLeft, RootRight) => true,
+            (RootRight, RootLeft) => true,
+            (Term(t1), Term(t2)) => t1.same_head(t2),
+            _ => false,
+        }
+    }
 }
 
 struct Node {
@@ -18,9 +40,8 @@ struct Node {
     ancestors: Vec<usize>,
     descendants: Vec<usize>,
     siblings: Vec<usize>,
-    initial_siblings: usize,
     pointer: Option<usize>,
-    value: AnyTerm,
+    value: NodeValue,
 }
 
 impl NodeStatus {
@@ -43,6 +64,7 @@ impl NodeStatus {
     }
 }
 
+/// Their are two root nodes, which are the first two
 struct Graph {
     nodes: Vec<Node>,
     mapping: HashMap<AnyTerm, usize>,
@@ -62,23 +84,69 @@ impl Node {
                 .map(|sub| gr.get(sub, "Children must be added to the graph first (0)"))
                 .collect(),
             siblings: Vec::new(),
-            initial_siblings: 0,
             pointer: None,
-            value: term,
+            value: NodeValue::Term(term),
+        }
+    }
+
+    fn root(left: bool) -> Node {
+        Node {
+            init_status: NodeStatus::Live,
+            status: NodeStatus::Live,
+            ancestors: Vec::new(),
+            descendants: Vec::new(),
+            siblings: vec![(if left { 1 } else { 0 })],
+            pointer: None,
+            value: if left {
+                NodeValue::RootLeft
+            } else {
+                NodeValue::RootRight
+            },
         }
     }
 
     fn reset(&mut self) {
         self.status = self.init_status;
         self.pointer = None;
-        self.siblings.truncate(self.initial_siblings);
+        self.siblings.clear();
+        match self.value {
+            NodeValue::RootLeft => self.siblings.push(1),
+            NodeValue::RootRight => self.siblings.push(0),
+            _ => (),
+        }
     }
+
+    fn assert_reset(&self) {
+        match self.value {
+            NodeValue::RootLeft => assert_eq!(self.siblings.len(), 1, "Root must have one sibling"),
+            NodeValue::RootRight => {
+                assert_eq!(self.siblings.len(), 1, "Root must have one sibling")
+            }
+            _ => assert!(
+                self.siblings.is_empty(),
+                "Non-root node must node have siblings"
+            ),
+        }
+        assert!(self.pointer.is_none(), "Self pointer hasn't been cleared");
+        assert_eq!(
+            self.status, self.init_status,
+            "Node status hasn't been resetted"
+        );
+    }
+}
+
+fn swap_remove_eq<T>(v: &mut Vec<T>, t: T)
+where
+    T: PartialEq,
+{
+    let id = v.iter().enumerate().find(|(_, v)| **v == t).unwrap().0;
+    v.swap_remove(id);
 }
 
 impl Graph {
     fn new() -> Graph {
         Graph {
-            nodes: Vec::new(),
+            nodes: vec![Node::root(true), Node::root(false)],
             mapping: HashMap::new(),
         }
     }
@@ -131,37 +199,33 @@ impl Graph {
 
     /// Mark two term as an unification goal
     fn add_goal(&mut self, t1: usize, t2: usize) {
-        self.connect(t1, t2);
-        self.nodes[t1].initial_siblings += 1;
-        self.nodes[t2].initial_siblings += 1;
+        assert_eq!(
+            self.nodes[0].descendants.len(),
+            self.nodes[1].descendants.len(),
+            "Root nodes must have same arity"
+        );
+        self.nodes[0].descendants.push(t1);
+        self.nodes[t1].ancestors.push(0);
+        self.nodes[1].descendants.push(t2);
+        self.nodes[t2].ancestors.push(1);
     }
 
     /// Remove an unification goal between two terms
     /// The goal MUST have been added before, and the graph must be in initial state
     fn remove_goal(&mut self, t1: usize, t2: usize) {
-        let id1 = self.nodes[t1]
-            .siblings
-            .iter()
-            .enumerate()
-            .find(|(_, v)| **v == t2)
-            .unwrap()
-            .0;
-        self.nodes[t1].siblings.swap_remove(id1);
-        self.nodes[t1].initial_siblings -= 1;
-        let id2 = self.nodes[t2]
-            .siblings
-            .iter()
-            .enumerate()
-            .find(|(_, v)| **v == t1)
-            .unwrap()
-            .0;
-        self.nodes[t2].siblings.swap_remove(id2);
-        self.nodes[t2].initial_siblings -= 1;
+        swap_remove_eq(&mut self.nodes[0].descendants, t1);
+        swap_remove_eq(&mut self.nodes[t1].ancestors, 0);
+        swap_remove_eq(&mut self.nodes[1].descendants, t2);
+        swap_remove_eq(&mut self.nodes[t2].ancestors, 1);
     }
 
     /// Reset the graph into an initial state
     fn reset(&mut self) {
         self.nodes.iter_mut().for_each(|n| n.reset())
+    }
+
+    fn assert_reset(&self) {
+        self.nodes.iter().for_each(|n| n.assert_reset())
     }
 }
 
@@ -234,7 +298,12 @@ impl UnifState {
                 // Propagate siblings or extend substitution
                 if s != r {
                     if let Some(s) = self.gr.nodes[s].status.is_var() {
-                        sigma.push((s, self.gr.nodes[r].value.clone()))
+                        match &self.gr.nodes[r].value {
+                            NodeValue::Term(t) => sigma.push((s, t.clone())),
+                            // This means a variable should be unified with a root node, which
+                            // never should append
+                            _ => unreachable!("Variable never unifiable with root node"),
+                        }
                     }
                     if self.gr.nodes[s].status.is_live() {
                         let descendants = self.gr.nodes[s].descendants.len();
@@ -294,6 +363,12 @@ impl UnifState {
         // If we reached this point we've succeeded
         self.gr.reset();
         Some(sigma)
+    }
+
+    /// For debugging purposes, checks that the unification status is ready (should always be after
+    /// solve). Fails with an assertion otherwise
+    pub fn assert_ready(&self) {
+        self.gr.assert_reset()
     }
 }
 
@@ -400,15 +475,30 @@ mod tests {
             .solve()
             .ok_or("Couldn't unify m with m1 and m2 silmutaneously")
             .unwrap();
+        unif.assert_ready();
         assert_eq!(
-            m1.subst(&ctx, &sigma),
+            m1.clone().subst(&ctx, &sigma),
             m.clone().subst(&ctx, &sigma),
             "m1 and m weren't successfully unified"
         );
         assert_eq!(
-            m2.subst(&ctx, &sigma),
+            m2.clone().subst(&ctx, &sigma),
             m.clone().subst(&ctx, &sigma),
             "m2 and m weren't successfully unified"
+        );
+
+        unif.rm_goal(AnyTerm::Mph(m2.clone()), AnyTerm::Mph(m.clone()));
+        let sigma = unif.solve().ok_or("Couldn't unify m with m1").unwrap();
+        unif.assert_ready();
+        assert_eq!(
+            m1.subst(&ctx, &sigma),
+            m.clone().subst(&ctx, &sigma),
+            "m1 and m weren't successfuly unified"
+        );
+        assert_ne!(
+            m2.subst(&ctx, &sigma),
+            m.clone().subst(&ctx, &sigma),
+            "m2 and m shouldn't be unified"
         );
     }
 }
