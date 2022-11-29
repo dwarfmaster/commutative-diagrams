@@ -10,8 +10,8 @@ pub mod unification;
 use data::ProofObject;
 use data::{ActualCategory, ActualFunctor, ActualMorphism, ActualObject};
 use data::{CategoryData, FunctorData, MorphismData, ObjectData};
-use substitution::Substitutable;
 use dsl::{cat, funct, mph, obj};
+use substitution::Substitutable;
 
 use std::vec::Vec;
 

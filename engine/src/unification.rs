@@ -457,6 +457,28 @@ mod tests {
     }
 
     #[test]
+    pub fn bidirectional() {
+        let ctx = Context::new();
+        let c = cat!(ctx, :0);
+        let a = obj!(ctx, (:1) in c);
+        let b = obj!(ctx, (:2) in c);
+        let x = obj!(ctx, (?0) in c);
+        let y = obj!(ctx, (?1) in c);
+        let m = mph!(ctx, (:3) : x -> y);
+        let f = mph!(ctx, (?3) : a -> b);
+        assert!(m.check(&ctx), "m is invalid");
+        assert!(f.check(&ctx), "f is invalid");
+        let sigma = unify(&ctx, AnyTerm::Mph(m.clone()), AnyTerm::Mph(f.clone()))
+            .ok_or("Couldn't unify f and m")
+            .unwrap();
+        assert_eq!(
+            m.subst(&ctx, &sigma),
+            f.subst(&ctx, &sigma),
+            "Invalid unifier for m and f"
+        );
+    }
+
+    #[test]
     pub fn multiple() {
         let ctx = Context::new();
         let mut unif = UnifState::new();

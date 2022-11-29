@@ -396,10 +396,19 @@ impl Iterator for TermIterator {
             (TypedEq(e), 5) => Some(e.term()),
             // Cat
             // Funct
+            (Funct(f), _) => {
+                use ActualFunctor::*;
+                match (f.deref(), child) {
+                    (Atomic(data), 0) if data.pobj.is_term() => Some(data.src.clone().typed()),
+                    (Atomic(data), 1) if data.pobj.is_term() => Some(data.dst.clone().typed()),
+                    _ => None,
+                }
+            }
             // Obj
             (Obj(o), _) => {
                 use ActualObject::*;
                 match (o.deref(), child) {
+                    (Atomic(data), 0) if data.pobj.is_term() => Some(data.category.clone().typed()),
                     (Funct(f, _), 0) => Some(f.clone().typed()),
                     (Funct(_, o), 1) => Some(o.clone().typed()),
                     _ => None,
@@ -409,6 +418,9 @@ impl Iterator for TermIterator {
             (Mph(m), _) => {
                 use ActualMorphism::*;
                 match (m.deref(), child) {
+                    (Atomic(data), 0) if data.pobj.is_term() => Some(data.category.clone().typed()),
+                    (Atomic(data), 1) if data.pobj.is_term() => Some(data.src.clone().typed()),
+                    (Atomic(data), 2) if data.pobj.is_term() => Some(data.dst.clone().typed()),
                     (Identity(o), 0) => Some(o.clone().typed()),
                     (Comp(m1, _), 0) => Some(m1.clone().typed()),
                     (Comp(_, m2), 1) => Some(m2.clone().typed()),
@@ -421,6 +433,11 @@ impl Iterator for TermIterator {
             (Eq(e), _) => {
                 use ActualEquality::*;
                 match (e.deref(), child) {
+                    (Atomic(data), 0) if data.pobj.is_term() => Some(data.category.clone().typed()),
+                    (Atomic(data), 1) if data.pobj.is_term() => Some(data.src.clone().typed()),
+                    (Atomic(data), 2) if data.pobj.is_term() => Some(data.dst.clone().typed()),
+                    (Atomic(data), 3) if data.pobj.is_term() => Some(data.left.clone().typed()),
+                    (Atomic(data), 4) if data.pobj.is_term() => Some(data.right.clone().typed()),
                     (Refl(m), 0) => Some(m.clone().typed()),
                     (Concat(e1, _), 0) => Some(e1.clone().typed()),
                     (Concat(_, e2), 1) => Some(e2.clone().typed()),

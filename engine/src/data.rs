@@ -19,6 +19,15 @@ pub enum ProofObject {
     Existential(u64),
 }
 
+impl ProofObject {
+    pub fn is_term(&self) -> bool {
+        match self {
+            ProofObject::Term(..) => true,
+            _ => false,
+        }
+    }
+}
+
 pub trait IsPOBacked {
     fn pobj(&self) -> ProofObject;
 }
