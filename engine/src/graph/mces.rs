@@ -70,11 +70,11 @@ impl Span {
 //
 // MCES
 
-pub struct MCES {
+pub struct MCES<'a> {
     // Immutable data during the algorithm
-    left: Graph,
+    left: &'a Graph,
     llen: usize,
-    right: Graph,
+    right: &'a Graph,
     rlen: usize,
     // Exploration data
     current_span: Span,
@@ -103,8 +103,8 @@ enum MCESState {
     },
 }
 
-impl MCES {
-    pub fn new(ctx: &mut Context, left: Graph, right: Graph) -> Self {
+impl<'a> MCES<'a> {
+    pub fn new(ctx: &mut Context, left: &'a Graph, right: &'a Graph) -> Self {
         let first_state = MCESState::Node {
             lnode: 0,
             rnode: 0,
@@ -429,7 +429,7 @@ impl MCES {
     }
 }
 
-impl Iterator for MCES {
+impl<'a> Iterator for MCES<'a> {
     type Item = (Span, Substitution);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -437,7 +437,7 @@ impl Iterator for MCES {
     }
 }
 
-pub fn mces(ctx: &mut Context, g1: Graph, g2: Graph) -> Vec<(Span, Substitution)> {
+pub fn mces(ctx: &mut Context, g1: &Graph, g2: &Graph) -> Vec<(Span, Substitution)> {
     let mces = MCES::new(ctx, g1, g2);
     mces.collect()
 }
@@ -464,7 +464,7 @@ mod tests {
             edges: Vec::new(),
             faces: Vec::new(),
         };
-        let nb = mces::mces(&mut ctx, g1, g2).len();
+        let nb = mces::mces(&mut ctx, &g1, &g2).len();
         assert_eq!(
             nb, 1,
             "Only one matching should be found between empty graphs"
@@ -492,7 +492,7 @@ mod tests {
             edges: vec![Vec::new(); 2],
             faces: Vec::new(),
         };
-        let sols: Vec<Vec<(usize, usize)>> = mces::MCES::new(&mut ctx, g1, g2)
+        let sols: Vec<Vec<(usize, usize)>> = mces::MCES::new(&mut ctx, &g1, &g2)
             .map(|(sp, _)| sp.nodes)
             .collect();
         let nb = sols.len();
@@ -523,7 +523,7 @@ mod tests {
             edges: vec![vec![(1, f)], Vec::new()],
             faces: Vec::new(),
         };
-        let sols: Vec<_> = mces::MCES::new(&mut ctx, g1, g2).collect();
+        let sols: Vec<_> = mces::MCES::new(&mut ctx, &g1, &g2).collect();
         assert_eq!(sols.len(), 7, "Unexpected matchings");
         assert_eq!(
             sols.iter().map(|(_, sigma)| sigma.len()).max(),

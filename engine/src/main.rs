@@ -41,11 +41,8 @@ fn main() {
         faces: Vec::new(),
     };
 
-    let gr_ = gr.clone();
-    let gr2_ = gr2.clone();
-
-    let mces = graph::mces::MCES::new(&mut ctx, gr, gr2);
+    let mces = graph::mces::MCES::new(&mut ctx, &gr, &gr2);
     for (sol, _sigma) in mces {
-        graph::span_viz(&gr_, &gr2_, &sol)
+        graph::span_viz(&gr, &gr2, &sol)
     }
 }
