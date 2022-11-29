@@ -73,28 +73,27 @@ impl Graph {
 }
 
 impl Substitutable for Graph {
-    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
-        Graph {
-            nodes: self
-                .nodes
-                .into_iter()
-                .map(|node| node.subst_slice(ctx, sigma))
-                .collect(),
-            edges: self
-                .edges
-                .into_iter()
-                .map(|edges| {
-                    edges
-                        .into_iter()
-                        .map(|(dst, edge)| (dst, edge.subst_slice(ctx, sigma)))
-                        .collect()
-                })
-                .collect(),
-            faces: self
-                .faces
-                .into_iter()
-                .map(|face| face.subst_slice(ctx, sigma))
-                .collect(),
-        }
+    fn subst_slice(mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
+        self.nodes = self
+            .nodes
+            .into_iter()
+            .map(|node| node.subst_slice(ctx, sigma))
+            .collect();
+        self.edges = self
+            .edges
+            .into_iter()
+            .map(|edges| {
+                edges
+                    .into_iter()
+                    .map(|(dst, edge)| (dst, edge.subst_slice(ctx, sigma)))
+                    .collect()
+            })
+            .collect();
+        self.faces = self
+            .faces
+            .into_iter()
+            .map(|face| face.subst_slice(ctx, sigma))
+            .collect();
+        self
     }
 }
