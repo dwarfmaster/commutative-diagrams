@@ -3,6 +3,7 @@ pub mod data;
 pub mod dsl;
 pub mod graph;
 pub mod parser;
+pub mod pretty;
 pub mod substitution;
 pub mod unification;
 
@@ -26,8 +27,8 @@ fn main() {
     let m1 = mph!(ctx, (?0) : a -> b);
     let m2 = mph!(ctx, (?1) : b -> c);
     let gr: graph::Graph = graph::Graph {
-        nodes: vec![a, b, c],
-        edges: vec![vec![(1, m1)], vec![(2, m2)], Vec::new()],
+        nodes: vec![a, b, c.clone()],
+        edges: vec![vec![(1, m1.clone())], vec![(2, m2.clone())], Vec::new()],
         faces: Vec::new(),
     };
 
@@ -41,8 +42,12 @@ fn main() {
         faces: Vec::new(),
     };
 
-    let mces = graph::mces::MCES::new(&mut ctx, &gr, &gr2);
-    for (sol, _sigma) in mces {
-        graph::span_viz(&gr, &gr2, &sol)
-    }
+    let m = mph!(ctx, m1 >> m2);
+    println!("m: {}", m.render(&mut ctx, 5));
+    println!("c: {}", c.render(&mut ctx, 50));
+
+    // let mces = graph::mces::MCES::new(&mut ctx, &gr, &gr2);
+    // for (sol, _sigma) in mces {
+    //     graph::span_viz(&gr, &gr2, &sol)
+    // }
 }
