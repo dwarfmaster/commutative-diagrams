@@ -10,6 +10,7 @@ pub mod unification;
 use data::ProofObject;
 use data::{ActualCategory, ActualFunctor, ActualMorphism, ActualObject};
 use data::{CategoryData, FunctorData, MorphismData, ObjectData};
+use substitution::Substitutable;
 use dsl::{cat, funct, mph, obj};
 
 use std::vec::Vec;
@@ -35,19 +36,17 @@ fn main() {
     let cat_unk = cat!(ctx, ?2);
     let x = obj!(ctx, (?3) in cat_unk);
     let y = obj!(ctx, (?4) in cat_unk);
-    let f = mph!(ctx, (?5) : x -> y);
+    let f = mph!(ctx, (:6) : x -> y);
     let gr2: graph::Graph = graph::Graph {
         nodes: vec![x, y],
         edges: vec![vec![(1, f)], Vec::new()],
         faces: Vec::new(),
     };
 
-    let m = mph!(ctx, m1 >> m2);
-    println!("m: {}", m.render(&mut ctx, 5));
-    println!("c: {}", c.render(&mut ctx, 50));
-
-    // let mces = graph::mces::MCES::new(&mut ctx, &gr, &gr2);
-    // for (sol, _sigma) in mces {
-    //     graph::span_viz(&gr, &gr2, &sol)
-    // }
+    let mces = graph::mces::MCES::new(&mut ctx, &gr, &gr2);
+    for (sol, sigma) in mces {
+        let gr_subst = gr.clone().subst(&ctx, &sigma);
+        let gr2_subst = gr2.clone().subst(&ctx, &sigma);
+        graph::span_viz(&mut ctx, &gr_subst, &gr2_subst, &sol)
+    }
 }
