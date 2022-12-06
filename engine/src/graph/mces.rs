@@ -18,7 +18,7 @@ use std::vec::Vec;
 pub struct Span {
     pub nodes: Vec<(usize, usize)>,
     pub edges: Vec<Vec<(usize, usize)>>,
-    // TODO faces
+    pub faces: Vec<(usize, usize)>,
 }
 
 struct SpanState {
@@ -31,6 +31,7 @@ impl Span {
         Span {
             nodes: Vec::new(),
             edges: Vec::new(),
+            faces: Vec::new(),
         }
     }
 
@@ -52,6 +53,7 @@ impl Span {
             .iter_mut()
             .zip(state.edge_size.iter())
             .for_each(|(v, i)| v.truncate(*i));
+        self.faces.clear();
     }
 
     fn connect(&mut self, left: usize, right: usize) -> usize {
@@ -143,6 +145,13 @@ impl<'a> MCES<'a> {
             .iter()
             .flatten()
             .for_each(|(_, e)| unif.add(&ctx, e.clone().term()));
+        left.faces
+            .iter()
+            .for_each(|f| unif.add(&ctx, f.eq.clone().term()));
+        right
+            .faces
+            .iter()
+            .for_each(|f| unif.add(&ctx, f.eq.clone().term()));
         MCES {
             left,
             right,
@@ -401,6 +410,108 @@ impl<'a> MCES<'a> {
         self.unif_goals.truncate(unif)
     }
 
+    fn fill_faces(&mut self) {
+        let lift_path =
+            |left: bool, start: usize, nexts: &[usize]| -> Option<(usize, Vec<usize>, usize)> {
+                let mut current = start;
+                let start = if left {
+                    self.lnode_inv[current]?
+                } else {
+                    self.rnode_inv[current]?
+                };
+                let mut lifted = start;
+                let mut path = Vec::new();
+                path.reserve(nexts.len());
+                for &n in nexts {
+                    let lifted_edge = if left {
+                        self.ledge_inv[current][n]?
+                    } else {
+                        self.redge_inv[current][n]?
+                    };
+                    let edge = self.current_span.edges[lifted][lifted_edge];
+                    let edge = if left { edge.0 } else { edge.1 };
+                    path.push(lifted_edge);
+                    current = if left {
+                        self.left.edges[current][edge].0
+                    } else {
+                        self.right.edges[current][edge].0
+                    };
+                    lifted = if left {
+                        self.lnode_inv[current]?
+                    } else {
+                        self.rnode_inv[current]?
+                    };
+                }
+                Some((start, path, lifted))
+            };
+
+        // A face in the source of the span
+        #[derive(PartialEq, Eq)]
+        struct LiftedFace {
+            start: usize,
+            end: usize,
+            left: Vec<usize>,
+            right: Vec<usize>,
+        }
+
+        let lift_face = |left: bool, id: usize| -> Option<(usize, LiftedFace)> {
+            let face = if left {
+                &self.left.faces[id]
+            } else {
+                &self.right.faces[id]
+            };
+            let end = if left {
+                self.lnode_inv[face.end]?
+            } else {
+                self.rnode_inv[face.end]?
+            };
+            let (s1, l, e1) = lift_path(left, face.start, &face.left)?;
+            let (s2, r, e2) = lift_path(left, face.start, &face.right)?;
+            assert_eq!(s1, s2, "Lifting should preserve starts");
+            assert_eq!(e1, end, "Lifting should preserve ends");
+            assert_eq!(e2, end, "Lifting should preserve ends");
+            Some((
+                id,
+                LiftedFace {
+                    start: s1,
+                    end,
+                    left: l,
+                    right: r,
+                },
+            ))
+        };
+
+        let llifted: Vec<(usize, LiftedFace)> = (0..self.left.faces.len())
+            .filter_map(|i| lift_face(true, i))
+            .collect();
+        let rlifted: Vec<(usize, LiftedFace)> = (0..self.right.faces.len())
+            .filter_map(|i| lift_face(false, i))
+            .collect();
+
+        // Very naive and inefficient
+        // May do some no injective unification of equalities, and that's OK
+        for (lid, lface) in llifted {
+            for (rid, rface) in &rlifted {
+                // Check if they correspond to the same lifted faces
+                if lface != *rface {
+                    continue;
+                }
+
+                // See if the equalities themselves are unifiable
+                let leq = self.left.faces[lid].eq.clone().term();
+                let req = self.right.faces[*rid].eq.clone().term();
+                self.unif.add_goal(leq.clone(), req.clone());
+                if self.unif.solve().is_none() {
+                    self.unif.rm_goal(leq, req);
+                    continue;
+                }
+
+                self.unif_goals.push((leq, req));
+                self.current_span.faces.push((lid, *rid));
+            }
+        }
+    }
+
     fn restart(&mut self) -> Option<(Span, Substitution)> {
         if let Some(state) = self.stack.pop() {
             use MCESState::*;
@@ -421,6 +532,7 @@ impl<'a> MCES<'a> {
                     self.restart_edges(queue, from, ledge, redge)
                 }
             }
+            self.fill_faces();
             let sigma = self
                 .unif
                 .solve()
@@ -450,8 +562,8 @@ pub fn mces(ctx: &mut Context, g1: &Graph, g2: &Graph) -> Vec<(Span, Substitutio
 mod tests {
     use crate::data::Context;
     use crate::data::ProofObject;
-    use crate::data::{ActualCategory, ActualMorphism, ActualObject};
-    use crate::data::{CategoryData, MorphismData, ObjectData};
+    use crate::data::{ActualCategory, ActualEquality, ActualMorphism, ActualObject};
+    use crate::data::{CategoryData, EqualityData, MorphismData, ObjectData};
     use crate::dsl::{cat, mph, obj};
     use crate::graph::*;
 
@@ -533,6 +645,80 @@ mod tests {
             sols.iter().map(|(_, sigma)| sigma.len()).max(),
             Some(3),
             "Should have found a maximum solution"
+        );
+    }
+
+    #[test]
+    fn faces() {
+        let mut ctx = Context::new();
+        let cat = cat!(ctx, :0);
+        let a = obj!(ctx, (:1) in cat);
+        let b = obj!(ctx, (:2) in cat);
+        let c = obj!(ctx, (:3) in cat);
+        let f = mph!(ctx, (:4) : a -> b);
+        let g = mph!(ctx, (:5) : b -> c);
+        let h = mph!(ctx, (:6) : a -> c);
+        let fg = mph!(ctx, f >> g);
+
+        let p1 = ActualEquality::Atomic(EqualityData {
+            pobj: ProofObject::Existential(0),
+            category: cat.clone(),
+            src: a.clone(),
+            dst: c.clone(),
+            left: fg.clone(),
+            right: h.clone(),
+        });
+        let f1 = Face {
+            start: 0,
+            end: 2,
+            left: vec![0, 0],
+            right: vec![1],
+            eq: ctx.mk(p1),
+        };
+        let g1 = Graph {
+            nodes: vec![a.clone(), b.clone(), c.clone()],
+            edges: vec![
+                vec![(1, f.clone()), (2, h.clone())],
+                vec![(2, g.clone())],
+                Vec::new(),
+            ],
+            faces: vec![f1],
+        };
+        assert!(g1.check(&ctx), "g1 is not well formed");
+
+        ctx.new_term(7, "p");
+        let p2 = ActualEquality::Atomic(EqualityData {
+            pobj: ProofObject::Term(7),
+            category: cat.clone(),
+            src: a.clone(),
+            dst: c.clone(),
+            left: fg.clone(),
+            right: h.clone(),
+        });
+        let f2 = Face {
+            start: 0,
+            end: 2,
+            left: vec![0, 0],
+            right: vec![1],
+            eq: ctx.mk(p2),
+        };
+        let g2 = Graph {
+            nodes: vec![a.clone(), b.clone(), c.clone()],
+            edges: vec![
+                vec![(1, f.clone()), (2, h.clone())],
+                vec![(2, g.clone())],
+                Vec::new(),
+            ],
+            faces: vec![f2],
+        };
+        assert!(g2.check(&ctx), "g2 is not well formed");
+
+        let sols: Vec<_> = mces::MCES::new(&mut ctx, &g1, &g2).collect();
+        assert_eq!(sols.len(), 10, "Expected 10 solutions");
+        assert_eq!(
+            sols.iter().map(|(_, sigma)| sigma.len()).max(),
+            Some(1),
+            "Should have found a solution mapping the face"
         );
     }
 }
