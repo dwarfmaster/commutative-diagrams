@@ -214,7 +214,6 @@ impl<'a> MCES<'a> {
         ))
     }
 
-    #[inline]
     fn try_connect_nodes(&mut self, lnode: usize, rnode: usize) -> bool {
         // The same test for lnode is unnecessary
         if self.rnode_inv[rnode].is_some() {
@@ -289,7 +288,6 @@ impl<'a> MCES<'a> {
         ))
     }
 
-    #[inline]
     fn try_connect_edges(
         &mut self,
         queue: &mut Vec<usize>,
@@ -314,14 +312,17 @@ impl<'a> MCES<'a> {
 
         let ldst = self.left.edges[lnode][ledge].0;
         let rdst = self.right.edges[rnode][redge].0;
-        match (self.ledge_inv[lnode][ledge], self.redge_inv[rnode][redge]) {
+        match (self.lnode_inv[ldst], self.rnode_inv[rdst]) {
             // The targets are unbound, we need to create a new node, bind them and add
             // it to the queue
             (None, None) => {
                 // We can safely assume the destinations are unifiable since the
                 // morphisms themselves are
-                self.push_edge(queue.clone(), from, lnode, rnode);
+                // We still add them to the unification algorithm in case they can constraint more
+                // things
+                self.push_edge(queue.clone(), from, ledge, redge);
                 self.unif_goals.push((lobj, robj));
+                // TODO
                 let nnode = self.connect(ldst, rdst);
                 queue.push(nnode)
             }
@@ -331,6 +332,9 @@ impl<'a> MCES<'a> {
                 if nl != nr {
                     self.unif.rm_goal(lobj.clone(), robj.clone());
                     return false;
+                } else {
+                    self.push_edge(queue.clone(), from, ledge, redge);
+                    self.unif_goals.push((lobj, robj));
                 }
             }
             // If only one is bound, we cannot bind the other to the same since we ask
@@ -353,7 +357,7 @@ impl<'a> MCES<'a> {
             let (lnode, rnode) = self.current_span.nodes[from];
             let ledges = self.left.edges[lnode].len();
             let redges = self.right.edges[rnode].len();
-            if lstart < self.ledge_inv[lnode].len() && self.ledge_inv[lnode][lstart].is_none() {
+            if lstart < ledges && self.ledge_inv[lnode][lstart].is_none() {
                 for redge in rstart..redges {
                     if self.try_connect_edges(&mut queue, from, lnode, lstart, rnode, redge) {
                         break;
@@ -365,7 +369,7 @@ impl<'a> MCES<'a> {
                     continue;
                 }
                 for redge in 0..redges {
-                    if self.try_connect_edges(&mut queue, from, lnode, lstart, rnode, redge) {
+                    if self.try_connect_edges(&mut queue, from, lnode, ledge, rnode, redge) {
                         break;
                     }
                 }
