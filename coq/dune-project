@@ -14,4 +14,5 @@
  (synopsis "A Coq plugin to deal with commutative diagrams")
  (depends
    (ocaml (>= 4.08))
-   (coq-core (and (>= 8.15) (< 8.16~)))))
+   (coq-core (and (>= 8.15) (< 8.16~)))
+   (vcaml (and (>= 0.15) (< 0.16~)))))

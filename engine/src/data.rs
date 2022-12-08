@@ -15,7 +15,9 @@ use std::rc::Rc;
 // Proof Object
 #[derive(Serialize, Deserialize, Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProofObject {
+    #[serde(rename = "term")]
     Term(u64),
+    #[serde(rename = "existential")]
     Existential(u64),
 }
 
