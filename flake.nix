@@ -47,6 +47,11 @@
     };
     shell = pkgs.mkShell {
       inputsFrom = [ shell-coq shell-engine ];
+      nativeBuildInputs = builtins.attrValues {
+        inherit (pkgs)
+          msgpack-tools
+          ;
+      };
     };
   in {
     devShells.x86_64-linux = {

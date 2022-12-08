@@ -14,6 +14,16 @@ use dsl::{cat, funct, mph, obj};
 use substitution::Substitutable;
 
 use std::vec::Vec;
+use std::fs::File;
+use std::ops::Deref;
+
+use rmp_serde::encode;
+
+fn messagepack_to_file(mph: &data::Morphism) {
+    let path = "mph.mp";
+    let mut file = File::create(path).unwrap();
+    encode::write(&mut file, &mph.deref()).unwrap();
+}
 
 fn main() {
     let mut ctx = data::Context::new();
@@ -49,4 +59,7 @@ fn main() {
         let gr2_subst = gr2.clone().subst(&ctx, &sigma);
         graph::span_viz(&mut ctx, &gr_subst, &gr2_subst, &sol)
     }
+
+    let m = mph!(ctx, m1 >> m2);
+    messagepack_to_file(&m);
 }

@@ -5,3 +5,4 @@ Makefile.coq*
 coq/theories/test
 engine/target
 **/.envrc
+**/*.mp
