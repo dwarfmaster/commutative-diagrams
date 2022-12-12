@@ -82,9 +82,42 @@ module Make(PA: Pa.ProofAssistant) = struct
   module Elem = struct
     type t = PA.t elem
     let mk_id = mk_global_id 2
-    let pack cat = raise Unimplemented
-    let pack cat = raise Unimplemented
-    let unpack mp = raise Unimplemented
+
+    let rec pack elem =
+      match elem with
+      | AtomicElem data ->
+          let po = Pk.Map [(Pk.String "term", Pk.Integer (mk_id data.elem_id))] in
+          ret (Pk.Map [(Pk.String "atomic", po)])
+      | FObj (funct,elem) ->
+          let* funct = Funct.pack funct in
+          let* elem = pack elem in
+          ret (Pk.Map [(Pk.String "funct", Pk.Array [funct; elem])])
+
+    let rec unpack mp =
+      match mp with
+      | Pk.Map [ (Pk.String cons, mp) ] -> begin
+        match cons, mp with
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ] ] -> begin 
+          match name with
+          | "term" ->
+              let id = un_id id in
+              let* elems = St.getElems () in
+              if id < Array.length elems 
+              then ret (Some (AtomicElem elems.(id)))
+              else ret None
+          | "existential" -> raise Unimplemented
+          | _ -> ret None
+        end
+        | "funct", Pk.Array [ funct; elem ] -> begin
+          let* funct = Funct.unpack funct in
+          let* elem = unpack elem in
+          match funct, elem with
+          | Some funct, Some elem -> ret (Some (FObj (funct,elem)))
+          | _ -> ret None
+        end
+        | _ -> ret None
+      end
+      | _ -> ret None
   end
 
   module Mph = struct
