@@ -188,8 +188,164 @@ module Make(PA: Pa.ProofAssistant) = struct
   module Eq = struct
     type t = PA.t eq
     let mk_id = mk_global_id 4
-    let pack cat = raise Unimplemented
-    let unpack mp = raise Unimplemented
+
+    let rec pack eq =
+      match eq with
+      | AtomicEq data ->
+          let po = cons "term" (Pk.Integer (mk_id data.eq_id)) in
+          ret (Pk.Map [(Pk.String "atomic", po)])
+      | Hole _ -> raise Unimplemented (* Should become an existential *)
+      | Refl m ->
+          let* m = Mph.pack m in
+          ret (cons "refl" m)
+      | Concat (p1,p2) ->
+          let* p1 = pack p1 in
+          let* p2 = pack p2 in
+          ret (cons "concat" (Pk.Array [ p1; p2 ]))
+      | InvEq p ->
+          let* p = pack p in
+          ret (cons "inv" p)
+      | Compose (p1,p2) ->
+          let* p1 = pack p1 in
+          let* p2 = pack p2 in
+          ret (cons "compose" (Pk.Array [ p1; p2 ]))
+      | Assoc (m1,m2,m3) ->
+          let* m1 = Mph.pack m1 in
+          let* m2 = Mph.pack m2 in
+          let* m3 = Mph.pack m3 in
+          ret (cons "assoc" (Pk.Array [ m1; m2; m3 ]))
+      | LeftId m ->
+          let* m = Mph.pack m in
+          ret (cons "left_id" m)
+      | RightId m ->
+          let* m = Mph.pack m in
+          ret (cons "right_id" m)
+      | RAp (p,m) ->
+          let* p = pack p in
+          let* m = Mph.pack m in
+          ret (cons "rap" (Pk.Array [ p; m ]))
+      | LAp (m,p) ->
+          let* m = Mph.pack m in
+          let* p = pack p in
+          ret (cons "lap" (Pk.Array [ m; p ]))
+      | RInv _ -> raise Unimplemented (* not implemented on rust side *)
+      | LInv _ -> raise Unimplemented (* not implemented on rust side *)
+      | Mono _ -> raise Unimplemented (* not implemented on rust side *)
+      | Epi _ -> raise Unimplemented (* not implemented on rust side *)
+      | FId (f,x) ->
+          let* f = Funct.pack f in
+          let* x = Elem.pack x in
+          ret (cons "funct_id" (Pk.Array [ f; x ]))
+      | FComp (f, m1, m2) ->
+          let* f = Funct.pack f in
+          let* m1 = Mph.pack m1 in
+          let* m2 = Mph.pack m2 in
+          ret (cons "funct_comp" (Pk.Array [ f; m1; m2 ]))
+      | FCtx (f,p) ->
+          let* f = Funct.pack f in
+          let* p = pack p in
+          ret (cons "funct_ctx" (Pk.Array [ f; p ]))
+
+    let rec unpack mp =
+      match mp with
+      | Pk.Map [ (Pk.String cons, mp) ] -> begin
+        match cons, mp with
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ] ] -> begin 
+          match name with
+          | "term" ->
+              let id = un_id id in
+              let* eqs = St.getEqs () in
+              if id < Array.length eqs 
+              then ret (Some (AtomicEq eqs.(id)))
+              else ret None
+          | "existential" -> raise Unimplemented
+          | _ -> ret None
+        end
+        | "refl", m -> begin
+            let* m = Mph.unpack m in
+            match m with
+            | Some m -> ret (Some (Refl m))
+            | _ -> ret None
+        end
+        | "concat", Pk.Array [ p1; p2 ] -> begin
+          let* p1 = unpack p1 in
+          let* p2 = unpack p2 in
+          match p1, p2 with
+          | Some p1, Some p2 -> ret (Some (Concat (p1,p2)))
+          | _ -> ret None
+        end
+        | "inv", eq -> begin
+          let* eq = unpack eq in
+          match eq with
+          | Some eq -> ret (Some (InvEq eq))
+          | _ -> ret None
+        end
+        | "compose", Pk.Array [ p1; p2 ] -> begin
+          let* p1 = unpack p1 in
+          let* p2 = unpack p2 in
+          match p1, p2 with
+          | Some p1, Some p2 -> ret (Some (Compose (p1,p2)))
+          | _ -> ret None
+        end
+        | "assoc", Pk.Array [ m1; m2; m3 ] -> begin
+          let* m1 = Mph.unpack m1 in
+          let* m2 = Mph.unpack m2 in
+          let* m3 = Mph.unpack m3 in
+          match m1,m2,m3 with
+          | Some m1, Some m2, Some m3 -> ret (Some (Assoc(m1,m2,m3)))
+          | _ -> ret None
+        end
+        | "left_id", m -> begin
+          let* m = Mph.unpack m in
+          match m with
+          | Some m -> ret (Some (LeftId m))
+          | _ -> ret None
+        end
+        | "right_id", m -> begin
+          let* m = Mph.unpack m in
+          match m with
+          | Some m -> ret (Some (RightId m))
+          | _ -> ret None
+        end
+        | "rap", Pk.Array [ p; m ] -> begin
+          let* p = unpack p in
+          let* m = Mph.unpack m in
+          match p,m with
+          | Some p, Some m -> ret (Some (RAp (p,m)))
+          | _ -> ret None
+        end
+        | "lap", Pk.Array [ m; p ] -> begin
+          let* m = Mph.unpack m in
+          let* p = unpack p in
+          match m,p with
+          | Some m, Some p -> ret (Some (LAp (m,p)))
+          | _ -> ret None
+        end
+        | "funct_id", Pk.Array [ f; x ] -> begin
+          let* f = Funct.unpack f in
+          let* x = Elem.unpack x in
+          match f, x with
+          | Some f, Some x -> ret (Some (FId (f,x)))
+          | _ -> ret None
+        end
+        | "funct_comp", Pk.Array [ f; m1; m2 ] -> begin
+          let* f = Funct.unpack f in
+          let* m1 = Mph.unpack m1 in
+          let* m2 = Mph.unpack m2 in
+          match f, m1, m2 with
+          | Some f, Some m1, Some m2 -> ret (Some (FComp (f,m1,m2)))
+          | _ -> ret None
+        end
+        | "funct_ctx", Pk.Array [ f; p ] -> begin
+          let* f = Funct.unpack f in
+          let* p = unpack p in
+          match f, p with
+          | Some f, Some p -> ret (Some (FCtx (f,p)))
+          | _ -> ret None
+        end
+        | _ -> ret None
+      end
+      | _ -> ret None
   end
 
 end
