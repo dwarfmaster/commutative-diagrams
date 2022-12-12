@@ -52,8 +52,31 @@ module Make(PA: Pa.ProofAssistant) = struct
   module Funct = struct
     type t = PA.t funct
     let mk_id = mk_global_id 1
-    let pack cat = raise Unimplemented
-    let unpack mp = raise Unimplemented
+
+    let pack funct =
+      match funct with
+      | AtomicFunctor data ->
+          let po = Pk.Map [(Pk.String "term", Pk.Integer (mk_id data.funct_id))] in
+          ret (Pk.Map [(Pk.String "atomic", po)])
+
+    let unpack mp =
+      match mp with
+      | Pk.Map [ (Pk.String cons, mp) ] -> begin
+        match cons, mp with
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ] ] -> begin 
+          match name with
+          | "term" ->
+              let id = un_id id in
+              let* functs = St.getFunctors () in
+              if id < Array.length functs
+              then ret (Some (AtomicFunctor functs.(id)))
+              else ret None
+          | "existential" -> raise Unimplemented
+          | _ -> ret None
+        end
+        | _ -> ret None
+      end
+      | _ -> ret None
   end
 
   module Elem = struct
