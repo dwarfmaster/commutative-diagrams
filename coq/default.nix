@@ -1,4 +1,4 @@
-{ buildDunePackage, coq_8_15, coq-hott_8_15, zarith, vcaml, lib }:
+{ buildDunePackage, coq_8_15, coq-hott_8_15, zarith, vcaml, stdio, lib }:
 
 buildDunePackage {
   pname = "commutative-diagrams";
@@ -13,6 +13,7 @@ buildDunePackage {
     coq-hott_8_15
     zarith
     vcaml
+    stdio
   ];
 
   meta = {
