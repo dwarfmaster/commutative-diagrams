@@ -13,9 +13,9 @@ use data::{CategoryData, FunctorData, MorphismData, ObjectData};
 use dsl::{cat, funct, mph, obj};
 use substitution::Substitutable;
 
-use std::vec::Vec;
 use std::fs::File;
 use std::ops::Deref;
+use std::vec::Vec;
 
 use rmp_serde::encode;
 

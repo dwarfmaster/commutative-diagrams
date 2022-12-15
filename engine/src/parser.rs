@@ -16,18 +16,23 @@ use serde_json;
 // |_|   \__,_|_|  |___/\___|_|
 //
 // Parser
-#[derive(Clone)]
-struct Parser<T> {
-    ctx: Context,
+pub struct Parser<T> {
+    pub ctx: Context,
     _marker: PhantomData<T>,
 }
 
 impl<T> Parser<T> {
-    fn to<U>(&self) -> Parser<U> {
+    pub fn to<U>(&self) -> Parser<U> {
         Parser {
             ctx: self.ctx.clone(),
             _marker: PhantomData::default(),
         }
+    }
+}
+
+impl<T> Clone for Parser<T> {
+    fn clone(&self) -> Self {
+        self.to::<T>()
     }
 }
 
@@ -44,6 +49,7 @@ macro_rules! make_parser {
         }
     };
 }
+pub(crate) use make_parser;
 
 impl Context {
     make_parser!(parse_cat, Category);
@@ -68,6 +74,7 @@ macro_rules! deserializer_struct {
         }
     };
 }
+pub(crate) use deserializer_struct;
 macro_rules! deserializer_enum {
     ($t:ty, $n:expr, $cases:expr) => {
         impl<'a> DeserializeSeed<'a> for Parser<$t> {
@@ -82,6 +89,7 @@ macro_rules! deserializer_enum {
         }
     };
 }
+pub(crate) use deserializer_enum;
 
 // __     __         _             _
 // \ \   / /_ _ _ __(_) __ _ _ __ | |_   _ __ ___   __ _  ___ _ __ ___
@@ -124,6 +132,7 @@ macro_rules! variant_visitor {
         }
     };
 }
+pub(crate) use variant_visitor;
 
 mod parsers {
     pub mod object {
