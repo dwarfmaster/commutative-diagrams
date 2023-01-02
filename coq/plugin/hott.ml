@@ -14,7 +14,7 @@ module M = struct
   let run env a = a.runEnv env
 end
 
-module St = Store.Make(M)
+module St = Hyps.Make(M)
 open St.Combinators
 type 'a m = ('a,EConstr.t) St.t
 let liftP a = lift (M.lift a)

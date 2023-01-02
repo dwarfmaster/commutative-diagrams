@@ -2,8 +2,8 @@
 module Make(PA: Pa.ProofAssistant) : sig
   module type Packable = sig
     type t
-    val pack : t -> (Msgpack.t,PA.t) Store.Make(PA.M).t
-    val unpack : Msgpack.t -> (t option,PA.t) Store.Make(PA.M).t
+    val pack : t -> (Msgpack.t,PA.t) Hyps.Make(PA.M).t
+    val unpack : Msgpack.t -> (t option,PA.t) Hyps.Make(PA.M).t
   end
 
   module Cat : Packable with type t = PA.t Data.category

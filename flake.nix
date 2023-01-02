@@ -7,7 +7,7 @@
   outputs = { self, nixpkgs }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
-    ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_13;
+    ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_14;
     coq = pkgs.coq.override {
       version = "8.15";
       coq-version = "8.15";
@@ -28,7 +28,7 @@
           ocaml 
           findlib
           dune_2
-          ocaml-lsp
+          # ocaml-lsp
           merlin
           ;
       };

@@ -18,14 +18,14 @@ val realizeMorphism : t Data.morphism -> t M.m
 val realizeEq : t Data.eq -> t M.m
 
 (* Parsing *)
-module St := Store.Make(M)
+module St := Hyps.Make(M)
 val parseCategory : t -> t -> (t Data.category option,t) St.t
 val parseFunctor : t -> t -> (t Data.funct option,t) St.t
 val parseElem : t -> t -> (t Data.elem option,t) St.t
 val parseMorphism : t -> t -> (t Data.morphism option,t) St.t
 val parseEq : t -> t -> (t Data.eq option,t) St.t
-val parseEqGoal : t -> ((t Data.morphism * t Data.morphism) option, t) Store.Make(M).t
-val parseProperties : t -> t -> (unit,t) Store.Make(M).t
+val parseEqGoal : t -> ((t Data.morphism * t Data.morphism) option, t) Hyps.Make(M).t
+val parseProperties : t -> t -> (unit,t) Hyps.Make(M).t
 
 
 (* Utils *)

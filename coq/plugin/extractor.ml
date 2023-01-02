@@ -8,7 +8,7 @@ let (++) = Pp.(++)
 (*   |_|\___/| .__/      |_|\___| \_/ \___|_| *)
 (*           |_| *)
 (* Top-level *)
-module St = Store.Make(Hott.M)
+module St = Hyps.Make(Hott.M)
 module Enum = Enumerate.Make(Hott)
 module Norm = Normalisation
 module UF = UnionFind.Make(Hott)

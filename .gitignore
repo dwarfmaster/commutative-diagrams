@@ -6,3 +6,14 @@ coq/theories/test
 engine/target
 **/.envrc
 **/*.mp
+
+coq/**/*.aux
+coq/**/*.glob
+coq/**/*.d
+coq/**/*.o
+coq/**/*.a
+coq/**/*.cmi
+coq/**/*.cmo
+coq/**/*.cmx
+coq/**/*.cmxa
+coq/**/*.cmxs

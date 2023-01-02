@@ -1,5 +1,5 @@
 
-module St = Store.Make(Hott.M)
+module St = Hyps.Make(Hott.M)
 open St.Combinators
 open Data
 

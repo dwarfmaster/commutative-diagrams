@@ -1,6 +1,6 @@
 
 module Make(PA : Pa.ProofAssistant) = struct
-  module St = Store.Make(PA.M)
+  module St = Hyps.Make(PA.M)
   open St.Combinators
   type 't m = ('t,PA.t) St.t
 

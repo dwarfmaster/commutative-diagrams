@@ -1,7 +1,49 @@
 -R theories/ CommutativeDiagrams
--I _build/default/src/
+-I plugin/
 -arg -noinit
 -arg -indices-matter
 
 theories/Loader.v
-theories/Diagrams.v
+theories/Tests.v
+
+plugin/data.ml
+plugin/data.mli
+plugin/enumerate.ml
+plugin/enumerate.mli
+plugin/env.ml
+plugin/env.mli
+plugin/extractor.ml
+plugin/extractor.mli
+plugin/graph.ml
+plugin/graph.mli
+plugin/hott.ml
+plugin/hott.mli
+plugin/main.ml
+plugin/main.mli
+plugin/normalisation.ml
+plugin/normalisation.mli
+plugin/pa.ml
+plugin/renderer.ml
+plugin/renderer.mli
+plugin/serde.ml
+plugin/serde.mli
+plugin/server.ml
+plugin/server.mli
+plugin/simplEq.ml
+plugin/simplEq.mli
+plugin/hyps.ml
+plugin/hyps.mli
+plugin/unionFind.ml
+plugin/unionFind.mli
+
+plugin/epimorphismHook.ml
+plugin/epimorphismHook.mli
+plugin/monomorphismHook.ml
+plugin/monomorphismHook.mli
+plugin/postComposeHook.ml
+plugin/postComposeHook.mli
+plugin/preComposeHook.ml
+plugin/preComposeHook.mli
+
+plugin/g_diagrams.mlg
+plugin/diagrams_plugin.mlpack

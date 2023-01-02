@@ -2,7 +2,7 @@ package "diagrams" (
   directory       = "."
   version         = "dev"
   description     = "A plugin to work with commutative diagrams"
-  requires        = "coq-core.plugins.ltac coq-core.vernac vcaml.msgpack stdio"
+  requires        = "coq-core.plugins.ltac coq-core.vernac"
   archive(byte)   = "diagrams_plugin.cma"
   archive(native) = "diagrams_plugin.cmxa"
   plugin(byte)    = "diagrams_plugin.cma"

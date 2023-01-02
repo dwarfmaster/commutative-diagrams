@@ -3,7 +3,7 @@ exception Unimplemented
 
 module Make(PA: Pa.ProofAssistant) = struct
   module Pk = Msgpack
-  module St = Store.Make(PA.M)
+  module St = Hyps.Make(PA.M)
   open St.Combinators
   open Data
   type 't m = ('t,PA.t) St.t
