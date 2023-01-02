@@ -49,13 +49,16 @@ module Make(PA: Pa.ProofAssistant) = struct
       | HRet rt -> (Msgpack.Nil, rt)
       | HNil -> (Msgpack.Nil, Msgpack.Nil) in
     let response = Msgpack.Array [ Msgpack.Integer 1; Msgpack.Integer msgid; err; rt ] in
-    let response = Msgpack.string_of_t_exn response in
-    Stdio.Out_channel.output_string rm.stdin response;
+    let response = Msgpack.serialize response in
+    Out_channel.output_bytes rm.stdin response;
     ret ()
 
   let handle_message (rm : remote) (msg : Msgpack.t) : unit m =
     match msg with
-    | Msgpack.Array [ Msgpack.Integer 0; Msgpack.Integer msgid; Msgpack.String mtd; Msgpack.Array params ] -> begin
+    | Msgpack.Array [ Msgpack.Integer 0
+                    ; Msgpack.Integer msgid
+                    ; Msgpack.String mtd
+                    ; Msgpack.Array params ] -> begin
       match mtd with
       | "goal" -> run_handler rm msgid params handle_goal
       | _ -> invalid_message ()
@@ -64,27 +67,14 @@ module Make(PA: Pa.ProofAssistant) = struct
 
   let run (left : PA.t Data.morphism) (right : PA.t Data.morphism) : PA.t Data.eq m =
     let rm = start_remote () in
-    let parser = ref (Angstrom.Buffered.parse ~initial_buffer_size:4096 Msgpack.Internal.Parser.msg) in
-    let buffer = Bytes.create 1024 in
+    let parser = Msgpack.make_parser rm.stdout in
     let result : PA.t Data.eq option ref = ref None in
-    let* _ = whileM (fun () -> ret (is_none !result)) (fun () -> begin
-      match !parser with
-      | Angstrom.Buffered.Partial _ -> begin
-        (* Needs more input *)
-        let read = Stdio.In_channel.input rm.stdout ~buf:buffer ~pos:0 ~len:1024 in
-        let read_string = Bytes.sub_string buffer 0 read in
-        parser := Angstrom.Buffered.feed !parser (`String read_string);
-        ret ()
-      end
-      | Angstrom.Buffered.Fail _ -> invalid_message ()
-      | Angstrom.Buffered.Done (ub, msg) -> begin
-        (* Make sure to keep parsing *)
-        parser := Angstrom.Buffered.parse ~initial_buffer_size:4096 Msgpack.Internal.Parser.msg;
-        parser := Angstrom.Buffered.feed !parser (`Bigstring (Bigarray.Array1.sub ub.buf ub.off ub.len));
-        (* Handle the message *)
-        handle_message rm msg
-      end
-    end) in
+    let* _ = whileM (fun () -> ret (is_none !result)) (fun () ->
+      match Msgpack.parse parser with
+      (* TODO fail gracefully *)
+      | Msgpack.Eof -> (* Failed to finish *) assert false
+      | Msgpack.Error err -> Feedback.msg_warning (Pp.str err); assert false
+      | Msgpack.Msg msg -> handle_message rm msg) in
     match !result with
     | Some eq -> ret eq
     | None -> assert false (* Shouldn't happen *)
