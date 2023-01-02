@@ -203,5 +203,119 @@ let parse (p : parser) : result =
   | Monad.Error err -> Error err
   | Monad.Val msg -> Msg msg
 
-let serialize (msg : t) : bytes = assert false
+let rec byte_size (msg : t) : int =
+  match msg with
+  | Nil -> 1
+  | Boolean _ -> 1
+  | Integer _ -> 9
+  | Int64 _ -> 9
+  | Floating _ -> 9
+  | String str ->
+      let len = String.length str in
+      if len < 32 then len + 1
+      else if len < 256 then len + 2
+      else len + 5
+  | Binary bts ->
+      let len = Bytes.length bts in
+      if len < 256 then len + 2 else len + 5
+  | Array lst ->
+      let len = List.length lst in
+      let off = if len < 16 then 1 else 5 in
+      List.fold_left (fun a b -> a + byte_size b) off lst
+  | Map mp ->
+      let len = List.length mp in
+      let off = if len < 16 then 1 else 5 in
+      List.fold_left (fun a (k,v) -> a + byte_size k + byte_size v) off mp 
+  | Extension (tp, bts) ->
+      let len = Bytes.length bts in
+      match len with
+      | 1 -> 3
+      | 2 -> 4
+      | 4 -> 6
+      | 8 -> 10
+      | 16 -> 18
+      | _ -> len + 6
+
+let bset bts off v = Bytes.set bts off (Char.chr v)
+
+let rec serialize_at (bts : bytes) (off : int) (msg : t) : int =
+  match msg with
+  | Nil -> bset bts off 0xc0; off + 1
+  | Boolean false -> bset bts off 0xc2; off + 1
+  | Boolean true -> bset bts off 0xc3; off + 1
+  | Integer i -> bset bts off 0xd3; Bytes.set_int64_be bts (off+1) (Int64.of_int i); off + 9
+  | Int64 i -> bset bts off 0xd3; Bytes.set_int64_be bts (off+1) i; off + 9
+  | Floating f -> bset bts off 0xcb; Bytes.set_int64_be bts (off+1) (Int64.bits_of_float f); off + 9
+  | String str ->
+      let len = String.length str in
+      let off = if len < 32 then begin
+        bset bts off (0xa0 lor len);
+        off + 1
+      end else if len < 256 then begin
+        bset bts off 0xd9;
+        Bytes.set_uint8 bts (off+1) len;
+        off + 2
+      end else begin
+        bset bts off 0xdb;
+        Bytes.set_int32_be bts (off+1) (Int32.of_int len);
+        off + 5
+      end in
+      Bytes.blit_string str 0 bts off len;
+      off + len
+  | Binary bs ->
+      let len = Bytes.length bs in
+      let off = if len < 256 then begin
+        bset bts off 0xc4;
+        Bytes.set_uint8 bts (off+1) len;
+        off + 2
+      end else begin
+        bset bts off 0xc6;
+        Bytes.set_int32_be bts (off+1) (Int32.of_int len);
+        off + 5
+      end in
+      Bytes.blit bs 0 bts off len;
+      off + len
+  | Array lst ->
+      let len = List.length lst in
+      let off = if len < 16 then begin
+        bset bts off (0x90 lor len);
+        off + 1
+      end else begin
+        bset bts off 0xdd;
+        Bytes.set_int32_be bts (off+1) (Int32.of_int len);
+        off + 5
+      end in
+      List.fold_left (serialize_at bts) off lst
+  | Map mp ->
+      let len = List.length mp in
+      let off = if len < 16 then begin
+        bset bts off (0x80 lor len);
+        off + 1
+      end else begin
+        bset bts off 0xdf;
+        Bytes.set_int32_be bts (off+1) (Int32.of_int len);
+        off + 5
+      end in
+      List.fold_left (fun off (k,v) -> let off = serialize_at bts off k in serialize_at bts off v) off mp
+  | Extension (tp,bs) ->
+      let len = Bytes.length bs in
+      let off =
+        if len = 1 then (bset bts off 0xd4; off + 1)
+        else if len = 2 then (bset bts off 0xd5; off + 1)
+        else if len = 4 then (bset bts off 0xd6; off + 1)
+        else if len = 8 then (bset bts off 0xd7; off + 1)
+        else if len = 16 then (bset bts off 0xd8; off + 1)
+        else begin
+          bset bts off 0xc9;
+          Bytes.set_int32_be bts (off+1) (Int32.of_int len);
+          off + 5
+        end in
+      bset bts off tp;
+      Bytes.blit bs 0 bts (off + 1) len;
+      off + 1 + len
+
+let serialize (msg : t) : bytes =
+  let len = byte_size msg in
+  let bts = Bytes.make len (Char.chr 0) in
+  let _ = serialize_at bts 0 msg in bts
 
