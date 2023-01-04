@@ -4,6 +4,7 @@ pub mod dsl;
 pub mod graph;
 pub mod parser;
 pub mod pretty;
+pub mod rpc;
 pub mod substitution;
 pub mod unification;
 
@@ -11,21 +12,21 @@ use data::ProofObject;
 use data::{ActualCategory, ActualFunctor, ActualMorphism, ActualObject};
 use data::{CategoryData, FunctorData, MorphismData, ObjectData};
 use dsl::{cat, funct, mph, obj};
+use graph::Graph;
 use substitution::Substitutable;
 
 use std::fs::File;
-use std::ops::Deref;
 use std::vec::Vec;
 
+use clap::{Parser, Subcommand};
 use rmp_serde::encode;
 
-fn messagepack_to_file(mph: &data::Morphism) {
-    let path = "mph.mp";
+fn messagepack_to_file(path: &str, gr: &Graph) {
     let mut file = File::create(path).unwrap();
-    encode::write(&mut file, &mph.deref()).unwrap();
+    encode::write(&mut file, gr).unwrap();
 }
 
-fn main() {
+fn test_main(packfile: &str) {
     let mut ctx = data::Context::new();
 
     let cat = cat!(ctx, :0);
@@ -60,6 +61,34 @@ fn main() {
         graph::span_viz(&mut ctx, &gr_subst, &gr2_subst, &sol)
     }
 
-    let m = mph!(ctx, m1 >> m2);
-    messagepack_to_file(&m);
+    messagepack_to_file(packfile, &gr);
+}
+
+fn embed() {}
+
+#[derive(Parser, Debug)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    Test {
+        #[arg(short, long)]
+        packfile: Option<String>,
+    },
+    Embed,
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::Test { packfile } => {
+            let packfile = packfile.unwrap_or("gr.mp".to_string());
+            test_main(&packfile)
+        }
+        Commands::Embed => embed(),
+    }
 }
