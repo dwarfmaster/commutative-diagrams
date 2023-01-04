@@ -22,6 +22,12 @@ pub struct Parser<T> {
 }
 
 impl<T> Parser<T> {
+    pub fn new(ctx: Context) -> Self {
+        Parser {
+            ctx,
+            _marker: PhantomData::default(),
+        }
+    }
     pub fn to<U>(&self) -> Parser<U> {
         Parser {
             ctx: self.ctx.clone(),
