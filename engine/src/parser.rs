@@ -7,7 +7,6 @@ use core::marker::PhantomData;
 use serde::de::{DeserializeSeed, Error, Visitor};
 use serde::de::{EnumAccess, MapAccess, SeqAccess, VariantAccess};
 use serde::Deserializer;
-use serde_json;
 
 //  ____
 // |  _ \ __ _ _ __ ___  ___ _ __
@@ -20,6 +19,13 @@ pub struct Parser<T> {
     pub ctx: Context,
     _marker: PhantomData<T>,
 }
+#[derive(Clone)]
+pub struct ParserVec<T>
+where
+    T: Clone,
+{
+    pub data: T,
+}
 
 impl<T> Parser<T> {
     pub fn new(ctx: Context) -> Self {
@@ -28,11 +34,17 @@ impl<T> Parser<T> {
             _marker: PhantomData::default(),
         }
     }
+    pub fn new_vec(ctx: Context) -> ParserVec<Parser<T>> {
+        ParserVec::<Parser<T>>::new(Parser::<T>::new(ctx))
+    }
     pub fn to<U>(&self) -> Parser<U> {
         Parser {
             ctx: self.ctx.clone(),
             _marker: PhantomData::default(),
         }
+    }
+    pub fn to_vec<U>(&self) -> ParserVec<Parser<U>> {
+        ParserVec::<Parser<U>>::new(self.to::<U>())
     }
 }
 
@@ -42,28 +54,13 @@ impl<T> Clone for Parser<T> {
     }
 }
 
-macro_rules! make_parser {
-    ($f:ident, $t:ty) => {
-        pub fn $f(self, str: &str) -> Result<$t, serde_json::Error> {
-            let parser: Parser<$t> = Parser {
-                ctx: self,
-                _marker: PhantomData::default(),
-            };
-            let mut deserializer =
-                serde_json::de::Deserializer::new(serde_json::de::StrRead::new(str));
-            parser.clone().deserialize(&mut deserializer)
-        }
-    };
-}
-pub(crate) use make_parser;
-
-impl Context {
-    make_parser!(parse_cat, Category);
-    make_parser!(parse_funct, Functor);
-    make_parser!(parse_obj, Object);
-    make_parser!(parse_mph, Morphism);
-    make_parser!(parse_eq, Equality);
-    make_parser!(parse, AnyTerm);
+impl<T> ParserVec<T>
+where
+    T: Clone,
+{
+    pub fn new(data: T) -> Self {
+        ParserVec { data }
+    }
 }
 
 macro_rules! deserializer_struct {
@@ -736,3 +733,49 @@ deserializer_enum!(
     "term",
     &["category", "functor", "object", "morphism", "equality"]
 );
+
+// __     __        _
+// \ \   / /__  ___| |_ ___  _ __
+//  \ \ / / _ \/ __| __/ _ \| '__|
+//   \ V /  __/ (__| || (_) | |
+//    \_/ \___|\___|\__\___/|_|
+//
+// Vector
+
+impl<'a, T> Visitor<'a> for ParserVec<T>
+where
+    T: DeserializeSeed<'a> + Clone,
+{
+    type Value = Vec<T::Value>;
+    fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "a sequence")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'a>,
+    {
+        let hint = seq
+            .size_hint()
+            .map(|i| if i > 4096 { 4096 } else { i })
+            .unwrap_or(256);
+        let mut values = Vec::with_capacity(hint);
+        while let Some(v) = seq.next_element_seed(self.data.clone())? {
+            values.push(v)
+        }
+        Ok(values)
+    }
+}
+impl<'a, T> DeserializeSeed<'a> for ParserVec<T>
+where
+    T: DeserializeSeed<'a> + Clone,
+{
+    type Value = Vec<T::Value>;
+
+    fn deserialize<D>(self, d: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
+        d.deserialize_seq(self)
+    }
+}

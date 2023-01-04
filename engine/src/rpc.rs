@@ -1,10 +1,8 @@
-use crate::data::Context;
-use crate::parser::Parser;
 use rmp_serde::decode::{Deserializer, ReadReader};
 use rmp_serde::{decode, encode};
 use serde::de;
 use serde::de::{DeserializeSeed, SeqAccess, Visitor};
-use serde::ser::{Serializer, SerializeTuple};
+use serde::ser::{SerializeTuple, Serializer};
 use serde::Serialize;
 use std::fmt;
 
@@ -27,7 +25,7 @@ pub enum Error {
     Remote(String),
 }
 
-#[derive(Debug,PartialEq,Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum MessageType {
     Request,
     Response,
@@ -39,12 +37,15 @@ struct Message<T> {
     str: Option<String>,
     value: T,
 }
+struct PMessage<D> {
+    data: D,
+}
 
-impl<'de, T> Visitor<'de> for Parser<Message<T>>
+impl<'de, D> Visitor<'de> for PMessage<D>
 where
-    Parser<T>: DeserializeSeed<'de, Value = T>,
+    D: DeserializeSeed<'de>,
 {
-    type Value = Message<T>;
+    type Value = Message<D::Value>;
 
     fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "a msgpack rpc message")
@@ -75,7 +76,7 @@ where
             .next_element()?
             .ok_or(de::Error::invalid_length(2, &"4"))?;
         let result = seq
-            .next_element_seed(self.to::<T>())?
+            .next_element_seed(self.data)?
             .ok_or(de::Error::invalid_length(3, &"4"))?;
         if !seq.next_element::<()>()?.is_none() {
             return Err(de::Error::invalid_length(5, &"4"));
@@ -89,25 +90,28 @@ where
     }
 }
 
-impl<'de, T> DeserializeSeed<'de> for Parser<Message<T>>
+impl<'de, D> DeserializeSeed<'de> for PMessage<D>
 where
-    Parser<T>: DeserializeSeed<'de, Value = T>,
+    D: DeserializeSeed<'de>,
 {
-    type Value = Message<T>;
+    type Value = Message<D::Value>;
 
-    fn deserialize<D>(self, d: D) -> Result<Self::Value, D::Error>
+    fn deserialize<Dsr>(self, d: Dsr) -> Result<Self::Value, Dsr::Error>
     where
-        D: serde::Deserializer<'de>,
+        Dsr: serde::Deserializer<'de>,
     {
         d.deserialize_seq(self)
     }
 }
 
 impl<T> Serialize for Message<T>
-where T: Serialize {
+where
+    T: Serialize,
+{
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
-        S: Serializer {
+        S: Serializer,
+    {
         let tpcode = match self.tp {
             MessageType::Request => 0,
             MessageType::Response => 1,
@@ -157,11 +161,11 @@ where
         }
     }
 
-    pub fn receive_msg<'de, T>(&mut self, id: u32, ctx: Context) -> Result<T, Error>
+    pub fn receive_msg<'de, T>(&mut self, id: u32, data: T) -> Result<T::Value, Error>
     where
-        Parser<T>: DeserializeSeed<'de, Value = T>,
+        T: DeserializeSeed<'de>,
     {
-        let parser: Parser<Message<T>> = Parser::new(ctx);
+        let parser: PMessage<T> = PMessage { data };
         let msg = parser
             .deserialize(&mut self.input)
             .map_err(|err| Error::Decode(err))?;
@@ -169,11 +173,11 @@ where
             return Err(Error::InvalidType(MessageType::Response, msg.tp));
         }
         if msg.id != id {
-            return Err(Error::InvalidId(id, msg.id))
+            return Err(Error::InvalidId(id, msg.id));
         }
         match msg.str {
             Some(err) => Err(Error::Remote(err)),
-            None => Ok(msg.value)
+            None => Ok(msg.value),
         }
     }
 }

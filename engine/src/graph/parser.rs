@@ -2,7 +2,7 @@ use crate::data::{ActualMorphism, Equality, Morphism, Object};
 use crate::graph::definition::{Face, Graph};
 use crate::parser::{deserializer_struct, Parser};
 use core::fmt;
-use serde::de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor};
+use serde::de::{DeserializeSeed, Error, MapAccess, Visitor};
 use serde::ser::SerializeStruct;
 use serde::{Deserializer, Serialize, Serializer};
 use std::ops::Deref;
@@ -131,44 +131,6 @@ impl<'a> Visitor<'a> for Parser<Face> {
 }
 deserializer_struct!(Face);
 
-impl<'a, T> Visitor<'a> for Parser<Vec<T>>
-where
-    Parser<T>: DeserializeSeed<'a>,
-{
-    type Value = Vec<<Parser<T> as DeserializeSeed<'a>>::Value>;
-    fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "a sequence")
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'a>,
-    {
-        let hint = seq
-            .size_hint()
-            .map(|i| if i > 4096 { 4096 } else { i })
-            .unwrap_or(256);
-        let mut values = Vec::with_capacity(hint);
-        while let Some(v) = seq.next_element_seed(self.clone().to::<T>())? {
-            values.push(v)
-        }
-        Ok(values)
-    }
-}
-impl<'a, T> DeserializeSeed<'a> for Parser<Vec<T>>
-where
-    Parser<T>: DeserializeSeed<'a>,
-{
-    type Value = Vec<<Parser<T> as DeserializeSeed<'a>>::Value>;
-
-    fn deserialize<D>(self, d: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'a>,
-    {
-        d.deserialize_seq(self)
-    }
-}
-
 impl<'a> Visitor<'a> for Parser<Edge> {
     type Value = Edge;
     fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
@@ -227,15 +189,15 @@ impl<'a> Visitor<'a> for Parser<Graph> {
         while let Some(k) = map.next_key::<String>()? {
             match k.as_str() {
                 "nodes" => match nodes {
-                    None => nodes = Some(map.next_value_seed(self.clone().to::<Vec<Object>>())?),
+                    None => nodes = Some(map.next_value_seed(self.clone().to_vec::<Object>())?),
                     Some(_) => return Err(Error::duplicate_field("nodes")),
                 },
                 "edges" => match edges {
-                    None => edges = Some(map.next_value_seed(self.clone().to::<Vec<Edge>>())?),
+                    None => edges = Some(map.next_value_seed(self.clone().to_vec::<Edge>())?),
                     Some(_) => return Err(Error::duplicate_field("edges")),
                 },
                 "faces" => match faces {
-                    None => faces = Some(map.next_value_seed(self.clone().to::<Vec<Face>>())?),
+                    None => faces = Some(map.next_value_seed(self.clone().to_vec::<Face>())?),
                     Some(_) => return Err(Error::duplicate_field("faces")),
                 },
                 _ => {
