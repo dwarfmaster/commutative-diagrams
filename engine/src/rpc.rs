@@ -126,6 +126,12 @@ where
     }
 }
 
+fn send_io_error(err: std::io::Error) -> Error {
+    Error::Encode(rmp_serde::encode::Error::InvalidValueWrite(
+        rmp::encode::ValueWriteError::InvalidDataWrite(err),
+    ))
+}
+
 impl<In, Out> Client<In, Out>
 where
     In: std::io::Read,
@@ -151,14 +157,9 @@ where
         };
         self.id += 1;
         let msgpack = rmp_serde::encode::to_vec(&msg).map_err(|err| Error::Encode(err))?;
-        match self.output.write_all(&msgpack) {
-            Err(err) => {
-                return Err(Error::Encode(rmp_serde::encode::Error::InvalidValueWrite(
-                    rmp::encode::ValueWriteError::InvalidDataWrite(err),
-                )))
-            }
-            _ => Ok(msg.id),
-        }
+        self.output.write_all(&msgpack).map_err(send_io_error)?;
+        self.output.flush().map_err(send_io_error)?;
+        Ok(msg.id)
     }
 
     pub fn receive_msg<'de, T>(&mut self, id: u32, data: T) -> Result<T::Value, Error>
