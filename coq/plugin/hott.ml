@@ -587,3 +587,16 @@ let eq e1 e2 =
   let$ env = M.env () in 
   let$ sigma = M.lift Proofview.tclEVARMAP in
   pret (Reductionops.check_conv env sigma e1 e2)
+let print ec =
+  let$ ev = M.env () in
+  let$ sigma = M.lift Proofview.tclEVARMAP in
+  let pp = Printer.pr_econstr_env ev sigma ec in
+  let buffer = Buffer.create 16 in
+  Pp.pp_with (Format.formatter_of_buffer buffer) pp;
+  M.return (Buffer.contents buffer)
+let fail msg = msg
+  |> Pp.str
+  |> Tacticals.tclFAIL 0
+  |> M.lift
+let message msg = Feedback.msg_info (Pp.str msg); M.return ()
+let warning msg = Feedback.msg_warning (Pp.str msg); M.return ()

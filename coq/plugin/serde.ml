@@ -21,6 +21,12 @@ module Make(PA: Pa.ProofAssistant) = struct
     (id lsl 3) lor (tag land 7)
   let un_id id = id lsr 3
 
+  let mk_cat_id = mk_global_id 0
+  let mk_funct_id = mk_global_id 1
+  let mk_elem_id = mk_global_id 2
+  let mk_mph_id = mk_global_id 3
+  let mk_eq_id = mk_global_id 4
+
   module Cat = struct
     type t = PA.t category
 

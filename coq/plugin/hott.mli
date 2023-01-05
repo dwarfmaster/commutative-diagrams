@@ -30,3 +30,7 @@ val parseProperties : t -> t -> (unit,t) Hyps.Make(M).t
 
 (* Utils *)
 val eq : t -> t -> bool M.m
+val print : t -> string M.m
+val fail : string -> unit M.m
+val message : string -> unit M.m
+val warning : string -> unit M.m

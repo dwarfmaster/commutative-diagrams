@@ -13,6 +13,7 @@ module Enum = Enumerate.Make(Hott)
 module Norm = Normalisation
 module UF = UnionFind.Make(Hott)
 module M = Map.Make(Data.EqMph(Hott))
+module Sv = Server.Make(Hott)
 type 'a m = ('a,Hott.t) St.t
 open St.Combinators
 let (let$) = Proofview.tclBIND
@@ -140,3 +141,17 @@ let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
             (add_universes_constraints (Proofview.Goal.env goal) eq)))
 let solve (level : int) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> solve' level goal |> runWithGoal goal)
+
+let server' (goal : Proofview.Goal.t) : unit m =
+  let* _ = St.registerEqPredicate Hott.eq in
+  let* obj = extract_hyps goal in
+  match obj with
+  | None -> fail "Goal is not a face"
+  | Some (side1,side2) ->
+      let* _ = Sv.run side1 side2 in
+      ret ()
+      (* let* eq = lift (Hott.realizeEq eq) in *)
+      (* lift (Hott.M.lift (Refine.refine ~typecheck:false *)
+      (*   (add_universes_constraints (Proofview.Goal.env goal) eq))) *)
+let server () : unit Proofview.tactic =
+  Proofview.Goal.enter_one (fun goal -> server' goal |> runWithGoal goal)
