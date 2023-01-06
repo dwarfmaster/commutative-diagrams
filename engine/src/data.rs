@@ -732,7 +732,11 @@ impl Context {
     }
 
     pub fn new_term(&self, id: u64, name: &str) {
-        self.terms.borrow_mut().insert(id, name.to_string());
+        self.new_term_mv(id, name.to_string())
+    }
+
+    pub fn new_term_mv(&self, id: u64, name: String) {
+        self.terms.borrow_mut().insert(id, name);
     }
 
     pub fn mk<T: ContextMakable>(&self, act: T) -> HConsed<T> {

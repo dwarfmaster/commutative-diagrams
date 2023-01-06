@@ -170,6 +170,7 @@ where
         let msg = parser
             .deserialize(&mut self.input)
             .map_err(|err| Error::Decode(err))?;
+        log::debug!("Received {:#?} message (id: {})", msg.tp, msg.id);
         if msg.tp != MessageType::Response {
             return Err(Error::InvalidType(MessageType::Response, msg.tp));
         }

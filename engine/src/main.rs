@@ -64,7 +64,45 @@ fn test_main(packfile: &str) {
     messagepack_to_file(packfile, &gr);
 }
 
-fn embed() {}
+fn embed() {
+    simplelog::WriteLogger::init(
+        simplelog::LevelFilter::Debug,
+        simplelog::Config::default(),
+        File::create("diagrams-engine.log").unwrap(),
+    )
+    .unwrap();
+
+    log::debug!("Creating context");
+    let ctx = data::Context::new();
+    let mut client = rpc::Client::new(std::io::stdin(), std::io::stdout());
+    log::debug!("Asking for hypothesises");
+    let hyps_req = client.send_msg("hyps", ()).unwrap();
+    log::debug!("Waiting for hypothesises");
+    client
+        .receive_msg(
+            hyps_req,
+            parser::ParserVec::new(core::marker::PhantomData::<(u64,String)>::default()),
+        )
+        .unwrap()
+        .into_iter()
+        .for_each(|(id, name)| {
+            log::debug!("New hypothesis: {} => \"{}\"", id, name);
+            ctx.new_term_mv(id, name)
+        });
+    // let goal_req = client.send_msg("goal", ()).unwrap();
+    // let goal: Graph = client
+    //     .receive_msg(goal_req, parser::Parser::<Graph>::new(ctx.clone()))
+    //     .unwrap();
+    // graph::viz(&goal, &mut ctx);
+    // Result is a vector of existentials and their instantiation
+    let result: Vec<(u64, anyterm::AnyTerm)> = Vec::new();
+    log::debug!("Sending refinements");
+    let refine_req = client.send_msg("refine", result).unwrap();
+    client
+        .receive_msg(refine_req, core::marker::PhantomData::<()>::default())
+        .unwrap();
+    log::debug!("Acknowledgement of refinements received");
+}
 
 #[derive(Parser, Debug)]
 struct Cli {
