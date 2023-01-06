@@ -591,9 +591,7 @@ let print ec =
   let$ ev = M.env () in
   let$ sigma = M.lift Proofview.tclEVARMAP in
   let pp = Printer.pr_econstr_env ev sigma ec in
-  let buffer = Buffer.create 16 in
-  Pp.pp_with (Format.formatter_of_buffer buffer) pp;
-  M.return (Buffer.contents buffer)
+  M.return (Pp.string_of_ppcmds pp)
 let fail msg = msg
   |> Pp.str
   |> Tacticals.tclFAIL 0
