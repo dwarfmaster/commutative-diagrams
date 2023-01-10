@@ -2,6 +2,7 @@ pub mod anyterm;
 pub mod data;
 pub mod dsl;
 pub mod graph;
+pub mod normalize;
 pub mod parser;
 pub mod pretty;
 pub mod rpc;
@@ -64,7 +65,8 @@ fn test_main(packfile: &str) {
             &gr_subst,
             &gr2_subst,
             &sol,
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     messagepack_to_file(packfile, &gr);
