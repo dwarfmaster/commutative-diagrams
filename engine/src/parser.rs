@@ -220,10 +220,10 @@ impl<'a> Visitor<'a> for Parser<CategoryData> {
                     None => pobj = Some(map.next_value()?),
                     Some(_) => return Err(Error::duplicate_field("pobj")),
                 },
-                _ => return Err(Error::unknown_field(k.as_str(), &["fobj"])),
+                _ => return Err(Error::unknown_field(k.as_str(), &["pobj"])),
             }
         }
-        let pobj = pobj.ok_or(Error::missing_field("fobj"))?;
+        let pobj = pobj.ok_or(Error::missing_field("pobj"))?;
         Ok(CategoryData { pobj })
     }
 }
@@ -286,10 +286,10 @@ impl<'a> Visitor<'a> for Parser<FunctorData> {
                     None => dst = Some(map.next_value_seed(self.clone().to::<Category>())?),
                     Some(_) => return Err(Error::duplicate_field("dst")),
                 },
-                _ => return Err(Error::unknown_field(k.as_str(), &["fobj", "src", "dst"])),
+                _ => return Err(Error::unknown_field(k.as_str(), &["pobj", "src", "dst"])),
             }
         }
-        let pobj = pobj.ok_or(Error::missing_field("fobj"))?;
+        let pobj = pobj.ok_or(Error::missing_field("pobj"))?;
         let src = src.ok_or(Error::missing_field("src"))?;
         let dst = dst.ok_or(Error::missing_field("dst"))?;
         Ok(FunctorData { pobj, src, dst })
@@ -349,10 +349,10 @@ impl<'a> Visitor<'a> for Parser<ObjectData> {
                     None => category = Some(map.next_value_seed(self.clone().to::<Category>())?),
                     Some(_) => return Err(Error::duplicate_field("category")),
                 },
-                _ => return Err(Error::unknown_field(k.as_str(), &["fobj", "category"])),
+                _ => return Err(Error::unknown_field(k.as_str(), &["pobj", "category"])),
             }
         }
-        let pobj = pobj.ok_or(Error::missing_field("fobj"))?;
+        let pobj = pobj.ok_or(Error::missing_field("pobj"))?;
         let category = category.ok_or(Error::missing_field("category"))?;
         Ok(ObjectData { pobj, category })
     }
@@ -362,7 +362,7 @@ deserializer_struct!(ObjectData);
 impl<'a> Visitor<'a> for Parser<Object> {
     type Value = Object;
     fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "a category")
+        write!(fmt, "an object")
     }
 
     fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
@@ -428,12 +428,12 @@ impl<'a> Visitor<'a> for Parser<MorphismData> {
                 _ => {
                     return Err(Error::unknown_field(
                         k.as_str(),
-                        &["fobj", "category", "src", "dst"],
+                        &["pobj", "category", "src", "dst"],
                     ))
                 }
             }
         }
-        let pobj = pobj.ok_or(Error::missing_field("fobj"))?;
+        let pobj = pobj.ok_or(Error::missing_field("pobj"))?;
         let category = category.ok_or(Error::missing_field("category"))?;
         let src = src.ok_or(Error::missing_field("src"))?;
         let dst = dst.ok_or(Error::missing_field("dst"))?;
@@ -544,12 +544,12 @@ impl<'a> Visitor<'a> for Parser<EqualityData> {
                 _ => {
                     return Err(Error::unknown_field(
                         k.as_str(),
-                        &["fobj", "category", "src", "dst", "left", "right"],
+                        &["pobj", "category", "src", "dst", "left", "right"],
                     ))
                 }
             }
         }
-        let pobj = pobj.ok_or(Error::missing_field("fobj"))?;
+        let pobj = pobj.ok_or(Error::missing_field("pobj"))?;
         let category = category.ok_or(Error::missing_field("category"))?;
         let src = src.ok_or(Error::missing_field("src"))?;
         let dst = dst.ok_or(Error::missing_field("dst"))?;

@@ -32,11 +32,13 @@ module Make(PA: Pa.ProofAssistant) = struct
 
     let mk_id = mk_global_id 0
 
+    let pack_data cat =
+      let po = cons "term" (Pk.Integer (mk_id cat.cat_id)) in
+      ret (cons "atomic" (cons "pobj" po))
+
     let pack cat =
       match cat with
-      | AtomicCategory data ->
-          let po = cons "term" (Pk.Integer (mk_id data.cat_id)) in
-          ret (cons "atomic" po)
+      | AtomicCategory data -> pack_data data
 
     let unpack mp =
       match mp with
@@ -62,11 +64,20 @@ module Make(PA: Pa.ProofAssistant) = struct
     type t = PA.t funct
     let mk_id = mk_global_id 1
 
+    let pack_data funct =
+      let po = cons "term" (Pk.Integer (mk_id funct.funct_id)) in
+      let* src = Cat.pack funct.funct_src_ in
+      let* dst = Cat.pack funct.funct_dst_ in
+      let po = Pk.Map [
+        (Pk.String "pobj", po);
+        (Pk.String "src", src);
+        (Pk.String "dst", dst);
+      ] in
+      ret (cons "atomic" po)
+
     let pack funct =
       match funct with
-      | AtomicFunctor data ->
-          let po = cons "term" (Pk.Integer (mk_id data.funct_id)) in
-          ret (Pk.Map [(Pk.String "atomic", po)])
+      | AtomicFunctor data -> pack_data data
 
     let unpack mp =
       match mp with
@@ -92,11 +103,18 @@ module Make(PA: Pa.ProofAssistant) = struct
     type t = PA.t elem
     let mk_id = mk_global_id 2
 
+    let pack_data elem =
+      let po = cons "term" (Pk.Integer (mk_id elem.elem_id)) in
+      let* cat = Cat.pack elem.elem_cat_ in
+      let po = Pk.Map [
+        (Pk.String "pobj", po);
+        (Pk.String "category", cat);
+      ] in
+      ret (cons "atomic" po)
+
     let rec pack elem =
       match elem with
-      | AtomicElem data ->
-          let po = cons "term" (Pk.Integer (mk_id data.elem_id)) in
-          ret (Pk.Map [(Pk.String "atomic", po)])
+      | AtomicElem data -> pack_data data
       | FObj (funct,elem) ->
           let* funct = Funct.pack funct in
           let* elem = pack elem in
@@ -133,11 +151,22 @@ module Make(PA: Pa.ProofAssistant) = struct
     type t = PA.t morphism
     let mk_id = mk_global_id 3
 
+    let pack_data mph =
+      let po = cons "term" (Pk.Integer (mk_id mph.mph_id)) in
+      let* cat = Cat.pack mph.mph_cat_ in
+      let* src = Elem.pack mph.mph_src_ in
+      let* dst = Elem.pack mph.mph_dst_ in
+      let po = Pk.Map [
+        (Pk.String "pobj", po);
+        (Pk.String "category", cat);
+        (Pk.String "src", src);
+        (Pk.String "dst", dst);
+      ] in
+      ret (cons "atomic" po)
+
     let rec pack mph =
       match mph with
-      | AtomicMorphism data ->
-          let po = cons "term" (Pk.Integer (mk_id data.mph_id)) in
-          ret (Pk.Map [(Pk.String "atomic", po)])
+      | AtomicMorphism data -> pack_data data
       | Comp (m1,m2) ->
           let* m1 = pack m1 in
           let* m2 = pack m2 in
@@ -195,11 +224,26 @@ module Make(PA: Pa.ProofAssistant) = struct
     type t = PA.t eq
     let mk_id = mk_global_id 4
 
+    let pack_data eq =
+      let po = cons "term" (Pk.Integer (mk_id eq.eq_id)) in
+      let* cat = Cat.pack eq.eq_cat_ in
+      let* src = Elem.pack eq.eq_src_ in
+      let* dst = Elem.pack eq.eq_dst_ in
+      let* left = Mph.pack eq.eq_left_ in
+      let* right = Mph.pack eq.eq_right_ in
+      let po = Pk.Map [
+        (Pk.String "pobj", po);
+        (Pk.String "category", cat);
+        (Pk.String "src", src);
+        (Pk.String "dst", dst);
+        (Pk.String "left", left);
+        (Pk.String "right", right);
+      ] in
+      ret (cons "atomic" po)
+
     let rec pack eq =
       match eq with
-      | AtomicEq data ->
-          let po = cons "term" (Pk.Integer (mk_id data.eq_id)) in
-          ret (Pk.Map [(Pk.String "atomic", po)])
+      | AtomicEq data -> pack_data data
       | Hole _ -> raise Unimplemented (* Should become an existential *)
       | Refl m ->
           let* m = Mph.pack m in

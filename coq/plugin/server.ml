@@ -90,8 +90,10 @@ module Make(PA: Pa.ProofAssistant) = struct
         (fun eq -> eq.Data.eq_obj) Sd.mk_eq_id in
     ret (HRet (Msgpack.Array rt))
 
-  let handle_goal (args : Msgpack.t list) : handler_ret m =
-    assert false
+  let handle_goal (goal: Gr.graph) (args : Msgpack.t list) : handler_ret m =
+    let* _ = message "Sending goal" in
+    let* goal_mp = Gr.Serde.pack goal in
+    ret (HRet goal_mp)
 
   let handle_refine (args : Msgpack.t list) : handler_ret m =
     (* TODO do something *)
@@ -123,7 +125,7 @@ module Make(PA: Pa.ProofAssistant) = struct
         | Msgpack.Nil -> ret []
         | _ -> invalid_message () in
       match mtd with
-      | "goal" -> run_handler rm msgid params handle_goal
+      | "goal" -> run_handler rm msgid params (handle_goal rm.goal)
       | "hyps" -> run_handler rm msgid params handle_hyps
       | "refine" -> run_handler rm msgid params handle_refine
       | _ -> invalid_message ()
@@ -141,7 +143,6 @@ module Make(PA: Pa.ProofAssistant) = struct
     let finish = ref false in
     let* _ = whileM (fun () -> ret (not !finish)) (fun () ->
       match Msgpack.parse parser with
-      (* TODO fail gracefully *)
       | Msgpack.Eof ->
           (* Failed to finish *)
           finish := true;

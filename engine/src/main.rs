@@ -58,7 +58,13 @@ fn test_main(packfile: &str) {
     for (sol, sigma) in mces {
         let gr_subst = gr.clone().subst(&ctx, &sigma);
         let gr2_subst = gr2.clone().subst(&ctx, &sigma);
-        graph::span_viz(&mut ctx, &gr_subst, &gr2_subst, &sol)
+        graph::span_viz(
+            &mut std::io::stdout(),
+            &mut ctx,
+            &gr_subst,
+            &gr2_subst,
+            &sol,
+        ).unwrap()
     }
 
     messagepack_to_file(packfile, &gr);
@@ -72,36 +78,49 @@ fn embed() {
     )
     .unwrap();
 
-    log::debug!("Creating context");
-    let ctx = data::Context::new();
+    log::info!("Creating context");
+    let mut ctx = data::Context::new();
     let mut client = rpc::Client::new(std::io::stdin(), std::io::stdout());
-    log::debug!("Asking for hypothesises");
+    log::info!("Asking for hypothesises");
     let hyps_req = client.send_msg("hyps", ()).unwrap();
-    log::debug!("Waiting for hypothesises");
+    log::info!("Waiting for hypothesises");
     client
         .receive_msg(
             hyps_req,
-            parser::ParserVec::new(core::marker::PhantomData::<(u64,String)>::default()),
+            parser::ParserVec::new(core::marker::PhantomData::<(u64, String)>::default()),
         )
-        .unwrap()
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse hyps answer: {:#?}", err);
+            panic!()
+        })
         .into_iter()
         .for_each(|(id, name)| {
             log::debug!("New hypothesis: {} => \"{}\"", id, name);
             ctx.new_term_mv(id, name)
         });
-    // let goal_req = client.send_msg("goal", ()).unwrap();
-    // let goal: Graph = client
-    //     .receive_msg(goal_req, parser::Parser::<Graph>::new(ctx.clone()))
-    //     .unwrap();
-    // graph::viz(&goal, &mut ctx);
+    log::info!("Asking for goal");
+    let goal_req = client.send_msg("goal", ()).unwrap();
+    let goal: Graph = client
+        .receive_msg(goal_req, parser::Parser::<Graph>::new(ctx.clone()))
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse goal answer: {:#?}", err);
+            panic!()
+        });
+    log::info!("Goal received");
+
+    let mut file = File::create("goal.viz").unwrap();
+    graph::viz(&mut file, &goal, &mut ctx).unwrap();
     // Result is a vector of existentials and their instantiation
     let result: Vec<(u64, anyterm::AnyTerm)> = Vec::new();
-    log::debug!("Sending refinements");
+    log::info!("Sending refinements");
     let refine_req = client.send_msg("refine", result).unwrap();
     client
         .receive_msg(refine_req, core::marker::PhantomData::<()>::default())
-        .unwrap();
-    log::debug!("Acknowledgement of refinements received");
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse refine answer: {:#?}", err);
+            panic!()
+        });
+    log::info!("Acknowledgement of refinements received");
 }
 
 #[derive(Parser, Debug)]

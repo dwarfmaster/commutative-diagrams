@@ -2,22 +2,40 @@ use crate::data::Context;
 use crate::graph::mces::Span;
 use crate::graph::Graph;
 
-pub fn viz(graph: &Graph, ctx: &mut Context) {
-    println!("digraph {{");
+pub fn viz<F>(fmt: &mut F, graph: &Graph, ctx: &mut Context) -> Result<(), std::io::Error>
+where
+    F: std::io::Write,
+{
+    writeln!(fmt, "digraph {{")?;
 
     for (i, o) in graph.nodes.iter().enumerate() {
-        println!("    n{} [label=\"{}\"];", i, o.render(ctx, 100));
+        writeln!(fmt, "    n{} [label=\"{}\"];", i, o.render(ctx, 100))?;
     }
 
     for s in 0..graph.nodes.len() {
         for (d, e) in graph.edges[s].iter() {
-            println!("    n{} -> n{} [label=\"{}\"];", s, d, e.render(ctx, 100));
+            writeln!(
+                fmt,
+                "    n{} -> n{} [label=\"{}\"];",
+                s,
+                d,
+                e.render(ctx, 100)
+            )?;
         }
     }
-    println!("}}");
+    writeln!(fmt, "}}")
 }
 
-pub fn span_viz(ctx: &mut Context, left: &Graph, right: &Graph, span: &Span) {
+pub fn span_viz<F>(
+    fmt: &mut F,
+    ctx: &mut Context,
+    left: &Graph,
+    right: &Graph,
+    span: &Span,
+) -> Result<(), std::io::Error>
+where
+    F: std::io::Write,
+{
     let mut nodes_left_seen: Vec<Option<usize>> = left.nodes.iter().map(|_| None).collect();
     let mut edges_left_seen: Vec<Vec<bool>> = left
         .edges
@@ -35,18 +53,19 @@ pub fn span_viz(ctx: &mut Context, left: &Graph, right: &Graph, span: &Span) {
     let color_left = "blue";
     let color_right = "red";
 
-    println!("digraph {{");
+    writeln!(fmt, "digraph {{")?;
 
     // Print common part
     for (c, (l, r)) in span.nodes.iter().enumerate() {
         nodes_left_seen[*l] = Some(c);
         nodes_right_seen[*r] = Some(c);
-        println!(
+        writeln!(
+            fmt,
             "    c{} [ color=\"{}\" label=\"{}\" ];",
             c,
             color_common,
             left.nodes[*l].render(ctx, 100)
-        );
+        )?;
     }
     for s in 0..span.nodes.len() {
         for (l, r) in span.edges[s].iter() {
@@ -54,13 +73,14 @@ pub fn span_viz(ctx: &mut Context, left: &Graph, right: &Graph, span: &Span) {
             let d = nodes_left_seen[ld].unwrap();
             edges_left_seen[span.nodes[s].0][*l] = true;
             edges_right_seen[span.nodes[s].1][*r] = true;
-            println!(
+            writeln!(
+                fmt,
                 "    c{} -> c{} [ color=\"{}\" label=\"{}\" ];",
                 s,
                 d,
                 color_common,
                 e.render(ctx, 100)
-            );
+            )?;
         }
     }
 
@@ -69,12 +89,13 @@ pub fn span_viz(ctx: &mut Context, left: &Graph, right: &Graph, span: &Span) {
         if nodes_left_seen[i].is_some() {
             continue;
         }
-        println!(
+        writeln!(
+            fmt,
             "    l{} [ color=\"{}\" label=\"{}\" ];",
             i,
             color_left,
             o.render(ctx, 100)
-        );
+        )?;
     }
     for s in 0..left.nodes.len() {
         let src = nodes_left_seen[s]
@@ -87,13 +108,14 @@ pub fn span_viz(ctx: &mut Context, left: &Graph, right: &Graph, span: &Span) {
             let dst = nodes_left_seen[*d]
                 .map(|d| format!("c{}", d))
                 .unwrap_or(format!("l{}", d));
-            println!(
+            writeln!(
+                fmt,
                 "    {} -> {} [ color=\"{}\" label=\"{}\" ];",
                 src,
                 dst,
                 color_left,
                 m.render(ctx, 100)
-            );
+            )?;
         }
     }
 
@@ -102,12 +124,13 @@ pub fn span_viz(ctx: &mut Context, left: &Graph, right: &Graph, span: &Span) {
         if nodes_right_seen[i].is_some() {
             continue;
         }
-        println!(
+        writeln!(
+            fmt,
             "    r{} [ color=\"{}\" label=\"{}\" ];",
             i,
             color_right,
             o.render(ctx, 100)
-        );
+        )?;
     }
     for s in 0..right.nodes.len() {
         let src = nodes_right_seen[s]
@@ -120,15 +143,16 @@ pub fn span_viz(ctx: &mut Context, left: &Graph, right: &Graph, span: &Span) {
             let dst = nodes_right_seen[*d]
                 .map(|d| format!("c{}", d))
                 .unwrap_or(format!("r{}", d));
-            println!(
+            writeln!(
+                fmt,
                 "    {} -> {} [ color=\"{}\" label=\"{}\" ];",
                 src,
                 dst,
                 color_right,
                 m.render(ctx, 100)
-            );
+            )?;
         }
     }
 
-    println!("}}");
+    writeln!(fmt, "}}")
 }
