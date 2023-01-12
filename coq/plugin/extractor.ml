@@ -69,22 +69,6 @@ let extract' (path : string) (goal : Proofview.Goal.t) : unit m =
 let extract (path : string) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> extract' path goal |> runWithGoal goal)
 
-let normalize' (goal : Proofview.Goal.t) : unit m =
-  let* _ = St.registerEqPredicate Hott.eq in
-  let* obj = extract_hyps goal in
-  match obj with
-  | None -> fail "Goal is not a face"
-  | Some (side1,side2) ->
-    let env = Proofview.Goal.env goal in
-    let side1, eq1 = Normalisation.normalizeMorphism side1 in
-    let side2, eq2 = Normalisation.normalizeMorphism side2 in
-    let eq = Data.Concat (eq1, Data.Concat (Hole (side1,side2), Data.InvEq eq2)) in
-    let* eq = lift (Hott.realizeEq (SimplEq.simpl eq)) in
-    lift (Hott.M.lift (Refine.refine ~typecheck:false
-      (add_universes_constraints env eq)))
-let normalize (_ : unit) : unit Proofview.tactic =
-  Proofview.Goal.enter_one (fun goal -> normalize' goal |> runWithGoal goal)
-
 let connect enum uf eq =
   let left, leq = Normalisation.normalizeMorphism eq.Data.eq_left_ in
   let right, req = Normalisation.normalizeMorphism eq.Data.eq_right_ in
@@ -148,10 +132,22 @@ let server' (goal : Proofview.Goal.t) : unit m =
   match obj with
   | None -> fail "Goal is not a face"
   | Some (side1,side2) ->
-      let* _ = Sv.run side1 side2 in
+      let* _ = Sv.run Sv.Graph side1 side2 in
       ret ()
       (* let* eq = lift (Hott.realizeEq eq) in *)
       (* lift (Hott.M.lift (Refine.refine ~typecheck:false *)
       (*   (add_universes_constraints (Proofview.Goal.env goal) eq))) *)
 let server () : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> server' goal |> runWithGoal goal)
+
+let normalize' (goal : Proofview.Goal.t) : unit m =
+  let* _ = St.registerEqPredicate Hott.eq in
+  let* obj = extract_hyps goal in
+  match obj with
+  | None -> fail "Goal is not a face"
+  | Some (side1,side2) ->
+      let* _ = Sv.run Sv.Normalize side1 side2 in
+      ret ()
+let normalize (_ : unit) : unit Proofview.tactic =
+  Proofview.Goal.enter_one (fun goal -> normalize' goal |> runWithGoal goal)
+

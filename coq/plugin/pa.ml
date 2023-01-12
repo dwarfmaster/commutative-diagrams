@@ -4,6 +4,7 @@ module type ProofAssistant = sig
 
   (* Monad *)
   module M : Hyps.Monad
+  val lift_tactic : 'a Proofview.tactic -> 'a M.m
 
   (* Realisation *)
   val realizeCategory : t Data.category -> t M.m 
@@ -31,4 +32,7 @@ module type ProofAssistant = sig
   val fail : string -> unit M.m
   val message : string -> unit M.m
   val warning : string -> unit M.m
+  val env : unit -> Environ.env M.m
+  val to_econstr : t -> EConstr.t
+  val from_econstr : EConstr.t -> t
 end

@@ -13,6 +13,7 @@ module M = struct
   let lift a = { runEnv = fun env -> a }
   let run env a = a.runEnv env
 end
+let lift_tactic = M.lift
 
 module St = Hyps.Make(M)
 open St.Combinators
@@ -598,3 +599,6 @@ let fail msg = msg
   |> M.lift
 let message msg = Feedback.msg_info (Pp.str msg); M.return ()
 let warning msg = Feedback.msg_warning (Pp.str msg); M.return ()
+let env = M.env
+let to_econstr x = x
+let from_econstr x = x

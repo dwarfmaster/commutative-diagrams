@@ -15,17 +15,24 @@ module Make(PA: Pa.ProofAssistant) = struct
       let* _ = body () in whileM cond body
     else ret ()
 
+  type goal =
+    | GGraph of Gr.graph
+    | GNormalize of PA.t Data.morphism * PA.t Data.morphism
   type remote = 
     { stdin: out_channel
     ; stdout: in_channel
-    ; goal: Gr.graph
+    ; goal: goal
     }
 
   (* TODO find a better way to discover it, instead of hardcoding the path *)
   let engine_path = "/home/luc/repos/coq-commutative-diagrams/engine/target/debug/commutative-diagrams-engine"
 
-  let start_remote (goal : Gr.graph) : remote m =
-    let (stdout,stdin) = Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed" |] in
+  let start_remote (goal : goal) : remote m =
+    let (stdout,stdin) =
+      match goal with
+      | GGraph _ -> Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed" |]
+      | GNormalize _ ->
+          Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed"; "--normalize" |] in
     ret { stdin = stdin; stdout = stdout; goal = goal }
 
   let is_none opt : bool =
@@ -90,14 +97,52 @@ module Make(PA: Pa.ProofAssistant) = struct
         (fun eq -> eq.Data.eq_obj) Sd.mk_eq_id in
     ret (HRet (Msgpack.Array rt))
 
-  let handle_goal (goal: Gr.graph) (args : Msgpack.t list) : handler_ret m =
+  let handle_goal (goal: goal) (args : Msgpack.t list) : handler_ret m =
     let* _ = message "Sending goal" in
-    let* goal_mp = Gr.Serde.pack goal in
-    ret (HRet goal_mp)
+    match goal with
+    | GGraph goal ->
+        let* goal_mp = Gr.Serde.pack goal in
+        ret (HRet goal_mp)
+    | GNormalize (m1,m2) ->
+        let* p1 = Sd.Mph.pack m1 in
+        let* p2 = Sd.Mph.pack m2 in
+        ret (HRet (Msgpack.Array [ p1; p2 ]))
 
-  let handle_refine (args : Msgpack.t list) : handler_ret m =
-    (* TODO do something *)
-    ret HFinish
+  let add_universes_constraints (env : Environ.env) (c : EConstr.t) (sigma : Evd.evar_map) : Evd.evar_map * EConstr.t =
+    Typing.solve_evars env sigma c
+
+  let handle_refine (goal: goal) (args : Msgpack.t list) : handler_ret m =
+    match goal with
+    | GNormalize _ -> ret (HError "Current goal is normalization")
+    | GGraph _ -> begin
+      (* TODO do something *)
+      ret HFinish
+    end
+
+  let handle_norm (goal: goal) (args: Msgpack.t list) : handler_ret m =
+    match goal with
+    | GGraph _ -> ret (HError "Current goal is graph")
+    | GNormalize _ -> begin
+      let* (mph1,eq1,mph2,eq2) =
+        match args with
+        | [ Msgpack.Array [ mph1_pk; eq1_pk ]; Msgpack.Array [ mph2_pk; eq2_pk ] ] -> begin
+          let* mph1 = Sd.Mph.unpack mph1_pk in
+          let* eq1 = Sd.Eq.unpack eq1_pk in
+          let* mph2 = Sd.Mph.unpack mph2_pk in
+          let* eq2 = Sd.Eq.unpack eq2_pk in
+          match mph1,eq1,mph2,eq2 with
+          | Some mph1, Some eq1, Some mph2, Some eq2 -> ret (mph1,eq1,mph2,eq2)
+          | _ -> let* _ = fail "Expected a morphism and an equality from engine" in assert false
+        end
+        | _ -> let* _ = fail "Expected 2 arguments from engine" in assert false in
+      let eq = Data.Concat (eq1, Data.Concat (Hole (mph1,mph2), Data.InvEq eq2)) in
+      let* eq = lift (PA.realizeEq (SimplEq.simpl eq)) in
+      let* env = lift (PA.env ()) in
+      let* _ =
+        lift (PA.lift_tactic (Refine.refine ~typecheck:false
+          (add_universes_constraints env (PA.to_econstr eq)))) in
+      ret HFinish
+    end
 
   let run_handler (rm : remote) (msgid : int) (args : Msgpack.t list) (h : handler) : bool m =
     let* rt = h args in
@@ -129,21 +174,32 @@ module Make(PA: Pa.ProofAssistant) = struct
       let* params = match params with
         | Msgpack.Array params -> ret params
         | Msgpack.Nil -> ret []
-        | _ -> invalid_message () in
+        | _ -> let* _ = fail "Params is not a vector" in assert false in
       match mtd with
       | "goal" -> run_handler rm msgid params (handle_goal rm.goal)
       | "hyps" -> run_handler rm msgid params handle_hyps
-      | "refine" -> run_handler rm msgid params handle_refine
-      | _ -> invalid_message ()
+      | "refine" -> run_handler rm msgid params (handle_refine rm.goal)
+      | "normalized" -> run_handler rm msgid params (handle_norm rm.goal)
+      | _ -> let* _ = fail "Unknown method" in assert false
     end
-    | _ -> invalid_message ()
+    | _ -> let* _ = fail "Ill formed rpc message" in assert false
 
-  let run (left : PA.t Data.morphism) (right : PA.t Data.morphism) : unit m =
-    let goal = {
-      Gr.gr_nodes = [| Data.morphism_src left; Data.morphism_dst left |];
-      Gr.gr_edges = [| [ (1, left); (1, right) ]; [] |];
-      Gr.gr_faces = [ ];
-    } in
+  type action =
+    | Graph
+    | Normalize
+
+  let run (act: action) (left : PA.t Data.morphism) (right : PA.t Data.morphism) : unit m =
+    let goal = 
+      match act with
+      | Graph -> 
+          GGraph {
+            Gr.gr_nodes = [| Data.morphism_src left; Data.morphism_dst left |];
+            Gr.gr_edges = [| [ (1, left); (1, right) ]; [] |];
+            Gr.gr_faces = [ ];
+          }
+      | Normalize ->
+          GNormalize (left,right)
+      in
     let* rm = start_remote goal in
     let parser = Msgpack.make_parser rm.stdout in
     let finish = ref false in

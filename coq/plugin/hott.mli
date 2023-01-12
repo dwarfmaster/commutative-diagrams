@@ -9,6 +9,7 @@ module M : sig
   val lift : 'a Proofview.tactic -> 'a m
   val run : Environ.env -> 'a m -> 'a Proofview.tactic
 end
+val lift_tactic : 'a Proofview.tactic -> 'a M.m
 
 (* Realization *)
 val realizeCategory : t Data.category -> t M.m
@@ -34,3 +35,6 @@ val print : t -> string M.m
 val fail : string -> unit M.m
 val message : string -> unit M.m
 val warning : string -> unit M.m
+val env : unit -> Environ.env M.m
+val to_econstr : t -> EConstr.t
+val from_econstr : EConstr.t -> t
