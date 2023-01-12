@@ -158,7 +158,8 @@ where
         };
         self.id += 1;
         let msgpack = rmp_serde::encode::to_vec(&msg).map_err(|err| Error::Encode(err))?;
-        let mut file = std::fs::File::create(format!("request_{}.mp", self.id-1)).map_err(send_io_error)?;
+        let mut file =
+            std::fs::File::create(format!("request_{}.mp", self.id - 1)).map_err(send_io_error)?;
         file.write_all(&msgpack).map_err(send_io_error)?;
         self.output.write_all(&msgpack).map_err(send_io_error)?;
         self.output.flush().map_err(send_io_error)?;
