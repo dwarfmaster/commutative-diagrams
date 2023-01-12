@@ -475,12 +475,11 @@ impl Serialize for AnyTerm {
     {
         use AnyTerm::*;
         match self {
-            Cat(c) => s.serialize_newtype_variant("term", 0, "category", c.deref()),
-            Funct(f) => s.serialize_newtype_variant("term", 1, "functor", f.deref()),
-            Obj(o) => s.serialize_newtype_variant("term", 2, "object", o.deref()),
-            Mph(m) => s.serialize_newtype_variant("term", 3, "morphism", m.deref()),
-            Eq(e) => s.serialize_newtype_variant("term", 4, "equality", e.deref()),
-            // TODO is that really what we want ?
+            Cat(c) => c.serialize(s),
+            Funct(f) => f.serialize(s),
+            Obj(o) => o.serialize(s),
+            Mph(m) => m.serialize(s),
+            Eq(e) => e.serialize(s),
             TypedCat(c) => s.serialize_newtype_variant("term", 0, "category", c.deref()),
             TypedFunct(f) => s.serialize_newtype_variant("term", 1, "functor", f.deref()),
             TypedObj(o) => s.serialize_newtype_variant("term", 2, "object", o.deref()),
