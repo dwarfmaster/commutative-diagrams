@@ -11,6 +11,38 @@ type t =
   | Binary of Bytes.t
   | Extension of (int * Bytes.t)
 
+let rec to_json (out : Out_channel.t) (msg : t) =
+  let open Out_channel in
+  match msg with
+  | Nil -> output_string out "null";
+  | Integer i -> Printf.fprintf out "%d" i
+  | Int64 i -> Printf.fprintf out "%Ld" i
+  | Boolean b -> if b then output_string out "true" else output_string out "false"
+  | Floating f -> Printf.fprintf out "%e" f
+  | Array [] -> output_string out "[]"
+  | Array (h::t) -> begin
+    output_string out "[";
+    to_json out h;
+    List.iter (fun e -> output_string out ","; to_json out e) t;
+    output_string out "]";
+  end
+  | Map [] -> output_string out "{}"
+  | Map ((k,v) :: t) -> begin
+    output_string out "{";
+    to_json out k;
+    output_string out ":";
+    to_json out v;
+    List.iter
+      (fun (k,v) ->
+        output_string out ","; to_json out k; 
+        output_string out ":"; to_json out v)
+      t;
+    output_string out "}"
+  end
+  | String s -> Printf.fprintf out "\"%s\"" s
+  | Binary _ -> output_string out "\"<<BYTES>>\""
+  | Extension (e,_) -> Printf.fprintf out "\"<<EXT %d>>\"" e
+
 type result =
   | Error of string
   | Msg of t

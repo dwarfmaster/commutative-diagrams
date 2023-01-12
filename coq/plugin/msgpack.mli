@@ -11,6 +11,8 @@ type t =
   | Binary of Bytes.t
   | Extension of (int * Bytes.t)
 
+val to_json : Out_channel.t -> t -> unit
+
 type parser
 type result =
   | Error of string
