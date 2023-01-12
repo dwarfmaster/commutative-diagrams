@@ -9,6 +9,7 @@ pub mod rpc;
 pub mod substitution;
 pub mod unification;
 
+use anyterm::IsTerm;
 use data::ProofObject;
 use data::{ActualCategory, ActualFunctor, ActualMorphism, ActualObject};
 use data::{CategoryData, FunctorData, MorphismData, ObjectData};
@@ -72,7 +73,71 @@ fn test_main(packfile: &str) {
     messagepack_to_file(packfile, &gr);
 }
 
-fn embed() {
+fn goal_graph<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>)
+where
+    In: std::io::Read,
+    Out: std::io::Write,
+{
+    log::info!("Asking for graph goal");
+    let goal_req = client.send_msg("goal", ()).unwrap();
+    let goal: Graph = client
+        .receive_msg(goal_req, parser::Parser::<Graph>::new(ctx.clone()))
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse goal answer: {:#?}", err);
+            panic!()
+        });
+    log::info!("Goal received");
+
+    let mut file = File::create("goal.viz").unwrap();
+    graph::viz(&mut file, &goal, &mut ctx).unwrap();
+    // Result is a vector of existentials and their instantiation
+    let result: Vec<(u64, anyterm::AnyTerm)> = Vec::new();
+    log::info!("Sending refinements");
+    let refine_req = client.send_msg("refine", result).unwrap();
+    client
+        .receive_msg(refine_req, core::marker::PhantomData::<()>::default())
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse refine answer: {:#?}", err);
+            panic!()
+        });
+    log::info!("Acknowledgement of refinements received");
+}
+
+fn goal_norm<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>)
+where
+    In: std::io::Read,
+    Out: std::io::Write,
+{
+    log::info!("Asking for morphism to normalize");
+    let goal_req = client.send_msg("goal", ()).unwrap();
+    let goals: Vec<data::Morphism> = client
+        .receive_msg(
+            goal_req,
+            parser::Parser::<data::Morphism>::new_vec(ctx.clone()),
+        )
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse goal answer: {:#?}", err);
+            panic!()
+        });
+    log::info!("{} goals received", goals.len());
+
+    let result: Vec<Vec<anyterm::AnyTerm>> = goals
+        .into_iter()
+        .map(|goal| normalize::morphism(&mut ctx, goal))
+        .map(|(mph, eq)| vec![mph.term(), eq.term()])
+        .collect();
+    log::info!("Sending normalized morphism");
+    let norm_req = client.send_msg("normalized", result).unwrap();
+    client
+        .receive_msg(norm_req, core::marker::PhantomData::<()>::default())
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse normalized answer: {:#?}", err);
+            panic!()
+        });
+    log::info!("Acknowledgement of normalization received");
+}
+
+fn embed(normalize: bool) {
     simplelog::WriteLogger::init(
         simplelog::LevelFilter::Debug,
         simplelog::Config::default(),
@@ -100,29 +165,12 @@ fn embed() {
             log::debug!("New hypothesis: {} => \"{}\"", id, name);
             ctx.new_term_mv(id, name)
         });
-    log::info!("Asking for goal");
-    let goal_req = client.send_msg("goal", ()).unwrap();
-    let goal: Graph = client
-        .receive_msg(goal_req, parser::Parser::<Graph>::new(ctx.clone()))
-        .unwrap_or_else(|err| {
-            log::warn!("Couldn't parse goal answer: {:#?}", err);
-            panic!()
-        });
-    log::info!("Goal received");
 
-    let mut file = File::create("goal.viz").unwrap();
-    graph::viz(&mut file, &goal, &mut ctx).unwrap();
-    // Result is a vector of existentials and their instantiation
-    let result: Vec<(u64, anyterm::AnyTerm)> = Vec::new();
-    log::info!("Sending refinements");
-    let refine_req = client.send_msg("refine", result).unwrap();
-    client
-        .receive_msg(refine_req, core::marker::PhantomData::<()>::default())
-        .unwrap_or_else(|err| {
-            log::warn!("Couldn't parse refine answer: {:#?}", err);
-            panic!()
-        });
-    log::info!("Acknowledgement of refinements received");
+    if normalize {
+        goal_norm(ctx, client)
+    } else {
+        goal_graph(ctx, client)
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -137,7 +185,10 @@ enum Commands {
         #[arg(short, long)]
         packfile: Option<String>,
     },
-    Embed,
+    Embed {
+        #[arg(long)]
+        normalize: bool,
+    },
 }
 
 fn main() {
@@ -148,6 +199,6 @@ fn main() {
             let packfile = packfile.unwrap_or("gr.mp".to_string());
             test_main(&packfile)
         }
-        Commands::Embed => embed(),
+        Commands::Embed { normalize } => embed(normalize),
     }
 }
