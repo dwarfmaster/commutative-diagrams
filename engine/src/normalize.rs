@@ -94,7 +94,6 @@ fn norm_under_functors(
     use ActualMorphism::*;
     match m.deref() {
         Identity(e) => {
-            println!("ID");
             let (e, eq) = raise_identity(ctx, &functs, e.clone());
             assert!(eq.check(&ctx), "ID");
             (ctx.mk(Identity(e)), eq)
@@ -114,20 +113,17 @@ fn norm_under_functors(
             let (r, req) = post_compose(ctx, m1, m2);
             assert!(req.check(&ctx), "REQ");
             assert_eq!(eq.right(&ctx), req.left(&ctx), "Incompatible");
-            println!("COMP");
             (r, ctx.mk(ActualEquality::Concat(eq, req)))
         }
         Funct(f, m) => {
             functs.push(f.clone());
             let norm = norm_under_functors(ctx, functs, m.clone());
             functs.pop();
-            println!("FUNCT");
             norm
         }
         _ => {
             let m = apply_functors(ctx, &functs, m);
             assert!(m.check(&ctx), "MPH");
-            println!("BASE");
             (m.clone(), ctx.mk(ActualEquality::Refl(m)))
         }
     }
