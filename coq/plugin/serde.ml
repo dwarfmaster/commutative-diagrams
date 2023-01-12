@@ -83,7 +83,7 @@ module Make(PA: Pa.ProofAssistant) = struct
       match mp with
       | Pk.Map [ (Pk.String cons, mp) ] -> begin
         match cons, mp with
-        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ] ] -> begin 
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; _; _ ] -> begin 
           match name with
           | "term" ->
               let id = un_id id in
@@ -124,7 +124,7 @@ module Make(PA: Pa.ProofAssistant) = struct
       match mp with
       | Pk.Map [ (Pk.String cons, mp) ] -> begin
         match cons, mp with
-        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ] ] -> begin 
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; _ ] -> begin 
           match name with
           | "term" ->
               let id = un_id id in
@@ -184,7 +184,7 @@ module Make(PA: Pa.ProofAssistant) = struct
       match mp with
       | Pk.Map [ (Pk.String cons, mp) ] -> begin
         match cons, mp with
-        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ] ] -> begin 
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; _; _; _ ] -> begin 
           match name with
           | "term" ->
               let id = un_id id in
@@ -266,10 +266,10 @@ module Make(PA: Pa.ProofAssistant) = struct
           ret (cons "assoc" (Pk.Array [ m1; m2; m3 ]))
       | LeftId m ->
           let* m = Mph.pack m in
-          ret (cons "left_id" m)
+          ret (cons "right_id" m)
       | RightId m ->
           let* m = Mph.pack m in
-          ret (cons "right_id" m)
+          ret (cons "left_id" m)
       | RAp (p,m) ->
           let* p = pack p in
           let* m = Mph.pack m in
@@ -300,7 +300,7 @@ module Make(PA: Pa.ProofAssistant) = struct
       match mp with
       | Pk.Map [ (Pk.String cons, mp) ] -> begin
         match cons, mp with
-        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ] ] -> begin 
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; _; _; _; _; _ ] -> begin 
           match name with
           | "term" ->
               let id = un_id id in
@@ -348,13 +348,13 @@ module Make(PA: Pa.ProofAssistant) = struct
         | "left_id", m -> begin
           let* m = Mph.unpack m in
           match m with
-          | Some m -> ret (Some (LeftId m))
+          | Some m -> ret (Some (RightId m))
           | _ -> ret None
         end
         | "right_id", m -> begin
           let* m = Mph.unpack m in
           match m with
-          | Some m -> ret (Some (RightId m))
+          | Some m -> ret (Some (LeftId m))
           | _ -> ret None
         end
         | "rap", Pk.Array [ p; m ] -> begin
