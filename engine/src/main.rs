@@ -73,14 +73,16 @@ fn test_main(packfile: &str) {
     messagepack_to_file(packfile, &gr);
 }
 
-fn goal_graph<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>)
-where
+fn goal_graph<In, Out>(
+    mut ctx: data::Context,
+    mut client: rpc::Client<In, Out>,
+) where
     In: std::io::Read,
     Out: std::io::Write,
 {
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
-    let goal: Graph = client
+    let _goal: Graph = client
         .receive_msg(goal_req, parser::Parser::<Graph>::new(ctx.clone()))
         .unwrap_or_else(|err| {
             log::warn!("Couldn't parse goal answer: {:#?}", err);
@@ -88,8 +90,6 @@ where
         });
     log::info!("Goal received");
 
-    let mut file = File::create("goal.viz").unwrap();
-    graph::viz(&mut file, &goal, &mut ctx).unwrap();
     // Result is a vector of existentials and their instantiation
     let result: Vec<(u64, anyterm::AnyTerm)> = Vec::new();
     log::info!("Sending refinements");
@@ -101,6 +101,33 @@ where
             panic!()
         });
     log::info!("Acknowledgement of refinements received");
+}
+
+fn goal_print<In, Out>(
+    mut ctx: data::Context,
+    mut client: rpc::Client<In, Out>,
+    path: String
+) where
+    In: std::io::Read,
+    Out: std::io::Write,
+{
+    log::info!("Printing");
+    let mut file = File::create(path).unwrap();
+
+    let mut hyps = Graph::new();
+    // TODO build hyps graph from hypothesis
+    graph::viz(&mut file, &hyps, &mut ctx).unwrap();
+
+    // Notify server we're finished
+    log::info!("Sending printed notification");
+    let refine_req = client.send_msg("printed", ()).unwrap();
+    client
+        .receive_msg(refine_req, core::marker::PhantomData::<()>::default())
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse printed answer: {:#?}", err);
+            panic!()
+        });
+    log::info!("Acknowledgement of printed received");
 }
 
 fn goal_norm<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>)
@@ -137,7 +164,7 @@ where
     log::info!("Acknowledgement of normalization received");
 }
 
-fn embed(normalize: bool) {
+fn embed(normalize: bool, print: Option<String>) {
     simplelog::WriteLogger::init(
         simplelog::LevelFilter::Debug,
         simplelog::Config::default(),
@@ -146,7 +173,7 @@ fn embed(normalize: bool) {
     .unwrap();
 
     log::info!("Creating context");
-    let mut ctx = data::Context::new();
+    let ctx = data::Context::new();
     let mut client = rpc::Client::new(std::io::stdin(), std::io::stdout());
     log::info!("Asking for hypothesises");
     let hyps_req = client.send_msg("hyps", ()).unwrap();
@@ -168,6 +195,8 @@ fn embed(normalize: bool) {
 
     if normalize {
         goal_norm(ctx, client)
+    } else if print.is_some() {
+        goal_print(ctx, client, print.unwrap())
     } else {
         goal_graph(ctx, client)
     }
@@ -188,6 +217,8 @@ enum Commands {
     Embed {
         #[arg(long)]
         normalize: bool,
+        #[arg(long)]
+        print: Option<String>,
     },
 }
 
@@ -199,6 +230,6 @@ fn main() {
             let packfile = packfile.unwrap_or("gr.mp".to_string());
             test_main(&packfile)
         }
-        Commands::Embed { normalize } => embed(normalize),
+        Commands::Embed { normalize, print } => embed(normalize, print),
     }
 }

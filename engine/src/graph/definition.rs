@@ -60,6 +60,14 @@ impl Substitutable for Face {
 }
 
 impl Graph {
+    pub fn new() -> Self {
+        Self {
+            nodes: Vec::new(),
+            edges: Vec::new(),
+            faces: Vec::new(),
+        }
+    }
+
     pub fn check(&self, ctx: &Context) -> bool {
         self.nodes.len() == self.edges.len()
             && self.nodes.iter().all(|o| o.check(ctx))
