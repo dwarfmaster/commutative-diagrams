@@ -55,20 +55,6 @@ let extract_hyps (goal : Proofview.Goal.t) : (Hott.t Data.morphism * Hott.t Data
   let* store = forM (extract_hyp env) context in
   Hott.parseEqGoal goal
 
-let extract' (path : string) (goal : Proofview.Goal.t) : unit m =
-  let* _ = St.registerEqPredicate Hott.eq in
-  let* _ = extract_hyps goal in
-  let* sigma = evars () in
-  let env = Proofview.Goal.env goal in
-  let* pp = Renderer.to_graphviz sigma env in
-  let oc = open_out path in
-  Printf.fprintf oc "%s\n" (Pp.string_of_ppcmds pp);
-  flush oc;
-  close_out oc;
-  ret ()
-let extract (path : string) : unit Proofview.tactic =
-  Proofview.Goal.enter_one (fun goal -> extract' path goal |> runWithGoal goal)
-
 let connect enum uf eq =
   let left, leq = Normalisation.normalizeMorphism eq.Data.eq_left_ in
   let right, req = Normalisation.normalizeMorphism eq.Data.eq_right_ in
@@ -132,7 +118,7 @@ let server' (goal : Proofview.Goal.t) : unit m =
   match obj with
   | None -> fail "Goal is not a face"
   | Some (side1,side2) ->
-      let* _ = Sv.run Sv.Graph side1 side2 in
+      let* _ = Sv.run (Sv.Graph (side1, side2)) in
       ret ()
       (* let* eq = lift (Hott.realizeEq eq) in *)
       (* lift (Hott.M.lift (Refine.refine ~typecheck:false *)
@@ -146,8 +132,15 @@ let normalize' (goal : Proofview.Goal.t) : unit m =
   match obj with
   | None -> fail "Goal is not a face"
   | Some (side1,side2) ->
-      let* _ = Sv.run Sv.Normalize side1 side2 in
+      let* _ = Sv.run (Sv.Normalize (side1, side2)) in
       ret ()
 let normalize (_ : unit) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> normalize' goal |> runWithGoal goal)
 
+let extract' (path : string) (goal : Proofview.Goal.t) : unit m =
+  let* _ = St.registerEqPredicate Hott.eq in
+  let* _ = extract_hyps goal in
+  let* _ = Sv.run (Sv.Print path) in
+  ret ()
+let extract (path : string) : unit Proofview.tactic =
+  Proofview.Goal.enter_one (fun goal -> extract' path goal |> runWithGoal goal)

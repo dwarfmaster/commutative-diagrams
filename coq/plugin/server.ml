@@ -17,6 +17,7 @@ module Make(PA: Pa.ProofAssistant) = struct
 
   type goal =
     | GGraph of Gr.graph
+    | GPrint of string
     | GNormalize of PA.t Data.morphism * PA.t Data.morphism
   type remote = 
     { stdin: out_channel
@@ -31,6 +32,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     let (stdout,stdin) =
       match goal with
       | GGraph _ -> Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed" |]
+      | GPrint path -> Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed"; "--print"; path |]
       | GNormalize _ ->
           Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed"; "--normalize" |] in
     ret { stdin = stdin; stdout = stdout; goal = goal }
@@ -103,6 +105,8 @@ module Make(PA: Pa.ProofAssistant) = struct
     | GGraph goal ->
         let* goal_mp = Gr.Serde.pack goal in
         ret (HRet goal_mp)
+    | GPrint _ ->
+        ret (HError "No goal for printing")
     | GNormalize (m1,m2) ->
         let* p1 = Sd.Mph.pack m1 in
         let* p2 = Sd.Mph.pack m2 in
@@ -118,10 +122,12 @@ module Make(PA: Pa.ProofAssistant) = struct
       (* TODO do something *)
       ret HFinish
     end
+    | GPrint _ -> ret HFinish
 
   let handle_norm (goal: goal) (args: Msgpack.t list) : handler_ret m =
     match goal with
     | GGraph _ -> ret (HError "Current goal is graph")
+    | GPrint _ -> ret (HError "Current goal is print")
     | GNormalize _ -> begin
       let* (mph1,eq1,mph2,eq2) =
         match args with
@@ -143,6 +149,9 @@ module Make(PA: Pa.ProofAssistant) = struct
           (add_universes_constraints env (PA.to_econstr eq)))) in
       ret HFinish
     end
+
+  let handle_printed _ : handler_ret m =
+    ret HFinish
 
   let run_handler (rm : remote) (msgid : int) (args : Msgpack.t list) (h : handler) : bool m =
     let* rt = h args in
@@ -180,25 +189,29 @@ module Make(PA: Pa.ProofAssistant) = struct
       | "hyps" -> run_handler rm msgid params handle_hyps
       | "refine" -> run_handler rm msgid params (handle_refine rm.goal)
       | "normalized" -> run_handler rm msgid params (handle_norm rm.goal)
+      | "printed" -> run_handler rm msgid params handle_printed
       | _ -> let* _ = fail "Unknown method" in assert false
     end
     | _ -> let* _ = fail "Ill formed rpc message" in assert false
 
   type action =
-    | Graph
-    | Normalize
+    | Graph of PA.t Data.morphism * PA.t Data.morphism
+    | Normalize of PA.t Data.morphism * PA.t Data.morphism
+    | Print of string
 
-  let run (act: action) (left : PA.t Data.morphism) (right : PA.t Data.morphism) : unit m =
+  let run (act: action) : unit m =
     let goal = 
       match act with
-      | Graph -> 
+      | Graph (left,right) -> 
           GGraph {
             Gr.gr_nodes = [| Data.morphism_src left; Data.morphism_dst left |];
             Gr.gr_edges = [| [ (1, left); (1, right) ]; [] |];
             Gr.gr_faces = [ ];
           }
-      | Normalize ->
+      | Normalize (left,right) ->
           GNormalize (left,right)
+      | Print path -> 
+          GPrint path
       in
     let* rm = start_remote goal in
     let parser = Msgpack.make_parser rm.stdout in
