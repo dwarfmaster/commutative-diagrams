@@ -3,6 +3,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   module St = Hyps.Make(PA.M)
   module Gr = Graph.Make(PA)
   module Sd = Serde.Make(PA)
+  module Builder = Graphbuilder.Make(PA)
   type 'a m = ('a,PA.t) St.t
   open St.Combinators
   let fail msg = msg |> PA.fail |> lift
@@ -17,7 +18,7 @@ module Make(PA: Pa.ProofAssistant) = struct
 
   type goal =
     | GGraph of Gr.graph
-    | GPrint of string
+    | GPrint of string * Gr.graph
     | GNormalize of PA.t Data.morphism * PA.t Data.morphism
   type remote = 
     { stdin: out_channel
@@ -32,7 +33,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     let (stdout,stdin) =
       match goal with
       | GGraph _ -> Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed" |]
-      | GPrint path -> Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed"; "--print"; path |]
+      | GPrint (path,_) -> Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed"; "--print"; path |]
       | GNormalize _ ->
           Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed"; "--normalize" |] in
     ret { stdin = stdin; stdout = stdout; goal = goal }
@@ -105,8 +106,9 @@ module Make(PA: Pa.ProofAssistant) = struct
     | GGraph goal ->
         let* goal_mp = Gr.Serde.pack goal in
         ret (HRet goal_mp)
-    | GPrint _ ->
-        ret (HError "No goal for printing")
+    | GPrint (_,goal) ->
+        let* goal_mp = Gr.Serde.pack goal in
+        ret (HRet goal_mp)
     | GNormalize (m1,m2) ->
         let* p1 = Sd.Mph.pack m1 in
         let* p2 = Sd.Mph.pack m2 in
@@ -118,11 +120,11 @@ module Make(PA: Pa.ProofAssistant) = struct
   let handle_refine (goal: goal) (args : Msgpack.t list) : handler_ret m =
     match goal with
     | GNormalize _ -> ret (HError "Current goal is normalization")
+    | GPrint _ -> ret (HError "Current goal is print")
     | GGraph _ -> begin
       (* TODO do something *)
       ret HFinish
     end
-    | GPrint _ -> ret HFinish
 
   let handle_norm (goal: goal) (args: Msgpack.t list) : handler_ret m =
     match goal with
@@ -200,18 +202,20 @@ module Make(PA: Pa.ProofAssistant) = struct
     | Print of string
 
   let run (act: action) : unit m =
-    let goal = 
+    let* goal = 
       match act with
       | Graph (left,right) -> 
           GGraph {
             Gr.gr_nodes = [| Data.morphism_src left; Data.morphism_dst left |];
             Gr.gr_edges = [| [ (1, left); (1, right) ]; [] |];
             Gr.gr_faces = [ ];
-          }
+          } |> ret
       | Normalize (left,right) ->
-          GNormalize (left,right)
+          ret (GNormalize (left,right))
       | Print path -> 
-          GPrint path
+          let goal = Builder.empty () in
+          let* goal = Builder.import_hyps goal in
+          ret (GPrint (path, Builder.build goal))
       in
     let* rm = start_remote goal in
     let parser = Msgpack.make_parser rm.stdout in
