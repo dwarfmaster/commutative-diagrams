@@ -74,7 +74,7 @@ fn test_main(packfile: &str) {
 }
 
 fn goal_graph<In, Out>(
-    mut ctx: data::Context,
+    ctx: data::Context,
     mut client: rpc::Client<In, Out>,
 ) where
     In: std::io::Read,
@@ -111,12 +111,19 @@ fn goal_print<In, Out>(
     In: std::io::Read,
     Out: std::io::Write,
 {
+    log::info!("Asking for graph goal");
+    let goal_req = client.send_msg("goal", ()).unwrap();
+    let goal: Graph = client
+        .receive_msg(goal_req, parser::Parser::<Graph>::new(ctx.clone()))
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse goal answer: {:#?}", err);
+            panic!()
+        });
+    log::info!("Goal received");
+
     log::info!("Printing");
     let mut file = File::create(path).unwrap();
-
-    let mut hyps = Graph::new();
-    // TODO build hyps graph from hypothesis
-    graph::viz(&mut file, &hyps, &mut ctx).unwrap();
+    graph::viz(&mut file, &goal, &mut ctx).unwrap();
 
     // Notify server we're finished
     log::info!("Sending printed notification");
