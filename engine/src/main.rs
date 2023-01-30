@@ -1,4 +1,5 @@
 pub mod anyterm;
+pub mod autofill;
 pub mod data;
 pub mod dsl;
 pub mod graph;
@@ -73,10 +74,8 @@ fn test_main(packfile: &str) {
     messagepack_to_file(packfile, &gr);
 }
 
-fn goal_graph<In, Out>(
-    ctx: data::Context,
-    mut client: rpc::Client<In, Out>,
-) where
+fn goal_graph<In, Out>(ctx: data::Context, mut client: rpc::Client<In, Out>)
+where
     In: std::io::Read,
     Out: std::io::Write,
 {
@@ -103,11 +102,8 @@ fn goal_graph<In, Out>(
     log::info!("Acknowledgement of refinements received");
 }
 
-fn goal_print<In, Out>(
-    mut ctx: data::Context,
-    mut client: rpc::Client<In, Out>,
-    path: String
-) where
+fn goal_print<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>, path: String)
+where
     In: std::io::Read,
     Out: std::io::Write,
 {
