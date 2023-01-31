@@ -190,10 +190,95 @@ macro_rules! mph {
 }
 pub(crate) use mph;
 
+macro_rules! eq {
+    ($ctx:expr, $e:tt : $l:tt == $r:tt) => {
+        {
+            let left = mph!($ctx, $l);
+            let right = mph!($ctx, $r);
+            eq!($ctx, $e, left, right)
+        }
+    };
+    ($ctx:expr, ($e:tt : $l:tt == $r:tt)) => {
+        eq!($ctx, $e : $l == $r)
+    };
+    ($ctx:expr, 1_($m:tt)) => {
+        {
+            let mph = mph!($ctx, $m);
+            $ctx.mk(ActualEquality::Refl(mph))
+        }
+    };
+    ($ctx:expr, (1_($m:tt))) => {
+        eq!($ctx, 1_($m))
+    };
+    ($ctx:expr, $eq1:tt . $eq2:tt) => {
+        {
+            let eq1 = eq!($ctx, $eq1);
+            let eq2 = eq!($ctx, $eq2);
+            $ctx.mk(ActualEquality::Concat(eq1, eq2))
+        }
+    };
+    ($ctx:expr, ($eq1:tt . $eq2:tt)) => {
+        eq!($ctx, $eq1 . $eq2)
+    };
+    ($ctx:expr, ~$eq:tt) => {
+        {
+            let eq = eq!($ctx, $eq);
+            $ctx.mk(ActualEquality::Inv(eq))
+        }
+    };
+    ($ctx:expr, (~$eq:tt)) => {
+        eq!($ctx, ~$eq)
+    };
+    ($ctx:expr, ?$eq:expr, $l:expr, $r:expr) => {
+        {
+            let cat = ($l).cat(&$ctx);
+            let src = ($l).src(&$ctx);
+            let dst = ($l).dst(&$ctx);
+            $ctx.mk(ActualEquality::Atomic(EqualityData {
+                pobj: ProofObject::Existential($eq),
+                category: cat,
+                src: src,
+                dst: dst,
+                left: $l,
+                right: $r,
+            }))
+        }
+    };
+    ($ctx:expr, (?$eq:expr), $l:expr, $r:expr) => {
+        eq!($ctx, ?$eq, $l, $r)
+    };
+    ($ctx:expr, :$eq:expr, $l:expr, $r:expr) => {
+        {
+            let name = format!("eq-{}", $eq);
+            let _ = $ctx.new_term($eq, name.as_str());
+            let cat = ($l).cat(&$ctx);
+            let src = ($l).src(&$ctx);
+            let dst = ($l).dst(&$ctx);
+            $ctx.mk(ActualEquality::Atomic(EqualityData {
+                pobj: ProofObject::Term($eq),
+                category: cat,
+                src: src,
+                dst: dst,
+                left: $l,
+                right: $r,
+            }))
+        }
+    };
+    ($ctx:expr, (:$eq:expr), $l:expr, $r:expr) => {
+        eq!($ctx, :$eq, $l, $r)
+    };
+    ($ctx:expr, $eq:expr) => {
+        $eq.clone()
+    }
+}
+pub(crate) use eq;
+
 #[cfg(test)]
 mod test {
-    use crate::data::{ActualCategory, ActualFunctor, ActualMorphism, ActualObject};
-    use crate::data::{CategoryData, FunctorData, MorphismData, ObjectData};
+    use crate::data::{
+        ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject,
+    };
+    use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData};
     use crate::data::{Context, ProofObject};
 
     #[test]
@@ -248,5 +333,20 @@ mod test {
         let mde = mph!(ctx, (:10) : d -> e);
         let mph = mph!(ctx, (f _1 mab) >> ((:11) : (f _0 b) -> c) >> mcd >> (id d) >> mde);
         assert!(mph.check(&ctx), "mph not valid");
+    }
+
+    #[test]
+    pub fn eq_macro() {
+        let ctx = Context::new();
+        let cat = cat!(ctx, :0);
+        let x = obj!(ctx, (:1) in cat);
+        let y = obj!(ctx, (:2) in cat);
+        let m1 = mph!(ctx, (:3) : x -> y);
+        let m2 = mph!(ctx, (:4) : x -> y);
+        let m3 = mph!(ctx, (:5) : x -> y);
+        let eq1 = eq!(ctx, (:6) : m1 == m2);
+        let eq2 = eq!(ctx, (?0) : m2 == m3);
+        let eq = eq!(ctx, eq1 . ((1_(m2)) . eq2));
+        assert!(eq.check(&ctx), "eq is not valid");
     }
 }

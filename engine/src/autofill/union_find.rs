@@ -149,7 +149,7 @@ mod tests {
     use crate::data::{ActualEquality, EqualityData};
     use crate::data::{CategoryData, MorphismData, ObjectData};
     use crate::data::{Context, ProofObject};
-    use crate::dsl::{cat, mph, obj};
+    use crate::dsl::{cat, eq, mph, obj};
     use crate::graph::Graph;
 
     #[test]
@@ -163,38 +163,20 @@ mod tests {
         let m3 = mph!(ctx, (:5) : x -> y);
         let m4 = mph!(ctx, (:6) : x -> y);
         let m5 = mph!(ctx, (:7) : x -> y);
-        let eq12 = ctx.mk(ActualEquality::Atomic(EqualityData {
-            pobj: ProofObject::Term(8),
-            category: cat.clone(),
-            src: x.clone(),
-            dst: y.clone(),
-            left: m1.clone(),
-            right: m2.clone(),
-        }));
-        ctx.new_term(8,  "eq8");
-        let eq13 = ctx.mk(ActualEquality::Atomic(EqualityData {
-            pobj: ProofObject::Term(9),
-            category: cat.clone(),
-            src: x.clone(),
-            dst: y.clone(),
-            left: m1.clone(),
-            right: m3.clone(),
-        }));
-        ctx.new_term(9, "eq9");
-        let eq45 = ctx.mk(ActualEquality::Atomic(EqualityData {
-            pobj: ProofObject::Term(10),
-            category: cat.clone(),
-            src: x.clone(),
-            dst: y.clone(),
-            left: m4.clone(),
-            right: m5.clone(),
-        }));
-        ctx.new_term(10, "eq10");
+        let eq12 = eq!(ctx, (:8) : m1 == m2);
+        let eq13 = eq!(ctx, (:9) : m1 == m3);
+        let eq45 = eq!(ctx, (:10) : m4 == m5);
 
         let gr: Graph = Graph {
             nodes: vec![x, y],
             edges: vec![
-                vec![(1, m1.clone()), (1, m2.clone()), (1, m3.clone()), (1, m4.clone()), (1, m5.clone())],
+                vec![
+                    (1, m1.clone()),
+                    (1, m2.clone()),
+                    (1, m3.clone()),
+                    (1, m4.clone()),
+                    (1, m5.clone()),
+                ],
                 Vec::new(),
             ],
             faces: Vec::new(),
@@ -212,11 +194,17 @@ mod tests {
 
         let q23 = uf.query(&mut ctx, &m2, &m3);
         assert!(q23.is_some(), "m2 and m3 should be connected");
-        assert!(q23.unwrap().check(&ctx), "Equality between m2 and m3 invalid");
+        assert!(
+            q23.unwrap().check(&ctx),
+            "Equality between m2 and m3 invalid"
+        );
 
         let q54 = uf.query(&mut ctx, &m5, &m4);
         assert!(q54.is_some(), "m5 and m4 should be connected");
-        assert!(q54.unwrap().check(&ctx), "Equality between m5 and m4 invalid");
+        assert!(
+            q54.unwrap().check(&ctx),
+            "Equality between m5 and m4 invalid"
+        );
 
         let q15 = uf.query(&mut ctx, &m1, &m5);
         assert!(q15.is_none(), "m1 and m5 should not be connected");

@@ -1,5 +1,6 @@
 use crate::data::{ActualEquality, ActualMorphism, ActualObject};
 use crate::data::{Context, Equality, Functor, Morphism, Object};
+use crate::dsl::{eq, mph, obj};
 use std::ops::Deref;
 
 pub fn morphism(ctx: &mut Context, mph: Morphism) -> (Morphism, Equality) {
@@ -18,12 +19,10 @@ fn apply_functors(ctx: &mut Context, functs: &[Functor], m: Morphism) -> Morphis
 
 // The equality f_n (... (f_1 (id_e))) = id_(f_n (... (f_1 e)))
 fn raise_identity(ctx: &mut Context, functs: &[Functor], e: Object) -> (Object, Equality) {
-    functs.iter().rev().fold(
-        (
-            e.clone(),
-            ctx.mk(ActualEquality::Refl(ctx.mk(ActualMorphism::Identity(e)))),
-        ),
-        |acc, f| {
+    functs
+        .iter()
+        .rev()
+        .fold((e.clone(), eq!(ctx, 1_((id e)))), |acc, f| {
             (
                 ctx.mk(ActualObject::Funct(f.clone(), acc.0.clone())),
                 ctx.mk(ActualEquality::Concat(
@@ -31,8 +30,7 @@ fn raise_identity(ctx: &mut Context, functs: &[Functor], e: Object) -> (Object, 
                     ctx.mk(ActualEquality::FunctId(f.clone(), acc.0)),
                 )),
             )
-        },
-    )
+        })
 }
 
 // Same with composition
