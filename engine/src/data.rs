@@ -674,6 +674,7 @@ pub struct Context {
     obj_factory: Rc<RefCell<HConsign<ActualObject>>>,
     mph_factory: Rc<RefCell<HConsign<ActualMorphism>>>,
     eq_factory: Rc<RefCell<HConsign<ActualEquality>>>,
+    max_existential: Rc<RefCell<u64>>,
 }
 
 pub trait ContextMakable {
@@ -683,26 +684,59 @@ pub trait ContextMakable {
 }
 impl ContextMakable for ActualCategory {
     fn make(self, ctx: &Context) -> HConsed<Self> {
+        match &self {
+            Self::Atomic(data) => match data.pobj() {
+                ProofObject::Existential(e) => ctx.update_max_ex(e),
+                _ => (),
+            },
+        }
         ctx.cat_factory.borrow_mut().mk(self)
     }
 }
 impl ContextMakable for ActualFunctor {
     fn make(self, ctx: &Context) -> HConsed<Self> {
+        match &self {
+            Self::Atomic(data) => match data.pobj() {
+                ProofObject::Existential(e) => ctx.update_max_ex(e),
+                _ => (),
+            },
+        }
         ctx.funct_factory.borrow_mut().mk(self)
     }
 }
 impl ContextMakable for ActualObject {
     fn make(self, ctx: &Context) -> HConsed<Self> {
+        match &self {
+            Self::Atomic(data) => match data.pobj() {
+                ProofObject::Existential(e) => ctx.update_max_ex(e),
+                _ => (),
+            },
+            _ => (),
+        }
         ctx.obj_factory.borrow_mut().mk(self)
     }
 }
 impl ContextMakable for ActualMorphism {
     fn make(self, ctx: &Context) -> HConsed<Self> {
+        match &self {
+            Self::Atomic(data) => match data.pobj() {
+                ProofObject::Existential(e) => ctx.update_max_ex(e),
+                _ => (),
+            },
+            _ => (),
+        }
         ctx.mph_factory.borrow_mut().mk(self)
     }
 }
 impl ContextMakable for ActualEquality {
     fn make(self, ctx: &Context) -> HConsed<Self> {
+        match &self {
+            Self::Atomic(data) => match data.pobj() {
+                ProofObject::Existential(e) => ctx.update_max_ex(e),
+                _ => (),
+            },
+            _ => (),
+        }
         ctx.eq_factory.borrow_mut().mk(self)
     }
 }
@@ -716,6 +750,7 @@ impl Context {
             obj_factory: Rc::new(RefCell::new(HConsign::empty())),
             mph_factory: Rc::new(RefCell::new(HConsign::empty())),
             eq_factory: Rc::new(RefCell::new(HConsign::empty())),
+            max_existential: Rc::new(RefCell::new(0)),
         }
     }
 
@@ -737,6 +772,14 @@ impl Context {
 
     pub fn new_term_mv(&self, id: u64, name: String) {
         self.terms.borrow_mut().insert(id, name);
+    }
+
+    fn update_max_ex(&self, max: u64) {
+        self.max_existential.replace_with(|&mut v| v.max(max));
+    }
+
+    pub fn new_existential(&self) -> u64 {
+        self.max_existential.borrow().deref() + 1
     }
 
     pub fn mk<T: ContextMakable>(&self, act: T) -> HConsed<T> {
@@ -806,4 +849,5 @@ fn build_term() {
     assert!(m.check(&ctx), "m is ill typed");
     let m_ = ctx.comp(m1.clone(), m2.clone());
     assert_eq!(m.uid(), m_.uid(), "Hash-consing should get the same object");
+    assert_eq!(ctx.new_existential(), 2, "Expected unused existential");
 }
