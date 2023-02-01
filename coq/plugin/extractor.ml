@@ -81,37 +81,6 @@ let debug_hook sigma env eq =
                    ++ Pp.str " = " ++ Renderer.mph sigma env (Data.eq_right eq));
   []
 
-let solve' (level : int) (goal : Proofview.Goal.t) : unit m =
-  let* _ = St.registerEqPredicate Hott.eq in
-  let* obj = extract_hyps goal in
-  match obj with
-  | None -> fail "Goal is not a face"
-  | Some (side1,side2) ->
-      let* paths = Enum.enumerate_paths ~asrt:true level in
-      let* sigma = lift (Hott.M.lift Proofview.tclEVARMAP) in
-      let* env = lift (Hott.M.lift Proofview.tclENV) in
-      let uf = UF.init paths in
-      (* Setup hooks *)
-      let* _ = setup_hooks uf in
-      (* let _ = UF.registerHook uf (debug_hook sigma env) in *)
-      (* Fill uf with faces *)
-      let* faces = St.getEqs () in
-      Array.iter (connect paths uf) faces;
-      (* Test result *)
-      let side1,eq1 = Normalisation.normalizeMorphism side1 in 
-      let side2,eq2 = Normalisation.normalizeMorphism side2 in
-      if not (M.mem side1 paths.Enum.indices) || not (M.mem side2 paths.Enum.indices)
-      then fail "Couldn't make goal commute: goal is bigger than max size"
-      else match UF.query side1 side2 uf with
-      | None -> fail "Couldn't make goal commute"
-      | Some eq ->
-          let eq = Data.Concat (eq1, Data.Concat (eq, Data.InvEq eq2)) in
-          let* eq = lift (Hott.realizeEq (SimplEq.simpl eq)) in
-          lift (Hott.M.lift (Refine.refine ~typecheck:false
-            (add_universes_constraints (Proofview.Goal.env goal) eq)))
-let solve (level : int) : unit Proofview.tactic =
-  Proofview.Goal.enter_one (fun goal -> solve' level goal |> runWithGoal goal)
-
 let server' (goal : Proofview.Goal.t) : unit m =
   let* _ = St.registerEqPredicate Hott.eq in
   let* obj = extract_hyps goal in
@@ -144,3 +113,14 @@ let extract' (path : string) (goal : Proofview.Goal.t) : unit m =
   ret ()
 let extract (path : string) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> extract' path goal |> runWithGoal goal)
+
+let solve' (level : int) (goal: Proofview.Goal.t) : unit m =
+  let* _ = St.registerEqPredicate Hott.eq in
+  let* obj = extract_hyps goal in
+  match obj with
+  | None -> fail "Goal is not a face"
+  | Some (side1,side2) ->
+      let* _ = Sv.run (Sv.Solve (level,side1,side2)) in
+      ret ()
+let solve (level : int) : unit Proofview.tactic =
+  Proofview.Goal.enter_one (fun goal -> solve' level goal |> runWithGoal goal)

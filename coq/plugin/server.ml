@@ -20,6 +20,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     | GGraph of Gr.graph
     | GPrint of string * Gr.graph
     | GNormalize of PA.t Data.morphism * PA.t Data.morphism
+    | GSolve of int * Gr.graph * PA.t Data.morphism * PA.t Data.morphism
   type remote = 
     { stdin: out_channel
     ; stdout: in_channel
@@ -30,12 +31,15 @@ module Make(PA: Pa.ProofAssistant) = struct
   let engine_path = "/home/luc/repos/coq-commutative-diagrams/engine/target/debug/commutative-diagrams-engine"
 
   let start_remote (goal : goal) : remote m =
-    let (stdout,stdin) =
+    let args =
       match goal with
-      | GGraph _ -> Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed" |]
-      | GPrint (path,_) -> Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed"; "--print"; path |]
-      | GNormalize _ ->
-          Unix.open_process_args engine_path [| "commutative-diagrams-engine"; "embed"; "--normalize" |] in
+      | GGraph _ -> [ "embed" ]
+      | GPrint (path,_) -> [ "embed"; "--print"; path ]
+      | GNormalize _ -> [ "embed"; "--normalize" ]
+      | GSolve (level,_,_,_) -> [ "embed"; Printf.sprintf "--autosolve=%d" level ]
+      in
+    let (stdout,stdin) =
+      Unix.open_process_args engine_path (Array.of_list ("commutative-diagrams-engine" :: args)) in
     ret { stdin = stdin; stdout = stdout; goal = goal }
 
   let is_none opt : bool =
@@ -50,6 +54,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     | HError of string
     | HRet of Msgpack.t
     | HFinish
+    | HFail
     | HNil
   type handler = Msgpack.t list -> handler_ret m
 
@@ -113,6 +118,9 @@ module Make(PA: Pa.ProofAssistant) = struct
         let* p1 = Sd.Mph.pack m1 in
         let* p2 = Sd.Mph.pack m2 in
         ret (HRet (Msgpack.Array [ p1; p2 ]))
+    | GSolve (_,goal,_,_) ->
+        let* goal_mp = Gr.Serde.pack goal in
+        ret (HRet goal_mp)
 
   let add_universes_constraints (env : Environ.env) (c : EConstr.t) (sigma : Evd.evar_map) : Evd.evar_map * EConstr.t =
     Typing.solve_evars env sigma c
@@ -121,6 +129,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     match goal with
     | GNormalize _ -> ret (HError "Current goal is normalization")
     | GPrint _ -> ret (HError "Current goal is print")
+    | GSolve _ -> ret (HError "Current goal is solve")
     | GGraph _ -> begin
       (* TODO do something *)
       ret HFinish
@@ -130,6 +139,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     match goal with
     | GGraph _ -> ret (HError "Current goal is graph")
     | GPrint _ -> ret (HError "Current goal is print")
+    | GSolve _ -> ret (HError "Current goal is solve")
     | GNormalize _ -> begin
       let* (mph1,eq1,mph2,eq2) =
         match args with
@@ -152,27 +162,55 @@ module Make(PA: Pa.ProofAssistant) = struct
       ret HFinish
     end
 
+  let handle_tosolve (goal: goal) (args: Msgpack.t list) : handler_ret m =
+    match goal with
+    | GSolve (_,_,left,right) ->
+        let* lmp = Sd.Mph.pack left in
+        let* rmp = Sd.Mph.pack right in
+        ret (HRet (Msgpack.Array [ lmp; rmp ]))
+    | _ -> ret (HError "Invalid current goal")
+
   let handle_printed _ : handler_ret m =
     ret HFinish
 
-  let run_handler (rm : remote) (msgid : int) (args : Msgpack.t list) (h : handler) : bool m =
+  let handle_unsolvable _ : handler_ret m =
+    ret HFail
+
+  let handle_solved (args: Msgpack.t list) : handler_ret m =
+    match args with
+    | [ eq ] ->
+        let* eq = Sd.Eq.unpack eq in
+        begin match eq with
+        | Some eq ->
+            let* eq = lift (PA.realizeEq (SimplEq.simpl eq)) in
+            let* env = lift (PA.env ()) in
+            let* _ = lift (PA.lift_tactic (Refine.refine ~typecheck:false
+              (add_universes_constraints env (PA.to_econstr eq)))) in
+            ret HFinish
+        | None -> ret (HError "solved expect one equality")
+        end
+    | _ -> ret (HError "solved expects exactly one argument")
+
+  let run_handler (rm : remote) (msgid : int) (args : Msgpack.t list) (h : handler) : (bool * bool) m =
     let* rt = h args in
-    let finish = rt = HFinish in
+    let finish = rt = HFinish || rt = HFail in
+    let fail = rt = HFail in
     let (err,rt) =
       match rt with
       | HError err -> (Msgpack.String err, Msgpack.Nil)
       | HRet rt -> (Msgpack.Nil, rt)
       | HFinish -> (Msgpack.Nil, Msgpack.Nil)
+      | HFail -> (Msgpack.Nil, Msgpack.Nil)
       | HNil -> (Msgpack.Nil, Msgpack.Nil) in
     let response = Msgpack.Array [ Msgpack.Integer 1; Msgpack.Integer msgid; err; rt ] in
     let response = Msgpack.serialize response in
     Out_channel.output_bytes rm.stdin response;
     Out_channel.flush rm.stdin;
-    ret finish
+    ret (finish, fail)
 
   let count = ref 0
 
-  let handle_message (rm : remote) (msg : Msgpack.t) : bool m =
+  let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) m =
     Out_channel.with_open_text
       (Printf.sprintf "received_%d.json" !count)
       (fun out -> Msgpack.to_json out msg);
@@ -192,6 +230,9 @@ module Make(PA: Pa.ProofAssistant) = struct
       | "refine" -> run_handler rm msgid params (handle_refine rm.goal)
       | "normalized" -> run_handler rm msgid params (handle_norm rm.goal)
       | "printed" -> run_handler rm msgid params handle_printed
+      | "tosolve" -> run_handler rm msgid params (handle_tosolve rm.goal)
+      | "unsolvable" -> run_handler rm msgid params handle_unsolvable
+      | "solved" -> run_handler rm msgid params handle_solved
       | _ -> let* _ = fail "Unknown method" in assert false
     end
     | _ -> let* _ = fail "Ill formed rpc message" in assert false
@@ -200,6 +241,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     | Graph of PA.t Data.morphism * PA.t Data.morphism
     | Normalize of PA.t Data.morphism * PA.t Data.morphism
     | Print of string
+    | Solve of int * PA.t Data.morphism * PA.t Data.morphism
 
   let run (act: action) : unit m =
     let* goal = 
@@ -216,10 +258,15 @@ module Make(PA: Pa.ProofAssistant) = struct
           let goal = Builder.empty () in
           let* goal = Builder.import_hyps goal in
           ret (GPrint (path, Builder.build goal))
+      | Solve (level,left,right) ->
+          let goal = Builder.empty () in
+          let* goal = Builder.import_hyps goal in
+          ret (GSolve (level, Builder.build goal, left, right))
       in
     let* rm = start_remote goal in
     let parser = Msgpack.make_parser rm.stdout in
     let finish = ref false in
+    let failed = ref false in
     let* _ = whileM (fun () -> ret (not !finish)) (fun () ->
       match Msgpack.parse parser with
       | Msgpack.Eof ->
@@ -231,9 +278,10 @@ module Make(PA: Pa.ProofAssistant) = struct
           let* _ = fail "Error in engine" in
           ret ()
       | Msgpack.Msg msg -> 
-          let* f = handle_message rm msg in
+          let* (f,fl) = handle_message rm msg in
           finish := f;
+          failed := fl;
           ret ()
       ) in
-    ret ()
+    if !failed then fail "Unsolvable goal" else ret ()
 end
