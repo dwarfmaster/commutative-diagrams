@@ -254,7 +254,7 @@ where
         Some(sigma) => {
             log::info!("Solving succeeded");
             let eq = goal.faces[goal_id].eq.clone().subst(&ctx, &sigma);
-            let solve_req = client.send_msg("solved", eq.term()).unwrap();
+            let solve_req = client.send_msg("solved", vec![eq.term()]).unwrap();
             client
                 .receive_msg(solve_req, core::marker::PhantomData::<()>::default())
                 .unwrap_or_else(|err| {
