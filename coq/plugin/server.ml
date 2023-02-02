@@ -261,7 +261,8 @@ module Make(PA: Pa.ProofAssistant) = struct
       | Solve (level,left,right) ->
           let goal = Builder.empty () in
           let* goal = Builder.import_hyps goal in
-          ret (GSolve (level, Builder.build goal, left, right))
+          let goal = Builder.build goal in
+          ret (GSolve (level, goal, left, right))
       in
     let* rm = start_remote goal in
     let parser = Msgpack.make_parser rm.stdout in
