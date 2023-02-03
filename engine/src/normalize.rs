@@ -77,10 +77,13 @@ fn post_compose(ctx: &mut Context, m: Morphism, post: Morphism) -> (Morphism, Eq
                 _ => (ctx.mk(Comp(m1.clone(), r)), eq),
             }
         }
-        _ => {
-            let m = ctx.mk(Comp(m, post));
-            (m.clone(), ctx.mk(Refl(m)))
-        }
+        _ => match post.deref() {
+            Identity(_) => (m.clone(), ctx.mk(RightId(m))),
+            _ => {
+                let m = ctx.mk(Comp(m, post));
+                (m.clone(), ctx.mk(Refl(m)))
+            }
+        },
     }
 }
 
@@ -285,6 +288,28 @@ pub mod tests {
         assert_eq!(
             eq.right(&ctx),
             expected,
+            "Expected equality to normalized morphism"
+        );
+    }
+
+    #[test]
+    pub fn normalize_identity() {
+        let mut ctx = Context::new();
+        let cat = cat!(ctx, :0);
+        let x = obj!(ctx, (:1) in cat);
+        let y = obj!(ctx, (:2) in cat);
+        let m = mph!(ctx, (:3) : x -> y);
+        let mph = mph!(ctx, (id x) >> (m >> (id y)));
+        assert!(mph.check(&ctx), "Test faulty");
+
+        let (norm, eq) = morphism(&mut ctx, mph.clone());
+        assert!(norm.check(&ctx), "Invalid morphism returned");
+        assert!(eq.check(&ctx), "Invalid equality returned");
+        assert_eq!(norm, m, "Faulty normalisation");
+        assert_eq!(eq.left(&ctx), mph, "Expected equality from source morphism");
+        assert_eq!(
+            eq.right(&ctx),
+            norm,
             "Expected equality to normalized morphism"
         );
     }
