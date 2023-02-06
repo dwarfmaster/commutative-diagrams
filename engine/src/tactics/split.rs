@@ -6,12 +6,17 @@ use std::ops::Deref;
 
 /// Normalize a morphism of the graph, then split it along composition,
 /// introduce the components as edges, add a face between the source morphism
-/// and the new path, and return the index of the new face
-pub fn split_norm(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> usize {
+/// and the new path, and return the index of the new face or None is the
+/// morphism is already normalized and split
+pub fn split_norm(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> Option<usize> {
     assert!(src < gr.nodes.len(), "src out of bounds");
     assert!(mph < gr.edges[src].len(), "mph out of bounds");
     let (norm, eqnorm) = normalize::morphism(ctx, gr.edges[src][mph].1.clone());
+    let is_norm = norm == gr.edges[src][mph].1;
     let (mut path, dst) = insert_split_at(ctx, gr, src, norm);
+    if is_norm && path.len() == 1 {
+        return None;
+    }
     path.reverse();
     let fce = Face {
         start: src,
@@ -21,16 +26,19 @@ pub fn split_norm(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> 
         eq: eqnorm,
     };
     gr.faces.push(fce);
-    gr.faces.len() - 1
+    Some(gr.faces.len() - 1)
 }
 
 /// Split a morphism along compositions, add the components to the graph, and
 /// add a reflexivity face between the source morphism and the new path. Returns
-/// the id of the new face
-pub fn split(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> usize {
+/// the id of the new face or None if the morphism is already fully split
+pub fn split(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> Option<usize> {
     assert!(src < gr.nodes.len(), "src out of bounds");
     assert!(mph < gr.edges[src].len(), "mph out of bounds");
     let (mut path, dst) = insert_split_at(ctx, gr, src, gr.edges[src][mph].1.clone());
+    if path.len() == 1 {
+        return None;
+    }
     path.reverse();
     let fce = Face {
         start: src,
@@ -42,7 +50,7 @@ pub fn split(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> usize
         )),
     };
     gr.faces.push(fce);
-    gr.faces.len() - 1
+    Some(gr.faces.len() - 1)
 }
 
 /// Split a morphism along composition and add its components to the graph. The
