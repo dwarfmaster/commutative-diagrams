@@ -69,7 +69,7 @@ impl UF {
     /// Return an equality if two morphism are in the same equivalence class, or
     /// nothing otherwise
     pub fn query(&mut self, ctx: &mut Context, id1: usize, id2: usize) -> Option<Equality> {
-        log::debug!("Querying if path {} is connected to path {}", id1, id2);
+        log::trace!("Querying if path {} is connected to path {}", id1, id2);
         let (pid1, peq1) = self.find(ctx, id1);
         let (pid2, peq2) = self.find(ctx, id2);
         if pid1 == pid2 {
@@ -127,10 +127,10 @@ impl UF {
                 }
                 _ => {
                     if id1.is_none() {
-                        log::info!("Couldn't find in enumeration: {:#?}", left);
+                        log::trace!("Couldn't find in enumeration: {:#?}", left);
                     }
                     if id2.is_none() {
-                        log::info!("Couldn't find in enumeration: {:#?}", right);
+                        log::trace!("Couldn't find in enumeration: {:#?}", right);
                     }
                 }
             }

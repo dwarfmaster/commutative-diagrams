@@ -44,10 +44,10 @@ pub fn solve(ctx: &mut Context, gr: &Graph, face: usize, max_size: usize) -> Opt
         }
         _ => {
             if m1.is_none() {
-                log::info!("Couldn't find left part of goal in enumeration");
+                log::debug!("Couldn't find left part of goal in enumeration");
             }
             if m2.is_none() {
-                log::info!("Couldn't find right part of goal in enumeration");
+                log::debug!("Couldn't find right part of goal in enumeration");
             }
             None
         }
