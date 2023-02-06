@@ -1,4 +1,5 @@
 use crate::anyterm::IsTerm;
+use crate::autofill::hooks;
 use crate::autofill::union_find::UF;
 use crate::data::{ActualEquality, Context};
 use crate::graph::Graph;
@@ -49,8 +50,15 @@ pub fn solve(ctx: &mut Context, gr: &Graph, face: usize, max_size: usize) -> Opt
     }
 }
 
-fn setup_hooks(_uf: &mut UF, _ctx: &mut Context, _gr: &Graph) {
-    // Nothing to do
+fn setup_hooks(uf: &mut UF, _ctx: &mut Context, gr: &Graph) {
+    for src in 0..gr.nodes.len() {
+        for mph in 0..gr.edges[src].len() {
+            let mph = gr.edges[src][mph].1.clone();
+            uf.register_hook(move |ctx, eq, opts| {
+                hooks::precompose::hook(mph.clone(), ctx, eq, opts)
+            })
+        }
+    }
 }
 
 #[cfg(test)]
@@ -122,6 +130,46 @@ mod tests {
         };
 
         let result = solve(&mut ctx, &gr, 0, 1);
+        assert!(result.is_some(), "Solving should succeed");
+        let eq = gr.faces[0].eq.clone().subst(&ctx, &result.unwrap());
+        assert!(eq.check(&ctx), "Resulting equality is incorrect");
+    }
+
+    #[test]
+    fn precompose() {
+        let mut ctx = Context::new();
+        let cat = cat!(ctx, (:0));
+        let a = obj!(ctx, (:1) in cat);
+        let b = obj!(ctx, (:2) in cat);
+        let c = obj!(ctx, (:3) in cat);
+        let m = mph!(ctx, (:4) : a -> b);
+        let m1 = mph!(ctx, (:5) : b -> c);
+        let m2 = mph!(ctx, (:6) : b -> c);
+        let p1 = mph!(ctx, m >> m1);
+        let p2 = mph!(ctx, m >> m2);
+
+        let fce = Face {
+            start: 1,
+            end: 2,
+            left: vec![0],
+            right: vec![1],
+            eq: eq!(ctx, (:7) : m1 == m2),
+        };
+        let exist = Face {
+            start: 0,
+            end: 2,
+            left: vec![0, 0],
+            right: vec![0, 1],
+            eq: eq!(ctx, (?0) : p1 == p2),
+        };
+
+        let gr = Graph {
+            nodes: vec![ a, b, c ],
+            edges: vec![ vec![ (1,m) ], vec![ (2,m1), (2,m2) ], vec! [] ],
+            faces: vec![exist, fce],
+        };
+
+        let result = solve(&mut ctx, &gr, 0, 2);
         assert!(result.is_some(), "Solving should succeed");
         let eq = gr.faces[0].eq.clone().subst(&ctx, &result.unwrap());
         assert!(eq.check(&ctx), "Resulting equality is incorrect");
