@@ -183,7 +183,7 @@ mod tests {
         };
 
         let e = gr.enumerate(&mut ctx, 1);
-        let mut uf = UF::new(&mut ctx, e);
+        let mut uf = UF::new(&mut ctx, e.paths);
         let c1 = uf.connect(&mut ctx, eq12);
         let c2 = uf.connect(&mut ctx, eq13);
         let c3 = uf.connect(&mut ctx, eq45);

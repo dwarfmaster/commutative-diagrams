@@ -10,7 +10,7 @@ use crate::unification::unify;
 /// one of the face and return the substitution.
 pub fn solve(ctx: &mut Context, gr: &Graph, face: usize, max_size: usize) -> Option<Substitution> {
     let pathes = gr.enumerate(ctx, max_size);
-    let mut uf = UF::new(ctx, pathes);
+    let mut uf = UF::new(ctx, pathes.paths);
     setup_hooks(&mut uf, ctx, gr);
     for fce in 0..gr.faces.len() {
         if fce == face {
