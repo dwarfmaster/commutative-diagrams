@@ -6,6 +6,7 @@ use crate::graph::Graph;
 use crate::normalize;
 use crate::substitution::Substitution;
 use crate::unification::unify;
+use crate::dsl::eq;
 
 /// Use a union find based algorithm to try and find an equality for the face
 /// given by its index. In case of success, unify the found equality with the
@@ -18,7 +19,10 @@ pub fn solve(ctx: &mut Context, gr: &Graph, face: usize, max_size: usize) -> Opt
         if fce == face {
             continue;
         }
-        uf.connect(ctx, &paths, gr.faces[fce].eq.clone());
+        let eq = gr.faces[fce].eq.clone();
+        let (_, eql) = normalize::morphism(ctx, eq.left(ctx));
+        let (_, eqr) = normalize::morphism(ctx, eq.right(ctx));
+        uf.connect(ctx, &paths, eq!(ctx, (~eql) . (eq . eqr)));
     }
 
     // TODO guide solution along shape of face equality
@@ -83,6 +87,7 @@ mod tests {
         let x = obj!(ctx, (:1) in cat);
         let y = obj!(ctx, (:2) in cat);
         let m1 = mph!(ctx, (:3) : x -> y);
+        let m1_ = mph!(ctx, (id x) >> (m1 >> (id y)));
         let m2 = mph!(ctx, (:4) : x -> y);
         let m3 = mph!(ctx, (:5) : x -> y);
         let m3_ = mph!(ctx, m3 >> (id y));
@@ -93,7 +98,7 @@ mod tests {
             end: 1,
             left: vec![0],
             right: vec![1],
-            eq: eq!(ctx, (:8) : m1 == m2),
+            eq: eq!(ctx, (:8) : m1_ == m2),
         };
         let fce13 = Face {
             start: 0,
