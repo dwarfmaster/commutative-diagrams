@@ -9,9 +9,6 @@ let (++) = Pp.(++)
 (*           |_| *)
 (* Top-level *)
 module St = Hyps.Make(Hott.M)
-module Enum = Enumerate.Make(Hott)
-module Norm = Normalisation
-module UF = UnionFind.Make(Hott)
 module M = Map.Make(Data.EqMph(Hott))
 module Sv = Server.Make(Hott)
 type 'a m = ('a,Hott.t) St.t
@@ -54,32 +51,6 @@ let extract_hyps (goal : Proofview.Goal.t) : (Hott.t Data.morphism * Hott.t Data
   let goal = Proofview.Goal.concl goal in
   let* store = forM (extract_hyp env) context in
   Hott.parseEqGoal goal
-
-let connect enum uf eq =
-  let left, leq = Normalisation.normalizeMorphism eq.Data.eq_left_ in
-  let right, req = Normalisation.normalizeMorphism eq.Data.eq_right_ in
-  if M.mem left enum.Enum.indices && M.mem right enum.Enum.indices
-  then let _ = UF.connect (Data.Concat (Data.InvEq leq, Data.Concat (Data.AtomicEq eq, req))) uf in ()
-  else ()
-
-let setup_hooks uf =
-  let* mphs = St.getMorphisms () in
-  let module Post = PostComposeHook.Make(Hott) in
-  let posts = Array.map Post.hook mphs in
-  let module Pre = PreComposeHook.Make(Hott) in
-  let pres = Array.map Pre.hook mphs in
-  let module Mono = MonomorphismHook.Make(Hott) in
-  let module Epi = EpimorphismHook.Make(Hott) in
-  Array.iter (UF.registerHook uf) posts;
-  Array.iter (UF.registerHook uf) pres;
-  UF.registerHook uf Mono.hook;
-  UF.registerHook uf Epi.hook;
-  ret ()
-
-let debug_hook sigma env eq =
-  Feedback.msg_info (Pp.str "Adding eq : " ++ Renderer.mph sigma env (Data.eq_left eq)
-                   ++ Pp.str " = " ++ Renderer.mph sigma env (Data.eq_right eq));
-  []
 
 let server' (goal : Proofview.Goal.t) : unit m =
   let* _ = St.registerEqPredicate Hott.eq in
