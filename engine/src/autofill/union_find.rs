@@ -1,44 +1,38 @@
 use crate::data::{ActualEquality, Context, Equality, Morphism};
-use crate::graph::Path;
+use crate::graph::{Enum, Path};
 
 /// parent is the index of the representative of the cell equivalence class,
 /// rank is a score used for optimisating the algorithm (it has no relevance to
-/// its correctness). path is the path represented by the cell, and eq is an
-/// equality between the morphism of path and the morphism of the path of the
-/// parent.
+/// its correctness). eq is an equality between the morphism of the cell and the
+/// morphism of the path of the parent. Remember which morphism is where is left
+/// for the user of the union_find.
 struct Cell {
     parent: usize,
     rank: usize,
-    path: Path,
     eq: Equality,
 }
 
 impl Cell {
-    fn new(ctx: &mut Context, id: usize, path: Path) -> Cell {
-        let mph = path.mph.clone();
+    fn new(ctx: &mut Context, id: usize, mph: Morphism) -> Cell {
         Cell {
             parent: id,
             rank: 1,
-            path,
             eq: ctx.mk(ActualEquality::Refl(mph)),
         }
     }
 }
 
-/// Cells are sorted according to the hconsed id of the morphism of the path,
-/// allowing logarithmic lookup of a cell index by its morphism.
 pub struct UF {
     cells: Vec<Cell>,
     hooks: Vec<Box<dyn Fn(Equality, &mut Vec<Equality>)>>,
 }
 
 impl UF {
-    pub fn new(ctx: &mut Context, mut e: Vec<Path>) -> UF {
-        e.sort_unstable_by(|p1, p2| std::cmp::Ord::cmp(&p1.mph.uid(), &p2.mph.uid()));
-        let cells = e
-            .into_iter()
+    pub fn new(ctx: &mut Context, e: &Vec<Path>) -> UF {
+        let cells: Vec<_> = e
+            .iter()
             .enumerate()
-            .map(|(i, p)| Cell::new(ctx, i, p))
+            .map(|(i, p)| Cell::new(ctx, i, p.mph.clone()))
             .collect();
         UF {
             cells,
@@ -51,14 +45,6 @@ impl UF {
         F: Fn(Equality, &mut Vec<Equality>) + 'static,
     {
         self.hooks.push(Box::new(f))
-    }
-
-    /// Look for morphism in cellules
-    fn lookup(&self, m: &Morphism) -> Option<usize> {
-        let r = self
-            .cells
-            .binary_search_by_key(&m.uid(), |c| c.path.mph.uid());
-        r.ok()
     }
 
     /// Implements the find operation of the union find, ie return the id of the
@@ -82,9 +68,8 @@ impl UF {
 
     /// Return an equality if two morphism are in the same equivalence class, or
     /// nothing otherwise
-    pub fn query(&mut self, ctx: &mut Context, m1: &Morphism, m2: &Morphism) -> Option<Equality> {
-        let id1 = self.lookup(m1)?;
-        let id2 = self.lookup(m2)?;
+    pub fn query(&mut self, ctx: &mut Context, id1: usize, id2: usize) -> Option<Equality> {
+        log::debug!("Querying if path {} is connected to path {}", id1, id2);
         let (pid1, peq1) = self.find(ctx, id1);
         let (pid2, peq2) = self.find(ctx, id2);
         if pid1 == pid2 {
@@ -122,18 +107,28 @@ impl UF {
     }
 
     /// Apply union on all equalities in vector, applying hooks each time
-    pub fn connect(&mut self, ctx: &mut Context, eq: Equality) -> bool {
+    pub fn connect(&mut self, ctx: &mut Context, enm: &Enum, eq: Equality) -> bool {
         let mut eqs = vec![eq];
         let mut ret = false;
         while let Some(eq) = eqs.pop() {
-            let m1 = eq.left(ctx);
-            let m2 = eq.right(ctx);
-            if let Some(id1) = self.lookup(&m1) {
-                if let Some(id2) = self.lookup(&m2) {
+            let left = eq.left(ctx);
+            let right = eq.right(ctx);
+            let id1 = enm.get(&left);
+            let id2 = enm.get(&right);
+            match (id1, id2) {
+                (Some(id1), Some(id2)) => {
                     let b = self.union(ctx, id1, id2, eq.clone());
                     if b {
                         ret = true;
                         self.hooks.iter().for_each(|hk| hk(eq.clone(), &mut eqs))
+                    }
+                }
+                _ => {
+                    if id1.is_none() {
+                        log::info!("Couldn't find in enumeration: {:#?}", left);
+                    }
+                    if id2.is_none() {
+                        log::info!("Couldn't find in enumeration: {:#?}", right);
                     }
                 }
             }
@@ -183,30 +178,35 @@ mod tests {
         };
 
         let e = gr.enumerate(&mut ctx, 1);
-        let mut uf = UF::new(&mut ctx, e.paths);
-        let c1 = uf.connect(&mut ctx, eq12);
-        let c2 = uf.connect(&mut ctx, eq13);
-        let c3 = uf.connect(&mut ctx, eq45);
+        let id1 = e.get(&m1).unwrap();
+        let id2 = e.get(&m2).unwrap();
+        let id3 = e.get(&m3).unwrap();
+        let id4 = e.get(&m4).unwrap();
+        let id5 = e.get(&m5).unwrap();
+        let mut uf = UF::new(&mut ctx, &e.paths);
+        let c1 = uf.connect(&mut ctx, &e, eq12);
+        let c2 = uf.connect(&mut ctx, &e, eq13);
+        let c3 = uf.connect(&mut ctx, &e, eq45);
 
         assert!(c1, "m1 and m2 were not connected");
         assert!(c2, "m1 and m3 were not connected");
         assert!(c3, "m4 and m5 were not connected");
 
-        let q23 = uf.query(&mut ctx, &m2, &m3);
+        let q23 = uf.query(&mut ctx, id2, id3);
         assert!(q23.is_some(), "m2 and m3 should be connected");
         assert!(
             q23.unwrap().check(&ctx),
             "Equality between m2 and m3 invalid"
         );
 
-        let q54 = uf.query(&mut ctx, &m5, &m4);
+        let q54 = uf.query(&mut ctx, id5, id4);
         assert!(q54.is_some(), "m5 and m4 should be connected");
         assert!(
             q54.unwrap().check(&ctx),
             "Equality between m5 and m4 invalid"
         );
 
-        let q15 = uf.query(&mut ctx, &m1, &m5);
+        let q15 = uf.query(&mut ctx, id1, id5);
         assert!(q15.is_none(), "m1 and m5 should not be connected");
     }
 }

@@ -1,7 +1,8 @@
 use crate::anyterm::IsTerm;
 use crate::autofill::union_find::UF;
-use crate::data::Context;
+use crate::data::{ActualEquality, Context};
 use crate::graph::Graph;
+use crate::normalize;
 use crate::substitution::Substitution;
 use crate::unification::unify;
 
@@ -9,22 +10,43 @@ use crate::unification::unify;
 /// given by its index. In case of success, unify the found equality with the
 /// one of the face and return the substitution.
 pub fn solve(ctx: &mut Context, gr: &Graph, face: usize, max_size: usize) -> Option<Substitution> {
-    let pathes = gr.enumerate(ctx, max_size);
-    let mut uf = UF::new(ctx, pathes.paths);
+    let paths = gr.enumerate(ctx, max_size);
+    let mut uf = UF::new(ctx, &paths.paths);
     setup_hooks(&mut uf, ctx, gr);
     for fce in 0..gr.faces.len() {
         if fce == face {
             continue;
         }
-        uf.connect(ctx, gr.faces[fce].eq.clone());
+        uf.connect(ctx, &paths, gr.faces[fce].eq.clone());
     }
 
     // TODO guide solution along shape of face equality
     let face = &gr.faces[face].eq;
-    let m1 = face.left(ctx);
-    let m2 = face.right(ctx);
-    let result = uf.query(ctx, &m1, &m2)?;
-    unify(ctx, face.clone().term(), result.term())
+    let (left, eql) = normalize::morphism(ctx, face.left(ctx));
+    let (right, eqr) = normalize::morphism(ctx, face.right(ctx));
+    let m1 = paths.get(&left);
+    let m2 = paths.get(&right);
+    match (m1, m2) {
+        (Some(m1), Some(m2)) => {
+            let result = uf.query(ctx, m1, m2)?;
+            let result = ctx.mk(ActualEquality::Concat(eql, result));
+            let result = ctx.mk(ActualEquality::Concat(
+                result,
+                ctx.mk(ActualEquality::Inv(eqr)),
+            ));
+            assert!(result.check(ctx), "Invalid equality returned");
+            unify(ctx, face.clone().term(), result.term())
+        }
+        _ => {
+            if m1.is_none() {
+                log::info!("Couldn't find left part of goal in enumeration");
+            }
+            if m2.is_none() {
+                log::info!("Couldn't find right part of goal in enumeration");
+            }
+            None
+        }
+    }
 }
 
 fn setup_hooks(_uf: &mut UF, _ctx: &mut Context, _gr: &Graph) {
@@ -51,6 +73,7 @@ mod tests {
         let m1 = mph!(ctx, (:3) : x -> y);
         let m2 = mph!(ctx, (:4) : x -> y);
         let m3 = mph!(ctx, (:5) : x -> y);
+        let m3_ = mph!(ctx, m3 >> (id y));
         let m4 = mph!(ctx, (:6) : x -> y);
         let m5 = mph!(ctx, (:7) : x -> y);
         let fce12 = Face {
@@ -72,7 +95,7 @@ mod tests {
             end: 1,
             left: vec![1],
             right: vec![2],
-            eq: eq!(ctx, (?0) : m1 == m3),
+            eq: eq!(ctx, (?0) : m1 == m3_),
         };
         let fce45 = Face {
             start: 0,
@@ -89,6 +112,7 @@ mod tests {
                     (1, m1.clone()),
                     (1, m2.clone()),
                     (1, m3.clone()),
+                    (1, m3_.clone()),
                     (1, m4.clone()),
                     (1, m5.clone()),
                 ],

@@ -238,6 +238,8 @@ where
         }
     }
 
+    log::debug!("Graph to solve: {:#?}", goal);
+
     log::info!("Trying to solve face {}", goal_id);
     let sol = autofill::solve(&mut ctx, &goal, goal_id, level);
     match sol {
