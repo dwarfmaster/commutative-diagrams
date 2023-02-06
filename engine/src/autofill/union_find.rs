@@ -24,7 +24,7 @@ impl Cell {
 
 pub struct UF {
     cells: Vec<Cell>,
-    hooks: Vec<Box<dyn Fn(Equality, &mut Vec<Equality>)>>,
+    hooks: Vec<Box<dyn Fn(&mut Context, Equality, &mut Vec<Equality>)>>,
 }
 
 impl UF {
@@ -42,7 +42,7 @@ impl UF {
 
     pub fn register_hook<F>(&mut self, f: F)
     where
-        F: Fn(Equality, &mut Vec<Equality>) + 'static,
+        F: Fn(&mut Context, Equality, &mut Vec<Equality>) + 'static,
     {
         self.hooks.push(Box::new(f))
     }
@@ -120,7 +120,9 @@ impl UF {
                     let b = self.union(ctx, id1, id2, eq.clone());
                     if b {
                         ret = true;
-                        self.hooks.iter().for_each(|hk| hk(eq.clone(), &mut eqs))
+                        self.hooks
+                            .iter()
+                            .for_each(|hk| hk(ctx, eq.clone(), &mut eqs))
                     }
                 }
                 _ => {
