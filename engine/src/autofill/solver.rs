@@ -52,11 +52,15 @@ pub fn solve(ctx: &mut Context, gr: &Graph, face: usize, max_size: usize) -> Opt
 
 fn setup_hooks(uf: &mut UF, _ctx: &mut Context, gr: &Graph) {
     for src in 0..gr.nodes.len() {
-        for mph in 0..gr.edges[src].len() {
-            let mph = gr.edges[src][mph].1.clone();
+        for m in 0..gr.edges[src].len() {
+            let mph = gr.edges[src][m].1.clone();
             uf.register_hook(move |ctx, eq, opts| {
                 hooks::precompose::hook(mph.clone(), ctx, eq, opts)
-            })
+            });
+            let mph = gr.edges[src][m].1.clone();
+            uf.register_hook(move |ctx, eq, opts| {
+                hooks::postcompose::hook(mph.clone(), ctx, eq, opts)
+            });
         }
     }
 }
@@ -166,6 +170,46 @@ mod tests {
         let gr = Graph {
             nodes: vec![ a, b, c ],
             edges: vec![ vec![ (1,m) ], vec![ (2,m1), (2,m2) ], vec! [] ],
+            faces: vec![exist, fce],
+        };
+
+        let result = solve(&mut ctx, &gr, 0, 2);
+        assert!(result.is_some(), "Solving should succeed");
+        let eq = gr.faces[0].eq.clone().subst(&ctx, &result.unwrap());
+        assert!(eq.check(&ctx), "Resulting equality is incorrect");
+    }
+
+    #[test]
+    fn postcompose() {
+        let mut ctx = Context::new();
+        let cat = cat!(ctx, (:0));
+        let a = obj!(ctx, (:1) in cat);
+        let b = obj!(ctx, (:2) in cat);
+        let c = obj!(ctx, (:3) in cat);
+        let m1 = mph!(ctx, (:4) : a -> b);
+        let m2 = mph!(ctx, (:5) : a -> b);
+        let m = mph!(ctx, (:6) : b -> c);
+        let p1 = mph!(ctx, m1 >> m);
+        let p2 = mph!(ctx, m2 >> m);
+
+        let fce = Face {
+            start: 0,
+            end: 1,
+            left: vec![0],
+            right: vec![1],
+            eq: eq!(ctx, (:7) : m1 == m2),
+        };
+        let exist = Face {
+            start: 0,
+            end: 2,
+            left: vec![0, 0],
+            right: vec![1, 0],
+            eq: eq!(ctx, (?0) : p1 == p2),
+        };
+
+        let gr = Graph {
+            nodes: vec![ a, b, c ],
+            edges: vec![ vec![ (1,m1), (1,m2) ], vec![ (2,m) ], vec! [] ],
             faces: vec![exist, fce],
         };
 
