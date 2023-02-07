@@ -164,15 +164,15 @@ mod tests {
         let eq13 = eq!(ctx, (:9) : m1 == m3);
         let eq45 = eq!(ctx, (:10) : m4 == m5);
 
-        let gr: Graph = Graph {
-            nodes: vec![x, y],
+        let gr: Graph<(), (), ()> = Graph {
+            nodes: vec![(x, ()), (y, ())],
             edges: vec![
                 vec![
-                    (1, m1.clone()),
-                    (1, m2.clone()),
-                    (1, m3.clone()),
-                    (1, m4.clone()),
-                    (1, m5.clone()),
+                    (1, (), m1.clone()),
+                    (1, (), m2.clone()),
+                    (1, (), m3.clone()),
+                    (1, (), m4.clone()),
+                    (1, (), m5.clone()),
                 ],
                 Vec::new(),
             ],

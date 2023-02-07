@@ -72,11 +72,11 @@ impl Span {
 //
 // MCES
 
-pub struct MCES<'a> {
+pub struct MCES<'a, NL, EL, FL> {
     // Immutable data during the algorithm
-    left: &'a Graph,
+    left: &'a Graph<NL, EL, FL>,
     llen: usize,
-    right: &'a Graph,
+    right: &'a Graph<NL, EL, FL>,
     rlen: usize,
     // Exploration data
     current_span: Span,
@@ -105,8 +105,12 @@ enum MCESState {
     },
 }
 
-impl<'a> MCES<'a> {
-    pub fn new(ctx: &mut Context, left: &'a Graph, right: &'a Graph) -> Self {
+impl<'a, NL, EL, FL> MCES<'a, NL, EL, FL> {
+    pub fn new(
+        ctx: &mut Context,
+        left: &'a Graph<NL, EL, FL>,
+        right: &'a Graph<NL, EL, FL>,
+    ) -> Self {
         let first_state = MCESState::Node {
             lnode: 0,
             rnode: 0,
@@ -131,20 +135,20 @@ impl<'a> MCES<'a> {
         let mut unif = UnifState::new();
         left.nodes
             .iter()
-            .for_each(|n| unif.add(&ctx, n.clone().term()));
+            .for_each(|n| unif.add(&ctx, n.0.clone().term()));
         right
             .nodes
             .iter()
-            .for_each(|n| unif.add(&ctx, n.clone().term()));
+            .for_each(|n| unif.add(&ctx, n.0.clone().term()));
         left.edges
             .iter()
             .flatten()
-            .for_each(|(_, e)| unif.add(&ctx, e.clone().term()));
+            .for_each(|(_, _, e)| unif.add(&ctx, e.clone().term()));
         right
             .edges
             .iter()
             .flatten()
-            .for_each(|(_, e)| unif.add(&ctx, e.clone().term()));
+            .for_each(|(_, _, e)| unif.add(&ctx, e.clone().term()));
         left.faces
             .iter()
             .for_each(|f| unif.add(&ctx, f.eq.clone().term()));
@@ -229,8 +233,8 @@ impl<'a> MCES<'a> {
             return false;
         }
 
-        let lobj = self.left.nodes[lnode].clone().term();
-        let robj = self.right.nodes[rnode].clone().term();
+        let lobj = self.left.nodes[lnode].0.clone().term();
+        let robj = self.right.nodes[rnode].0.clone().term();
         self.unif.add_goal(lobj.clone(), robj.clone());
         if self.unif.solve().is_none() {
             self.unif.rm_goal(lobj, robj);
@@ -311,8 +315,8 @@ impl<'a> MCES<'a> {
             return false;
         }
 
-        let lobj = self.left.edges[lnode][ledge].1.clone().term();
-        let robj = self.right.edges[rnode][redge].1.clone().term();
+        let lobj = self.left.edges[lnode][ledge].2.clone().term();
+        let robj = self.right.edges[rnode][redge].2.clone().term();
         self.unif.add_goal(lobj.clone(), robj.clone());
         if self.unif.solve().is_none() {
             self.unif.rm_goal(lobj.clone(), robj.clone());
@@ -545,7 +549,7 @@ impl<'a> MCES<'a> {
     }
 }
 
-impl<'a> Iterator for MCES<'a> {
+impl<'a, NL, EL, FL> Iterator for MCES<'a, NL, EL, FL> {
     type Item = (Span, Substitution);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -553,7 +557,11 @@ impl<'a> Iterator for MCES<'a> {
     }
 }
 
-pub fn mces(ctx: &mut Context, g1: &Graph, g2: &Graph) -> Vec<(Span, Substitution)> {
+pub fn mces<NL, EL, FL>(
+    ctx: &mut Context,
+    g1: &Graph<NL, EL, FL>,
+    g2: &Graph<NL, EL, FL>,
+) -> Vec<(Span, Substitution)> {
     let mces = MCES::new(ctx, g1, g2);
     mces.collect()
 }
@@ -570,12 +578,12 @@ mod tests {
     #[test]
     fn empty_graphs() {
         let mut ctx = Context::new();
-        let g1 = Graph {
+        let g1: Graph<(), (), ()> = Graph {
             nodes: Vec::new(),
             edges: Vec::new(),
             faces: Vec::new(),
         };
-        let g2 = Graph {
+        let g2: Graph<(), (), ()> = Graph {
             nodes: Vec::new(),
             edges: Vec::new(),
             faces: Vec::new(),
@@ -598,13 +606,13 @@ mod tests {
         let x = obj!(ctx, (?0) in cat);
         let y = obj!(ctx, (?1) in cat);
 
-        let g1: Graph = Graph {
-            nodes: vec![a, b, c, d],
+        let g1: Graph<(), (), ()> = Graph {
+            nodes: vec![(a, ()), (b, ()), (c, ()), (d, ())],
             edges: vec![Vec::new(); 4],
             faces: Vec::new(),
         };
-        let g2: Graph = Graph {
-            nodes: vec![x, y],
+        let g2: Graph<(), (), ()> = Graph {
+            nodes: vec![(x, ()), (y, ())],
             edges: vec![Vec::new(); 2],
             faces: Vec::new(),
         };
@@ -629,14 +637,14 @@ mod tests {
         let y = obj!(ctx, (?2) in cat);
         let f = mph!(ctx, (:3) : x -> y);
 
-        let g1: Graph = Graph {
-            nodes: vec![a, b],
-            edges: vec![vec![(1, m)], Vec::new()],
+        let g1: Graph<(), (), ()> = Graph {
+            nodes: vec![(a, ()), (b, ())],
+            edges: vec![vec![(1, (), m)], Vec::new()],
             faces: Vec::new(),
         };
-        let g2: Graph = Graph {
-            nodes: vec![x, y],
-            edges: vec![vec![(1, f)], Vec::new()],
+        let g2: Graph<(), (), ()> = Graph {
+            nodes: vec![(x, ()), (y, ())],
+            edges: vec![vec![(1, (), f)], Vec::new()],
             faces: Vec::new(),
         };
         let sols: Vec<_> = mces::MCES::new(&mut ctx, &g1, &g2).collect();
@@ -674,12 +682,13 @@ mod tests {
             left: vec![0, 0],
             right: vec![1],
             eq: ctx.mk(p1),
+            label: (),
         };
         let g1 = Graph {
-            nodes: vec![a.clone(), b.clone(), c.clone()],
+            nodes: vec![(a.clone(), ()), (b.clone(), ()), (c.clone(), ())],
             edges: vec![
-                vec![(1, f.clone()), (2, h.clone())],
-                vec![(2, g.clone())],
+                vec![(1, (), f.clone()), (2, (), h.clone())],
+                vec![(2, (), g.clone())],
                 Vec::new(),
             ],
             faces: vec![f1],
@@ -701,12 +710,13 @@ mod tests {
             left: vec![0, 0],
             right: vec![1],
             eq: ctx.mk(p2),
+            label: (),
         };
         let g2 = Graph {
-            nodes: vec![a.clone(), b.clone(), c.clone()],
+            nodes: vec![(a.clone(), ()), (b.clone(), ()), (c.clone(), ())],
             edges: vec![
-                vec![(1, f.clone()), (2, h.clone())],
-                vec![(2, g.clone())],
+                vec![(1, (), f.clone()), (2, (), h.clone())],
+                vec![(2, (), g.clone())],
                 Vec::new(),
             ],
             faces: vec![f2],

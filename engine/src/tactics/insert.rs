@@ -3,13 +3,16 @@ use crate::graph::Graph;
 
 /// Look over graph nodes, if obj is already present returns its index,
 /// otherwise insert it and return the index of the nely inserted node.
-pub fn insert_node(gr: &mut Graph, obj: Object) -> usize {
+pub fn insert_node<NL, EL, FL>(gr: &mut Graph<NL, EL, FL>, obj: Object) -> usize
+where
+    NL: Default,
+{
     for n in 0..gr.nodes.len() {
-        if gr.nodes[n] == obj {
+        if gr.nodes[n].0 == obj {
             return n;
         }
     }
-    gr.nodes.push(obj);
+    gr.nodes.push((obj, Default::default()));
     gr.edges.push(Vec::new());
     gr.nodes.len() - 1
 }
@@ -17,28 +20,40 @@ pub fn insert_node(gr: &mut Graph, obj: Object) -> usize {
 /// Try to find the morphism in the output edges of node, and return its index.
 /// Otherwise add it and return its new index. Also return the index of the
 /// codomain of the morphism.
-pub fn insert_mph_at(
+pub fn insert_mph_at<NL, EL, FL>(
     ctx: &mut Context,
-    gr: &mut Graph,
+    gr: &mut Graph<NL, EL, FL>,
     node: usize,
     mph: Morphism,
-) -> (usize, usize) {
+) -> (usize, usize)
+where
+    NL: Default,
+    EL: Default,
+{
     assert!(node < gr.nodes.len(), "Trying to insert at unexisting node");
     for m in 0..gr.edges[node].len() {
-        if gr.edges[node][m].1 == mph {
+        if gr.edges[node][m].2 == mph {
             return (m, gr.edges[node][m].0);
         }
     }
     let dst = mph.dst(ctx);
     let ndst = insert_node(gr, dst);
-    gr.edges[node].push((ndst, mph));
+    gr.edges[node].push((ndst, Default::default(), mph));
     (gr.edges[node].len() - 1, ndst)
 }
 
 /// Same as insert_mph_at, but finds or insert automatically the source of the
 /// morhism. Returns the index of the source node, that of the morphism and that
 /// of the destination.
-pub fn insert_mph(ctx: &mut Context, gr: &mut Graph, mph: Morphism) -> (usize, usize, usize) {
+pub fn insert_mph<NL, EL, FL>(
+    ctx: &mut Context,
+    gr: &mut Graph<NL, EL, FL>,
+    mph: Morphism,
+) -> (usize, usize, usize)
+where
+    NL: Default,
+    EL: Default,
+{
     let src = mph.src(ctx);
     let nsrc = insert_node(gr, src);
     let (nmph, ndst) = insert_mph_at(ctx, gr, nsrc, mph);
@@ -63,7 +78,7 @@ mod tests {
         let m1 = mph!(ctx, (:3) : x -> y);
         let m2 = mph!(ctx, (:4) : x -> y);
 
-        let mut gr = Graph {
+        let mut gr: Graph<(), (), ()> = Graph {
             nodes: Vec::new(),
             edges: Vec::new(),
             faces: Vec::new(),

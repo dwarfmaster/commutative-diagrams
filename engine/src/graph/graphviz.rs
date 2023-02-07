@@ -2,18 +2,22 @@ use crate::data::Context;
 use crate::graph::mces::Span;
 use crate::graph::Graph;
 
-pub fn viz<F>(fmt: &mut F, graph: &Graph, ctx: &mut Context) -> Result<(), std::io::Error>
+pub fn viz<F, NL, EL, FL>(
+    fmt: &mut F,
+    graph: &Graph<NL, EL, FL>,
+    ctx: &mut Context,
+) -> Result<(), std::io::Error>
 where
     F: std::io::Write,
 {
     writeln!(fmt, "digraph {{")?;
 
     for (i, o) in graph.nodes.iter().enumerate() {
-        writeln!(fmt, "    n{} [label=\"{}\"];", i, o.render(ctx, 100))?;
+        writeln!(fmt, "    n{} [label=\"{}\"];", i, o.0.render(ctx, 100))?;
     }
 
     for s in 0..graph.nodes.len() {
-        for (d, e) in graph.edges[s].iter() {
+        for (d, _, e) in graph.edges[s].iter() {
             writeln!(
                 fmt,
                 "    n{} -> n{} [label=\"{}\"];",
@@ -26,11 +30,11 @@ where
     writeln!(fmt, "}}")
 }
 
-pub fn span_viz<F>(
+pub fn span_viz<F, NL, EL, FL>(
     fmt: &mut F,
     ctx: &mut Context,
-    left: &Graph,
-    right: &Graph,
+    left: &Graph<NL, EL, FL>,
+    right: &Graph<NL, EL, FL>,
     span: &Span,
 ) -> Result<(), std::io::Error>
 where
@@ -64,12 +68,13 @@ where
             "    c{} [ color=\"{}\" label=\"{}\" ];",
             c,
             color_common,
-            left.nodes[*l].render(ctx, 100)
+            left.nodes[*l].0.render(ctx, 100)
         )?;
     }
     for s in 0..span.nodes.len() {
         for (l, r) in span.edges[s].iter() {
-            let (ld, e) = left.edges[span.nodes[s].0][*l].clone();
+            let ld = left.edges[span.nodes[s].0][*l].0.clone();
+            let e = left.edges[span.nodes[s].0][*l].2.clone();
             let d = nodes_left_seen[ld].unwrap();
             edges_left_seen[span.nodes[s].0][*l] = true;
             edges_right_seen[span.nodes[s].1][*r] = true;
@@ -94,14 +99,14 @@ where
             "    l{} [ color=\"{}\" label=\"{}\" ];",
             i,
             color_left,
-            o.render(ctx, 100)
+            o.0.render(ctx, 100)
         )?;
     }
     for s in 0..left.nodes.len() {
         let src = nodes_left_seen[s]
             .map(|s| format!("c{}", s))
             .unwrap_or(format!("l{}", s));
-        for (e, (d, m)) in left.edges[s].iter().enumerate() {
+        for (e, (d, _, m)) in left.edges[s].iter().enumerate() {
             if edges_left_seen[s][e] {
                 continue;
             }
@@ -129,14 +134,14 @@ where
             "    r{} [ color=\"{}\" label=\"{}\" ];",
             i,
             color_right,
-            o.render(ctx, 100)
+            o.0.render(ctx, 100)
         )?;
     }
     for s in 0..right.nodes.len() {
         let src = nodes_right_seen[s]
             .map(|s| format!("c{}", s))
             .unwrap_or(format!("r{}", s));
-        for (e, (d, m)) in right.edges[s].iter().enumerate() {
+        for (e, (d, _, m)) in right.edges[s].iter().enumerate() {
             if edges_right_seen[s][e] {
                 continue;
             }

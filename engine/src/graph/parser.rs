@@ -21,7 +21,7 @@ struct Edge {
 // |____/ \___|_|  |_|\__,_|_|_/___\___|
 //
 
-impl Serialize for Face {
+impl<FL> Serialize for Face<FL> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -36,18 +36,18 @@ impl Serialize for Face {
     }
 }
 
-impl Serialize for Graph {
+impl<NL, EL, FL> Serialize for Graph<NL, EL, FL> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let nodes: Vec<_> = self.nodes.iter().map(|e| e.deref()).collect();
+        let nodes: Vec<_> = self.nodes.iter().map(|(n, _)| n.deref()).collect();
         let edges: Vec<_> = self
             .edges
             .iter()
             .enumerate()
             .map(|(s, v)| {
-                v.iter().map(move |(d, m)| Edge {
+                v.iter().map(move |(d, _, m)| Edge {
                     src: s.clone(),
                     dst: *d,
                     mph: (*m.deref()).clone(),
@@ -70,8 +70,11 @@ impl Serialize for Graph {
 // |____/ \___||___/\___|_|  |_|\__,_|_|_/___\___|
 //
 
-impl<'a> Visitor<'a> for Parser<Face> {
-    type Value = Face;
+impl<'a, FL> Visitor<'a> for Parser<Face<FL>>
+where
+    FL: Default,
+{
+    type Value = Face<FL>;
     fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "a face")
     }
@@ -126,10 +129,11 @@ impl<'a> Visitor<'a> for Parser<Face> {
             left,
             right,
             eq,
+            label: Default::default(),
         })
     }
 }
-deserializer_struct!(Face);
+deserializer_struct!(Face<FL>, FL);
 
 impl<'a> Visitor<'a> for Parser<Edge> {
     type Value = Edge;
@@ -173,8 +177,13 @@ impl<'a> Visitor<'a> for Parser<Edge> {
 }
 deserializer_struct!(Edge);
 
-impl<'a> Visitor<'a> for Parser<Graph> {
-    type Value = Graph;
+impl<'a, NL, EL, FL> Visitor<'a> for Parser<Graph<NL, EL, FL>>
+where
+    NL: Default,
+    EL: Default,
+    FL: Default,
+{
+    type Value = Graph<NL, EL, FL>;
     fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "a graph")
     }
@@ -185,7 +194,7 @@ impl<'a> Visitor<'a> for Parser<Graph> {
     {
         let mut nodes: Option<Vec<Object>> = None;
         let mut edges: Option<Vec<Edge>> = None;
-        let mut faces: Option<Vec<Face>> = None;
+        let mut faces: Option<Vec<Face<FL>>> = None;
         while let Some(k) = map.next_key::<String>()? {
             match k.as_str() {
                 "nodes" => match nodes {
@@ -197,7 +206,7 @@ impl<'a> Visitor<'a> for Parser<Graph> {
                     Some(_) => return Err(Error::duplicate_field("edges")),
                 },
                 "faces" => match faces {
-                    None => faces = Some(map.next_value_seed(self.clone().to_vec::<Face>())?),
+                    None => faces = Some(map.next_value_seed(self.clone().to_vec::<Face<FL>>())?),
                     Some(_) => return Err(Error::duplicate_field("faces")),
                 },
                 _ => {
@@ -208,19 +217,26 @@ impl<'a> Visitor<'a> for Parser<Graph> {
                 }
             }
         }
-        let nodes = nodes.ok_or(Error::missing_field("nodes"))?;
+        let nodes = nodes
+            .ok_or(Error::missing_field("nodes"))?
+            .into_iter()
+            .map(|n| (n, Default::default()))
+            .collect();
         let edges = edges.ok_or(Error::missing_field("edges"))?;
         let faces = faces.ok_or(Error::missing_field("faces"))?;
-        let len = nodes.len();
         let mut gr = Graph {
             nodes,
-            edges: vec![Vec::new(); len],
+            edges: Vec::new(),
             faces,
         };
+        gr.edges.reserve(gr.nodes.len());
+        for _ in 0..gr.nodes.len() {
+            gr.edges.push(Vec::new())
+        }
         for edge in edges {
-            gr.edges[edge.src].push((edge.dst, self.ctx.mk(edge.mph)))
+            gr.edges[edge.src].push((edge.dst, Default::default(), self.ctx.mk(edge.mph)))
         }
         Ok(gr)
     }
 }
-deserializer_struct!(Graph);
+deserializer_struct!(Graph<NL,EL,FL>, NL, EL, FL);

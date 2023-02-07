@@ -38,7 +38,7 @@ impl Enum {
     }
 }
 
-impl Graph {
+impl<NL, EL, FL> Graph<NL, EL, FL> {
     /// Enumerate paths on graph
     pub fn enumerate(&self, ctx: &mut Context, iters: usize) -> Enum {
         let nnodes = self.nodes.len();
@@ -48,7 +48,7 @@ impl Graph {
         let mut rev: HashMap<u64, (usize, usize)> = HashMap::new();
         // Add identities
         for n in 0..nnodes {
-            let mph = ctx.mk(ActualMorphism::Identity(self.nodes[n].clone()));
+            let mph = ctx.mk(ActualMorphism::Identity(self.nodes[n].0.clone()));
             rev.insert(mph.uid(), (n, paths[n].len()));
             paths[n].push(Path {
                 start: n,
@@ -61,7 +61,7 @@ impl Graph {
         // Add simple morphisms
         for src in 0..nnodes {
             for mph_id in 0..self.edges[src].len() {
-                let (_, mph) = &self.edges[src][mph_id];
+                let mph = &self.edges[src][mph_id].2;
                 let (norm, eq) = normalize::morphism(ctx, mph.clone());
                 // The map is necessary to prevent rust from complaining about
                 // found borrowing rev
@@ -95,7 +95,7 @@ impl Graph {
         for _ in 2..(iters + 1) {
             for src in 0..nnodes {
                 for mph_id in 0..self.edges[src].len() {
-                    let (dst, mph) = &self.edges[src][mph_id];
+                    let (dst, _, mph) = &self.edges[src][mph_id];
                     for nxt in (ranges[*dst].0)..(ranges[*dst].1) {
                         let path = &paths[*dst][nxt];
                         let nmph = ctx.mk(ActualMorphism::Comp(mph.clone(), path.mph.clone()));
@@ -169,9 +169,13 @@ mod tests {
         let m3 = mph!(ctx, (:6) : x -> z);
         let mz = mph!(ctx, (:7) : z -> z);
 
-        let gr: Graph = Graph {
-            nodes: vec![x, y, z],
-            edges: vec![vec![(1, m1), (2, m3)], vec![(2, m2)], vec![(2, mz)]],
+        let gr: Graph<(), (), ()> = Graph {
+            nodes: vec![(x, ()), (y, ()), (z, ())],
+            edges: vec![
+                vec![(1, (), m1), (2, (), m3)],
+                vec![(2, (), m2)],
+                vec![(2, (), mz)],
+            ],
             faces: Vec::new(),
         };
 
@@ -194,11 +198,11 @@ mod tests {
         let m3 = mph!(ctx, (:5) : y -> z);
         let m = mph!(ctx, m2 >> m3);
 
-        let gr: Graph = Graph {
-            nodes: vec![x, y, z],
+        let gr: Graph<(), (), ()> = Graph {
+            nodes: vec![(x, ()), (y, ()), (z, ())],
             edges: vec![
-                vec![(1, m1), (1, m2.clone())],
-                vec![(2, m3.clone())],
+                vec![(1, (), m1), (1, (), m2.clone())],
+                vec![(2, (), m3.clone())],
                 vec![],
             ],
             faces: vec![],

@@ -5,24 +5,30 @@ use std::vec::Vec;
 
 /// A pair of two paths in a graph with the same start and end
 #[derive(Clone, Debug)]
-pub struct Face {
+pub struct Face<FaceLabel> {
     pub start: usize,
     pub end: usize,
     pub left: Vec<usize>,
     pub right: Vec<usize>,
     pub eq: Equality,
+    pub label: FaceLabel,
 }
 
 /// Adjacency list 2-graph of morphisms
 #[derive(Clone, Debug)]
-pub struct Graph {
-    pub nodes: Vec<Object>,
-    pub edges: Vec<Vec<(usize, Morphism)>>,
-    pub faces: Vec<Face>,
+pub struct Graph<NodeLabel, EdgeLabel, FaceLabel> {
+    pub nodes: Vec<(Object, NodeLabel)>,
+    pub edges: Vec<Vec<(usize, EdgeLabel, Morphism)>>,
+    pub faces: Vec<Face<FaceLabel>>,
 }
 
-impl Face {
-    fn check_path(path: &[usize], gr: &Graph, node: usize, next: usize) -> Option<usize> {
+impl<FL> Face<FL> {
+    fn check_path<NL, EL>(
+        path: &[usize],
+        gr: &Graph<NL, EL, FL>,
+        node: usize,
+        next: usize,
+    ) -> Option<usize> {
         if path.len() <= next {
             Some(node)
         } else if gr.edges.len() <= node {
@@ -34,7 +40,7 @@ impl Face {
         }
     }
 
-    pub fn check(&self, ctx: &Context, gr: &Graph) -> bool {
+    pub fn check<NL, EL>(&self, ctx: &Context, gr: &Graph<NL, EL, FL>) -> bool {
         self.start < gr.nodes.len()
             && self.end < gr.nodes.len()
             && Face::check_path(&self.left, gr, self.start, 0)
@@ -47,7 +53,7 @@ impl Face {
     }
 }
 
-impl Substitutable for Face {
+impl<FL> Substitutable for Face<FL> {
     fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
         Face {
             start: self.start,
@@ -55,11 +61,12 @@ impl Substitutable for Face {
             left: self.left,
             right: self.right,
             eq: self.eq.subst_slice(ctx, sigma),
+            label: self.label,
         }
     }
 }
 
-impl Graph {
+impl<NL, EL, FL> Graph<NL, EL, FL> {
     pub fn new() -> Self {
         Self {
             nodes: Vec::new(),
@@ -70,22 +77,22 @@ impl Graph {
 
     pub fn check(&self, ctx: &Context) -> bool {
         self.nodes.len() == self.edges.len()
-            && self.nodes.iter().all(|o| o.check(ctx))
+            && self.nodes.iter().all(|o| o.0.check(ctx))
             && self.edges.iter().enumerate().all(|(start, out)| {
-                out.iter().all(|(next, mph)| {
-                    mph.src(ctx) == self.nodes[start] && mph.dst(ctx) == self.nodes[*next]
+                out.iter().all(|(next, _, mph)| {
+                    mph.src(ctx) == self.nodes[start].0 && mph.dst(ctx) == self.nodes[*next].0
                 })
             })
             && self.faces.iter().all(|fce| fce.check(ctx, self))
     }
 }
 
-impl Substitutable for Graph {
+impl<NL, EL, FL> Substitutable for Graph<NL, EL, FL> {
     fn subst_slice(mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
         self.nodes = self
             .nodes
             .into_iter()
-            .map(|node| node.subst_slice(ctx, sigma))
+            .map(|(node, label)| (node.subst_slice(ctx, sigma), label))
             .collect();
         self.edges = self
             .edges
@@ -93,7 +100,7 @@ impl Substitutable for Graph {
             .map(|edges| {
                 edges
                     .into_iter()
-                    .map(|(dst, edge)| (dst, edge.subst_slice(ctx, sigma)))
+                    .map(|(dst, label, edge)| (dst, label, edge.subst_slice(ctx, sigma)))
                     .collect()
             })
             .collect();

@@ -76,6 +76,20 @@ macro_rules! deserializer_struct {
             }
         }
     };
+    ($t:ty, $( $params:ident ),*) => {
+        impl<'a,$($params),*> DeserializeSeed<'a> for Parser<$t>
+        where $($params: Default),*
+        {
+            type Value = $t;
+
+            fn deserialize<D>(self, d: D) -> Result<Self::Value, D::Error>
+            where
+                D: Deserializer<'a>,
+            {
+                d.deserialize_map(self)
+            }
+        }
+    };
 }
 pub(crate) use deserializer_struct;
 macro_rules! deserializer_enum {

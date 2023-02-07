@@ -8,11 +8,21 @@ use std::ops::Deref;
 /// introduce the components as edges, add a face between the source morphism
 /// and the new path, and return the index of the new face or None is the
 /// morphism is already normalized and split
-pub fn split_norm(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> Option<usize> {
+pub fn split_norm<NL, EL, FL>(
+    ctx: &mut Context,
+    gr: &mut Graph<NL, EL, FL>,
+    src: usize,
+    mph: usize,
+) -> Option<usize>
+where
+    NL: Default,
+    EL: Default,
+    FL: Default,
+{
     assert!(src < gr.nodes.len(), "src out of bounds");
     assert!(mph < gr.edges[src].len(), "mph out of bounds");
-    let (norm, eqnorm) = normalize::morphism(ctx, gr.edges[src][mph].1.clone());
-    let is_norm = norm == gr.edges[src][mph].1;
+    let (norm, eqnorm) = normalize::morphism(ctx, gr.edges[src][mph].2.clone());
+    let is_norm = norm == gr.edges[src][mph].2;
     let (mut path, dst) = insert_split_at(ctx, gr, src, norm);
     if is_norm && path.len() == 1 {
         return None;
@@ -24,6 +34,7 @@ pub fn split_norm(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> 
         left: vec![mph],
         right: path,
         eq: eqnorm,
+        label: Default::default(),
     };
     gr.faces.push(fce);
     Some(gr.faces.len() - 1)
@@ -32,10 +43,20 @@ pub fn split_norm(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> 
 /// Split a morphism along compositions, add the components to the graph, and
 /// add a reflexivity face between the source morphism and the new path. Returns
 /// the id of the new face or None if the morphism is already fully split
-pub fn split(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> Option<usize> {
+pub fn split<NL, EL, FL>(
+    ctx: &mut Context,
+    gr: &mut Graph<NL, EL, FL>,
+    src: usize,
+    mph: usize,
+) -> Option<usize>
+where
+    NL: Default,
+    EL: Default,
+    FL: Default,
+{
     assert!(src < gr.nodes.len(), "src out of bounds");
     assert!(mph < gr.edges[src].len(), "mph out of bounds");
-    let (mut path, dst) = insert_split_at(ctx, gr, src, gr.edges[src][mph].1.clone());
+    let (mut path, dst) = insert_split_at(ctx, gr, src, gr.edges[src][mph].2.clone());
     if path.len() == 1 {
         return None;
     }
@@ -46,8 +67,9 @@ pub fn split(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> Optio
         left: vec![mph],
         right: path.clone(),
         eq: ctx.mk(crate::data::ActualEquality::Refl(
-            gr.edges[src][mph].1.clone(),
+            gr.edges[src][mph].2.clone(),
         )),
+        label: Default::default(),
     };
     gr.faces.push(fce);
     Some(gr.faces.len() - 1)
@@ -55,12 +77,16 @@ pub fn split(ctx: &mut Context, gr: &mut Graph, src: usize, mph: usize) -> Optio
 
 /// Split a morphism along composition and add its components to the graph. The
 /// returned vector is in reverse order.
-fn insert_split_at(
+fn insert_split_at<NL, EL, FL>(
     ctx: &mut Context,
-    gr: &mut Graph,
+    gr: &mut Graph<NL, EL, FL>,
     src: usize,
     mph: Morphism,
-) -> (Vec<usize>, usize) {
+) -> (Vec<usize>, usize)
+where
+    NL: Default,
+    EL: Default,
+{
     use crate::data::ActualMorphism::Comp;
     match mph.deref() {
         Comp(l, r) => {
@@ -102,9 +128,9 @@ mod tests {
         let m = mph!(ctx, m1 >> (m2 >> (m3 >> m4)));
         assert!(m.check(&ctx), "m should be a valid morphism");
 
-        let mut gr = Graph {
-            nodes: vec![v, z],
-            edges: vec![vec![(1, m)], vec![]],
+        let mut gr: Graph<(), (), ()> = Graph {
+            nodes: vec![(v, ()), (z, ())],
+            edges: vec![vec![(1, (), m)], vec![]],
             faces: vec![],
         };
         tactics::split(&mut ctx, &mut gr, 0, 0);
@@ -136,9 +162,9 @@ mod tests {
         let m = mph!(ctx, (m1 >> m2) >> (m3 >> m4));
         assert!(m.check(&ctx), "m should be a valid morphism");
 
-        let mut gr = Graph {
-            nodes: vec![v, z],
-            edges: vec![vec![(1, m)], vec![]],
+        let mut gr: Graph<(), (), ()> = Graph {
+            nodes: vec![(v, ()), (z, ())],
+            edges: vec![vec![(1, (), m)], vec![]],
             faces: vec![],
         };
         tactics::split_norm(&mut ctx, &mut gr, 0, 0);

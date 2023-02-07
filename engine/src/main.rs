@@ -28,7 +28,9 @@ use rmp_serde::encode;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 
-fn messagepack_to_file(path: &str, gr: &Graph) {
+type SolveGraph = Graph<(), (), ()>;
+
+fn messagepack_to_file<NL, EL, FL>(path: &str, gr: &Graph<NL, EL, FL>) {
     let mut file = File::create(path).unwrap();
     encode::write(&mut file, gr).unwrap();
 }
@@ -51,9 +53,7 @@ fn test_ui() {
 
 fn test_ui_system(mut egui_context: ResMut<EguiContext>, mut code: ResMut<LuaCode>) {
     egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui|
-            ui.code_editor(&mut code.as_mut().value)
-        )
+        egui::ScrollArea::vertical().show(ui, |ui| ui.code_editor(&mut code.as_mut().value))
     });
     egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| ui.label("world"));
 }
@@ -70,9 +70,13 @@ fn test_main(packfile: &str) {
     let c = obj!(ctx, f _0 c);
     let m1 = mph!(ctx, (?0) : a -> b);
     let m2 = mph!(ctx, (?1) : b -> c);
-    let gr: graph::Graph = graph::Graph {
-        nodes: vec![a, b, c.clone()],
-        edges: vec![vec![(1, m1.clone())], vec![(2, m2.clone())], Vec::new()],
+    let gr: graph::Graph<(), (), ()> = graph::Graph {
+        nodes: vec![(a, ()), (b, ()), (c.clone(), ())],
+        edges: vec![
+            vec![(1, (), m1.clone())],
+            vec![(2, (), m2.clone())],
+            Vec::new(),
+        ],
         faces: Vec::new(),
     };
 
@@ -80,9 +84,9 @@ fn test_main(packfile: &str) {
     let x = obj!(ctx, (?3) in cat_unk);
     let y = obj!(ctx, (?4) in cat_unk);
     let f = mph!(ctx, (:6) : x -> y);
-    let gr2: graph::Graph = graph::Graph {
-        nodes: vec![x, y],
-        edges: vec![vec![(1, f)], Vec::new()],
+    let gr2: graph::Graph<(), (), ()> = graph::Graph {
+        nodes: vec![(x, ()), (y, ())],
+        edges: vec![vec![(1, (), f)], Vec::new()],
         faces: Vec::new(),
     };
 
@@ -110,8 +114,8 @@ where
 {
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
-    let _goal: Graph = client
-        .receive_msg(goal_req, parser::Parser::<Graph>::new(ctx.clone()))
+    let _goal: SolveGraph = client
+        .receive_msg(goal_req, parser::Parser::<SolveGraph>::new(ctx.clone()))
         .unwrap_or_else(|err| {
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
@@ -138,8 +142,8 @@ where
 {
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
-    let goal: Graph = client
-        .receive_msg(goal_req, parser::Parser::<Graph>::new(ctx.clone()))
+    let goal: SolveGraph = client
+        .receive_msg(goal_req, parser::Parser::<SolveGraph>::new(ctx.clone()))
         .unwrap_or_else(|err| {
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
@@ -203,8 +207,8 @@ where
 {
     log::info!("Asking for goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
-    let mut goal: Graph = client
-        .receive_msg(goal_req, parser::Parser::<Graph>::new(ctx.clone()))
+    let mut goal: SolveGraph = client
+        .receive_msg(goal_req, parser::Parser::<SolveGraph>::new(ctx.clone()))
         .unwrap_or_else(|err| {
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
@@ -254,6 +258,7 @@ where
         left: vec![left_id],
         right: vec![right_id],
         eq: eq!(ctx, (?ex) : left == right),
+        label: Default::default(),
     };
     let goal_id = goal.faces.len();
     goal.faces.push(goal_face);
