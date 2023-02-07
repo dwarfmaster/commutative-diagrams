@@ -1,12 +1,19 @@
 {
   description="Coq plugin to automate commutative diagrams";
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-22.05";
+    nixpkgs.url = "nixpkgs/nixos-22.11";
+    rust = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs }: let
+  outputs = { self, nixpkgs, rust }: let
     system = "x86_64-linux";
-    pkgs = import nixpkgs { inherit system; };
+    pkgs = import nixpkgs {
+      inherit system; 
+      overlays = [ rust.overlays.default ];
+    };
     ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_14;
     coq = pkgs.coq.override {
       version = "8.15";
@@ -36,14 +43,11 @@
       inputsFrom = [ pkg ];
     };
     shell-engine = pkgs.mkShell {
-      nativeBuildInputs = builtins.attrValues {
-        inherit (pkgs)
-          cargo
-          rustc
-          rust-analyzer
-          rustfmt
-          ;
-      };
+      nativeBuildInputs = [
+        (pkgs.rust-bin.stable.latest.default.override {
+          extensions = [ "rust-analyzer" "rust-src" ];
+        })
+      ];
     };
     shell = pkgs.mkShell {
       inputsFrom = [ shell-coq shell-engine ];
