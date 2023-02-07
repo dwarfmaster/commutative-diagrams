@@ -1,6 +1,6 @@
 use crate::data::{ActualEquality, ActualMorphism, Context, Equality, Morphism};
+use crate::dsl::{eq, mph};
 use crate::normalize;
-use crate::dsl::{eq,mph};
 
 pub fn hook(mph: Morphism, ctx: &mut Context, eq: Equality, opts: &mut Vec<Equality>) {
     if mph.src(ctx) == eq.dst(ctx) {

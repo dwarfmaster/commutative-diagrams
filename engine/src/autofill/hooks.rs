@@ -1,2 +1,2 @@
-pub mod precompose;
 pub mod postcompose;
+pub mod precompose;

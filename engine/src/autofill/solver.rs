@@ -2,11 +2,11 @@ use crate::anyterm::IsTerm;
 use crate::autofill::hooks;
 use crate::autofill::union_find::UF;
 use crate::data::{ActualEquality, Context};
+use crate::dsl::eq;
 use crate::graph::Graph;
 use crate::normalize;
 use crate::substitution::Substitution;
 use crate::unification::unify;
-use crate::dsl::eq;
 
 /// Use a union find based algorithm to try and find an equality for the face
 /// given by its index. In case of success, unify the found equality with the
@@ -173,8 +173,8 @@ mod tests {
         };
 
         let gr = Graph {
-            nodes: vec![ a, b, c ],
-            edges: vec![ vec![ (1,m) ], vec![ (2,m1), (2,m2) ], vec! [] ],
+            nodes: vec![a, b, c],
+            edges: vec![vec![(1, m)], vec![(2, m1), (2, m2)], vec![]],
             faces: vec![exist, fce],
         };
 
@@ -213,8 +213,8 @@ mod tests {
         };
 
         let gr = Graph {
-            nodes: vec![ a, b, c ],
-            edges: vec![ vec![ (1,m1), (1,m2) ], vec![ (2,m) ], vec! [] ],
+            nodes: vec![a, b, c],
+            edges: vec![vec![(1, m1), (1, m2)], vec![(2, m)], vec![]],
             faces: vec![exist, fce],
         };
 
