@@ -47,6 +47,18 @@
         (pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-analyzer" "rust-src" ];
         })
+        pkgs.fontconfig.dev
+        pkgs.freetype.dev
+        pkgs.alsa-lib.dev
+        pkgs.systemd.dev
+        pkgs.xorg.libX11
+        pkgs.xorg.libXcursor
+        pkgs.xorg.libXrandr
+        pkgs.xorg.libXi
+        pkgs.vulkan-tools
+        pkgs.vulkan-headers
+        pkgs.vulkan-loader
+        pkgs.vulkan-validation-layers
       ];
     };
     shell = pkgs.mkShell {
@@ -56,6 +68,22 @@
           msgpack-tools
           ;
       };
+      PKG_CONFIG_PATH = pkgs.lib.concatStringsSep ":" [
+        "${pkgs.fontconfig.dev}/lib/pkgconfig"
+        "${pkgs.freetype.dev}/lib/pkgconfig"
+        "${pkgs.alsa-lib.dev}/lib/pkgconfig"
+        "${pkgs.systemd.dev}/lib/pkgconfig"
+      ];
+      LD_LIBRARY_PATH = pkgs.lib.concatStringsSep ":" [
+        "${pkgs.xorg.libX11}/lib"
+        "${pkgs.xorg.libXcursor}/lib"
+        "${pkgs.xorg.libXrandr}/lib"
+        "${pkgs.xorg.libXi}/lib"
+        "${pkgs.vulkan-tools}/lib"
+        "${pkgs.vulkan-headers}/lib"
+        "${pkgs.vulkan-loader}/lib"
+        "${pkgs.vulkan-validation-layers}/lib"
+      ];
     };
   in {
     devShells.x86_64-linux = {

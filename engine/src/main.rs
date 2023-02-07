@@ -25,9 +25,37 @@ use std::vec::Vec;
 use clap::{Parser, Subcommand};
 use rmp_serde::encode;
 
+use bevy::prelude::*;
+use bevy_egui::{egui, EguiContext, EguiPlugin};
+
 fn messagepack_to_file(path: &str, gr: &Graph) {
     let mut file = File::create(path).unwrap();
     encode::write(&mut file, gr).unwrap();
+}
+
+#[derive(Resource)]
+struct LuaCode {
+    value: String,
+}
+
+fn test_ui() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugin(EguiPlugin)
+        .insert_resource(LuaCode {
+            value: String::new(),
+        })
+        .add_system(test_ui_system)
+        .run();
+}
+
+fn test_ui_system(mut egui_context: ResMut<EguiContext>, mut code: ResMut<LuaCode>) {
+    egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui|
+            ui.code_editor(&mut code.as_mut().value)
+        )
+    });
+    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| ui.label("world"));
 }
 
 fn test_main(packfile: &str) {
@@ -321,6 +349,7 @@ enum Commands {
         #[arg(short, long)]
         packfile: Option<String>,
     },
+    Ui {},
     Embed {
         #[arg(long)]
         normalize: bool,
@@ -339,6 +368,7 @@ fn main() {
             let packfile = packfile.unwrap_or("gr.mp".to_string());
             test_main(&packfile)
         }
+        Commands::Ui {} => test_ui(),
         Commands::Embed {
             normalize,
             autosolve,
