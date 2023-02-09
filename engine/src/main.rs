@@ -42,11 +42,15 @@ struct LuaCode {
     value: String,
 }
 
-#[derive(Resource)]
-struct GraphDisplay {
-    graph: Graph<(egui::Pos2, String), (Vec<[egui::Pos2; 4]>, String), ()>,
-    offset: egui::Vec2,
-}
+type GD = ui::GraphDisplay<
+    (egui::Pos2, String),
+    (Vec<[egui::Pos2; 4]>, String),
+    (),
+    _0<__>,
+    _1<__>,
+    _0<_mapped<__>>,
+    _1<__>,
+>;
 
 fn test_ui() {
     let ctx = data::Context::new();
@@ -93,16 +97,20 @@ fn test_ui() {
         ],
         faces: vec![],
     };
+    let gd: GD = ui::GraphDisplay::new(
+        gr,
+        optics!(_0),
+        optics!(_1),
+        optics!(_0._mapped),
+        optics!(_1),
+    );
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
         .insert_resource(LuaCode {
             value: String::new(),
         })
-        .insert_resource(GraphDisplay {
-            graph: gr,
-            offset: egui::Vec2::ZERO,
-        })
+        .insert_resource(gd)
         .add_system(test_ui_system)
         .run();
 }
@@ -110,23 +118,13 @@ fn test_ui() {
 fn test_ui_system(
     mut egui_context: ResMut<EguiContext>,
     mut code: ResMut<LuaCode>,
-    mut gr: ResMut<GraphDisplay>,
+    mut gr: ResMut<GD>,
 ) {
     egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| ui.code_editor(&mut code.as_mut().value))
     });
 
-    let gr = gr.as_mut();
-    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
-        ui.add(ui::graph(
-            &mut gr.graph,
-            &mut gr.offset,
-            optics!(_0),
-            optics!(_1),
-            optics!(_0._mapped),
-            optics!(_1),
-        ))
-    });
+    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| ui.add(ui::graph(gr.as_mut())));
 }
 
 fn test_main(packfile: &str) {
