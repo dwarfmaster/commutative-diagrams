@@ -3,7 +3,6 @@ use bevy::ecs::system::Resource;
 use egui::{Pos2, Vec2};
 use lens_rs::{Lens, LensMut, TraversalMut};
 use std::ops::Add;
-use std::ops::Deref;
 
 #[derive(Resource)]
 pub struct GraphDisplay<
@@ -166,23 +165,25 @@ where
         for src in 0..gd.graph.nodes.len() {
             for (_, label, _) in &gd.graph.edges[src] {
                 let curves = label.traverse_ref(gd.path_curve);
-                // Paint the curve
-                for curve in &curves {
-                    let curve: [Pos2; 4] = curve.map(setup_pos);
-                    let shape = egui::Shape::CubicBezier(egui::epaint::CubicBezierShape {
-                        points: curve,
+                let curves = curves
+                    .iter()
+                    .map(|curve| egui::epaint::CubicBezierShape {
+                        points: curve.clone().map(setup_pos),
                         closed: false,
                         fill: egui::Color32::TRANSPARENT,
                         stroke: fg_stroke,
-                    });
-                    painter.add(shape);
+                    })
+                    .collect::<Vec<_>>();
+                // Paint the curve
+                for curve in &curves {
+                    painter.add(*curve);
                 }
 
                 // Paint the arrow
                 if let Some(lcurve) = &curves.last() {
                     use egui::emath::*;
-                    let tip = setup_pos(lcurve[3]);
-                    let dir = (lcurve[3] - lcurve[2]).normalized();
+                    let tip = lcurve.points[3];
+                    let dir = (lcurve.points[3] - lcurve.points[2]).normalized();
                     let rot = Rot2::from_angle(std::f32::consts::TAU / 12.0);
                     let length = 5.0 * gd.zoom;
                     painter.line_segment([tip, tip - length * (rot * dir)], fg_stroke);
@@ -190,11 +191,61 @@ where
                 }
 
                 // TODO paint label
+                let lengths = curves
+                    .iter()
+                    .map(|cbc| cubic_length(&cbc))
+                    .scan(0.0, |acc, x| {
+                        *acc = *acc + x;
+                        Some(*acc)
+                    })
+                    .collect::<Vec<_>>();
+                if let Some(total) = lengths.last() {
+                    let half = total / 2.0;
+                    let middle = lengths
+                        .binary_search_by(|v| {
+                            v.partial_cmp(&half).expect("Couldn't compare floats")
+                        })
+                        .unwrap_or_else(|pos| pos);
+                    let dir = cubic_derivative(&curves[middle], 0.5).normalized().rot90();
+                    let pos = curves[middle].sample(0.5) + gd.zoom * 14.0 * dir;
+                    let name = label.view_ref(gd.path_name);
+                    painter.text(
+                        pos,
+                        egui::Align2::CENTER_CENTER,
+                        name,
+                        egui::FontId::proportional(14.0 * gd.zoom),
+                        fg_stroke.color,
+                    );
+                }
             }
         }
     }
 
     response
+}
+
+// Helpers
+fn cubic_length(curve: &egui::epaint::CubicBezierShape) -> f32 {
+    let approx = curve.points[0].distance(curve.points[3]) / 100.0;
+    curve
+        .flatten(Some(approx))
+        .windows(2)
+        .map(|win| win[0].distance(win[1]))
+        .sum()
+}
+
+// Taken from:
+//   https://stackoverflow.com/questions/4089443/find-the-tangent-of-a-point-on-a-cubic-bezier-curve
+fn cubic_derivative(curve: &egui::epaint::CubicBezierShape, t: f32) -> Vec2 {
+    let v0 = curve.points[0].to_vec2();
+    let v1 = curve.points[1].to_vec2();
+    let v2 = curve.points[2].to_vec2();
+    let v3 = curve.points[3].to_vec2();
+    let f0 = -3.0 * (1.0 - t) * (1.0 - t);
+    let f1 = 3.0 * (1.0 - t) * (1.0 - t) - 6.0 * t * (1.0 - t);
+    let f2 = 3.0 * t * t + 6.0 * t * (1.0 - t);
+    let f3 = 3.0 * t * t;
+    f0 * v0 + f1 * v1 + f2 * v2 + f3 * v3
 }
 
 // For more idiomatic usage

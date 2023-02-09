@@ -57,12 +57,15 @@ fn test_ui() {
     let cat = cat!(ctx, (:0));
     let x = obj!(ctx, (:1) in cat);
     let y = obj!(ctx, (:2) in cat);
-    let f = mph!(ctx, (:3) : x -> y);
-    let g = mph!(ctx, (:4) : x -> y);
+    let z = obj!(ctx, (:3) in cat);
+    let f = mph!(ctx, (:4) : x -> y);
+    let g = mph!(ctx, (:5) : x -> y);
+    let h = mph!(ctx, (:6) : x -> z);
     let gr = Graph {
         nodes: vec![
             (x, (egui::Pos2::new(50.0, 50.0), "x".to_string())),
             (y, (egui::Pos2::new(200.0, 50.0), "y".to_string())),
+            (z, (egui::Pos2::new(200.0, 200.0), "z".to_string())),
         ],
         edges: vec![
             vec![
@@ -92,7 +95,21 @@ fn test_ui() {
                     ),
                     g,
                 ),
+                (
+                    2,
+                    (
+                        vec![[
+                            egui::Pos2::new(50.0, 55.0),
+                            egui::Pos2::new(50.0, 75.0),
+                            egui::Pos2::new(100.0, 200.0),
+                            egui::Pos2::new(195.0, 200.0),
+                        ]],
+                        "h".to_string(),
+                    ),
+                    h,
+                ),
             ],
+            vec![],
             vec![],
         ],
         faces: vec![],
