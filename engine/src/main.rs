@@ -9,6 +9,7 @@ pub mod pretty;
 pub mod rpc;
 pub mod substitution;
 pub mod tactics;
+pub mod ui;
 pub mod unification;
 
 use anyterm::IsTerm;
@@ -24,6 +25,7 @@ use std::vec::Vec;
 
 use clap::{Parser, Subcommand};
 use rmp_serde::encode;
+use lens_rs::*;
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin};
@@ -40,22 +42,61 @@ struct LuaCode {
     value: String,
 }
 
+#[derive(Resource)]
+struct GraphDisplay {
+    graph: Graph<(egui::Pos2, String), (Vec<[egui::Pos2; 4]>, String), ()>,
+    offset: egui::Vec2,
+}
+
 fn test_ui() {
+    let ctx = data::Context::new();
+    let cat = cat!(ctx, (:0));
+    let x = obj!(ctx, (:1) in cat);
+    let y = obj!(ctx, (:2) in cat);
+    // let f = mph!(ctx, (:3) : x -> y);
+    // let g = mph!(ctx, (:4) : x -> y);
+    let gr = Graph {
+        nodes: vec![
+            (x, (egui::Pos2::new(50.0, 50.0), "x".to_string())),
+            (y, (egui::Pos2::new(200.0, 50.0), "y".to_string())),
+        ],
+        edges: vec![],
+        faces: vec![],
+    };
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
         .insert_resource(LuaCode {
             value: String::new(),
         })
+        .insert_resource(GraphDisplay {
+            graph: gr,
+            offset: egui::Vec2::ZERO,
+        })
         .add_system(test_ui_system)
         .run();
 }
 
-fn test_ui_system(mut egui_context: ResMut<EguiContext>, mut code: ResMut<LuaCode>) {
+fn test_ui_system(
+    mut egui_context: ResMut<EguiContext>,
+    mut code: ResMut<LuaCode>,
+    mut gr: ResMut<GraphDisplay>,
+) {
     egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| ui.code_editor(&mut code.as_mut().value))
     });
-    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| ui.label("world"));
+
+    let gr = gr.as_mut();
+    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
+        ui.add(ui::graph(
+            &mut gr.graph,
+            &mut gr.offset,
+            optics!(_0),
+            optics!(_1),
+            optics!(_0._mapped),
+            optics!(_1),
+        ))
+    });
 }
 
 fn test_main(packfile: &str) {
