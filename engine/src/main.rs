@@ -24,8 +24,8 @@ use std::fs::File;
 use std::vec::Vec;
 
 use clap::{Parser, Subcommand};
-use rmp_serde::encode;
 use lens_rs::*;
+use rmp_serde::encode;
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin};
@@ -53,14 +53,44 @@ fn test_ui() {
     let cat = cat!(ctx, (:0));
     let x = obj!(ctx, (:1) in cat);
     let y = obj!(ctx, (:2) in cat);
-    // let f = mph!(ctx, (:3) : x -> y);
-    // let g = mph!(ctx, (:4) : x -> y);
+    let f = mph!(ctx, (:3) : x -> y);
+    let g = mph!(ctx, (:4) : x -> y);
     let gr = Graph {
         nodes: vec![
             (x, (egui::Pos2::new(50.0, 50.0), "x".to_string())),
             (y, (egui::Pos2::new(200.0, 50.0), "y".to_string())),
         ],
-        edges: vec![],
+        edges: vec![
+            vec![
+                (
+                    1,
+                    (
+                        vec![[
+                            egui::Pos2::new(55.0, 45.0),
+                            egui::Pos2::new(70.0, 30.0),
+                            egui::Pos2::new(180.0, 30.0),
+                            egui::Pos2::new(195.0, 45.0),
+                        ]],
+                        "f".to_string(),
+                    ),
+                    f,
+                ),
+                (
+                    1,
+                    (
+                        vec![[
+                            egui::Pos2::new(55.0, 55.0),
+                            egui::Pos2::new(70.0, 70.0),
+                            egui::Pos2::new(180.0, 70.0),
+                            egui::Pos2::new(195.0, 55.0),
+                        ]],
+                        "g".to_string(),
+                    ),
+                    g,
+                ),
+            ],
+            vec![],
+        ],
         faces: vec![],
     };
     App::new()
