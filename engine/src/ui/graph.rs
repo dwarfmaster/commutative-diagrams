@@ -82,7 +82,7 @@ where
             click: true,
             drag: true,
             focusable: true,
-        }
+        },
     );
     let rect = response.rect;
 
@@ -146,16 +146,20 @@ where
         let mut fg_stroke = visuals.fg_stroke;
         fg_stroke.width *= gd.zoom;
 
-        let setup_pos = |p: Pos2| -> Pos2 {
-            (gd.zoom * p.to_vec2()).to_pos2().add(offset)
-        };
+        let setup_pos = |p: Pos2| -> Pos2 { (gd.zoom * p.to_vec2()).to_pos2().add(offset) };
 
         // Paint nodes
         for (_, label) in &gd.graph.nodes {
-            let radius = 2.5 * gd.zoom;
             let pos = setup_pos(label.view_ref(gd.node_pos).clone());
-            painter.circle(pos, radius, fg_stroke.color, fg_stroke);
-            // TODO paint label
+            let name = label.view_ref(gd.node_name);
+            let size = 14.0 * gd.zoom;
+            painter.text(
+                pos,
+                egui::Align2::CENTER_CENTER,
+                name,
+                egui::FontId::proportional(size),
+                fg_stroke.color,
+            );
         }
 
         // Paint edges
@@ -182,10 +186,7 @@ where
                     let rot = Rot2::from_angle(std::f32::consts::TAU / 12.0);
                     let length = 5.0 * gd.zoom;
                     painter.line_segment([tip, tip - length * (rot * dir)], fg_stroke);
-                    painter.line_segment(
-                        [tip, tip - length * (rot.inverse() * dir)],
-                        fg_stroke,
-                    );
+                    painter.line_segment([tip, tip - length * (rot.inverse() * dir)], fg_stroke);
                 }
 
                 // TODO paint label
