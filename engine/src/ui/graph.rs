@@ -190,7 +190,7 @@ where
                     painter.line_segment([tip, tip - length * (rot.inverse() * dir)], fg_stroke);
                 }
 
-                // TODO paint label
+                // paint label
                 let lengths = curves
                     .iter()
                     .map(|cbc| cubic_length(&cbc))
@@ -207,7 +207,7 @@ where
                         })
                         .unwrap_or_else(|pos| pos);
                     let dir = cubic_derivative(&curves[middle], 0.5).normalized().rot90();
-                    let pos = curves[middle].sample(0.5) + gd.zoom * 14.0 * dir;
+                    let pos = curves[middle].sample(0.5) + gd.zoom * 8.0 * dir;
                     let name = label.view_ref(gd.path_name);
                     painter.text(
                         pos,
@@ -243,7 +243,7 @@ fn cubic_derivative(curve: &egui::epaint::CubicBezierShape, t: f32) -> Vec2 {
     let v3 = curve.points[3].to_vec2();
     let f0 = -3.0 * (1.0 - t) * (1.0 - t);
     let f1 = 3.0 * (1.0 - t) * (1.0 - t) - 6.0 * t * (1.0 - t);
-    let f2 = 3.0 * t * t + 6.0 * t * (1.0 - t);
+    let f2 = -3.0 * t * t + 6.0 * t * (1.0 - t);
     let f3 = 3.0 * t * t;
     f0 * v0 + f1 * v1 + f2 * v2 + f3 * v3
 }
