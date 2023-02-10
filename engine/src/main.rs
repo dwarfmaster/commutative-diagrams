@@ -42,6 +42,7 @@ struct LuaCode {
     value: String,
 }
 
+type UiGraph = Graph<(egui::Pos2, String), (Vec<[egui::Pos2; 4]>, String), ()>;
 type GD = ui::GraphDisplay<
     (egui::Pos2, String),
     (Vec<[egui::Pos2; 4]>, String),
@@ -99,20 +100,8 @@ fn test_ui() {
             value: String::new(),
         })
         .insert_resource(gd)
-        .add_system(test_ui_system)
+        .add_system(goal_ui_system)
         .run();
-}
-
-fn test_ui_system(
-    mut egui_context: ResMut<EguiContext>,
-    mut code: ResMut<LuaCode>,
-    mut gr: ResMut<GD>,
-) {
-    egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| ui.code_editor(&mut code.as_mut().value))
-    });
-
-    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| ui.add(ui::graph(gr.as_mut())));
 }
 
 fn test_main(packfile: &str) {
@@ -171,13 +160,48 @@ where
 {
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
-    let _goal: SolveGraph = client
-        .receive_msg(goal_req, parser::Parser::<SolveGraph>::new(ctx.clone()))
+    let mut goal: UiGraph = client
+        .receive_msg(goal_req, parser::Parser::<UiGraph>::new(ctx.clone()))
         .unwrap_or_else(|err| {
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
         });
     log::info!("Goal received");
+
+    // Label/name all objects
+    log::info!("Autolabelling graph");
+    for n in 0..goal.nodes.len() {
+        // TODO
+        goal.nodes[n].1 .1 = format!("n{}", n);
+    }
+    for src in 0..goal.nodes.len() {
+        for mph in 0..goal.edges[src].len() {
+            goal.edges[src][mph].1 .1 = "edge".to_string();
+        }
+    }
+
+    // Layout the graph
+    log::info!("Layouting the graph");
+    goal.layout(optics!(_0), optics!(_1), optics!(_0), optics!(_1));
+
+    // Run the ui
+    log::info!("Running the ui");
+    let gd: GD = ui::GraphDisplay::new(
+        goal,
+        optics!(_0),
+        optics!(_1),
+        optics!(_0._mapped),
+        optics!(_1),
+    );
+    App::new()
+        .add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
+        .add_plugin(EguiPlugin)
+        .insert_resource(LuaCode {
+            value: String::new(),
+        })
+        .insert_resource(gd)
+        .add_system(goal_ui_system)
+        .run();
 
     // Result is a vector of existentials and their instantiation
     let result: Vec<(u64, anyterm::AnyTerm)> = Vec::new();
@@ -190,6 +214,18 @@ where
             panic!()
         });
     log::info!("Acknowledgement of refinements received");
+}
+
+fn goal_ui_system(
+    mut egui_context: ResMut<EguiContext>,
+    mut code: ResMut<LuaCode>,
+    mut gr: ResMut<GD>,
+) {
+    egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| ui.code_editor(&mut code.as_mut().value))
+    });
+
+    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| ui.add(ui::graph(gr.as_mut())));
 }
 
 fn goal_print<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>, path: String)
@@ -362,7 +398,15 @@ where
 fn embed(normalize: bool, autosolve: Option<usize>, print: Option<String>) {
     simplelog::WriteLogger::init(
         simplelog::LevelFilter::Debug,
-        simplelog::Config::default(),
+        simplelog::ConfigBuilder::new()
+            .set_max_level(simplelog::LevelFilter::max())
+            .add_filter_ignore("wgpu_hal".to_string())
+            .add_filter_ignore("wgpu_core".to_string())
+            .add_filter_ignore("objects".to_string())
+            .add_filter_ignore("winit".to_string())
+            .add_filter_ignore("gilrs".to_string())
+            .add_filter_ignore("naga".to_string())
+            .build(),
         File::create("diagrams-engine.log").unwrap(),
     )
     .unwrap();

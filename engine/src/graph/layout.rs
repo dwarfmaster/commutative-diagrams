@@ -21,12 +21,17 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
         EL: LensMut<EPos, Vec<[Pos2; 4]>> + Lens<EName, String>,
     {
         // Spawn the  graphviz process
+        log::trace!("Spawning graphviz");
         let mut graphviz = Command::new("dot")
             .arg("-Tjson")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
+            .map_err(|err| {
+                log::debug!("Failed to start graphivz: {}", err);
+                err
+            })
             .expect("Failed to start graphviz");
 
         // Keep a hashmap of labels to nodes id/edge id
@@ -39,6 +44,7 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
         // case, the following code must be started on a thread while the main
         // process reads on stdout. See example here:
         //   https://doc.rust-lang.org/std/process/struct.Stdio.html#method.piped
+        log::trace!("Writing the graph to stdin");
         {
             let mut stdin = graphviz.stdin.take().expect("Failed to open stdin");
             write!(stdin, "digraph {{\n").unwrap();
@@ -61,11 +67,17 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
         }
 
         // Run graphviz and read its output as json
+        log::trace!("Reading graphviz output");
         let stdout = graphviz.stdout.take().expect("Failed to bind stdout");
-        let json: serde_json::Value =
-            serde_json::from_reader(stdout).expect("Couldn't parse graphviz output as json");
+        let json: serde_json::Value = serde_json::from_reader(stdout)
+            .map_err(|err| {
+                log::debug!("Coudln't parse graphivz output: {}", err);
+                err
+            })
+            .expect("Couldn't parse graphviz output as json");
 
         // Find the coordinates of dots
+        log::trace!("Place nodes");
         for object in json["objects"]
             .as_array()
             .expect(".objects should be a list")
@@ -79,6 +91,7 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
         }
 
         // Find the coordinates of edges
+        log::trace!("Place edges");
         for edge in json["edges"].as_array().expect(".edges should be a list") {
             let name = edge["label"]
                 .as_str()
