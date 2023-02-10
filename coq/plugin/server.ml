@@ -43,7 +43,7 @@ module Make(PA: Pa.ProofAssistant) = struct
       Unix.open_process_args_full
         engine_path
         (Array.of_list ("commutative-diagrams-engine" :: args))
-        (Array.make 0 "") in
+        (Unix.environment ()) in
     ret { stdin = stdin; stdout = stdout; stderr = stderr; goal = goal }
 
   let is_none opt : bool =
