@@ -24,6 +24,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   type remote = 
     { stdin: out_channel
     ; stdout: in_channel
+    ; stderr: in_channel
     ; goal: goal
     }
 
@@ -38,9 +39,12 @@ module Make(PA: Pa.ProofAssistant) = struct
       | GNormalize _ -> [ "embed"; "--normalize" ]
       | GSolve (level,_,_,_) -> [ "embed"; Printf.sprintf "--autosolve=%d" level ]
       in
-    let (stdout,stdin) =
-      Unix.open_process_args engine_path (Array.of_list ("commutative-diagrams-engine" :: args)) in
-    ret { stdin = stdin; stdout = stdout; goal = goal }
+    let (stdout,stdin,stderr) =
+      Unix.open_process_args_full
+        engine_path
+        (Array.of_list ("commutative-diagrams-engine" :: args))
+        (Array.make 0 "") in
+    ret { stdin = stdin; stdout = stdout; stderr = stderr; goal = goal }
 
   let is_none opt : bool =
     match opt with
@@ -273,6 +277,10 @@ module Make(PA: Pa.ProofAssistant) = struct
       | Msgpack.Eof ->
           (* Failed to finish *)
           finish := true;
+          let err = In_channel.input_line rm.stderr in
+          let* _ = match err with
+          | Some err -> warning err
+          | None -> ret () in
           fail "Connection interrupted"
       | Msgpack.Error err ->
           let* _ = warning err in
