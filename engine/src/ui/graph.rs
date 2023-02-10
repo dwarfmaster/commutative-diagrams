@@ -154,7 +154,7 @@ where
             let size = 14.0 * gd.zoom;
             painter.text(
                 pos,
-                egui::Align2::CENTER_CENTER,
+                egui::Align2::CENTER_TOP,
                 name,
                 egui::FontId::proportional(size),
                 fg_stroke.color,

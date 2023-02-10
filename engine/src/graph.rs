@@ -1,6 +1,7 @@
 mod definition;
 mod enumeration;
 mod graphviz;
+mod layout;
 pub mod mces;
 mod parser;
 

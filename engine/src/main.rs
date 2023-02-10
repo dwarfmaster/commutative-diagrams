@@ -53,6 +53,7 @@ type GD = ui::GraphDisplay<
 >;
 
 fn test_ui() {
+    // Build the graph
     let ctx = data::Context::new();
     let cat = cat!(ctx, (:0));
     let x = obj!(ctx, (:1) in cat);
@@ -61,59 +62,29 @@ fn test_ui() {
     let f = mph!(ctx, (:4) : x -> y);
     let g = mph!(ctx, (:5) : x -> y);
     let h = mph!(ctx, (:6) : x -> z);
-    let gr = Graph {
+    let mut gr = Graph {
         nodes: vec![
-            (x, (egui::Pos2::new(50.0, 50.0), "x".to_string())),
-            (y, (egui::Pos2::new(200.0, 50.0), "y".to_string())),
-            (z, (egui::Pos2::new(200.0, 200.0), "z".to_string())),
+            (x, (egui::Pos2::ZERO, "x".to_string())),
+            (y, (egui::Pos2::ZERO, "y".to_string())),
+            (z, (egui::Pos2::ZERO, "z".to_string())),
         ],
         edges: vec![
             vec![
-                (
-                    1,
-                    (
-                        vec![[
-                            egui::Pos2::new(55.0, 45.0),
-                            egui::Pos2::new(70.0, 30.0),
-                            egui::Pos2::new(180.0, 30.0),
-                            egui::Pos2::new(195.0, 45.0),
-                        ]],
-                        "f".to_string(),
-                    ),
-                    f,
-                ),
-                (
-                    1,
-                    (
-                        vec![[
-                            egui::Pos2::new(55.0, 55.0),
-                            egui::Pos2::new(70.0, 70.0),
-                            egui::Pos2::new(180.0, 70.0),
-                            egui::Pos2::new(195.0, 55.0),
-                        ]],
-                        "g".to_string(),
-                    ),
-                    g,
-                ),
-                (
-                    2,
-                    (
-                        vec![[
-                            egui::Pos2::new(50.0, 55.0),
-                            egui::Pos2::new(50.0, 75.0),
-                            egui::Pos2::new(100.0, 200.0),
-                            egui::Pos2::new(195.0, 200.0),
-                        ]],
-                        "h".to_string(),
-                    ),
-                    h,
-                ),
+                (1, (vec![], "f".to_string()), f),
+                (1, (vec![], "g".to_string()), g),
+                (2, (vec![], "h".to_string()), h),
             ],
             vec![],
             vec![],
         ],
         faces: vec![],
     };
+
+    // Layout it
+    // Labels should be different than names, but for testing we keep them the same.
+    gr.layout(optics!(_0), optics!(_1), optics!(_0), optics!(_1));
+
+    // Run the ui
     let gd: GD = ui::GraphDisplay::new(
         gr,
         optics!(_0),
