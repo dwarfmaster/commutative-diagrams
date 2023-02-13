@@ -73,7 +73,11 @@ module Make(M : Monad) = struct
   (* State operations *)
   
   let push_back (arr : 'a array) (x : 'a) : 'a array = Array.append arr [| x |]
-  let eqPred () = get (fun st -> st.eqPred)
+  let eqPred () = get (fun st -> fun x y ->
+    match x, y with
+    | Ctx x, Ctx y -> st.eqPred x y
+    | Evar e1, Evar e2 -> M.return (Evar.repr e1 = Evar.repr e2)
+    | _ -> M.return false)
 
   let rec arr_find_optM' (id : int) (pred : 'a -> bool M.m) (arr : 'a array) : 'a option M.m =
     if id >= Array.length arr

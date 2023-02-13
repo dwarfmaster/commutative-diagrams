@@ -3,7 +3,11 @@ module St = Hyps.Make(Hott.M)
 open St.Combinators
 open Data
 
-let ppe = fun sigma env -> Printer.pr_econstr_env env sigma
+let ppe = fun sigma env atom -> 
+  match atom with
+  | Ctx c -> Printer.pr_econstr_env env sigma c
+  | Evar e -> Pp.(str "?:" ++ int (Evar.repr e))
+  | Hole i -> Pp.(str "?" ++ int i)
 let (++) = Pp.(++)
 
 let cat sigma env cat =

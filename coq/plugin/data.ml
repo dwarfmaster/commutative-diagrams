@@ -12,14 +12,20 @@ let cmp3 i1 i2 i3 =
 (*   |_| \__, | .__/ \___||___/ *)
 (*       |___/|_|               *)
 (* Types *)
+
+type 't atomic =
+  | Ctx of 't
+  | Evar of Evar.t
+  | Hole of int
+
 type 't categoryData =
-  { cat_obj : 't
+  { cat_obj : 't atomic
   ; cat_id  : int
   }
 and 't category =
   | AtomicCategory of 't categoryData
 and 't functData =
-  { funct_obj  : 't
+  { funct_obj  : 't atomic
   ; funct_id   : int
   ; funct_src_ : 't category
   ; funct_dst_ : 't category
@@ -27,7 +33,7 @@ and 't functData =
 and 't funct =
   | AtomicFunctor of 't functData
 and 't elemData =
-  { elem_obj  : 't
+  { elem_obj  : 't atomic
   ; elem_cat_ : 't category
   ; elem_id   : int
   }
@@ -35,7 +41,7 @@ and 't elem =
   | AtomicElem of 't elemData
   | FObj of 't funct * 't elem
 and 't morphismData =
-  { mph_obj  : 't
+  { mph_obj  : 't atomic
   ; mph_cat_ : 't category
   ; mph_src_ : 't elem 
   ; mph_dst_ : 't elem
@@ -58,7 +64,6 @@ and 't morphism =
 
 (* Equality between uninterned morphisms *)
 type 't eq =
-  | Hole of 't morphism * 't morphism
   | Refl of 't morphism
   | Concat of 't eq * 't eq
   | InvEq of 't eq
@@ -82,7 +87,7 @@ and 't eqData =
   ; eq_src_   : 't elem 
   ; eq_dst_   : 't elem 
   ; eq_cat_   : 't category
-  ; eq_obj    : 't
+  ; eq_obj    : 't atomic
   ; eq_id     : int
   }
 
@@ -224,7 +229,6 @@ let rec cmp_morphism (m1 : 't morphism) (m2 : 't morphism) : int =
 (* Equality *)
 let rec eq_left (e : 't eq) : ' tmorphism = 
   match e with
-  | Hole (m1,_) -> m1
   | Refl m -> m 
   | Concat (e1,_) -> eq_left e1
   | InvEq e -> eq_right e
@@ -245,7 +249,6 @@ let rec eq_left (e : 't eq) : ' tmorphism =
 
 and eq_right (e : 't eq) : 't morphism = 
   match e with
-  | Hole (_,m2) -> m2
   | Refl m -> m 
   | Concat (_,e2) -> eq_right e2
   | InvEq e -> eq_left e
@@ -266,7 +269,6 @@ and eq_right (e : 't eq) : 't morphism =
 
 and eq_src (e : 't eq) : 't elem =
   match e with
-  | Hole (m,_) -> morphism_src m
   | Refl m -> morphism_src m 
   | Concat (e,_) -> eq_src e
   | InvEq e -> eq_src e
@@ -287,7 +289,6 @@ and eq_src (e : 't eq) : 't elem =
 
 and eq_dst (e : 't eq) : 't elem =
   match e with 
-  | Hole (m,_) -> morphism_dst m
   | Refl m -> morphism_dst m 
   | Concat (e,_) -> eq_dst e
   | InvEq e -> eq_dst e
@@ -308,7 +309,6 @@ and eq_dst (e : 't eq) : 't elem =
 
 and eq_cat (e : 't eq) : 't category =
   match e with 
-  | Hole (m,_) -> morphism_cat m
   | Refl m -> morphism_cat m 
   | Concat (e,_) -> morphism_cat (eq_left e)
   | InvEq e -> morphism_cat (eq_left e)
@@ -329,11 +329,6 @@ and eq_cat (e : 't eq) : 't category =
 
 let rec check_eq (e : 't eq) : bool =
   match e with
-  | Hole (m1,m2) -> check_morphism m1 
-                 && check_morphism m2 
-                 && cmp_category (morphism_cat m1) (morphism_cat m2) = 0
-                 && cmp_elem (morphism_src m1) (morphism_src m2) = 0
-                 && cmp_elem (morphism_dst m1) (morphism_dst m2) = 0
   | Refl m -> check_morphism m 
   | Concat (e1,e2) -> check_eq e1
                    && check_eq e2
@@ -379,7 +374,6 @@ let rec check_eq (e : 't eq) : bool =
 
 let eq_constructor_id eq =
   match eq with
-  | Hole _ -> 0
   | Refl _ -> 1
   | Concat _ -> 2
   | InvEq _ -> 3
@@ -400,7 +394,6 @@ let eq_constructor_id eq =
 
 let rec cmp_eq eq1 eq2 =
   match eq1, eq2 with
-  | Hole (m11,m12), Hole (m21,m22) -> cmp2 (cmp_morphism m11 m21) (cmp_morphism m12 m22)
   | Refl m1, Refl m2 -> cmp_morphism m1 m2
   | Concat (eq11,eq12), Concat (eq21,eq22) -> cmp2 (cmp_eq eq11 eq21) (cmp_eq eq12 eq22)
   | InvEq eq1, InvEq eq2 -> cmp_eq eq1 eq2

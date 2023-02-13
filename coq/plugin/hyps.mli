@@ -33,25 +33,25 @@ module Make(M : Monad) : sig
   (* State operations *)
   val getCategories : unit -> ('t Data.categoryData array,'t) t 
   val getCategory : int -> ('t Data.categoryData,'t) t
-  val registerCategory : cat:'t
+  val registerCategory : cat:('t Data.atomic)
                       -> ('t Data.categoryData,'t) t
   
   val getFunctors : unit -> ('t Data.functData array,'t) t 
   val getFunctor : int -> ('t Data.functData,'t) t
-  val registerFunctor : funct:'t
+  val registerFunctor : funct:('t Data.atomic)
                      -> src:'t Data.category
                      -> dst:'t Data.category
                      -> ('t Data.functData,'t) t
   
   val getElems : unit -> ('t Data.elemData array,'t) t 
   val getElem : int -> ('t Data.elemData,'t) t 
-  val registerElem : elem:'t 
+  val registerElem : elem:('t Data.atomic)
                   -> cat:'t Data.category
                   -> ('t Data.elemData,'t) t
   
   val getMorphisms : unit -> ('t Data.morphismData array,'t) t
   val getMorphism : int -> ('t Data.morphismData,'t) t
-  val registerMorphism : mph:'t 
+  val registerMorphism : mph:('t Data.atomic)
                       -> cat:'t Data.category 
                       -> src:'t Data.elem
                       -> dst:'t Data.elem 
@@ -59,7 +59,7 @@ module Make(M : Monad) : sig
   
   val getEqs : unit -> ('t Data.eqData array,'t) t 
   val getEq : int -> ('t Data.eqData,'t) t 
-  val registerEq : eq:'t
+  val registerEq : eq:('t Data.atomic)
                 -> right:'t Data.morphism
                 -> left:'t Data.morphism
                 -> cat:'t Data.category

@@ -1,12 +1,17 @@
 
+type 't atomic =
+  | Ctx of 't (* A constant in the context or an hypothesis *)
+  | Evar of Evar.t (* A coq evar *)
+  | Hole of int (* A hole that should result in the creation of a new evar *)
+
 type 't categoryData =
-  { cat_obj : 't
+  { cat_obj : 't atomic
   ; cat_id  : int
   }
 and 't category =
   | AtomicCategory of 't categoryData
 and 't functData =
-  { funct_obj  : 't
+  { funct_obj  : 't atomic
   ; funct_id   : int
   ; funct_src_ : 't category
   ; funct_dst_ : 't category
@@ -14,7 +19,7 @@ and 't functData =
 and 't funct =
   | AtomicFunctor of 't functData
 and 't elemData =
-  { elem_obj  : 't
+  { elem_obj  : 't atomic
   ; elem_cat_ : 't category
   ; elem_id   : int
   }
@@ -22,7 +27,7 @@ and 't elem =
   | AtomicElem of 't elemData
   | FObj of 't funct * 't elem
 and 't morphismData =
-  { mph_obj  : 't
+  { mph_obj  : 't atomic
   ; mph_cat_ : 't category
   ; mph_src_ : 't elem 
   ; mph_dst_ : 't elem
@@ -67,7 +72,6 @@ val morphism_dst : 't morphism -> 't elem
 
 (* Equality between uninterned morphisms *)
 type 't eq =
-  | Hole of 't morphism * 't morphism
   | Refl of 't morphism
   | Concat of 't eq * 't eq
   | InvEq of 't eq
@@ -91,7 +95,7 @@ and 't eqData =
   ; eq_src_   : 't elem 
   ; eq_dst_   : 't elem 
   ; eq_cat_   : 't category
-  ; eq_obj    : 't
+  ; eq_obj    : 't atomic
   ; eq_id     : int
   }
 val check_eq : 't eq -> bool

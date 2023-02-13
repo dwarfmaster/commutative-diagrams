@@ -3,7 +3,6 @@ open Data
 
 let rec simpl_inv inv eq =
   match eq with
-  | Hole (m1,m2) -> if inv then Hole (m2,m1) else Hole (m1,m2)
   | Refl m -> Refl m
   | Concat (eq1,eq2) ->
       let eq1 = simpl_inv inv eq1 in

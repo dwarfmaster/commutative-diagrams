@@ -63,7 +63,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   type handler = Msgpack.t list -> handler_ret m
 
   (* Credits ChatGPT *)
-  let mapiM_list (init : 'b list) (f: int -> 'a -> 'b m) (arr: 'a array) : 'b list m =
+  let mapiM_list (init : 'b list) (f: int -> 'a -> 'b option m) (arr: 'a array) : 'b list m =
     let len = Array.length arr in
     let res = ref init in
     let rec loop i =
@@ -71,42 +71,56 @@ module Make(PA: Pa.ProofAssistant) = struct
       else begin
         let elt = Array.get arr i in
         let* b = f i elt in
-        res := b :: !res;
+        begin match b with
+        | Some b -> res := b :: !res
+        | None -> ()
+        end;
         loop (i - 1)
       end
     in
     loop (len - 1)
 
   let serialize_obj_on (tl : Msgpack.t list) (objs : 'a array)
-                       (data : 'a -> PA.t) (mk_id : int -> int)
+                       (data : 'a -> PA.t option) (mk_id : int -> int)
                      : Msgpack.t list m =
     objs
     |> mapiM_list tl 
          (fun id obj ->
-           let* pcat = lift (PA.print (data obj)) in
-           ret (Msgpack.Array [ Msgpack.Integer (mk_id id); Msgpack.String pcat ]))
+           let obj = data obj in
+           match obj with
+           | None -> ret None
+           | Some obj ->
+               let* pcat = lift (PA.print obj) in
+               ret (Some (Msgpack.Array [ Msgpack.Integer (mk_id id); Msgpack.String pcat ])))
+
+  let prepare_atom a =
+    let open Data in
+    match a with
+    | Ctx e -> Some e
+    | Evar _ -> None
+    | Hole _ -> None
 
   let handle_hyps (args : Msgpack.t list) : handler_ret m =
     let* cats = St.getCategories () in
     let* rt =
       serialize_obj_on [] cats 
-        (fun cat -> cat.Data.cat_obj) Sd.mk_cat_id in
+        (fun cat -> prepare_atom cat.Data.cat_obj) Sd.mk_cat_id in
     let* functs = St.getFunctors () in
     let* rt =
       serialize_obj_on rt functs
-        (fun funct -> funct.Data.funct_obj) Sd.mk_funct_id in
+        (fun funct -> prepare_atom funct.Data.funct_obj) Sd.mk_funct_id in
     let* elems = St.getElems () in
     let* rt =
       serialize_obj_on rt elems
-        (fun elem -> elem.Data.elem_obj) Sd.mk_elem_id in
+        (fun elem -> prepare_atom elem.Data.elem_obj) Sd.mk_elem_id in
     let* mphs = St.getMorphisms () in
     let* rt =
       serialize_obj_on rt mphs
-        (fun mph -> mph.Data.mph_obj) Sd.mk_mph_id in
+        (fun mph -> prepare_atom mph.Data.mph_obj) Sd.mk_mph_id in
     let* eqs = St.getEqs () in
     let* rt =
       serialize_obj_on rt eqs
-        (fun eq -> eq.Data.eq_obj) Sd.mk_eq_id in
+        (fun eq -> prepare_atom eq.Data.eq_obj) Sd.mk_eq_id in
     ret (HRet (Msgpack.Array rt))
 
   let handle_goal (goal: goal) (args : Msgpack.t list) : handler_ret m =
@@ -157,7 +171,15 @@ module Make(PA: Pa.ProofAssistant) = struct
           | _ -> let* _ = fail "Expected a morphism and an equality from engine" in assert false
         end
         | _ -> let* _ = fail "Expected 2 arguments from engine" in assert false in
-      let eq = Data.Concat (eq1, Data.Concat (Hole (mph1,mph2), Data.InvEq eq2)) in
+      let* hole =
+        St.registerEq
+          ~eq:(Hole 0)
+          ~right:mph1
+          ~left:mph2
+          ~cat:(Data.morphism_cat mph1)
+          ~src:(Data.morphism_src mph1)
+          ~dst:(Data.morphism_dst mph1) in
+      let eq = Data.Concat (eq1, Data.Concat (Data.AtomicEq hole, Data.InvEq eq2)) in
       let* eq = lift (PA.realizeEq (SimplEq.simpl eq)) in
       let* env = lift (PA.env ()) in
       let* _ =
@@ -251,11 +273,19 @@ module Make(PA: Pa.ProofAssistant) = struct
     let* goal = 
       match act with
       | Graph (left,right) -> 
-          GGraph {
-            Gr.gr_nodes = [| Data.morphism_src left; Data.morphism_dst left |];
-            Gr.gr_edges = [| [ (1, left); (1, right) ]; [] |];
-            Gr.gr_faces = [ ];
-          } |> ret
+          let goal = Builder.empty () in
+          let* goal = Builder.import_hyps goal in
+          let* hole =
+            St.registerEq
+              ~eq:(Hole 0)
+              ~right
+              ~left
+              ~cat:(Data.morphism_cat right)
+              ~src:(Data.morphism_src right)
+              ~dst:(Data.morphism_dst right) in
+          let goal = Builder.add_face (Data.AtomicEq hole) goal in
+          let goal = Builder.build goal in
+          GGraph goal |> ret
       | Normalize (left,right) ->
           ret (GNormalize (left,right))
       | Print path -> 

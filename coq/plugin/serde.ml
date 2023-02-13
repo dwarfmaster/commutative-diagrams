@@ -244,7 +244,6 @@ module Make(PA: Pa.ProofAssistant) = struct
     let rec pack eq =
       match eq with
       | AtomicEq data -> pack_data data
-      | Hole _ -> raise Unimplemented (* Should become an existential *)
       | Refl m ->
           let* m = Mph.pack m in
           ret (cons "refl" m)

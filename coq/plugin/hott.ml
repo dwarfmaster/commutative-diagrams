@@ -61,7 +61,7 @@ let isInd sigma pred t =
 (* Categories *)
 
 let registerAtomCat (cat : EConstr.t) =
-  let* cat = St.registerCategory ~cat in 
+  let* cat = St.registerCategory ~cat:(Data.Ctx cat) in 
   ret (Data.AtomicCategory cat)
 
 let parseCategoryType (cat : EConstr.t) : bool m =
@@ -85,7 +85,7 @@ let parseCategory (cat : EConstr.t) (tp : EConstr.t) =
 (* Functors *)
 
 let registerAtomFunct funct src dst =
-  let* funct = St.registerFunctor ~funct ~src ~dst in 
+  let* funct = St.registerFunctor ~funct:(Data.Ctx funct) ~src ~dst in 
   ret (Data.AtomicFunctor funct)
 
 let parseFunctorType (funct : t) : (t*t) option m =
@@ -118,7 +118,7 @@ let parseFunctor (funct : EConstr.t) (tp : EConstr.t) =
 (* Elems *)
 
 let registerAtomElem elem cat =
-  let* elem = St.registerElem ~elem ~cat in 
+  let* elem = St.registerElem ~elem:(Data.Ctx elem) ~cat in 
   ret (Data.AtomicElem elem)
 
 let parseElemType (obj : t) : t option m =
@@ -169,7 +169,7 @@ let parseElem (elem : EConstr.t) (tp : EConstr.t) =
 (* Morphisms *)
 
 let registerAtomMorphism mph cat src dst =
-  let* mph = St.registerMorphism ~mph ~cat ~src ~dst in 
+  let* mph = St.registerMorphism ~mph:(Data.Ctx mph) ~cat ~src ~dst in 
   ret (Data.AtomicMorphism mph)
 
 let parseMorphismType (mph : t) : (t * t * t) option m =
@@ -249,7 +249,7 @@ let parseMorphism mph tp =
 (* Equalities *)
 
 let registerAtomEq eq right left cat src dst =
-  let* eq = St.registerEq ~eq ~right ~left ~cat ~src ~dst in 
+  let* eq = St.registerEq ~eq:(Data.Ctx eq) ~right ~left ~cat ~src ~dst in 
   ret (Data.AtomicEq eq)
 
 let parseEqType (eq : t) : (t * t * t * t * t) option m =
@@ -334,7 +334,7 @@ let parseProperties hyp prop =
         match mph with
         | AtomicMorphism dt -> ret dt
         | _ ->
-            let* mphAtom = St.registerMorphism ~mph:mphEC ~cat ~src ~dst in
+            let* mphAtom = St.registerMorphism ~mph:(Data.Ctx mphEC) ~cat ~src ~dst in
             let* tp = liftP (Env.app (Env.mk_mphT ()) [| catEC; srcEC; dstEC |]) in
             let* eq = liftP (Env.app (Env.mk_refl ()) [| tp; mphEC |]) in
             let* _ = registerAtomEq eq (AtomicMorphism mphAtom) mph cat src dst in
@@ -344,7 +344,7 @@ let parseProperties hyp prop =
       | Mono -> mphData.mono <- Some hyp; ret ()
       | Iso ->
           let* inv = liftP (Env.app (Env.mk_inv_mph ()) [| catEC; srcEC; dstEC; mphEC; hyp |]) in
-          let* inv = St.registerMorphism ~mph:inv ~cat ~src:dst ~dst:src in
+          let* inv = St.registerMorphism ~mph:(Data.Ctx inv) ~cat ~src:dst ~dst:src in
           let iso = 
             { Data.iso_obj = hyp
             ; Data.iso_mph = mphData
@@ -368,20 +368,42 @@ let (let$) = M.bind
 let pret = M.return
 let app f args = M.lift (Env.app f args)
 
+let realizeEvar e = assert false
+
+let realizeHole i = assert false
+  (* | Hole (m1,m2) -> *)
+  (*     let$ tp = mphT m1 in *)
+  (*     let$ m1 = realizeMorphism m1 in  *)
+  (*     let$ m2 = realizeMorphism m2 in *)
+  (*     let$ tp = app (Env.mk_eq ()) [| tp; m1; m2 |] in *)
+  (*     (* Create hole *) *)
+  (*     let$ sigma = M.lift Proofview.tclEVARMAP in *)
+  (*     let$ env = M.env () in *)
+  (*     let (sigma,hole) = Evarutil.new_evar ~principal:true env sigma tp in *)
+  (*     let$ _ = M.lift (Proofview.Unsafe.tclEVARS sigma) in *)
+  (*     pret hole *)
+
+let realizeAtomic a =
+  let open Data in
+  match a with
+  | Ctx h -> pret h
+  | Evar e -> realizeEvar e
+  | Hole i -> realizeHole i
+
 let realizeCategory cat =
   let open Data in
   match cat with
-  | AtomicCategory cat -> pret cat.cat_obj
+  | AtomicCategory cat -> realizeAtomic cat.cat_obj
 
 let realizeFunctor funct =
   let open Data in
   match funct with
-  | AtomicFunctor funct -> pret funct.funct_obj
+  | AtomicFunctor funct -> realizeAtomic funct.funct_obj
 
 let rec realizeElem elem =
   let open Data in 
   match elem with
-  | AtomicElem elem -> pret elem.elem_obj
+  | AtomicElem elem -> realizeAtomic elem.elem_obj
   | FObj (funct,elem) ->
       let$ src = realizeCategory (funct_src funct) in
       let$ dst = realizeCategory (funct_dst funct) in
@@ -394,7 +416,7 @@ let rec realizeElem elem =
 let rec realizeMorphism mph =
   let open Data in 
   match mph with
-  | AtomicMorphism mph -> pret mph.mph_obj
+  | AtomicMorphism mph -> realizeAtomic mph.mph_obj
   | Identity elem ->
       let$ cat = realizeCategory (elem_cat elem) in
       let$ elem = realizeElem elem in 
@@ -413,7 +435,8 @@ let rec realizeMorphism mph =
           let$ cat = realizeCategory m.mph_cat_ in 
           let$ src = realizeElem m.mph_src_ in 
           let$ dst = realizeElem m.mph_dst_ in 
-          app (Env.mk_inv ()) [| cat; src; dst; m.mph_obj; iso.iso_obj |]
+          let$ mph = realizeAtomic m.mph_obj in
+          app (Env.mk_inv ()) [| cat; src; dst; mph; iso.iso_obj |]
       | None -> assert false (* Shouldn't happen *)
       end
   | Inv _ -> assert false (* Not supported yet *)
@@ -437,17 +460,6 @@ let mphT m =
 let rec realizeEq eq =
   let open Data in
   match eq with
-  | Hole (m1,m2) ->
-      let$ tp = mphT m1 in
-      let$ m1 = realizeMorphism m1 in 
-      let$ m2 = realizeMorphism m2 in
-      let$ tp = app (Env.mk_eq ()) [| tp; m1; m2 |] in
-      (* Create hole *)
-      let$ sigma = M.lift Proofview.tclEVARMAP in
-      let$ env = M.env () in
-      let (sigma,hole) = Evarutil.new_evar ~principal:true env sigma tp in
-      let$ _ = M.lift (Proofview.Unsafe.tclEVARS sigma) in
-      pret hole
   | Refl m ->
       let$ tp  = mphT m in
       let$ m   = realizeMorphism m in
@@ -527,14 +539,14 @@ let rec realizeEq eq =
       let$ cat = realizeCategory m.mph_cat_ in 
       let$ src = realizeElem m.mph_src_ in 
       let$ dst = realizeElem m.mph_dst_ in 
-      let m = m.mph_obj in
+      let$ m = realizeAtomic m.mph_obj in
       app (Env.mk_right_inv ()) [| cat; src; dst; m; iso.iso_obj |]
   | LInv iso ->
       let m = iso.iso_mph in 
       let$ cat = realizeCategory m.mph_cat_ in 
       let$ src = realizeElem m.mph_src_ in 
       let$ dst = realizeElem m.mph_dst_ in 
-      let m = m.mph_obj in
+      let$ m = realizeAtomic m.mph_obj in
       app (Env.mk_left_inv ()) [| cat; src; dst; m; iso.iso_obj |]
   | Mono (ec,m1,m2,p) ->
       let$ src = realizeElem (eq_src p) in
@@ -574,7 +586,7 @@ let rec realizeEq eq =
       let$ m2 = realizeMorphism (eq_right e) in
       let$ e = realizeEq e in
       app (Env.mk_funct_ctx ()) [| c; d; f; x; y; m1; m2; e |]
-  | AtomicEq eq -> pret eq.eq_obj
+  | AtomicEq eq -> realizeAtomic eq.eq_obj
 
 
 (*  _   _ _   _ _      *)
