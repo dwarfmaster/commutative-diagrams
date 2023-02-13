@@ -98,7 +98,6 @@ module Make(PA: Pa.ProofAssistant) = struct
     match a with
     | Ctx e -> Some e
     | Evar _ -> None
-    | Hole _ -> None
 
   let handle_hyps (args : Msgpack.t list) : handler_ret m =
     let* cats = St.getCategories () in
@@ -171,9 +170,10 @@ module Make(PA: Pa.ProofAssistant) = struct
           | _ -> let* _ = fail "Expected a morphism and an equality from engine" in assert false
         end
         | _ -> let* _ = fail "Expected 2 arguments from engine" in assert false in
+      let* evar = St.newEvar () in
       let* hole =
         St.registerEq
-          ~eq:(Hole 0)
+          ~eq:(Evar evar)
           ~right:mph1
           ~left:mph2
           ~cat:(Data.morphism_cat mph1)
@@ -275,9 +275,10 @@ module Make(PA: Pa.ProofAssistant) = struct
       | Graph (left,right) -> 
           let goal = Builder.empty () in
           let* goal = Builder.import_hyps goal in
+          let* evar = St.newEvar () in
           let* hole =
             St.registerEq
-              ~eq:(Hole 0)
+              ~eq:(Evar evar)
               ~right
               ~left
               ~cat:(Data.morphism_cat right)

@@ -369,8 +369,6 @@ let pret = M.return
 let app f args = M.lift (Env.app f args)
 
 let realizeEvar e = assert false
-
-let realizeHole i = assert false
   (* | Hole (m1,m2) -> *)
   (*     let$ tp = mphT m1 in *)
   (*     let$ m1 = realizeMorphism m1 in  *)
@@ -388,7 +386,6 @@ let realizeAtomic a =
   match a with
   | Ctx h -> pret h
   | Evar e -> realizeEvar e
-  | Hole i -> realizeHole i
 
 let realizeCategory cat =
   let open Data in

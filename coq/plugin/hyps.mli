@@ -66,5 +66,18 @@ module Make(M : Monad) : sig
                 -> src:'t Data.elem
                 -> dst:'t Data.elem
                 -> ('t Data.eqData,'t) t
+
+  (* Evars are an array of either uninstantiate evars (meaning not yet realized
+     as evars in Coq, just abstract unique numbers), or linked to a coq Evar.t *)
+  type evar =
+    | Abstract
+    | Realized of Evar.t
+    | NotFound
+  val getEvar : int -> (evar, 't) t
+  (* Create a new abstract evar *)
+  val newEvar : unit -> (int, 't) t
+  (* Associate a coq evar to an abstract evar. It will fail if the evar was already
+     present *)
+  val instantiateEvar : int -> Evar.t -> (unit, 't) t
 end
 

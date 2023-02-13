@@ -9,12 +9,14 @@ module Make(M : Monad) = struct
 
   open Data
   
+  module IntMap = Map.Make(struct type t = int let compare = compare end)
   type 't store =
     { categories : 't categoryData array
     ; functors   : 't functData array 
     ; elems      : 't elemData array 
     ; morphisms  : 't morphismData array 
     ; faces      : 't eqData array
+    ; evars      : Evar.t option IntMap.t
     ; eqPred     : 't -> 't -> bool M.m
     }
   let emptyStore : 't store =
@@ -23,6 +25,7 @@ module Make(M : Monad) = struct
     ; elems      = [| |]
     ; morphisms  = [| |]
     ; faces      = [| |]
+    ; evars      = IntMap.empty
     ; eqPred     = fun _ _ -> M.return false
     }
   
@@ -76,7 +79,7 @@ module Make(M : Monad) = struct
   let eqPred () = get (fun st -> fun x y ->
     match x, y with
     | Ctx x, Ctx y -> st.eqPred x y
-    | Evar e1, Evar e2 -> M.return (Evar.repr e1 = Evar.repr e2)
+    | Evar e1, Evar e2 -> M.return (e1 = e2)
     | _ -> M.return false)
 
   let rec arr_find_optM' (id : int) (pred : 'a -> bool M.m) (arr : 'a array) : 'a option M.m =
@@ -165,4 +168,18 @@ module Make(M : Monad) = struct
             ; eq_cat_ = cat; eq_src_ = src; eq_dst_ = dst }}) in
         getEq nid
 
+  type evar =
+    | Abstract
+    | Realized of Evar.t
+    | NotFound
+  let getEvar i = get (fun st -> match IntMap.find_opt i st.evars with
+        | Some (Some ev) -> Realized ev
+        | Some None -> Abstract
+        | None -> NotFound)
+  let newEvar () =
+    let* nid = get (fun st -> fst (IntMap.find_last (fun _ -> true) st.evars) + 1) in
+    let* _ = set (fun st -> { st with evars = IntMap.add nid None st.evars }) in
+    ret nid
+  let instantiateEvar i evar =
+    set (fun st -> { st with evars = IntMap.add i (Some evar) st.evars })
 end
