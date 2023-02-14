@@ -177,9 +177,13 @@ module Make(M : Monad) = struct
         | Some None -> Abstract
         | None -> NotFound)
   let newEvar () =
-    let* nid = get (fun st -> fst (IntMap.find_last (fun _ -> true) st.evars) + 1) in
-    let* _ = set (fun st -> { st with evars = IntMap.add nid None st.evars }) in
-    ret nid
+    let* empty = get (fun st -> IntMap.is_empty st.evars) in
+    if empty
+    then ret 0
+    else
+      let* nid = get (fun st -> fst (IntMap.find_last (fun _ -> true) st.evars) + 1) in
+      let* _ = set (fun st -> { st with evars = IntMap.add nid None st.evars }) in
+      ret nid
   let newEvarAt nid =
     set (fun st -> { st with evars = IntMap.add nid None st.evars })
   let instantiateEvar i evar =
