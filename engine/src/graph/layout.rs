@@ -5,17 +5,17 @@ use crate::graph::Graph;
 use egui::Pos2;
 use lens_rs::*;
 
-use std::collections::HashMap;
 use std::io::Write;
 use std::process::{Command, Stdio};
+use itertools::Itertools;
 
 impl<NL, EL, FL> Graph<NL, EL, FL> {
     pub fn layout<Pos: Copy, Name: Copy, EPos: Copy, EName: Copy>(
         &mut self,
         node_pos: Pos,
-        node_name: Name,
+        node_label: Name,
         edge_path: EPos,
-        edge_name: EName,
+        edge_label: EName,
     ) where
         NL: LensMut<Pos, Pos2> + Lens<Name, String>,
         EL: LensMut<EPos, Vec<[Pos2; 4]>> + Lens<EName, String>,
@@ -34,10 +34,6 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
             })
             .expect("Failed to start graphviz");
 
-        // Keep a hashmap of labels to nodes id/edge id
-        let mut nodes: HashMap<String, usize> = HashMap::new();
-        let mut edges: HashMap<String, (usize, usize)> = HashMap::new();
-
         // Write graph to dot input
         // It is ok to write synchronously since dot reads its whole input
         // before starting writing to stdout. If it turns out not to be the
@@ -49,18 +45,19 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
             let mut stdin = graphviz.stdin.take().expect("Failed to open stdin");
             write!(stdin, "digraph {{\n").unwrap();
             for n in 0..self.nodes.len() {
-                let lbl = self.nodes[n].1.view_ref(node_name);
-                nodes.insert(lbl.to_string(), n);
-                write!(stdin, "  {} [label=\"{}\" shape=plain];\n", lbl, lbl).unwrap();
+                let lbl = self.nodes[n].1.view_ref(node_label);
+                write!(stdin, "  n{} [label=\"{}:{}\" shape=plain];\n", n, n, lbl).unwrap();
             }
             for src in 0..self.nodes.len() {
                 for mph in 0..self.edges[src].len() {
                     let dst = self.edges[src][mph].0;
-                    let src_lbl = self.nodes[src].1.view_ref(node_name);
-                    let dst_lbl = self.nodes[dst].1.view_ref(node_name);
-                    let lbl = self.edges[src][mph].1.view_ref(edge_name);
-                    edges.insert(lbl.to_string(), (src, mph));
-                    write!(stdin, "  {} -> {} [label=\"{}\"];\n", src_lbl, dst_lbl, lbl).unwrap();
+                    let lbl = self.edges[src][mph].1.view_ref(edge_label);
+                    write!(
+                        stdin,
+                        "  n{} -> n{} [label=\"{}:{}:{}\"];\n",
+                        src, dst, src, mph, lbl
+                    )
+                    .unwrap();
                 }
             }
             write!(stdin, "}}").unwrap();
@@ -82,21 +79,30 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
             .as_array()
             .expect(".objects should be a list")
         {
-            let name = object["label"]
+            let id = object["label"]
                 .as_str()
-                .expect(".objects[].label should be a string");
-            let id = nodes.get(name).expect("The label should have been seen");
+                .expect(".objects[].label should be a string")
+                .split(":")
+                .next()
+                .expect("The label should not be empty")
+                .parse::<usize>()
+                .expect("The first part of the label should be the id");
             let pos = object_pos(object);
-            *self.nodes[*id].1.view_mut(node_pos) = pos;
+            *self.nodes[id].1.view_mut(node_pos) = pos;
         }
 
         // Find the coordinates of edges
         log::trace!("Place edges");
         for edge in json["edges"].as_array().expect(".edges should be a list") {
-            let name = edge["label"]
+            let (src_id,mph_id) = edge["label"]
                 .as_str()
-                .expect(".edges[].label should be a string");
-            let (src_id, mph_id) = edges.get(name).expect("The label should have been seen");
+                .expect(".edges[].label should be a string")
+                .split(":")
+                .take(2)
+                .map(|s|
+                    s.parse::<usize>().expect("The beggining of the label should be an integer"))
+                .collect_tuple()
+                .expect("The label should have two :-separated fields at least");
             let coordinates: Vec<Pos2> = edge["pos"]
                 .as_str()
                 .expect(".edges[].pos should be a string")
@@ -104,7 +110,7 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
                 .skip(1) // The first element e,... is not a control point
                 .map(parse_pos)
                 .collect();
-            *self.edges[*src_id][*mph_id].1.view_mut(edge_path) = split_bspline(coordinates);
+            *self.edges[src_id][mph_id].1.view_mut(edge_path) = split_bspline(coordinates);
         }
     }
 }
