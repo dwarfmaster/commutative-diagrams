@@ -5,9 +5,9 @@ use crate::graph::Graph;
 use egui::Pos2;
 use lens_rs::*;
 
+use itertools::Itertools;
 use std::io::Write;
 use std::process::{Command, Stdio};
-use itertools::Itertools;
 
 impl<NL, EL, FL> Graph<NL, EL, FL> {
     pub fn layout<Pos: Copy, Name: Copy, EPos: Copy, EName: Copy>(
@@ -46,7 +46,7 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
             write!(stdin, "digraph {{\n").unwrap();
             for n in 0..self.nodes.len() {
                 let lbl = self.nodes[n].1.view_ref(node_label);
-                write!(stdin, "  n{} [label=\"{}:{}\" shape=plain];\n", n, n, lbl).unwrap();
+                write!(stdin, "  n{} [label=\"{}:{}\", shape=plain];\n", n, n, lbl).unwrap();
             }
             for src in 0..self.nodes.len() {
                 for mph in 0..self.edges[src].len() {
@@ -54,7 +54,7 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
                     let lbl = self.edges[src][mph].1.view_ref(edge_label);
                     write!(
                         stdin,
-                        "  n{} -> n{} [label=\"{}:{}:{}\"];\n",
+                        "  n{} -> n{} [label=\"{}:{}:{}\", arrowhead=none];\n",
                         src, dst, src, mph, lbl
                     )
                     .unwrap();
@@ -94,20 +94,21 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
         // Find the coordinates of edges
         log::trace!("Place edges");
         for edge in json["edges"].as_array().expect(".edges should be a list") {
-            let (src_id,mph_id) = edge["label"]
+            let (src_id, mph_id) = edge["label"]
                 .as_str()
                 .expect(".edges[].label should be a string")
                 .split(":")
                 .take(2)
-                .map(|s|
-                    s.parse::<usize>().expect("The beggining of the label should be an integer"))
+                .map(|s| {
+                    s.parse::<usize>()
+                        .expect("The beggining of the label should be an integer")
+                })
                 .collect_tuple()
                 .expect("The label should have two :-separated fields at least");
             let coordinates: Vec<Pos2> = edge["pos"]
                 .as_str()
                 .expect(".edges[].pos should be a string")
                 .split(' ')
-                .skip(1) // The first element e,... is not a control point
                 .map(parse_pos)
                 .collect();
             *self.edges[src_id][mph_id].1.view_mut(edge_path) = split_bspline(coordinates);
@@ -156,7 +157,7 @@ fn split_bspline(controls: Vec<Pos2>) -> Vec<[Pos2; 4]> {
     assert_eq!(
         controls.len() % 3,
         1,
-        "The number of points should be of the from 4+3n"
+        "The number of points should be of the form 4+3n"
     );
     let ncurves = 1 + (controls.len() - 4) / 3;
     let mut result: Vec<[Pos2; 4]> = Vec::with_capacity(ncurves);

@@ -122,8 +122,7 @@ fn test_ui() {
     };
 
     // Layout it
-    // Labels should be different than names, but for testing we keep them the same.
-    gr.layout(optics!(pos), optics!(name), optics!(shape), optics!(name));
+    gr.layout(optics!(pos), optics!(label), optics!(shape), optics!(label));
 
     // Run the ui
     let gd = ui::GraphDisplay::new(
@@ -223,7 +222,7 @@ where
 
     // Layout the graph
     log::info!("Layouting the graph");
-    goal.layout(optics!(pos), optics!(name), optics!(shape), optics!(name));
+    goal.layout(optics!(pos), optics!(label), optics!(shape), optics!(label));
 
     // Run the ui
     log::info!("Running the ui");

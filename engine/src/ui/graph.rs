@@ -154,7 +154,7 @@ where
             let size = 14.0 * gd.zoom;
             painter.text(
                 pos,
-                egui::Align2::CENTER_TOP,
+                egui::Align2::CENTER_CENTER,
                 name,
                 egui::FontId::proportional(size),
                 fg_stroke.color,
@@ -206,16 +206,24 @@ where
                             v.partial_cmp(&half).expect("Couldn't compare floats")
                         })
                         .unwrap_or_else(|pos| pos);
-                    let dir = cubic_derivative(&curves[middle], 0.5).normalized().rot90();
+                    let dir = -cubic_derivative(&curves[middle], 0.5).normalized().rot90();
                     let pos = curves[middle].sample(0.5) + gd.zoom * 8.0 * dir;
                     let name = label.view_ref(gd.path_name);
-                    painter.text(
-                        pos,
-                        egui::Align2::CENTER_CENTER,
-                        name,
+                    let layout = painter.layout_no_wrap(
+                        name.to_string(),
                         egui::FontId::proportional(14.0 * gd.zoom),
                         fg_stroke.color,
                     );
+                    let rvec = layout.rect.size() * 0.5;
+                    let alpha = if dir.x.abs() <= 1e-6 {
+                        rvec.y / dir.y.abs()
+                    } else if dir.y.abs() <= 1e-6 {
+                        rvec.x / dir.x.abs()
+                    } else {
+                        (rvec.x / dir.x.abs()).min(rvec.y / dir.y.abs())
+                    };
+                    painter.circle(pos, 5.0, bg_stroke.color, fg_stroke);
+                    painter.galley(pos - rvec + alpha * dir, layout);
                 }
             }
         }
