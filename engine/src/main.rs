@@ -42,15 +42,55 @@ struct LuaCode {
     value: String,
 }
 
-type UiGraph = Graph<(egui::Pos2, String), (Vec<[egui::Pos2; 4]>, String), ()>;
+#[derive(Debug, Lens, Default)]
+struct NodeLabel {
+    #[optic]
+    pos: egui::Pos2,
+    #[optic]
+    name: String,
+    #[optic]
+    label: String,
+}
+
+impl NodeLabel {
+    pub fn new(name: String) -> Self {
+        Self {
+            pos: egui::Pos2::ZERO,
+            name: name.clone(),
+            label: name,
+        }
+    }
+}
+
+#[derive(Debug, Lens, Default)]
+struct EdgeLabel {
+    #[optic]
+    shape: Vec<[egui::Pos2; 4]>,
+    #[optic]
+    name: String,
+    #[optic]
+    label: String,
+}
+
+impl EdgeLabel {
+    pub fn new(name: String) -> Self {
+        Self {
+            shape: Vec::new(),
+            name: name.clone(),
+            label: name,
+        }
+    }
+}
+
+type UiGraph = Graph<NodeLabel, EdgeLabel, ()>;
 type GD = ui::GraphDisplay<
-    (egui::Pos2, String),
-    (Vec<[egui::Pos2; 4]>, String),
+    NodeLabel,
+    EdgeLabel,
     (),
-    _0<__>,
-    _1<__>,
-    _0<_mapped<__>>,
-    _1<__>,
+    optics::pos<__>,
+    optics::label<__>,
+    optics::shape<_mapped<__>>,
+    optics::label<__>,
 >;
 
 fn test_ui() {
@@ -63,17 +103,17 @@ fn test_ui() {
     let f = mph!(ctx, (:4) : x -> y);
     let g = mph!(ctx, (:5) : x -> y);
     let h = mph!(ctx, (:6) : x -> z);
-    let mut gr = Graph {
+    let mut gr: Graph<NodeLabel, EdgeLabel, ()> = Graph {
         nodes: vec![
-            (x, (egui::Pos2::ZERO, "x".to_string())),
-            (y, (egui::Pos2::ZERO, "y".to_string())),
-            (z, (egui::Pos2::ZERO, "z".to_string())),
+            (x, NodeLabel::new("x".to_string())),
+            (y, NodeLabel::new("y".to_string())),
+            (z, NodeLabel::new("z".to_string())),
         ],
         edges: vec![
             vec![
-                (1, (vec![], "f".to_string()), f),
-                (1, (vec![], "g".to_string()), g),
-                (2, (vec![], "h".to_string()), h),
+                (1, EdgeLabel::new("f".to_string()), f),
+                (1, EdgeLabel::new("g".to_string()), g),
+                (2, EdgeLabel::new("h".to_string()), h),
             ],
             vec![],
             vec![],
@@ -83,15 +123,15 @@ fn test_ui() {
 
     // Layout it
     // Labels should be different than names, but for testing we keep them the same.
-    gr.layout(optics!(_0), optics!(_1), optics!(_0), optics!(_1));
+    gr.layout(optics!(pos), optics!(name), optics!(shape), optics!(name));
 
     // Run the ui
-    let gd: GD = ui::GraphDisplay::new(
+    let gd = ui::GraphDisplay::new(
         gr,
-        optics!(_0),
-        optics!(_1),
-        optics!(_0._mapped),
-        optics!(_1),
+        optics!(pos),
+        optics!(label),
+        optics!(shape._mapped),
+        optics!(label),
     );
     App::new()
         .add_plugins(DefaultPlugins)
@@ -153,7 +193,7 @@ fn test_main(packfile: &str) {
     messagepack_to_file(packfile, &gr);
 }
 
-fn goal_graph<In, Out>(ctx: data::Context, mut client: rpc::Client<In, Out>)
+fn goal_graph<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>)
 where
     In: std::io::Read,
     Out: std::io::Write,
@@ -171,27 +211,28 @@ where
     // Label/name all objects
     log::info!("Autolabelling graph");
     for n in 0..goal.nodes.len() {
-        // TODO
-        goal.nodes[n].1 .1 = format!("n{}", n);
+        goal.nodes[n].1.name = format!("n_{}", n);
+        goal.nodes[n].1.label = goal.nodes[n].0.render(&mut ctx, 100);
     }
     for src in 0..goal.nodes.len() {
         for mph in 0..goal.edges[src].len() {
-            goal.edges[src][mph].1 .1 = "edge".to_string();
+            goal.edges[src][mph].1.name = format!("e_{}_{}", src, mph);
+            goal.edges[src][mph].1.label = goal.edges[src][mph].2.render(&mut ctx, 100);
         }
     }
 
     // Layout the graph
     log::info!("Layouting the graph");
-    goal.layout(optics!(_0), optics!(_1), optics!(_0), optics!(_1));
+    goal.layout(optics!(pos), optics!(name), optics!(shape), optics!(name));
 
     // Run the ui
     log::info!("Running the ui");
-    let gd: GD = ui::GraphDisplay::new(
+    let gd = ui::GraphDisplay::new(
         goal,
-        optics!(_0),
-        optics!(_1),
-        optics!(_0._mapped),
-        optics!(_1),
+        optics!(pos),
+        optics!(label),
+        optics!(shape._mapped),
+        optics!(label),
     );
     App::new()
         .add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
