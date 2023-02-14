@@ -38,6 +38,7 @@ val mk_iso : unit -> EConstr.t Proofview.tactic
 val mk_inv_mph : unit -> EConstr.t Proofview.tactic
 val mk_right_inv : unit -> EConstr.t Proofview.tactic
 val mk_left_inv : unit -> EConstr.t Proofview.tactic
+val mk_object : unit -> EConstr.t Proofview.tactic
 
 val is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool
 

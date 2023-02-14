@@ -135,6 +135,20 @@ let get_funct_ctx = fun _ -> perform_locate g_coq_funct_ctx g_coq_funct_ctx_name
 let mk_funct_ctx = fun _ -> mk_const (get_funct_ctx ())
 
 
+
+(*   ___  _     _           _    *)
+(*  / _ \| |__ (_) ___  ___| |_  *)
+(* | | | | '_ \| |/ _ \/ __| __| *)
+(* | |_| | |_) | |  __/ (__| |_  *)
+(*  \___/|_.__// |\___|\___|\__| *)
+(*           |__/                *)
+let g_coq_object : Names.Constant.t array ref = ref [| |]
+let g_coq_object_names : string array =
+  [| "Loader.objectT" |]
+let get_object = fun _ -> perform_locate g_coq_object g_coq_object_names locate_const
+let mk_object = fun _ -> mk_const (get_object ())
+
+
 (*  ___ *)
 (* | __|__ _ *)
 (* | _|/ _` | *)

@@ -1,7 +1,7 @@
 
 type 't atomic =
   | Ctx of 't (* A constant in the context or an hypothesis *)
-  | Evar of int (* An evar. It may be backed by a coq evar (and will be at realization time) *)
+  | Evar of int * 't option (* An evar. It may be backed by a coq evar (and will be at realization time) *)
 
 type 't categoryData =
   { cat_obj : 't atomic

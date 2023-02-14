@@ -6,7 +6,8 @@ open Data
 let ppe = fun sigma env atom -> 
   match atom with
   | Ctx c -> Printer.pr_econstr_env env sigma c
-  | Evar i -> Pp.(str "?" ++ int i)
+  | Evar (i,Some e) -> Pp.(str "?" ++ int i ++ str ":<" ++ Printer.pr_econstr_env env sigma e ++ str ">")
+  | Evar (i,None) -> Pp.(str "?" ++ int i)
 let (++) = Pp.(++)
 
 let cat sigma env cat =

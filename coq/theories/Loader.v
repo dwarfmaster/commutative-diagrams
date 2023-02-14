@@ -6,6 +6,7 @@ Declare ML Module "diagrams_plugin".
 Local Open Scope morphism.
 
 Definition mphT (C : PreCategory) (a b : C) := @morphism C a b.
+Definition objectT (C : PreCategory) := @object C.
 Definition comp (C : PreCategory) (a b c : C) (m1 : mphT C a b) (m2 : mphT C b c) : mphT C a c :=
   @HoTT.Categories.compose C a b c m2 m1.
 

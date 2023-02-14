@@ -368,7 +368,8 @@ let (let$) = M.bind
 let pret = M.return
 let app f args = M.lift (Env.app f args)
 
-let realizeEvar e = assert false
+(* Create a new evar of type tp *)
+let realizeEvar tp = assert false
   (* | Hole (m1,m2) -> *)
   (*     let$ tp = mphT m1 in *)
   (*     let$ m1 = realizeMorphism m1 in  *)
@@ -385,7 +386,8 @@ let realizeAtomic a =
   let open Data in
   match a with
   | Ctx h -> pret h
-  | Evar e -> realizeEvar e
+  | Evar (_,Some e) -> pret e
+  | Evar _ -> assert false (* Should never happen *)
 
 let realizeCategory cat =
   let open Data in
@@ -584,6 +586,40 @@ let rec realizeEq eq =
       let$ e = realizeEq e in
       app (Env.mk_funct_ctx ()) [| c; d; f; x; y; m1; m2; e |]
   | AtomicEq eq -> realizeAtomic eq.eq_obj
+
+
+
+(*  _____                   ____            _  *)
+(* |_   _|   _ _ __   ___  |  _ \ ___  __ _| | *)
+(*   | || | | | '_ \ / _ \ | |_) / _ \/ _` | | *)
+(*   | || |_| | |_) |  __/ |  _ <  __/ (_| | | *)
+(*   |_| \__, | .__/ \___| |_| \_\___|\__,_|_| *)
+(*       |___/|_|                              *)
+let realizeCatType _ = M.lift (Env.mk_cat ())
+let realizeFunctType data =
+  let open Data in
+  let$ src = realizeCategory data.funct_src_ in
+  let$ dst = realizeCategory data.funct_dst_ in
+  M.lift (Env.app (Env.mk_funct_obj ()) [| src; dst |])
+let realizeElemType data =
+  let open Data in
+  let$ cat = realizeCategory data.elem_cat_ in
+  M.lift (Env.app (Env.mk_object ()) [| cat |])
+let realizeMphType data =
+  let open Data in
+  let$ cat = realizeCategory data.mph_cat_ in
+  let$ src = realizeElem data.mph_src_ in
+  let$ dst = realizeElem data.mph_dst_ in
+  M.lift (Env.app (Env.mk_mphT ()) [| cat; src; dst |])
+let realizeEqType data =
+  let open Data in
+  let$ cat = realizeCategory data.eq_cat_ in
+  let$ src = realizeElem data.eq_src_ in
+  let$ dst = realizeElem data.eq_dst_ in
+  let$ left = realizeMorphism data.eq_left_ in
+  let$ right = realizeMorphism data.eq_right_ in
+  let$ mphT = M.lift (Env.app (Env.mk_mphT ()) [| cat; src; dst |]) in
+  M.lift (Env.app (Env.mk_eq ()) [| mphT; left; right |])
 
 
 (*  _   _ _   _ _      *)

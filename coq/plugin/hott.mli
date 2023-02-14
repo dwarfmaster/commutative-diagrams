@@ -12,11 +12,19 @@ end
 val lift_tactic : 'a Proofview.tactic -> 'a M.m
 
 (* Realization *)
+val realizeEvar : t -> t M.m
 val realizeCategory : t Data.category -> t M.m
 val realizeFunctor : t Data.funct -> t M.m
 val realizeElem : t Data.elem -> t M.m
 val realizeMorphism : t Data.morphism -> t M.m
 val realizeEq : t Data.eq -> t M.m
+
+(* Realization of types *)
+val realizeCatType : t Data.categoryData -> t M.m
+val realizeFunctType : t Data.functData -> t M.m
+val realizeElemType : t Data.elemData -> t M.m
+val realizeMphType : t Data.morphismData -> t M.m
+val realizeEqType : t Data.eqData -> t M.m
 
 (* Parsing *)
 module St := Hyps.Make(M)

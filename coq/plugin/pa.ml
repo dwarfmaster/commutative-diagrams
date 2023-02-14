@@ -7,11 +7,19 @@ module type ProofAssistant = sig
   val lift_tactic : 'a Proofview.tactic -> 'a M.m
 
   (* Realisation *)
+  val realizeEvar : t -> t M.m
   val realizeCategory : t Data.category -> t M.m 
   val realizeFunctor : t Data.funct -> t M.m
   val realizeElem : t Data.elem -> t M.m 
   val realizeMorphism : t Data.morphism -> t M.m
   val realizeEq : t Data.eq -> t M.m
+
+  (* Realisation of types *)
+  val realizeCatType : t Data.categoryData -> t M.m
+  val realizeFunctType : t Data.functData -> t M.m
+  val realizeElemType : t Data.elemData -> t M.m
+  val realizeMphType : t Data.morphismData -> t M.m
+  val realizeEqType : t Data.eqData -> t M.m
 
   (* Parsing *)
   (* First argument is the term, second is the type *)

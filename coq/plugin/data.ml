@@ -15,7 +15,7 @@ let cmp3 i1 i2 i3 =
 
 type 't atomic =
   | Ctx of 't
-  | Evar of int
+  | Evar of int * 't option
 
 type 't categoryData =
   { cat_obj : 't atomic

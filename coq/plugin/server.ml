@@ -3,6 +3,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   module St = Hyps.Make(PA.M)
   module Gr = Graph.Make(PA)
   module Sd = Serde.Make(PA)
+  module R = Real.Make(PA)
   module Builder = Graphbuilder.Make(PA)
   type 'a m = ('a,PA.t) St.t
   open St.Combinators
@@ -173,14 +174,14 @@ module Make(PA: Pa.ProofAssistant) = struct
       let* evar = St.newEvar () in
       let* hole =
         St.registerEq
-          ~eq:(Evar evar)
+          ~eq:(Evar (evar,None))
           ~right:mph1
           ~left:mph2
           ~cat:(Data.morphism_cat mph1)
           ~src:(Data.morphism_src mph1)
           ~dst:(Data.morphism_dst mph1) in
       let eq = Data.Concat (eq1, Data.Concat (Data.AtomicEq hole, Data.InvEq eq2)) in
-      let* eq = lift (PA.realizeEq (SimplEq.simpl eq)) in
+      let* eq = R.realizeEq (SimplEq.simpl eq) in
       let* env = lift (PA.env ()) in
       let* _ =
         lift (PA.lift_tactic (Refine.refine ~typecheck:false
@@ -208,7 +209,7 @@ module Make(PA: Pa.ProofAssistant) = struct
         let* eq = Sd.Eq.unpack eq in
         begin match eq with
         | Some eq ->
-            let* eq = lift (PA.realizeEq (SimplEq.simpl eq)) in
+            let* eq = R.realizeEq (SimplEq.simpl eq) in
             let* env = lift (PA.env ()) in
             let* _ = lift (PA.lift_tactic (Refine.refine ~typecheck:false
               (add_universes_constraints env (PA.to_econstr eq)))) in
@@ -278,7 +279,7 @@ module Make(PA: Pa.ProofAssistant) = struct
           let* evar = St.newEvar () in
           let* hole =
             St.registerEq
-              ~eq:(Evar evar)
+              ~eq:(Evar (evar,None))
               ~right
               ~left
               ~cat:(Data.morphism_cat right)

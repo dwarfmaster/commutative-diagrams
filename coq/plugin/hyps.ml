@@ -16,7 +16,7 @@ module Make(M : Monad) = struct
     ; elems      : 't elemData array 
     ; morphisms  : 't morphismData array 
     ; faces      : 't eqData array
-    ; evars      : Evar.t option IntMap.t
+    ; evars      : 't option IntMap.t
     ; eqPred     : 't -> 't -> bool M.m
     }
   let emptyStore : 't store =
@@ -79,7 +79,7 @@ module Make(M : Monad) = struct
   let eqPred () = get (fun st -> fun x y ->
     match x, y with
     | Ctx x, Ctx y -> st.eqPred x y
-    | Evar e1, Evar e2 -> M.return (e1 = e2)
+    | Evar (e1,_), Evar (e2,_) -> M.return (e1 = e2)
     | _ -> M.return false)
 
   let rec arr_find_optM' (id : int) (pred : 'a -> bool M.m) (arr : 'a array) : 'a option M.m =
@@ -168,9 +168,9 @@ module Make(M : Monad) = struct
             ; eq_cat_ = cat; eq_src_ = src; eq_dst_ = dst }}) in
         getEq nid
 
-  type evar =
+  type 't evar =
     | Abstract
-    | Realized of Evar.t
+    | Realized of 't
     | NotFound
   let getEvar i = get (fun st -> match IntMap.find_opt i st.evars with
         | Some (Some ev) -> Realized ev
@@ -180,6 +180,8 @@ module Make(M : Monad) = struct
     let* nid = get (fun st -> fst (IntMap.find_last (fun _ -> true) st.evars) + 1) in
     let* _ = set (fun st -> { st with evars = IntMap.add nid None st.evars }) in
     ret nid
+  let newEvarAt nid =
+    set (fun st -> { st with evars = IntMap.add nid None st.evars })
   let instantiateEvar i evar =
     set (fun st -> { st with evars = IntMap.add i (Some evar) st.evars })
 end
