@@ -369,18 +369,12 @@ let pret = M.return
 let app f args = M.lift (Env.app f args)
 
 (* Create a new evar of type tp *)
-let realizeEvar tp = assert false
-  (* | Hole (m1,m2) -> *)
-  (*     let$ tp = mphT m1 in *)
-  (*     let$ m1 = realizeMorphism m1 in  *)
-  (*     let$ m2 = realizeMorphism m2 in *)
-  (*     let$ tp = app (Env.mk_eq ()) [| tp; m1; m2 |] in *)
-  (*     (* Create hole *) *)
-  (*     let$ sigma = M.lift Proofview.tclEVARMAP in *)
-  (*     let$ env = M.env () in *)
-  (*     let (sigma,hole) = Evarutil.new_evar ~principal:true env sigma tp in *)
-  (*     let$ _ = M.lift (Proofview.Unsafe.tclEVARS sigma) in *)
-  (*     pret hole *)
+let realizeEvar tp =
+  let$ sigma = M.lift Proofview.tclEVARMAP in
+  let$ env = M.env () in
+  let (sigma,evar) = Evarutil.new_evar env sigma tp in
+  let$ _ = M.lift (Proofview.Unsafe.tclEVARS sigma) in
+  pret evar
 
 let realizeAtomic a =
   let open Data in
