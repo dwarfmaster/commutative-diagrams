@@ -11,6 +11,7 @@ pub mod substitution;
 pub mod tactics;
 pub mod ui;
 pub mod unification;
+pub mod vm;
 
 use anyterm::IsTerm;
 use data::ProofObject;
@@ -34,11 +35,6 @@ type SolveGraph = Graph<(), (), ()>;
 fn messagepack_to_file<NL, EL, FL>(path: &str, gr: &Graph<NL, EL, FL>) {
     let mut file = File::create(path).unwrap();
     encode::write(&mut file, gr).unwrap();
-}
-
-#[derive(Resource)]
-struct LuaCode {
-    value: String,
 }
 
 fn test_ui() {
@@ -78,13 +74,11 @@ fn test_ui() {
 
     // Run the ui
     let gd = ui::GraphDisplay::new(gr);
+    let vm = vm::VM::new(gd);
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
-        .insert_resource(LuaCode {
-            value: String::new(),
-        })
-        .insert_resource(gd)
+        .insert_resource(vm)
         .add_system(goal_ui_system)
         .run();
 }
@@ -180,13 +174,11 @@ where
     // Run the ui
     log::info!("Running the ui");
     let gd = ui::GraphDisplay::new(goal);
+    let vm = vm::VM::new(gd);
     App::new()
         .add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
         .add_plugin(EguiPlugin)
-        .insert_resource(LuaCode {
-            value: String::new(),
-        })
-        .insert_resource(gd)
+        .insert_resource(vm)
         .add_system(goal_ui_system)
         .run();
 
@@ -203,17 +195,17 @@ where
     log::info!("Acknowledgement of refinements received");
 }
 
-fn goal_ui_system(
-    mut egui_context: ResMut<EguiContext>,
-    mut code: ResMut<LuaCode>,
-    mut gr: ResMut<ui::GraphDisplay>,
-) {
+fn goal_ui_system(mut egui_context: ResMut<EguiContext>, mut vm: ResMut<vm::VM>) {
     egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| ui.code_editor(&mut code.as_mut().value))
+        egui::ScrollArea::vertical().show(ui, |ui| ui.code_editor(&mut vm.as_mut().code))
     });
-    egui::SidePanel::right("Faces").show(egui_context.ctx_mut(), |ui| ui::faces(ui, gr.as_mut()));
+    egui::SidePanel::right("Faces").show(egui_context.ctx_mut(), |ui| {
+        ui::faces(ui, &mut vm.as_mut().display)
+    });
 
-    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| ui.add(ui::graph(gr.as_mut())));
+    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
+        ui.add(ui::graph(&mut vm.as_mut().display))
+    });
 }
 
 fn goal_print<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>, path: String)

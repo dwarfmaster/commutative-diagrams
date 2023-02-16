@@ -1,5 +1,4 @@
 use crate::graph;
-use bevy::ecs::system::Resource;
 use egui::Vec2;
 
 #[derive(Debug, Default)]
@@ -63,7 +62,6 @@ impl FaceLabel {
 
 pub type Graph = graph::Graph<NodeLabel, EdgeLabel, FaceLabel>;
 
-#[derive(Resource)]
 pub struct GraphDisplay {
     pub graph: Graph,
     pub offset: Vec2,
