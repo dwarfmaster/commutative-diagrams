@@ -24,7 +24,6 @@ use std::fs::File;
 use std::vec::Vec;
 
 use clap::{Parser, Subcommand};
-use lens_rs::*;
 use rmp_serde::encode;
 
 use bevy::prelude::*;
@@ -42,75 +41,6 @@ struct LuaCode {
     value: String,
 }
 
-#[derive(Debug, Lens, Default)]
-struct NodeLabel {
-    #[optic]
-    pos: egui::Pos2,
-    #[optic]
-    name: String,
-    #[optic]
-    label: String,
-}
-
-impl NodeLabel {
-    pub fn new(name: String) -> Self {
-        Self {
-            pos: egui::Pos2::ZERO,
-            name: name.clone(),
-            label: name,
-        }
-    }
-}
-
-#[derive(Debug, Lens, Default)]
-struct EdgeLabel {
-    #[optic]
-    shape: Vec<[egui::Pos2; 4]>,
-    #[optic]
-    name: String,
-    #[optic]
-    label: String,
-}
-
-impl EdgeLabel {
-    pub fn new(name: String) -> Self {
-        Self {
-            shape: Vec::new(),
-            name: name.clone(),
-            label: name,
-        }
-    }
-}
-
-#[derive(Debug, Lens, Default)]
-struct FaceLabel {
-    #[optic]
-    label: String,
-    #[optic]
-    name: String,
-}
-
-impl FaceLabel {
-    pub fn new(name: String) -> Self {
-        Self {
-            name: name.clone(),
-            label: name,
-        }
-    }
-}
-
-type UiGraph = Graph<NodeLabel, EdgeLabel, FaceLabel>;
-type GD = ui::GraphDisplay<
-    NodeLabel,
-    EdgeLabel,
-    FaceLabel,
-    optics::pos<__>,
-    optics::label<__>,
-    optics::shape<_mapped<__>>,
-    optics::label<__>,
-    optics::label<__>,
->;
-
 fn test_ui() {
     // Build the graph
     let ctx = data::Context::new();
@@ -121,17 +51,17 @@ fn test_ui() {
     let f = mph!(ctx, (:4) : x -> y);
     let g = mph!(ctx, (:5) : x -> y);
     let h = mph!(ctx, (:6) : x -> z);
-    let mut gr: UiGraph = Graph {
+    let mut gr: ui::Graph = Graph {
         nodes: vec![
-            (x, NodeLabel::new("x".to_string())),
-            (y, NodeLabel::new("y".to_string())),
-            (z, NodeLabel::new("z".to_string())),
+            (x, ui::NodeLabel::new("x".to_string())),
+            (y, ui::NodeLabel::new("y".to_string())),
+            (z, ui::NodeLabel::new("z".to_string())),
         ],
         edges: vec![
             vec![
-                (1, EdgeLabel::new("f".to_string()), f),
-                (1, EdgeLabel::new("g".to_string()), g),
-                (2, EdgeLabel::new("h".to_string()), h),
+                (1, ui::EdgeLabel::new("f".to_string()), f),
+                (1, ui::EdgeLabel::new("g".to_string()), g),
+                (2, ui::EdgeLabel::new("h".to_string()), h),
             ],
             vec![],
             vec![],
@@ -140,17 +70,10 @@ fn test_ui() {
     };
 
     // Layout it
-    gr.layout(optics!(pos), optics!(label), optics!(shape), optics!(label));
+    gr.layout();
 
     // Run the ui
-    let gd : GD = ui::GraphDisplay::new(
-        gr,
-        optics!(pos),
-        optics!(label),
-        optics!(shape._mapped),
-        optics!(label),
-        optics!(label),
-    );
+    let gd = ui::GraphDisplay::new(gr);
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
@@ -218,8 +141,8 @@ where
 {
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
-    let mut goal: UiGraph = client
-        .receive_msg(goal_req, parser::Parser::<UiGraph>::new(ctx.clone()))
+    let mut goal: ui::Graph = client
+        .receive_msg(goal_req, parser::Parser::<ui::Graph>::new(ctx.clone()))
         .unwrap_or_else(|err| {
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
@@ -239,7 +162,7 @@ where
         }
     }
     for fce in 0..goal.faces.len() {
-        goal.faces[fce].label = FaceLabel::new(format!(
+        goal.faces[fce].label = ui::FaceLabel::new(format!(
             "{}: {}",
             fce,
             goal.faces[fce].eq.render(&mut ctx, 100)
@@ -248,18 +171,11 @@ where
 
     // Layout the graph
     log::info!("Layouting the graph");
-    goal.layout(optics!(pos), optics!(label), optics!(shape), optics!(label));
+    goal.layout();
 
     // Run the ui
     log::info!("Running the ui");
-    let gd = ui::GraphDisplay::new(
-        goal,
-        optics!(pos),
-        optics!(label),
-        optics!(shape._mapped),
-        optics!(label),
-        optics!(label),
-    );
+    let gd = ui::GraphDisplay::new(goal);
     App::new()
         .add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
         .add_plugin(EguiPlugin)
@@ -286,7 +202,7 @@ where
 fn goal_ui_system(
     mut egui_context: ResMut<EguiContext>,
     mut code: ResMut<LuaCode>,
-    mut gr: ResMut<GD>,
+    mut gr: ResMut<ui::GraphDisplay>,
 ) {
     egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| ui.code_editor(&mut code.as_mut().value))

@@ -1,46 +1,69 @@
-use crate::graph::Graph;
+use crate::graph;
 use bevy::ecs::system::Resource;
-use egui::{Pos2, Vec2};
-use lens_rs::*;
+use egui::Vec2;
+
+#[derive(Debug, Default)]
+pub struct NodeLabel {
+    pub pos: egui::Pos2,
+    pub name: String,
+    pub label: String,
+}
+
+impl NodeLabel {
+    pub fn new(name: String) -> Self {
+        Self {
+            pos: egui::Pos2::ZERO,
+            name: name.clone(),
+            label: name,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct EdgeLabel {
+    pub shape: Vec<[egui::Pos2; 4]>,
+    pub name: String,
+    pub label: String,
+}
+
+impl EdgeLabel {
+    pub fn new(name: String) -> Self {
+        Self {
+            shape: Vec::new(),
+            name: name.clone(),
+            label: name,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct FaceLabel {
+    pub label: String,
+    pub name: String,
+}
+
+impl FaceLabel {
+    pub fn new(name: String) -> Self {
+        Self {
+            name: name.clone(),
+            label: name,
+        }
+    }
+}
+
+pub type Graph = graph::Graph<NodeLabel, EdgeLabel, FaceLabel>;
 
 #[derive(Resource)]
-pub struct GraphDisplay<
-    NodeLabel,
-    EdgeLabel,
-    FaceLabel,
-    PosGetter,
-    NodeNameGetter,
-    PathGetter,
-    PathNameGetter,
-    FaceNameGetter,
-> {
-    pub graph: Graph<NodeLabel, EdgeLabel, FaceLabel>,
-    pub node_pos: PosGetter,
-    pub node_name: NodeNameGetter,
-    pub path_curve: PathGetter,
-    pub path_name: PathNameGetter,
-    pub face_name: FaceNameGetter,
+pub struct GraphDisplay {
+    pub graph: Graph,
     pub offset: Vec2,
     pub zoom: f32,
 }
 
-impl<NL, EL, FL, PG, NNG, PtG, PtNG, FcNG> GraphDisplay<NL, EL, FL, PG, NNG, PtG, PtNG, FcNG> {
-    pub fn new(graph: Graph<NL, EL, FL>, np: PG, nn: NNG, ptc: PtG, ptn: PtNG, fcn: FcNG) -> Self
-    where
-        NL: LensMut<PG, Pos2> + Lens<NNG, String>,
-        EL: TraversalMut<PtG, [Pos2; 4]> + Lens<PtNG, String>,
-        PG: Copy,
-        NNG: Copy,
-        PtG: Copy,
-        PtNG: Copy,
-    {
+impl GraphDisplay {
+    pub fn new(graph: Graph) -> Self {
         GraphDisplay {
             graph,
-            node_pos: np,
-            node_name: nn,
-            path_curve: ptc,
-            path_name: ptn,
-            face_name: fcn,
             offset: Vec2::ZERO,
             zoom: 1.0,
         }

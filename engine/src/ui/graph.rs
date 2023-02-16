@@ -1,35 +1,8 @@
 use crate::ui::GraphDisplay;
 use egui::{Pos2, Vec2};
-use lens_rs::{Lens, LensMut, TraversalMut};
 use std::ops::Add;
 
-pub fn graph_widget<
-    NodeLabel,
-    EdgeLabel,
-    FaceLabel,
-    PosGetter: Copy,
-    NodeNameGetter: Copy,
-    PathGetter: Copy,
-    PathNameGetter: Copy,
-    FaceNameGetter,
->(
-    ui: &mut egui::Ui,
-    gd: &mut GraphDisplay<
-        NodeLabel,
-        EdgeLabel,
-        FaceLabel,
-        PosGetter,
-        NodeNameGetter,
-        PathGetter,
-        PathNameGetter,
-        FaceNameGetter,
-    >,
-) -> egui::Response
-where
-    NodeLabel: LensMut<PosGetter, Pos2> + Lens<NodeNameGetter, String>,
-    // An edge is drawn as a succession of bezier curves
-    EdgeLabel: TraversalMut<PathGetter, [Pos2; 4]> + Lens<PathNameGetter, String>,
-{
+pub fn graph_widget(ui: &mut egui::Ui, gd: &mut GraphDisplay) -> egui::Response {
     // We fill all the available space
     let desired_size = ui.available_size();
     // For now it is non interactive, but we may want to react to click and drag
@@ -109,8 +82,8 @@ where
 
         // Paint nodes
         for (_, label) in &gd.graph.nodes {
-            let pos = setup_pos(label.view_ref(gd.node_pos).clone());
-            let name = label.view_ref(gd.node_name);
+            let pos = setup_pos(label.pos.clone());
+            let name = &label.label;
             let size = 14.0 * gd.zoom;
             painter.text(
                 pos,
@@ -124,7 +97,7 @@ where
         // Paint edges
         for src in 0..gd.graph.nodes.len() {
             for (_, label, _) in &gd.graph.edges[src] {
-                let curves = label.traverse_ref(gd.path_curve);
+                let curves = &label.shape;
                 let curves = curves
                     .iter()
                     .map(|curve| egui::epaint::CubicBezierShape {
@@ -168,7 +141,7 @@ where
                         .unwrap_or_else(|pos| pos);
                     let dir = -cubic_derivative(&curves[middle], 0.5).normalized().rot90();
                     let pos = curves[middle].sample(0.5) + gd.zoom * 8.0 * dir;
-                    let name = label.view_ref(gd.path_name);
+                    let name = &label.label;
                     let layout = painter.layout_no_wrap(
                         name.to_string(),
                         egui::FontId::proportional(14.0 * gd.zoom),
@@ -182,7 +155,6 @@ where
                     } else {
                         (rvec.x / dir.x.abs()).min(rvec.y / dir.y.abs())
                     };
-                    painter.circle(pos, 5.0, bg_stroke.color, fg_stroke);
                     painter.galley(pos - rvec + alpha * dir, layout);
                 }
             }
@@ -217,32 +189,6 @@ fn cubic_derivative(curve: &egui::epaint::CubicBezierShape, t: f32) -> Vec2 {
 }
 
 // For more idiomatic usage
-pub fn graph<
-    'a,
-    NodeLabel,
-    EdgeLabel,
-    FaceLabel,
-    PosGetter: Copy + 'a,
-    NodeNameGetter: Copy + 'a,
-    PathGetter: Copy + 'a,
-    PathNameGetter: Copy + 'a,
-    FaceNameGetter,
->(
-    gd: &'a mut GraphDisplay<
-        NodeLabel,
-        EdgeLabel,
-        FaceLabel,
-        PosGetter,
-        NodeNameGetter,
-        PathGetter,
-        PathNameGetter,
-        FaceNameGetter,
-    >,
-) -> impl egui::Widget + 'a
-where
-    NodeLabel: LensMut<PosGetter, Pos2> + Lens<NodeNameGetter, String>,
-    // An edge is drawn as a succession of bezier curves
-    EdgeLabel: TraversalMut<PathGetter, [Pos2; 4]> + Lens<PathNameGetter, String>,
-{
+pub fn graph<'a>(gd: &'a mut GraphDisplay) -> impl egui::Widget + 'a {
     move |ui: &mut egui::Ui| graph_widget(ui, gd)
 }

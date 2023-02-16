@@ -1,25 +1,15 @@
 // Render to graphviz using unique identifiers as labels, export to json, read
 // json, and use it to layout the graph
 
-use crate::graph::Graph;
+use crate::ui::Graph;
 use egui::Pos2;
-use lens_rs::*;
 
 use itertools::Itertools;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-impl<NL, EL, FL> Graph<NL, EL, FL> {
-    pub fn layout<Pos: Copy, Name: Copy, EPos: Copy, EName: Copy>(
-        &mut self,
-        node_pos: Pos,
-        node_label: Name,
-        edge_path: EPos,
-        edge_label: EName,
-    ) where
-        NL: LensMut<Pos, Pos2> + Lens<Name, String>,
-        EL: LensMut<EPos, Vec<[Pos2; 4]>> + Lens<EName, String>,
-    {
+impl Graph {
+    pub fn layout(&mut self) {
         // Spawn the  graphviz process
         log::trace!("Spawning graphviz");
         let mut graphviz = Command::new("dot")
@@ -45,13 +35,13 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
             let mut stdin = graphviz.stdin.take().expect("Failed to open stdin");
             write!(stdin, "digraph {{\n").unwrap();
             for n in 0..self.nodes.len() {
-                let lbl = self.nodes[n].1.view_ref(node_label);
+                let lbl = &self.nodes[n].1.label;
                 write!(stdin, "  n{} [label=\"{}:{}\", shape=plain];\n", n, n, lbl).unwrap();
             }
             for src in 0..self.nodes.len() {
                 for mph in 0..self.edges[src].len() {
                     let dst = self.edges[src][mph].0;
-                    let lbl = self.edges[src][mph].1.view_ref(edge_label);
+                    let lbl = &self.edges[src][mph].1.label;
                     write!(
                         stdin,
                         "  n{} -> n{} [label=\"{}:{}:{}\", arrowhead=none];\n",
@@ -88,7 +78,7 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
                 .parse::<usize>()
                 .expect("The first part of the label should be the id");
             let pos = object_pos(object);
-            *self.nodes[id].1.view_mut(node_pos) = pos;
+            self.nodes[id].1.pos = pos;
         }
 
         // Find the coordinates of edges
@@ -111,7 +101,7 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
                 .split(' ')
                 .map(parse_pos)
                 .collect();
-            *self.edges[src_id][mph_id].1.view_mut(edge_path) = split_bspline(coordinates);
+            self.edges[src_id][mph_id].1.shape = split_bspline(coordinates);
         }
     }
 }
