@@ -82,14 +82,32 @@ impl EdgeLabel {
     }
 }
 
-type UiGraph = Graph<NodeLabel, EdgeLabel, ()>;
+#[derive(Debug, Lens, Default)]
+struct FaceLabel {
+    #[optic]
+    label: String,
+    #[optic]
+    name: String,
+}
+
+impl FaceLabel {
+    pub fn new(name: String) -> Self {
+        Self {
+            name: name.clone(),
+            label: name,
+        }
+    }
+}
+
+type UiGraph = Graph<NodeLabel, EdgeLabel, FaceLabel>;
 type GD = ui::GraphDisplay<
     NodeLabel,
     EdgeLabel,
-    (),
+    FaceLabel,
     optics::pos<__>,
     optics::label<__>,
     optics::shape<_mapped<__>>,
+    optics::label<__>,
     optics::label<__>,
 >;
 
@@ -103,7 +121,7 @@ fn test_ui() {
     let f = mph!(ctx, (:4) : x -> y);
     let g = mph!(ctx, (:5) : x -> y);
     let h = mph!(ctx, (:6) : x -> z);
-    let mut gr: Graph<NodeLabel, EdgeLabel, ()> = Graph {
+    let mut gr: UiGraph = Graph {
         nodes: vec![
             (x, NodeLabel::new("x".to_string())),
             (y, NodeLabel::new("y".to_string())),
@@ -125,11 +143,12 @@ fn test_ui() {
     gr.layout(optics!(pos), optics!(label), optics!(shape), optics!(label));
 
     // Run the ui
-    let gd = ui::GraphDisplay::new(
+    let gd : GD = ui::GraphDisplay::new(
         gr,
         optics!(pos),
         optics!(label),
         optics!(shape._mapped),
+        optics!(label),
         optics!(label),
     );
     App::new()
@@ -219,6 +238,13 @@ where
             goal.edges[src][mph].1.label = goal.edges[src][mph].2.render(&mut ctx, 100);
         }
     }
+    for fce in 0..goal.faces.len() {
+        goal.faces[fce].label = FaceLabel::new(format!(
+            "{}: {}",
+            fce,
+            goal.faces[fce].eq.render(&mut ctx, 100)
+        ));
+    }
 
     // Layout the graph
     log::info!("Layouting the graph");
@@ -231,6 +257,7 @@ where
         optics!(pos),
         optics!(label),
         optics!(shape._mapped),
+        optics!(label),
         optics!(label),
     );
     App::new()
@@ -264,6 +291,7 @@ fn goal_ui_system(
     egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| ui.code_editor(&mut code.as_mut().value))
     });
+    egui::SidePanel::right("Faces").show(egui_context.ctx_mut(), |ui| ui::faces(ui, gr.as_mut()));
 
     egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| ui.add(ui::graph(gr.as_mut())));
 }

@@ -1,49 +1,7 @@
-use crate::graph::Graph;
-use bevy::ecs::system::Resource;
+use crate::ui::GraphDisplay;
 use egui::{Pos2, Vec2};
 use lens_rs::{Lens, LensMut, TraversalMut};
 use std::ops::Add;
-
-#[derive(Resource)]
-pub struct GraphDisplay<
-    NodeLabel,
-    EdgeLabel,
-    FaceLabel,
-    PosGetter,
-    NodeNameGetter,
-    PathGetter,
-    PathNameGetter,
-> {
-    graph: Graph<NodeLabel, EdgeLabel, FaceLabel>,
-    node_pos: PosGetter,
-    node_name: NodeNameGetter,
-    path_curve: PathGetter,
-    path_name: PathNameGetter,
-    offset: Vec2,
-    zoom: f32,
-}
-
-impl<NL, EL, FL, PG, NNG, PtG, PtNG> GraphDisplay<NL, EL, FL, PG, NNG, PtG, PtNG> {
-    pub fn new(graph: Graph<NL, EL, FL>, np: PG, nn: NNG, ptc: PtG, ptn: PtNG) -> Self
-    where
-        NL: LensMut<PG, Pos2> + Lens<NNG, String>,
-        EL: TraversalMut<PtG, [Pos2; 4]> + Lens<PtNG, String>,
-        PG: Copy,
-        NNG: Copy,
-        PtG: Copy,
-        PtNG: Copy,
-    {
-        GraphDisplay {
-            graph,
-            node_pos: np,
-            node_name: nn,
-            path_curve: ptc,
-            path_name: ptn,
-            offset: Vec2::ZERO,
-            zoom: 1.0,
-        }
-    }
-}
 
 pub fn graph_widget<
     NodeLabel,
@@ -53,6 +11,7 @@ pub fn graph_widget<
     NodeNameGetter: Copy,
     PathGetter: Copy,
     PathNameGetter: Copy,
+    FaceNameGetter,
 >(
     ui: &mut egui::Ui,
     gd: &mut GraphDisplay<
@@ -63,6 +22,7 @@ pub fn graph_widget<
         NodeNameGetter,
         PathGetter,
         PathNameGetter,
+        FaceNameGetter,
     >,
 ) -> egui::Response
 where
@@ -266,6 +226,7 @@ pub fn graph<
     NodeNameGetter: Copy + 'a,
     PathGetter: Copy + 'a,
     PathNameGetter: Copy + 'a,
+    FaceNameGetter,
 >(
     gd: &'a mut GraphDisplay<
         NodeLabel,
@@ -275,6 +236,7 @@ pub fn graph<
         NodeNameGetter,
         PathGetter,
         PathNameGetter,
+        FaceNameGetter,
     >,
 ) -> impl egui::Widget + 'a
 where

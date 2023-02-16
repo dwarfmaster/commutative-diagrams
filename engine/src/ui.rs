@@ -1,4 +1,7 @@
+mod faces;
 mod graph;
+mod graphdisplay;
 
+pub use faces::faces;
 pub use graph::graph;
-pub use graph::GraphDisplay;
+pub use graphdisplay::GraphDisplay;
