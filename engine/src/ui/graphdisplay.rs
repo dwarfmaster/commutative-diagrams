@@ -19,11 +19,20 @@ impl NodeLabel {
     }
 }
 
+// Default is all false
+#[derive(Debug, Default)]
+pub struct EdgeStyle {
+    pub left: bool,
+    pub right: bool,
+    pub highlight: bool,
+}
+
 #[derive(Debug, Default)]
 pub struct EdgeLabel {
     pub shape: Vec<[egui::Pos2; 4]>,
     pub name: String,
     pub label: String,
+    pub style: EdgeStyle,
 }
 
 impl EdgeLabel {
@@ -32,6 +41,7 @@ impl EdgeLabel {
             shape: Vec::new(),
             name: name.clone(),
             label: name,
+            style: EdgeStyle::default(),
         }
     }
 }

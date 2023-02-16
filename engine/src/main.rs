@@ -68,6 +68,10 @@ fn test_ui() {
         ],
         faces: vec![],
     };
+    gr.edges[0][1].1.style.left = true;
+    gr.edges[0][1].1.style.right = true;
+    gr.edges[0][2].1.style.right = true;
+    gr.edges[0][2].1.style.highlight = true;
 
     // Layout it
     gr.layout();

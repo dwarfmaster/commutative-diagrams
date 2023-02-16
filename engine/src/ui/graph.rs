@@ -97,6 +97,19 @@ pub fn graph_widget(ui: &mut egui::Ui, gd: &mut GraphDisplay) -> egui::Response 
         // Paint edges
         for src in 0..gd.graph.nodes.len() {
             for (_, label, _) in &gd.graph.edges[src] {
+                // Style
+                let mut stroke = fg_stroke;
+                if label.style.highlight {
+                    stroke.width *= 2.0;
+                }
+                if label.style.left && label.style.right {
+                    stroke.color = egui::Color32::GOLD;
+                } else if label.style.left {
+                    stroke.color = egui::Color32::RED;
+                } else if label.style.right {
+                    stroke.color = egui::Color32::GREEN;
+                }
+
                 let curves = &label.shape;
                 let curves = curves
                     .iter()
@@ -104,7 +117,7 @@ pub fn graph_widget(ui: &mut egui::Ui, gd: &mut GraphDisplay) -> egui::Response 
                         points: curve.clone().map(setup_pos),
                         closed: false,
                         fill: egui::Color32::TRANSPARENT,
-                        stroke: fg_stroke,
+                        stroke,
                     })
                     .collect::<Vec<_>>();
                 // Paint the curve
@@ -117,10 +130,14 @@ pub fn graph_widget(ui: &mut egui::Ui, gd: &mut GraphDisplay) -> egui::Response 
                     use egui::emath::*;
                     let tip = lcurve.points[3];
                     let dir = (lcurve.points[3] - lcurve.points[2]).normalized();
-                    let rot = Rot2::from_angle(std::f32::consts::TAU / 12.0);
+                    let rot = if label.style.highlight {
+                        Rot2::from_angle(std::f32::consts::TAU / 6.0)
+                    } else {
+                        Rot2::from_angle(std::f32::consts::TAU / 12.0)
+                    };
                     let length = 5.0 * gd.zoom;
-                    painter.line_segment([tip, tip - length * (rot * dir)], fg_stroke);
-                    painter.line_segment([tip, tip - length * (rot.inverse() * dir)], fg_stroke);
+                    painter.line_segment([tip, tip - length * (rot * dir)], stroke);
+                    painter.line_segment([tip, tip - length * (rot.inverse() * dir)], stroke);
                 }
 
                 // paint label
