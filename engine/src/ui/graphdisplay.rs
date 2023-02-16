@@ -68,6 +68,7 @@ pub struct GraphDisplay {
     pub graph: Graph,
     pub offset: Vec2,
     pub zoom: f32,
+    pub selected_face: Option<usize>,
 }
 
 impl GraphDisplay {
@@ -76,6 +77,7 @@ impl GraphDisplay {
             graph,
             offset: Vec2::ZERO,
             zoom: 1.0,
+            selected_face: None,
         }
     }
 }
