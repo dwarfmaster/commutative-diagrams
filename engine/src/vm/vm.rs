@@ -10,7 +10,7 @@ pub struct VM {
     pub ast: AST,
     pub error_at: Option<(usize, usize)>,
     pub error_msg: String,
-    pub parsed_until: usize,
+    pub run_until: usize,
     pub display: GraphDisplay,
 }
 
@@ -21,18 +21,20 @@ impl VM {
             ast: Vec::new(),
             error_at: None,
             error_msg: String::new(),
-            parsed_until: 0,
+            run_until: 0,
             display: gd,
         }
     }
 
     // Compile the code, but do not run it
-    pub fn recompile(&mut self) {
+    pub fn recompile(&mut self) -> bool {
         let r = parser::script(&self.code);
         match r {
-            Ok((left, ast)) => {
-                self.parsed_until = self.code.len() - left.len();
+            Ok((_, ast)) => {
                 self.ast = ast;
+                self.error_msg.clear();
+                self.error_at = None;
+                true
             }
             Err(err) => {
                 let err = match err {
@@ -41,9 +43,11 @@ impl VM {
                     nom::Err::Failure(err) => err,
                 };
                 let start = unsafe { err.input.as_ptr().offset_from(self.code.as_ptr()) as usize };
+                let end = start + err.input.len();
                 self.ast.clear();
-                self.error_msg = format!("{}", err);
-                self.error_at = Some((start, start + err.input.len()));
+                self.error_msg = format!("{}:{}: {}", start, end, err);
+                self.error_at = Some((start, end));
+                false
             }
         }
     }

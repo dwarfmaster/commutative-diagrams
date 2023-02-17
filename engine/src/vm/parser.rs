@@ -3,7 +3,7 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, alphanumeric1, char, digit1, newline, space0, space1};
 use nom::combinator::{eof, fail, map, map_res, recognize, success, value};
-use nom::multi::{many0, many0_count};
+use nom::multi::{many0_count, many_till};
 use nom::sequence::{delimited, pair, preceded};
 use nom::IResult;
 
@@ -47,7 +47,7 @@ fn term_descr(input: &str) -> IResult<&str, ast::TermDescr> {
 }
 
 pub fn script(input: &str) -> IResult<&str, Vec<ast::Action>> {
-    many0(action)(input)
+    map(many_till(action, eof), |(acts, _)| acts)(input)
 }
 
 fn action(input: &str) -> IResult<&str, ast::Action> {
