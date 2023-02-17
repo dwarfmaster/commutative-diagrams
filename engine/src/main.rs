@@ -196,9 +196,7 @@ where
 }
 
 fn goal_ui_system(mut egui_context: ResMut<EguiContext>, mut vm: ResMut<vm::VM>) {
-    egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| ui.code_editor(&mut vm.as_mut().code))
-    });
+    egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| ui::code(ui, vm.as_mut()));
     egui::SidePanel::right("Faces").show(egui_context.ctx_mut(), |ui| {
         ui::faces(ui, &mut vm.as_mut().display)
     });
