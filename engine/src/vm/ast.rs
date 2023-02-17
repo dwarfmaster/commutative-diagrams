@@ -1,6 +1,6 @@
 pub type AST = Vec<Action>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     // Interpret the term as an object, and try to insert it into the graph
     InsertNode(TermDescr),
@@ -22,7 +22,7 @@ pub enum Action {
 
 // A generic term that can describes/construct a term, ie either
 // a category, a morphism, a functor, an object or an equality.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TermDescr {
     Ref(Id),
     Hole,
@@ -31,7 +31,7 @@ pub enum TermDescr {
 
 // An identifier. It can either be a name, or a numerical id into
 // the graph.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Id {
     Name(String),
     Id(usize),

@@ -1140,6 +1140,7 @@ dependencies = [
  "hashconsing",
  "itertools",
  "log",
+ "nom",
  "pretty",
  "rmp",
  "rmp-serde",
