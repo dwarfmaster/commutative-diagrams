@@ -1,12 +1,12 @@
 use bevy::ecs::system::Resource;
 
 use crate::vm::ast::AST;
-use crate::vm::parser;
 use crate::vm::graph::Graph;
-use std::collections::HashMap;
+use crate::vm::parser;
 use egui::Vec2;
+use std::collections::HashMap;
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum GraphId {
     Node(usize),
     Morphism(usize, usize),
@@ -30,7 +30,7 @@ pub struct VM {
 
 impl VM {
     pub fn new(gd: Graph) -> Self {
-        Self {
+        let mut res = Self {
             code: String::new(),
             ast: Vec::new(),
             names: HashMap::new(),
@@ -42,7 +42,9 @@ impl VM {
             offset: Vec2::ZERO,
             zoom: 1.0,
             selected_face: None,
-        }
+        };
+        res.layout();
+        res
     }
 
     // Compile the code, but do not run it

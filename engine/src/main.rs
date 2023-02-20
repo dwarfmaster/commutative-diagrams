@@ -69,9 +69,6 @@ fn test_ui() {
     gr.edges[0][2].1.style.right = true;
     gr.edges[0][2].1.style.highlight = true;
 
-    // Layout it
-    gr.layout();
-
     // Run the ui
     let vm = vm::VM::new(gr);
     App::new()
@@ -168,7 +165,6 @@ where
 
     // Layout the graph
     log::info!("Layouting the graph");
-    goal.layout();
 
     // Run the ui
     log::info!("Running the ui");
@@ -195,9 +191,8 @@ where
 
 fn goal_ui_system(mut egui_context: ResMut<EguiContext>, mut vm: ResMut<vm::VM>) {
     egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| ui::code(ui, vm.as_mut()));
-    egui::SidePanel::right("Faces").show(egui_context.ctx_mut(), |ui| {
-        ui::faces(ui, &mut vm.as_mut())
-    });
+    egui::SidePanel::right("Faces")
+        .show(egui_context.ctx_mut(), |ui| ui::faces(ui, &mut vm.as_mut()));
 
     egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
         ui.add(ui::graph(&mut vm.as_mut()))
