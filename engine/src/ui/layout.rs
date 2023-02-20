@@ -1,7 +1,7 @@
 // Render to graphviz using unique identifiers as labels, export to json, read
 // json, and use it to layout the graph
 
-use crate::ui::Graph;
+use crate::vm::Graph;
 use egui::Pos2;
 
 use itertools::Itertools;

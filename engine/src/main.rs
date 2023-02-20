@@ -47,17 +47,17 @@ fn test_ui() {
     let f = mph!(ctx, (:4) : x -> y);
     let g = mph!(ctx, (:5) : x -> y);
     let h = mph!(ctx, (:6) : x -> z);
-    let mut gr: ui::Graph = Graph {
+    let mut gr: vm::Graph = Graph {
         nodes: vec![
-            (x, ui::NodeLabel::new("x".to_string())),
-            (y, ui::NodeLabel::new("y".to_string())),
-            (z, ui::NodeLabel::new("z".to_string())),
+            (x, vm::NodeLabel::new("x".to_string())),
+            (y, vm::NodeLabel::new("y".to_string())),
+            (z, vm::NodeLabel::new("z".to_string())),
         ],
         edges: vec![
             vec![
-                (1, ui::EdgeLabel::new("f".to_string()), f),
-                (1, ui::EdgeLabel::new("g".to_string()), g),
-                (2, ui::EdgeLabel::new("h".to_string()), h),
+                (1, vm::EdgeLabel::new("f".to_string()), f),
+                (1, vm::EdgeLabel::new("g".to_string()), g),
+                (2, vm::EdgeLabel::new("h".to_string()), h),
             ],
             vec![],
             vec![],
@@ -73,8 +73,7 @@ fn test_ui() {
     gr.layout();
 
     // Run the ui
-    let gd = ui::GraphDisplay::new(gr);
-    let vm = vm::VM::new(gd);
+    let vm = vm::VM::new(gr);
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
@@ -139,8 +138,8 @@ where
 {
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
-    let mut goal: ui::Graph = client
-        .receive_msg(goal_req, parser::Parser::<ui::Graph>::new(ctx.clone()))
+    let mut goal: vm::Graph = client
+        .receive_msg(goal_req, parser::Parser::<vm::Graph>::new(ctx.clone()))
         .unwrap_or_else(|err| {
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
@@ -160,7 +159,7 @@ where
         }
     }
     for fce in 0..goal.faces.len() {
-        goal.faces[fce].label = ui::FaceLabel::new(format!(
+        goal.faces[fce].label = vm::FaceLabel::new(format!(
             "{}: {}",
             fce,
             goal.faces[fce].eq.render(&mut ctx, 100)
@@ -173,8 +172,7 @@ where
 
     // Run the ui
     log::info!("Running the ui");
-    let gd = ui::GraphDisplay::new(goal);
-    let vm = vm::VM::new(gd);
+    let vm = vm::VM::new(goal);
     App::new()
         .add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
         .add_plugin(EguiPlugin)
@@ -198,11 +196,11 @@ where
 fn goal_ui_system(mut egui_context: ResMut<EguiContext>, mut vm: ResMut<vm::VM>) {
     egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| ui::code(ui, vm.as_mut()));
     egui::SidePanel::right("Faces").show(egui_context.ctx_mut(), |ui| {
-        ui::faces(ui, &mut vm.as_mut().display)
+        ui::faces(ui, &mut vm.as_mut())
     });
 
     egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
-        ui.add(ui::graph(&mut vm.as_mut().display))
+        ui.add(ui::graph(&mut vm.as_mut()))
     });
 }
 

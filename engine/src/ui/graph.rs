@@ -1,8 +1,8 @@
-use crate::ui::GraphDisplay;
+use crate::vm::VM;
 use egui::{Pos2, Vec2};
 use std::ops::Add;
 
-pub fn graph_widget(ui: &mut egui::Ui, gd: &mut GraphDisplay) -> egui::Response {
+pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
     // We fill all the available space
     let desired_size = ui.available_size();
     // For now it is non interactive, but we may want to react to click and drag
@@ -22,47 +22,47 @@ pub fn graph_widget(ui: &mut egui::Ui, gd: &mut GraphDisplay) -> egui::Response 
         response.request_focus();
     }
     if response.dragged() {
-        gd.offset += response.drag_delta();
+        vm.offset += response.drag_delta();
         response.request_focus();
     }
     if response.has_focus() {
         // zoom
-        // gd.zoom += ui.input().zoom_delta();
+        // vm.zoom += ui.input().zoom_delta();
         if ui.input().key_pressed(egui::Key::K) {
-            gd.zoom *= 1.1;
+            vm.zoom *= 1.1;
         }
         if ui.input().key_pressed(egui::Key::J) {
-            gd.zoom /= 1.1;
+            vm.zoom /= 1.1;
         }
         if ui.input().key_pressed(egui::Key::Num0) {
-            gd.zoom = 1.0;
+            vm.zoom = 1.0;
         }
 
         // offset
-        gd.offset += ui.input().scroll_delta;
+        vm.offset += ui.input().scroll_delta;
         let offset_delta = 50.0;
         if ui.input().key_pressed(egui::Key::ArrowUp) {
-            gd.offset.y -= offset_delta;
+            vm.offset.y -= offset_delta;
         }
         if ui.input().key_pressed(egui::Key::ArrowDown) {
-            gd.offset.y += offset_delta;
+            vm.offset.y += offset_delta;
         }
         if ui.input().key_pressed(egui::Key::ArrowLeft) {
-            gd.offset.x -= offset_delta;
+            vm.offset.x -= offset_delta;
         }
         if ui.input().key_pressed(egui::Key::ArrowRight) {
-            gd.offset.x += offset_delta;
+            vm.offset.x += offset_delta;
         }
 
         // Reset
         if ui.input().modifiers.ctrl && ui.input().key_pressed(egui::Key::Num0) {
-            gd.zoom = 1.0;
-            gd.offset = Vec2::ZERO;
+            vm.zoom = 1.0;
+            vm.offset = Vec2::ZERO;
         }
     }
 
     if ui.is_rect_visible(rect) {
-        let offset = rect.left_top().add(gd.offset).to_vec2();
+        let offset = rect.left_top().add(vm.offset).to_vec2();
         let visuals = ui.style().noninteractive();
         let rect = rect.expand(visuals.expansion);
         let stroke = if response.has_focus() {
@@ -74,17 +74,17 @@ pub fn graph_widget(ui: &mut egui::Ui, gd: &mut GraphDisplay) -> egui::Response 
 
         let painter = ui.painter().with_clip_rect(rect);
         let mut bg_stroke = visuals.bg_stroke;
-        bg_stroke.width *= gd.zoom;
+        bg_stroke.width *= vm.zoom;
         let mut fg_stroke = visuals.fg_stroke;
-        fg_stroke.width *= gd.zoom;
+        fg_stroke.width *= vm.zoom;
 
-        let setup_pos = |p: Pos2| -> Pos2 { (gd.zoom * p.to_vec2()).to_pos2().add(offset) };
+        let setup_pos = |p: Pos2| -> Pos2 { (vm.zoom * p.to_vec2()).to_pos2().add(offset) };
 
         // Paint nodes
-        for (_, label) in &gd.graph.nodes {
+        for (_, label) in &vm.graph.nodes {
             let pos = setup_pos(label.pos.clone());
             let name = &label.label;
-            let size = 14.0 * gd.zoom;
+            let size = 14.0 * vm.zoom;
             painter.text(
                 pos,
                 egui::Align2::CENTER_CENTER,
@@ -95,8 +95,8 @@ pub fn graph_widget(ui: &mut egui::Ui, gd: &mut GraphDisplay) -> egui::Response 
         }
 
         // Paint edges
-        for src in 0..gd.graph.nodes.len() {
-            for (_, label, _) in &gd.graph.edges[src] {
+        for src in 0..vm.graph.nodes.len() {
+            for (_, label, _) in &vm.graph.edges[src] {
                 // Style
                 let mut stroke = fg_stroke;
                 if label.style.highlight {
@@ -135,7 +135,7 @@ pub fn graph_widget(ui: &mut egui::Ui, gd: &mut GraphDisplay) -> egui::Response 
                     } else {
                         Rot2::from_angle(std::f32::consts::TAU / 12.0)
                     };
-                    let length = 5.0 * gd.zoom;
+                    let length = 5.0 * vm.zoom;
                     painter.line_segment([tip, tip - length * (rot * dir)], stroke);
                     painter.line_segment([tip, tip - length * (rot.inverse() * dir)], stroke);
                 }
@@ -157,11 +157,11 @@ pub fn graph_widget(ui: &mut egui::Ui, gd: &mut GraphDisplay) -> egui::Response 
                         })
                         .unwrap_or_else(|pos| pos);
                     let dir = -cubic_derivative(&curves[middle], 0.5).normalized().rot90();
-                    let pos = curves[middle].sample(0.5) + gd.zoom * 8.0 * dir;
+                    let pos = curves[middle].sample(0.5) + vm.zoom * 8.0 * dir;
                     let name = &label.label;
                     let layout = painter.layout_no_wrap(
                         name.to_string(),
-                        egui::FontId::proportional(14.0 * gd.zoom),
+                        egui::FontId::proportional(14.0 * vm.zoom),
                         fg_stroke.color,
                     );
                     let rvec = layout.rect.size() * 0.5;
@@ -206,6 +206,6 @@ fn cubic_derivative(curve: &egui::epaint::CubicBezierShape, t: f32) -> Vec2 {
 }
 
 // For more idiomatic usage
-pub fn graph<'a>(gd: &'a mut GraphDisplay) -> impl egui::Widget + 'a {
-    move |ui: &mut egui::Ui| graph_widget(ui, gd)
+pub fn graph<'a>(vm: &'a mut VM) -> impl egui::Widget + 'a {
+    move |ui: &mut egui::Ui| graph_widget(ui, vm)
 }

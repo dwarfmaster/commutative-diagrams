@@ -1,28 +1,47 @@
 use bevy::ecs::system::Resource;
 
-use crate::ui::GraphDisplay;
 use crate::vm::ast::AST;
 use crate::vm::parser;
+use crate::vm::graph::Graph;
+use std::collections::HashMap;
+use egui::Vec2;
+
+#[derive(Debug,Clone,Copy)]
+pub enum GraphId {
+    Node(usize),
+    Morphism(usize, usize),
+    Face(usize),
+}
 
 #[derive(Resource)]
 pub struct VM {
     pub code: String,
     pub ast: AST,
+    pub names: HashMap<String, GraphId>,
+    pub ids: HashMap<usize, GraphId>,
     pub error_at: Option<(usize, usize)>,
     pub error_msg: String,
     pub run_until: usize,
-    pub display: GraphDisplay,
+    pub graph: Graph,
+    pub offset: Vec2,
+    pub zoom: f32,
+    pub selected_face: Option<usize>,
 }
 
 impl VM {
-    pub fn new(gd: GraphDisplay) -> Self {
+    pub fn new(gd: Graph) -> Self {
         Self {
             code: String::new(),
             ast: Vec::new(),
+            names: HashMap::new(),
+            ids: HashMap::new(),
             error_at: None,
             error_msg: String::new(),
             run_until: 0,
-            display: gd,
+            graph: gd,
+            offset: Vec2::ZERO,
+            zoom: 1.0,
+            selected_face: None,
         }
     }
 

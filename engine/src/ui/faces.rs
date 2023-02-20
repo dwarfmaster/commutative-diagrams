@@ -1,49 +1,49 @@
 use crate::data::Morphism;
-use crate::ui::{EdgeLabel, GraphDisplay};
+use crate::vm::{EdgeLabel, VM};
 
-pub fn faces(ui: &mut egui::Ui, gr: &mut GraphDisplay) {
-    let prev = gr.selected_face;
+pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
+    let prev = vm.selected_face;
 
     egui::ScrollArea::vertical().show(ui, |ui| {
-        ui.radio_value(&mut gr.selected_face, None, "No face");
-        for fce in 0..gr.graph.faces.len() {
-            let label = &gr.graph.faces[fce].label.label;
-            ui.radio_value(&mut gr.selected_face, Some(fce), label);
+        ui.radio_value(&mut vm.selected_face, None, "No face");
+        for fce in 0..vm.graph.faces.len() {
+            let label = &vm.graph.faces[fce].label.label;
+            ui.radio_value(&mut vm.selected_face, Some(fce), label);
         }
     });
 
-    if gr.selected_face != prev {
+    if vm.selected_face != prev {
         if let Some(fce) = prev {
             on_path(
-                &mut gr.graph.edges,
-                gr.graph.faces[fce].start,
-                &gr.graph.faces[fce].left,
+                &mut vm.graph.edges,
+                vm.graph.faces[fce].start,
+                &vm.graph.faces[fce].left,
                 |lbl| {
                     lbl.style.left = false;
                 },
             );
             on_path(
-                &mut gr.graph.edges,
-                gr.graph.faces[fce].start,
-                &gr.graph.faces[fce].right,
+                &mut vm.graph.edges,
+                vm.graph.faces[fce].start,
+                &vm.graph.faces[fce].right,
                 |lbl| {
                     lbl.style.right = false;
                 },
             );
         }
-        if let Some(fce) = gr.selected_face {
+        if let Some(fce) = vm.selected_face {
             on_path(
-                &mut gr.graph.edges,
-                gr.graph.faces[fce].start,
-                &gr.graph.faces[fce].left,
+                &mut vm.graph.edges,
+                vm.graph.faces[fce].start,
+                &vm.graph.faces[fce].left,
                 |lbl| {
                     lbl.style.left = true;
                 },
             );
             on_path(
-                &mut gr.graph.edges,
-                gr.graph.faces[fce].start,
-                &gr.graph.faces[fce].right,
+                &mut vm.graph.edges,
+                vm.graph.faces[fce].start,
+                &vm.graph.faces[fce].right,
                 |lbl| {
                     lbl.style.right = true;
                 },
