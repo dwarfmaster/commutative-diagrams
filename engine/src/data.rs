@@ -2,9 +2,8 @@ use core::ops::Deref;
 use hashconsing::{HConsed, HConsign, HashConsign};
 use serde::ser::{SerializeStruct, SerializeTupleVariant};
 use serde::{Deserialize, Serialize, Serializer};
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::{Arc,Mutex};
 
 //  ____                   __    ___  _     _           _
 // |  _ \ _ __ ___   ___  / _|  / _ \| |__ (_) ___  ___| |_
@@ -668,13 +667,13 @@ impl Serialize for ActualEquality {
 #[derive(Clone)]
 pub struct Context {
     /// The names of the terms proofobjects
-    terms: Rc<RefCell<HashMap<u64, String>>>,
-    cat_factory: Rc<RefCell<HConsign<ActualCategory>>>,
-    funct_factory: Rc<RefCell<HConsign<ActualFunctor>>>,
-    obj_factory: Rc<RefCell<HConsign<ActualObject>>>,
-    mph_factory: Rc<RefCell<HConsign<ActualMorphism>>>,
-    eq_factory: Rc<RefCell<HConsign<ActualEquality>>>,
-    max_existential: Rc<RefCell<u64>>,
+    terms: Arc<Mutex<HashMap<u64, String>>>,
+    cat_factory: Arc<Mutex<HConsign<ActualCategory>>>,
+    funct_factory: Arc<Mutex<HConsign<ActualFunctor>>>,
+    obj_factory: Arc<Mutex<HConsign<ActualObject>>>,
+    mph_factory: Arc<Mutex<HConsign<ActualMorphism>>>,
+    eq_factory: Arc<Mutex<HConsign<ActualEquality>>>,
+    max_existential: Arc<Mutex<u64>>,
 }
 
 pub trait ContextMakable {
@@ -690,7 +689,7 @@ impl ContextMakable for ActualCategory {
                 _ => (),
             },
         }
-        ctx.cat_factory.borrow_mut().mk(self)
+        ctx.cat_factory.lock().unwrap().mk(self)
     }
 }
 impl ContextMakable for ActualFunctor {
@@ -701,7 +700,7 @@ impl ContextMakable for ActualFunctor {
                 _ => (),
             },
         }
-        ctx.funct_factory.borrow_mut().mk(self)
+        ctx.funct_factory.lock().unwrap().mk(self)
     }
 }
 impl ContextMakable for ActualObject {
@@ -713,7 +712,7 @@ impl ContextMakable for ActualObject {
             },
             _ => (),
         }
-        ctx.obj_factory.borrow_mut().mk(self)
+        ctx.obj_factory.lock().unwrap().mk(self)
     }
 }
 impl ContextMakable for ActualMorphism {
@@ -725,7 +724,7 @@ impl ContextMakable for ActualMorphism {
             },
             _ => (),
         }
-        ctx.mph_factory.borrow_mut().mk(self)
+        ctx.mph_factory.lock().unwrap().mk(self)
     }
 }
 impl ContextMakable for ActualEquality {
@@ -737,33 +736,33 @@ impl ContextMakable for ActualEquality {
             },
             _ => (),
         }
-        ctx.eq_factory.borrow_mut().mk(self)
+        ctx.eq_factory.lock().unwrap().mk(self)
     }
 }
 
 impl Context {
     pub fn new() -> Context {
         Context {
-            terms: Rc::new(RefCell::new(HashMap::new())),
-            cat_factory: Rc::new(RefCell::new(HConsign::empty())),
-            funct_factory: Rc::new(RefCell::new(HConsign::empty())),
-            obj_factory: Rc::new(RefCell::new(HConsign::empty())),
-            mph_factory: Rc::new(RefCell::new(HConsign::empty())),
-            eq_factory: Rc::new(RefCell::new(HConsign::empty())),
-            max_existential: Rc::new(RefCell::new(0)),
+            terms: Arc::new(Mutex::new(HashMap::new())),
+            cat_factory: Arc::new(Mutex::new(HConsign::empty())),
+            funct_factory: Arc::new(Mutex::new(HConsign::empty())),
+            obj_factory: Arc::new(Mutex::new(HConsign::empty())),
+            mph_factory: Arc::new(Mutex::new(HConsign::empty())),
+            eq_factory: Arc::new(Mutex::new(HConsign::empty())),
+            max_existential: Arc::new(Mutex::new(0)),
         }
     }
 
     fn has_po(&self, po: &ProofObject) -> bool {
         match po {
-            ProofObject::Term(id) => self.terms.borrow().contains_key(&id),
+            ProofObject::Term(id) => self.terms.lock().unwrap().contains_key(&id),
             ProofObject::Existential(_) => true,
         }
     }
 
     // TODO could be better handled
     pub fn term(&self, term: u64) -> Option<String> {
-        self.terms.borrow().get(&term).map(|s| s.clone())
+        self.terms.lock().unwrap().get(&term).map(|s| s.clone())
     }
 
     pub fn new_term(&self, id: u64, name: &str) {
@@ -771,15 +770,16 @@ impl Context {
     }
 
     pub fn new_term_mv(&self, id: u64, name: String) {
-        self.terms.borrow_mut().insert(id, name);
+        self.terms.lock().unwrap().insert(id, name);
     }
 
     fn update_max_ex(&self, max: u64) {
-        self.max_existential.replace_with(|&mut v| v.max(max));
+        let mut v = self.max_existential.lock().unwrap();
+        *v = v.max(max)
     }
 
     pub fn new_existential(&self) -> u64 {
-        self.max_existential.borrow().deref() + 1
+        self.max_existential.lock().unwrap().deref() + 1
     }
 
     pub fn mk<T: ContextMakable>(&self, act: T) -> HConsed<T> {
