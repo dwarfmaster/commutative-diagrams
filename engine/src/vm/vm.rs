@@ -1,5 +1,6 @@
 use bevy::ecs::system::Resource;
 
+use crate::data::Context;
 use crate::vm::ast::AST;
 use crate::vm::graph::Graph;
 use crate::vm::parser;
@@ -15,6 +16,7 @@ pub enum GraphId {
 
 #[derive(Resource)]
 pub struct VM {
+    pub ctx: Context,
     pub code: String,
     pub ast: AST,
     pub names: HashMap<String, GraphId>,
@@ -29,8 +31,9 @@ pub struct VM {
 }
 
 impl VM {
-    pub fn new(gd: Graph) -> Self {
+    pub fn new(ctx: Context, gd: Graph) -> Self {
         let mut res = Self {
+            ctx,
             code: String::new(),
             ast: Vec::new(),
             names: HashMap::new(),

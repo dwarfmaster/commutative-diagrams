@@ -70,7 +70,7 @@ fn test_ui() {
     gr.edges[0][2].1.style.highlight = true;
 
     // Run the ui
-    let vm = vm::VM::new(gr);
+    let vm = vm::VM::new(ctx, gr);
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
@@ -168,7 +168,7 @@ where
 
     // Run the ui
     log::info!("Running the ui");
-    let vm = vm::VM::new(goal);
+    let vm = vm::VM::new(ctx, goal);
     App::new()
         .add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
         .add_plugin(EguiPlugin)
