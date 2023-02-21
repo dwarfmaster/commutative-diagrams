@@ -1,3 +1,4 @@
+use crate::data::TestExistential;
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
 use crate::data::{Category, Context, Equality, Functor, Morphism, Object, ProofObject};
 use core::ops::Deref;
@@ -16,6 +17,24 @@ pub enum AnyTerm {
     TypedObj(Object),
     TypedMph(Morphism),
     TypedEq(Equality),
+}
+
+impl TestExistential for AnyTerm {
+    fn is_ex(&self) -> Option<u64> {
+        use AnyTerm::*;
+        match self {
+            Cat(c) => c.is_ex(),
+            Funct(f) => f.is_ex(),
+            Obj(o) => o.is_ex(),
+            Mph(m) => m.is_ex(),
+            Eq(e) => e.is_ex(),
+            TypedCat(c) => c.is_ex(),
+            TypedFunct(f) => f.is_ex(),
+            TypedObj(o) => o.is_ex(),
+            TypedMph(m) => m.is_ex(),
+            TypedEq(e) => e.is_ex(),
+        }
+    }
 }
 
 impl AnyTerm {

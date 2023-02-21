@@ -20,6 +20,10 @@ pub enum ProofObject {
     Existential(u64),
 }
 
+pub trait TestExistential {
+    fn is_ex(&self) -> Option<u64>;
+}
+
 impl ProofObject {
     pub fn is_term(&self) -> bool {
         match self {
@@ -27,6 +31,28 @@ impl ProofObject {
             _ => false,
         }
     }
+}
+
+impl TestExistential for ProofObject {
+    fn is_ex(&self) -> Option<u64> {
+        match self {
+            Self::Existential(ex) => Some(*ex),
+            _ => None,
+        }
+    }
+}
+macro_rules! derive_exist_for_atomic {
+    ($t:ty) => {
+        impl TestExistential for $t {
+            fn is_ex(&self) -> Option<u64> {
+                // Wrapping in Some to prevent warning about _ being unreachable
+                match Some(self) {
+                    Some(Self::Atomic(data)) => data.is_ex(),
+                    _ => None,
+                }
+            }
+        }
+    };
 }
 
 pub trait IsPOBacked {
@@ -37,6 +63,11 @@ macro_rules! derive_pobacked {
         impl IsPOBacked for $t {
             fn pobj(&self) -> ProofObject {
                 self.pobj.clone()
+            }
+        }
+        impl TestExistential for $t {
+            fn is_ex(&self) -> Option<u64> {
+                self.pobj().is_ex()
             }
         }
     };
@@ -68,6 +99,7 @@ impl ActualCategory {
         }
     }
 }
+derive_exist_for_atomic!(ActualCategory);
 
 impl Serialize for CategoryData {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
@@ -131,6 +163,7 @@ impl ActualFunctor {
         }
     }
 }
+derive_exist_for_atomic!(ActualFunctor);
 
 impl Serialize for FunctorData {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
@@ -194,6 +227,7 @@ impl ActualObject {
         }
     }
 }
+derive_exist_for_atomic!(ActualObject);
 
 impl Serialize for ObjectData {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
@@ -300,6 +334,7 @@ impl ActualMorphism {
         }
     }
 }
+derive_exist_for_atomic!(ActualMorphism);
 
 impl Serialize for MorphismData {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
@@ -574,6 +609,7 @@ impl ActualEquality {
         }
     }
 }
+derive_exist_for_atomic!(ActualEquality);
 
 impl Serialize for EqualityData {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
