@@ -1,9 +1,10 @@
-use crate::anyterm::IsTerm;
+use crate::anyterm::{AnyTerm, IsTerm};
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
 use crate::data::{Category, Equality, Functor, Morphism, Object};
-use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData, ProofObject};
+use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData};
+use crate::data::{Context, ProofObject, TestExistential};
 use crate::substitution::Substitutable;
-use crate::unification::UnifState;
+use crate::unification::{unify, UnifState};
 use crate::vm::ast::{Id, TermDescr};
 use crate::vm::vm::GraphId;
 use crate::vm::VM;
@@ -135,6 +136,22 @@ impl VM {
         Some((obj.subst(&self.ctx, &sigma), hash))
     }
 
+    pub fn identify_node(&mut self, descr: &TermDescr) -> Option<usize> {
+        let (obj, hash) = self.descr_as_object(descr)?;
+        let obj = obj.term();
+        for i in 0..self.graph.nodes.len() {
+            if match_term(
+                &self.ctx,
+                &hash,
+                obj.clone(),
+                self.graph.nodes[i].0.clone().term(),
+            ) {
+                return Some(i);
+            }
+        }
+        None
+    }
+
     fn realize_descr_as_morphism(
         &mut self,
         exs: &mut HashSet<u64>,
@@ -209,6 +226,24 @@ impl VM {
         let mph = self.realize_descr_as_morphism(&mut hash, &mut unif, descr, src, dst)?;
         let sigma = unif.solve()?;
         Some((mph.subst(&self.ctx, &sigma), hash))
+    }
+
+    pub fn identify_edge(&mut self, descr: &TermDescr) -> Option<(usize, usize)> {
+        let (mph, hash) = self.descr_as_morphism(descr)?;
+        let mph = mph.term();
+        for src in 0..self.graph.edges.len() {
+            for m in 0..self.graph.edges[src].len() {
+                if match_term(
+                    &self.ctx,
+                    &hash,
+                    mph.clone(),
+                    self.graph.edges[src][m].2.clone().term(),
+                ) {
+                    return Some((src, m));
+                }
+            }
+        }
+        None
     }
 
     fn realize_descr_as_equality(
@@ -317,17 +352,46 @@ impl VM {
         let sigma = unif.solve()?;
         Some((eq.subst(&self.ctx, &sigma), hash))
     }
+
+    pub fn identify_face(&mut self, descr: &TermDescr) -> Option<usize> {
+        let (eq, hash) = self.descr_as_equality(descr)?;
+        let eq = eq.term();
+        for fce in 0..self.graph.faces.len() {
+            if match_term(
+                &self.ctx,
+                &hash,
+                eq.clone(),
+                self.graph.faces[fce].eq.clone().term(),
+            ) {
+                return Some(fce);
+            }
+        }
+        None
+    }
+}
+
+fn match_term(ctx: &Context, exs: &HashSet<u64>, pattern: AnyTerm, term: AnyTerm) -> bool {
+    if let Some(sigma) = unify(ctx, pattern, term) {
+        sigma
+            .iter()
+            .all(|pair| exs.contains(&pair.0) || pair.1.is_ex().is_some())
+    } else {
+        false
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::anyterm::IsTerm;
     use crate::data::{ActualCategory, CategoryData};
     use crate::data::{ActualObject, ObjectData};
     use crate::data::{Context, ProofObject};
     use crate::dsl::{cat, obj};
     use crate::vm::ast::{Id, TermDescr};
+    use crate::vm::identify;
     use crate::vm::VM;
     use crate::vm::{Graph, NodeLabel};
+    use std::collections::HashSet;
 
     #[test]
     fn realize() {
@@ -345,5 +409,51 @@ mod tests {
         let descr = TermDescr::Ref(Id::Id(0));
         let (obj, _) = vm.descr_as_object(&descr).unwrap();
         assert!(obj.check(&vm.ctx), "Realization is invalid");
+    }
+
+    #[test]
+    fn match_term() {
+        let ctx = Context::new();
+        let cat = cat!(ctx, (:0));
+        let x = obj!(ctx, (?0) in cat).term();
+        let y = obj!(ctx, (:1) in cat).term();
+
+        let mut exs = HashSet::new();
+        exs.insert(0);
+        assert!(
+            identify::match_term(&ctx, &exs, x.clone(), y.clone()),
+            "Match in one direction"
+        );
+
+        let exs = HashSet::new();
+        assert!(
+            !identify::match_term(&ctx, &exs, x.clone(), y.clone()),
+            "Match in the other direction"
+        );
+    }
+
+    #[test]
+    fn identification_id() {
+        let ctx = Context::new();
+        let cat = cat!(ctx, (:0));
+        let x = obj!(ctx, (:1) in cat);
+        let y = obj!(ctx, (:2) in cat);
+
+        let gr = Graph {
+            nodes: vec![
+                (x, NodeLabel::new("x".to_string())),
+                (y, NodeLabel::new("y".to_string())),
+            ],
+            edges: vec![vec![], vec![]],
+            faces: vec![],
+        };
+        let mut vm = VM::new(ctx, gr);
+
+        let id0 = vm.identify_node(&TermDescr::Ref(Id::Id(0))).unwrap();
+        assert_eq!(id0, 0, "Found node by id 0");
+        let id1 = vm.identify_node(&TermDescr::Ref(Id::Id(1))).unwrap();
+        assert_eq!(id1, 1, "Found node by id 0");
+        let id2 = vm.identify_node(&TermDescr::Ref(Id::Id(2)));
+        assert!(id2.is_none(), "Succeeded in finding inexisting node");
     }
 }
