@@ -85,6 +85,18 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
             })
             && self.faces.iter().all(|fce| fce.check(ctx, self))
     }
+
+    pub fn edge_by_id(&self, id: usize) -> Option<(usize, usize)> {
+        let mut acc: usize = 0;
+        for i in 0..self.edges.len() {
+            let prev = acc;
+            acc += self.edges[i].len();
+            if id < acc {
+                return Some((i, id - prev));
+            }
+        }
+        None
+    }
 }
 
 impl<NL, EL, FL> Substitutable for Graph<NL, EL, FL> {
