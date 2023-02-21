@@ -67,43 +67,47 @@ impl VM {
 
         // Find the coordinates of dots
         log::trace!("Place nodes");
-        for object in json["objects"]
-            .as_array()
-            .expect(".objects should be a list")
-        {
-            let id = object["label"]
-                .as_str()
-                .expect(".objects[].label should be a string")
-                .split(":")
-                .next()
-                .expect("The label should not be empty")
-                .parse::<usize>()
-                .expect("The first part of the label should be the id");
-            let pos = object_pos(object);
-            graph.nodes[id].1.pos = pos;
+        if !json["objects"].is_null() {
+            for object in json["objects"]
+                .as_array()
+                .expect(".objects should be a list")
+            {
+                let id = object["label"]
+                    .as_str()
+                    .expect(".objects[].label should be a string")
+                    .split(":")
+                    .next()
+                    .expect("The label should not be empty")
+                    .parse::<usize>()
+                    .expect("The first part of the label should be the id");
+                let pos = object_pos(object);
+                graph.nodes[id].1.pos = pos;
+            }
         }
 
         // Find the coordinates of edges
         log::trace!("Place edges");
-        for edge in json["edges"].as_array().expect(".edges should be a list") {
-            let (src_id, mph_id) = edge["label"]
-                .as_str()
-                .expect(".edges[].label should be a string")
-                .split(":")
-                .take(2)
-                .map(|s| {
-                    s.parse::<usize>()
-                        .expect("The beggining of the label should be an integer")
-                })
-                .collect_tuple()
-                .expect("The label should have two :-separated fields at least");
-            let coordinates: Vec<Pos2> = edge["pos"]
-                .as_str()
-                .expect(".edges[].pos should be a string")
-                .split(' ')
-                .map(parse_pos)
-                .collect();
-            graph.edges[src_id][mph_id].1.shape = split_bspline(coordinates);
+        if !json["edges"].is_null() {
+            for edge in json["edges"].as_array().expect(".edges should be a list") {
+                let (src_id, mph_id) = edge["label"]
+                    .as_str()
+                    .expect(".edges[].label should be a string")
+                    .split(":")
+                    .take(2)
+                    .map(|s| {
+                        s.parse::<usize>()
+                            .expect("The beggining of the label should be an integer")
+                    })
+                    .collect_tuple()
+                    .expect("The label should have two :-separated fields at least");
+                let coordinates: Vec<Pos2> = edge["pos"]
+                    .as_str()
+                    .expect(".edges[].pos should be a string")
+                    .split(' ')
+                    .map(parse_pos)
+                    .collect();
+                graph.edges[src_id][mph_id].1.shape = split_bspline(coordinates);
+            }
         }
     }
 }
