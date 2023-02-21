@@ -3,7 +3,7 @@ use hashconsing::{HConsed, HConsign, HashConsign};
 use serde::ser::{SerializeStruct, SerializeTupleVariant};
 use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
-use std::sync::{Arc,Mutex};
+use std::sync::{Arc, Mutex};
 
 //  ____                   __    ___  _     _           _
 // |  _ \ _ __ ___   ___  / _|  / _ \| |__ (_) ___  ___| |_

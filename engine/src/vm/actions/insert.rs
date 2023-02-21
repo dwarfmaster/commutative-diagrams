@@ -1,7 +1,6 @@
-
-use crate::vm::VM;
-use crate::data::{Object, Morphism};
+use crate::data::{Morphism, Object};
 use crate::tactics;
+use crate::vm::VM;
 
 impl VM {
     pub fn insert_node(&mut self, node: Object) {
