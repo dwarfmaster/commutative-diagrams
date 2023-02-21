@@ -102,7 +102,7 @@ pub fn code(ui: &mut egui::Ui, vm: &mut vm::VM) {
             if ui.add(egui::Button::new("Run")).clicked() {
                 log::debug!("Running");
                 if vm.recompile() {
-                    // TODO execute the ast
+                    vm.run();
                 }
             }
             if ui.add(egui::Button::new("Check")).clicked() {

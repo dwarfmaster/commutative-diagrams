@@ -1,12 +1,10 @@
-use crate::data::Morphism;
 use crate::tactics;
 use crate::vm::VM;
 
 impl VM {
-    pub fn split(&mut self, mph: Morphism) {
+    pub fn split(&mut self, src: usize, mph: usize) {
         // TODO hide previous morphism
-        let (src_id, mph_id, _) = tactics::insert_mph(&mut self.ctx, &mut self.graph, mph);
-        tactics::split_norm(&mut self.ctx, &mut self.graph, src_id, mph_id);
+        tactics::split_norm(&mut self.ctx, &mut self.graph, src, mph);
         self.layout()
     }
 }

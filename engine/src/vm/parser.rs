@@ -81,7 +81,7 @@ fn act_insert(input: &str) -> IResult<&str, ast::Action> {
 
 fn act_insert_at(input: &str) -> IResult<&str, ast::Action> {
     let (input, _) = space1(input)?;
-    let (input, at) = term_descr(input)?;
+    let (input, at) = integer(input)?;
     let (input, _) = sep(input)?;
     let (input, mph) = term_descr(input)?;
     success(ast::Action::InsertMorphismAt(at, mph))(input)
@@ -145,8 +145,8 @@ mod tests {
         test("insert node, [10]", InsertNode(Ref(Id::Id(10))));
         test("insert morphism, _", InsertMorphism(Hole));
         test(
-            "insert_at [5], toto",
-            InsertMorphismAt(Ref(Id::Id(5)), Ref(Id::Name("toto".to_string()))),
+            "insert_at 5, toto",
+            InsertMorphismAt(5, Ref(Id::Name("toto".to_string()))),
         );
         test("split [2]", Split(Ref(Id::Id(2))));
         test("solve fce1", Solve(Ref(Id::Name("fce1".to_string()))));
@@ -155,8 +155,8 @@ mod tests {
         test("fail", Fail);
 
         test(
-            "  insert_at\t[5]        ,   [0]    ",
-            InsertMorphismAt(Ref(Id::Id(5)), Ref(Id::Id(0))),
+            "  insert_at\t5        ,   [0]    ",
+            InsertMorphismAt(5, Ref(Id::Id(0))),
         );
     }
 }

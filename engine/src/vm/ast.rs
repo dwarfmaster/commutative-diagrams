@@ -7,7 +7,7 @@ pub enum Action {
     // Interpret the term as a morphism, and try to insert it into the graph
     InsertMorphism(TermDescr),
     // Insert the second argument as a morphism rooted at the first
-    InsertMorphismAt(TermDescr, TermDescr),
+    InsertMorphismAt(usize, TermDescr),
     // Normalise and split an edge in the graph
     Split(TermDescr),
     // Try to solve a face using the automatic solver
