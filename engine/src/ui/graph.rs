@@ -1,4 +1,4 @@
-use crate::vm::VM;
+use crate::vm::{GraphId, VM};
 use egui::{Pos2, Vec2};
 use std::ops::Add;
 
@@ -7,7 +7,7 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
     let desired_size = ui.available_size();
     // For now it is non interactive, but we may want to react to click and drag
     // on nodes and edges to allow manual placement of the graph. That is why we
-    // take the graph as mutable, and the lenses as mutable.
+    // take the graph as mutable.
     let response = ui.allocate_response(
         desired_size,
         egui::Sense {
@@ -17,6 +17,12 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
         },
     );
     let rect = response.rect;
+
+    // When drawing we compute the closest element to the hover cursor and its distance,
+    // and print information in a tooltip
+    let mut closest_distance = f32::INFINITY;
+    let mut closest_object = GraphId::Node(0);
+    let hover_pos = response.hover_pos();
 
     if response.clicked() {
         response.request_focus();
@@ -81,7 +87,7 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
         let setup_pos = |p: Pos2| -> Pos2 { (vm.zoom * p.to_vec2()).to_pos2().add(offset) };
 
         // Paint nodes
-        for (_, label) in &vm.graph.nodes {
+        for (n, (_, label)) in vm.graph.nodes.iter().enumerate() {
             let pos = setup_pos(label.pos.clone());
             let name = &label.label;
             let size = 14.0 * vm.zoom;
@@ -92,11 +98,20 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
                 egui::FontId::proportional(size),
                 fg_stroke.color,
             );
+
+            // Compute distance to hover_pos
+            if let Some(hpos) = hover_pos {
+                let dist = pos.distance(hpos);
+                if dist < closest_distance {
+                    closest_distance = dist;
+                    closest_object = GraphId::Node(n);
+                }
+            }
         }
 
         // Paint edges
         for src in 0..vm.graph.nodes.len() {
-            for (_, label, _) in &vm.graph.edges[src] {
+            for (mph, (_, label, _)) in vm.graph.edges[src].iter().enumerate() {
                 // Style
                 let mut stroke = fg_stroke;
                 if label.style.highlight {
@@ -123,6 +138,25 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
                 // Paint the curve
                 for curve in &curves {
                     painter.add(*curve);
+
+                    // Compute distance
+                    // Since it is expensive we first check if hover_pos is in
+                    // the bounding rect of the curve.
+                    if let Some(hpos) = hover_pos {
+                        if curve.visual_bounding_rect().contains(hpos) {
+                            let mut dist = f32::INFINITY;
+                            curve.for_each_flattened_with_t(1.0, &mut |p: Pos2, _: f32| {
+                                let d = p.distance(hpos);
+                                if d < dist {
+                                    dist = d;
+                                }
+                            });
+                            if dist < closest_distance {
+                                closest_distance = dist;
+                                closest_object = GraphId::Morphism(src, mph);
+                            }
+                        }
+                    }
                 }
 
                 // Paint the arrow
@@ -175,6 +209,34 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
                     painter.galley(pos - rvec + alpha * dir, layout);
                 }
             }
+        }
+
+        // Paint tooltip
+        if hover_pos.is_some() && closest_distance < 20.0 * vm.zoom {
+            egui::show_tooltip_at_pointer(ui.ctx(), egui::Id::new("id tooltip"), |ui| {
+                let label = match closest_object {
+                    GraphId::Node(n) => {
+                        let node = &vm.graph.nodes[n].1;
+                        format!(
+                            "node {}[{}] : {}",
+                            node.name.as_ref().unwrap_or(&"".to_string()),
+                            n,
+                            node.label
+                        )
+                    }
+                    GraphId::Morphism(src, dst) => {
+                        let edge = &vm.graph.edges[src][dst].1;
+                        format!(
+                            "morphism {}[{}] : {}",
+                            edge.name.as_ref().unwrap_or(&"".to_string()),
+                            edge.id,
+                            edge.label
+                        )
+                    }
+                    _ => panic!(),
+                };
+                ui.label(label)
+            });
         }
     }
 

@@ -8,4 +8,4 @@ mod vm;
 
 pub use graph::{EdgeLabel, FaceLabel, Graph, NodeLabel};
 pub use interpreter::ExecutionResult;
-pub use vm::VM;
+pub use vm::{GraphId, VM};

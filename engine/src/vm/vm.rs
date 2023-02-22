@@ -45,6 +45,7 @@ impl VM {
             selected_face: None,
         };
         res.layout();
+        res.renumber_edges();
         res
     }
 
@@ -70,6 +71,16 @@ impl VM {
                 self.error_msg = format!("{}:{}: {}", start, end, err);
                 self.error_at = Some((start, end));
                 false
+            }
+        }
+    }
+
+    fn renumber_edges(&mut self) {
+        let mut count = 0;
+        for src in 0..self.graph.edges.len() {
+            for mph in 0..self.graph.edges[src].len() {
+                self.graph.edges[src][mph].1.id = count;
+                count += 1;
             }
         }
     }

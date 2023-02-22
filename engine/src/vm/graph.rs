@@ -3,16 +3,16 @@ use crate::graph;
 #[derive(Debug, Default)]
 pub struct NodeLabel {
     pub pos: egui::Pos2,
-    pub name: String,
+    pub name: Option<String>,
     pub label: String,
 }
 
 impl NodeLabel {
-    pub fn new(name: String) -> Self {
+    pub fn new(label: String) -> Self {
         Self {
             pos: egui::Pos2::ZERO,
-            name: name.clone(),
-            label: name,
+            name: None,
+            label,
         }
     }
 }
@@ -28,17 +28,19 @@ pub struct EdgeStyle {
 #[derive(Debug, Default)]
 pub struct EdgeLabel {
     pub shape: Vec<[egui::Pos2; 4]>,
-    pub name: String,
+    pub name: Option<String>,
+    pub id: usize,
     pub label: String,
     pub style: EdgeStyle,
 }
 
 impl EdgeLabel {
-    pub fn new(name: String) -> Self {
+    pub fn new(label: String) -> Self {
         Self {
             shape: Vec::new(),
-            name: name.clone(),
-            label: name,
+            name: None,
+            label,
+            id: 0, // Invalid number, but will be set during VM initialization
             style: EdgeStyle::default(),
         }
     }
@@ -47,15 +49,12 @@ impl EdgeLabel {
 #[derive(Debug, Default)]
 pub struct FaceLabel {
     pub label: String,
-    pub name: String,
+    pub name: Option<String>,
 }
 
 impl FaceLabel {
-    pub fn new(name: String) -> Self {
-        Self {
-            name: name.clone(),
-            label: name,
-        }
+    pub fn new(label: String) -> Self {
+        Self { name: None, label }
     }
 }
 

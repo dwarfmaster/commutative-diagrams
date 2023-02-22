@@ -7,7 +7,16 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.radio_value(&mut vm.selected_face, None, "No face");
         for fce in 0..vm.graph.faces.len() {
-            let label = &vm.graph.faces[fce].label.label;
+            let label = format!(
+                "{}[{}]: {}",
+                vm.graph.faces[fce]
+                    .label
+                    .name
+                    .as_ref()
+                    .unwrap_or(&"".to_string()),
+                fce,
+                &vm.graph.faces[fce].label.label
+            );
             ui.radio_value(&mut vm.selected_face, Some(fce), label);
         }
     });
