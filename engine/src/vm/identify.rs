@@ -6,7 +6,7 @@ use crate::data::{Context, ProofObject, TestExistential};
 use crate::substitution::Substitutable;
 use crate::unification::{unify, UnifState};
 use crate::vm::ast::{Id, TermDescr};
-use crate::vm::vm::GraphId;
+use crate::vm::graph::GraphId;
 use crate::vm::VM;
 use std::collections::HashSet;
 

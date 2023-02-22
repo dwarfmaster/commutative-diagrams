@@ -1,5 +1,12 @@
 use crate::graph;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GraphId {
+    Node(usize),
+    Morphism(usize, usize),
+    Face(usize),
+}
+
 #[derive(Debug, Default)]
 pub struct NodeLabel {
     pub pos: egui::Pos2,

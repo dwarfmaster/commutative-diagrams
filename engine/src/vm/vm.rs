@@ -2,17 +2,10 @@ use bevy::ecs::system::Resource;
 
 use crate::data::Context;
 use crate::vm::ast::AST;
-use crate::vm::graph::Graph;
+use crate::vm::graph::{Graph, GraphId};
 use crate::vm::parser;
 use egui::Vec2;
 use std::collections::HashMap;
-
-#[derive(Debug, Clone, Copy)]
-pub enum GraphId {
-    Node(usize),
-    Morphism(usize, usize),
-    Face(usize),
-}
 
 #[derive(Resource)]
 pub struct VM {
@@ -46,6 +39,7 @@ impl VM {
         };
         res.layout();
         res.renumber_edges();
+        res.autoname();
         res
     }
 

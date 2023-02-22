@@ -146,12 +146,10 @@ where
     // Label/name all objects
     log::info!("Autolabelling graph");
     for n in 0..goal.nodes.len() {
-        goal.nodes[n].1.name = Some(format!("n_{}", n));
         goal.nodes[n].1.label = goal.nodes[n].0.render(&mut ctx, 100);
     }
     for src in 0..goal.nodes.len() {
         for mph in 0..goal.edges[src].len() {
-            goal.edges[src][mph].1.name = Some(format!("e_{}_{}", src, mph));
             goal.edges[src][mph].1.label = goal.edges[src][mph].2.render(&mut ctx, 100);
         }
     }
