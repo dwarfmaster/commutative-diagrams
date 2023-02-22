@@ -119,7 +119,7 @@ fn act_hide(hide: bool, input: &str) -> IResult<&str, ast::Action> {
         (false, "morphism") => success(ast::Action::RevealMorphism(d))(input),
         (true, "face") => success(ast::Action::HideFace(d))(input),
         (false, "face") => success(ast::Action::RevealFace(d))(input),
-        _ => fail(input)
+        _ => fail(input),
     }
 }
 

@@ -1,11 +1,10 @@
-
 use crate::vm::graph::GraphId;
 use crate::vm::VM;
 
 impl VM {
     fn hide_node(&mut self, id: usize) {
         if self.graph.nodes[id].1.hidden {
-            return
+            return;
         }
 
         self.graph.nodes[id].1.hidden = true;

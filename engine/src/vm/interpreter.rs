@@ -1,5 +1,5 @@
-use crate::vm::graph::GraphId;
 use crate::vm::ast::Action;
+use crate::vm::graph::GraphId;
 use crate::vm::VM;
 
 pub enum ExecutionResult {
@@ -77,7 +77,7 @@ impl VM {
             HideMorphism(m) => {
                 let m = self.identify_edge(&m);
                 match m {
-                    Some((s,m)) => self.hide(GraphId::Morphism(s,m)),
+                    Some((s, m)) => self.hide(GraphId::Morphism(s, m)),
                     None => {
                         self.error_msg = "Couldn't interpret edge description".to_string();
                         return ExecutionError;
@@ -87,7 +87,7 @@ impl VM {
             RevealMorphism(m) => {
                 let m = self.identify_edge(&m);
                 match m {
-                    Some((s,m)) => self.reveal(GraphId::Morphism(s,m)),
+                    Some((s, m)) => self.reveal(GraphId::Morphism(s, m)),
                     None => {
                         self.error_msg = "Couldn't interpret edge description".to_string();
                         return ExecutionError;
