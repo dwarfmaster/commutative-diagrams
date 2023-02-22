@@ -1,3 +1,4 @@
+use crate::vm::graph::GraphId;
 use crate::vm::ast::Action;
 use crate::vm::VM;
 
@@ -49,6 +50,66 @@ impl VM {
                     Some((src, mph)) => self.split(src, mph),
                     None => {
                         self.error_msg = "Couldn't interpret morphism description".to_string();
+                        return ExecutionError;
+                    }
+                }
+            }
+            HideNode(n) => {
+                let n = self.identify_node(&n);
+                match n {
+                    Some(n) => self.hide(GraphId::Node(n)),
+                    None => {
+                        self.error_msg = "Couldn't interpret node description".to_string();
+                        return ExecutionError;
+                    }
+                }
+            }
+            RevealNode(n) => {
+                let n = self.identify_node(&n);
+                match n {
+                    Some(n) => self.reveal(GraphId::Node(n)),
+                    None => {
+                        self.error_msg = "Couldn't interpret node description".to_string();
+                        return ExecutionError;
+                    }
+                }
+            }
+            HideMorphism(m) => {
+                let m = self.identify_edge(&m);
+                match m {
+                    Some((s,m)) => self.hide(GraphId::Morphism(s,m)),
+                    None => {
+                        self.error_msg = "Couldn't interpret edge description".to_string();
+                        return ExecutionError;
+                    }
+                }
+            }
+            RevealMorphism(m) => {
+                let m = self.identify_edge(&m);
+                match m {
+                    Some((s,m)) => self.reveal(GraphId::Morphism(s,m)),
+                    None => {
+                        self.error_msg = "Couldn't interpret edge description".to_string();
+                        return ExecutionError;
+                    }
+                }
+            }
+            HideFace(f) => {
+                let f = self.identify_face(&f);
+                match f {
+                    Some(f) => self.hide(GraphId::Face(f)),
+                    None => {
+                        self.error_msg = "Couldn't interpret face description".to_string();
+                        return ExecutionError;
+                    }
+                }
+            }
+            RevealFace(f) => {
+                let f = self.identify_face(&f);
+                match f {
+                    Some(f) => self.reveal(GraphId::Face(f)),
+                    None => {
+                        self.error_msg = "Couldn't interpret face description".to_string();
                         return ExecutionError;
                     }
                 }

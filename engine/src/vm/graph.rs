@@ -12,6 +12,8 @@ pub struct NodeLabel {
     pub pos: egui::Pos2,
     pub name: Option<String>,
     pub label: String,
+    // Invariant: when a node is hidden, all in/out-going edges must be hidden too
+    pub hidden: bool,
 }
 
 impl NodeLabel {
@@ -20,6 +22,7 @@ impl NodeLabel {
             pos: egui::Pos2::ZERO,
             name: None,
             label,
+            hidden: false,
         }
     }
 }
@@ -40,6 +43,7 @@ pub struct EdgeLabel {
     pub label: String,
     pub label_pos: egui::Pos2,
     pub style: EdgeStyle,
+    pub hidden: bool,
 }
 
 impl EdgeLabel {
@@ -51,6 +55,7 @@ impl EdgeLabel {
             label_pos: egui::Pos2::ZERO,
             id: 0, // Invalid number, but will be set during VM initialization
             style: EdgeStyle::default(),
+            hidden: false,
         }
     }
 }
@@ -59,11 +64,16 @@ impl EdgeLabel {
 pub struct FaceLabel {
     pub label: String,
     pub name: Option<String>,
+    pub hidden: bool,
 }
 
 impl FaceLabel {
     pub fn new(label: String) -> Self {
-        Self { name: None, label }
+        Self {
+            name: None,
+            label,
+            hidden: false,
+        }
     }
 }
 

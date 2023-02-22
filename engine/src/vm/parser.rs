@@ -59,6 +59,8 @@ fn action(input: &str) -> IResult<&str, ast::Action> {
         "split" => act_split(input),
         "solve" => act_solve(input),
         "refine" => act_refine(input),
+        "hide" => act_hide(true, input),
+        "reveal" => act_hide(false, input),
         "succeed" => success(ast::Action::Succeed)(input),
         "fail" => success(ast::Action::Fail)(input),
         _ => fail(input),
@@ -103,6 +105,22 @@ fn act_refine(input: &str) -> IResult<&str, ast::Action> {
     let (input, _) = sep(input)?;
     let (input, d2) = term_descr(input)?;
     success(ast::Action::Refine(d1, d2))(input)
+}
+
+fn act_hide(hide: bool, input: &str) -> IResult<&str, ast::Action> {
+    let (input, _) = space1(input)?;
+    let (input, cat) = ident(input)?;
+    let (input, _) = space1(input)?;
+    let (input, d) = term_descr(input)?;
+    match (hide, cat) {
+        (true, "node") => success(ast::Action::HideNode(d))(input),
+        (false, "node") => success(ast::Action::RevealNode(d))(input),
+        (true, "morphism") => success(ast::Action::HideMorphism(d))(input),
+        (false, "morphism") => success(ast::Action::RevealMorphism(d))(input),
+        (true, "face") => success(ast::Action::HideFace(d))(input),
+        (false, "face") => success(ast::Action::RevealFace(d))(input),
+        _ => fail(input)
+    }
 }
 
 #[cfg(test)]
@@ -151,6 +169,8 @@ mod tests {
         test("split [2]", Split(Ref(Id::Id(2))));
         test("solve fce1", Solve(Ref(Id::Name("fce1".to_string()))));
         test("refine [1], [2]", Refine(Ref(Id::Id(1)), Ref(Id::Id(2))));
+        test("hide node [1]", HideNode(Ref(Id::Id(1))));
+        test("reveal morphism [3]", RevealMorphism(Ref(Id::Id(3))));
         test("succeed", Succeed);
         test("fail", Fail);
 

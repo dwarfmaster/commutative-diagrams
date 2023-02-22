@@ -47,6 +47,7 @@ fn test_ui() {
     let f = mph!(ctx, (:4) : x -> y);
     let g = mph!(ctx, (:5) : x -> y);
     let h = mph!(ctx, (:6) : x -> z);
+    let i = mph!(ctx, (:7) : x -> z);
     let mut gr: vm::Graph = Graph {
         nodes: vec![
             (x, vm::NodeLabel::new("x".to_string())),
@@ -58,6 +59,7 @@ fn test_ui() {
                 (1, vm::EdgeLabel::new("f".to_string()), f),
                 (1, vm::EdgeLabel::new("g".to_string()), g),
                 (2, vm::EdgeLabel::new("h".to_string()), h),
+                (2, vm::EdgeLabel::new("i".to_string()), i),
             ],
             vec![],
             vec![],
@@ -68,6 +70,7 @@ fn test_ui() {
     gr.edges[0][1].1.style.right = true;
     gr.edges[0][2].1.style.right = true;
     gr.edges[0][2].1.style.highlight = true;
+    gr.edges[0][3].1.hidden = true;
 
     // Run the ui
     let vm = vm::VM::new(ctx, gr);

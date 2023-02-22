@@ -88,6 +88,10 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
 
         // Paint nodes
         for (n, (_, label)) in vm.graph.nodes.iter().enumerate() {
+            if label.hidden {
+                continue;
+            }
+
             let pos = setup_pos(label.pos.clone());
             let name = &label.label;
             let size = 14.0 * vm.zoom;
@@ -112,6 +116,10 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
         // Paint edges
         for src in 0..vm.graph.nodes.len() {
             for (mph, (_, label, _)) in vm.graph.edges[src].iter().enumerate() {
+                if label.hidden {
+                    continue;
+                }
+
                 // Style
                 let mut stroke = fg_stroke;
                 if label.style.highlight {

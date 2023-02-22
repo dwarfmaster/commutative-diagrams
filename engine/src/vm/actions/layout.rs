@@ -37,19 +37,28 @@ impl VM {
             let mut stdin = graphviz.stdin.take().expect("Failed to open stdin");
             write!(stdin, "digraph {{\n").unwrap();
             for n in 0..graph.nodes.len() {
-                let lbl = &graph.nodes[n].1.label;
-                write!(stdin, "  n{} [label=\"{}:{}\", shape=plain];\n", n, n, lbl).unwrap();
+                let lbl = &graph.nodes[n].1;
+                if !lbl.hidden {
+                    write!(
+                        stdin,
+                        "  n{} [label=\"{}:{}\", shape=plain];\n",
+                        n, n, lbl.label
+                    )
+                    .unwrap();
+                }
             }
             for src in 0..graph.nodes.len() {
                 for mph in 0..graph.edges[src].len() {
                     let dst = graph.edges[src][mph].0;
-                    let lbl = &graph.edges[src][mph].1.label;
-                    write!(
-                        stdin,
-                        "  n{} -> n{} [label=\"{}:{}:{}\", arrowhead=none];\n",
-                        src, dst, src, mph, lbl
-                    )
-                    .unwrap();
+                    let lbl = &graph.edges[src][mph].1;
+                    if !lbl.hidden {
+                        write!(
+                            stdin,
+                            "  n{} -> n{} [label=\"{}:{}:{}\", arrowhead=none];\n",
+                            src, dst, src, mph, lbl.label
+                        )
+                        .unwrap();
+                    }
                 }
             }
             write!(stdin, "}}").unwrap();

@@ -7,6 +7,9 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.radio_value(&mut vm.selected_face, None, "No face");
         for fce in 0..vm.graph.faces.len() {
+            if vm.graph.faces[fce].label.hidden {
+                continue;
+            }
             let label = format!(
                 "{}[{}]: {}",
                 vm.graph.faces[fce]

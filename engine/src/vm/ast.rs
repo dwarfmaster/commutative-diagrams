@@ -10,6 +10,15 @@ pub enum Action {
     InsertMorphismAt(usize, TermDescr),
     // Normalise and split an edge in the graph
     Split(TermDescr),
+    // Hide/reveal a node
+    HideNode(TermDescr),
+    RevealNode(TermDescr),
+    // Hide/reveal a morphism
+    HideMorphism(TermDescr),
+    RevealMorphism(TermDescr),
+    // Hide/reveal a face
+    HideFace(TermDescr),
+    RevealFace(TermDescr),
     // Try to solve a face using the automatic solver
     Solve(TermDescr),
     // Unify the two terms as equalities
