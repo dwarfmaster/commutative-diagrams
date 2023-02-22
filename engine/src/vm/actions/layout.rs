@@ -107,6 +107,7 @@ impl VM {
                     .map(parse_pos)
                     .collect();
                 graph.edges[src_id][mph_id].1.shape = split_bspline(coordinates);
+                graph.edges[src_id][mph_id].1.label_pos = label_pos(edge);
             }
         }
     }
@@ -121,13 +122,24 @@ fn parse_pos(str: &str) -> Pos2 {
     )
 }
 
-// Look for object position in _ldraw_, falling back to pos if it fails
+// Find position of object, by looking at ldraw or falling back to pos
 fn object_pos(obj: &serde_json::Value) -> Pos2 {
     let pos = parse_pos(
         obj["pos"]
             .as_str()
             .expect(".objects[].pos should be a string"),
     );
+    ldraw_t_pos(obj).unwrap_or(pos)
+}
+
+// Find position of label, by looking at ldraw or falling back to lp
+fn label_pos(obj: &serde_json::Value) -> Pos2 {
+    let pos = parse_pos(obj["lp"].as_str().expect(".edges[].lp should be a string"));
+    ldraw_t_pos(obj).unwrap_or(pos)
+}
+
+// Look for position of T drawing operation in _ldraw_
+fn ldraw_t_pos(obj: &serde_json::Value) -> Option<Pos2> {
     obj["_ldraw_"]
         .as_array()
         .iter()
@@ -144,7 +156,6 @@ fn object_pos(obj: &serde_json::Value) -> Pos2 {
             let y = pos[1].as_f64()? as f32;
             Some(Pos2::new(x, y))
         })
-        .unwrap_or(pos)
 }
 
 // Split a b-spline in a list a cubic bezier curves

@@ -125,6 +125,23 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
                     stroke.color = egui::Color32::GREEN;
                 }
 
+                // paint label
+                let lbl_rect = painter.text(
+                    setup_pos(label.label_pos),
+                    egui::Align2::CENTER_CENTER,
+                    label.label.clone(),
+                    egui::FontId::proportional(14.0 * vm.zoom),
+                    fg_stroke.color,
+                );
+                // If the label is hovered, change style
+                if let Some(hpos) = hover_pos {
+                    if lbl_rect.contains(hpos) {
+                        closest_distance = 0.0;
+                        closest_object = GraphId::Morphism(src, mph);
+                        stroke.width *= 2.0;
+                    }
+                }
+
                 let curves = &label.shape;
                 let curves = curves
                     .iter()
@@ -173,41 +190,6 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
                     painter.line_segment([tip, tip - length * (rot * dir)], stroke);
                     painter.line_segment([tip, tip - length * (rot.inverse() * dir)], stroke);
                 }
-
-                // paint label
-                let lengths = curves
-                    .iter()
-                    .map(|cbc| cubic_length(&cbc))
-                    .scan(0.0, |acc, x| {
-                        *acc = *acc + x;
-                        Some(*acc)
-                    })
-                    .collect::<Vec<_>>();
-                if let Some(total) = lengths.last() {
-                    let half = total / 2.0;
-                    let middle = lengths
-                        .binary_search_by(|v| {
-                            v.partial_cmp(&half).expect("Couldn't compare floats")
-                        })
-                        .unwrap_or_else(|pos| pos);
-                    let dir = -cubic_derivative(&curves[middle], 0.5).normalized().rot90();
-                    let pos = curves[middle].sample(0.5) + vm.zoom * 8.0 * dir;
-                    let name = &label.label;
-                    let layout = painter.layout_no_wrap(
-                        name.to_string(),
-                        egui::FontId::proportional(14.0 * vm.zoom),
-                        fg_stroke.color,
-                    );
-                    let rvec = layout.rect.size() * 0.5;
-                    let alpha = if dir.x.abs() <= 1e-6 {
-                        rvec.y / dir.y.abs()
-                    } else if dir.y.abs() <= 1e-6 {
-                        rvec.x / dir.x.abs()
-                    } else {
-                        (rvec.x / dir.x.abs()).min(rvec.y / dir.y.abs())
-                    };
-                    painter.galley(pos - rvec + alpha * dir, layout);
-                }
             }
         }
 
@@ -241,30 +223,6 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
     }
 
     response
-}
-
-// Helpers
-fn cubic_length(curve: &egui::epaint::CubicBezierShape) -> f32 {
-    let approx = curve.points[0].distance(curve.points[3]) / 100.0;
-    curve
-        .flatten(Some(approx))
-        .windows(2)
-        .map(|win| win[0].distance(win[1]))
-        .sum()
-}
-
-// Taken from:
-//   https://stackoverflow.com/questions/4089443/find-the-tangent-of-a-point-on-a-cubic-bezier-curve
-fn cubic_derivative(curve: &egui::epaint::CubicBezierShape, t: f32) -> Vec2 {
-    let v0 = curve.points[0].to_vec2();
-    let v1 = curve.points[1].to_vec2();
-    let v2 = curve.points[2].to_vec2();
-    let v3 = curve.points[3].to_vec2();
-    let f0 = -3.0 * (1.0 - t) * (1.0 - t);
-    let f1 = 3.0 * (1.0 - t) * (1.0 - t) - 6.0 * t * (1.0 - t);
-    let f2 = -3.0 * t * t + 6.0 * t * (1.0 - t);
-    let f3 = 3.0 * t * t;
-    f0 * v0 + f1 * v1 + f2 * v2 + f3 * v3
 }
 
 // For more idiomatic usage

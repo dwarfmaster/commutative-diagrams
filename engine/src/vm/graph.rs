@@ -38,6 +38,7 @@ pub struct EdgeLabel {
     pub name: Option<String>,
     pub id: usize,
     pub label: String,
+    pub label_pos: egui::Pos2,
     pub style: EdgeStyle,
 }
 
@@ -47,6 +48,7 @@ impl EdgeLabel {
             shape: Vec::new(),
             name: None,
             label,
+            label_pos: egui::Pos2::ZERO,
             id: 0, // Invalid number, but will be set during VM initialization
             style: EdgeStyle::default(),
         }
