@@ -54,34 +54,47 @@ impl VM {
         assert_eq!(src, self.graph.faces[rep_fce].start);
         assert_eq!(self.graph.edges[src][mph].0, self.graph.faces[rep_fce].end);
 
+        // Unshow face
+        if let Some(fce) = self.selected_face {
+            self.unshow_face(fce)
+        }
+
         // Replacement
-        let rep = self.get_right_side(rep_fce).clone();
-        let replace = |node: &mut usize, nxt: &usize| -> Option<Box<dyn Iterator<Item = usize>>> {
-            let (dst, _, _) = &self.graph.edges[*node][*nxt];
-            let prev = *node;
-            *node = *dst;
-            if prev == src && *nxt == mph {
-                Some(Box::new(rep.iter().map(|i| *i)))
-            } else {
-                Some(Box::new(iter::once(*nxt)))
+        {
+            let rep = self.get_right_side(rep_fce).clone();
+            let replace =
+                |node: &mut usize, nxt: &usize| -> Option<Box<dyn Iterator<Item = usize>>> {
+                    let (dst, _, _) = &self.graph.edges[*node][*nxt];
+                    let prev = *node;
+                    *node = *dst;
+                    if prev == src && *nxt == mph {
+                        Some(Box::new(rep.iter().map(|i| *i)))
+                    } else {
+                        Some(Box::new(iter::once(*nxt)))
+                    }
+                };
+            for fce in 0..self.graph.faces.len() {
+                let start = self.graph.faces[fce].start;
+                self.graph.faces[fce].label.left = Some(
+                    vm::get_left_side(&self.graph.faces, fce)
+                        .iter()
+                        .scan(start, replace)
+                        .flatten()
+                        .collect(),
+                );
+                self.graph.faces[fce].label.right = Some(
+                    vm::get_right_side(&self.graph.faces, fce)
+                        .iter()
+                        .scan(start, replace)
+                        .flatten()
+                        .collect(),
+                );
             }
-        };
-        for fce in 0..self.graph.faces.len() {
-            let start = self.graph.faces[fce].start;
-            self.graph.faces[fce].label.left = Some(
-                vm::get_left_side(&self.graph.faces, fce)
-                    .iter()
-                    .scan(start, replace)
-                    .flatten()
-                    .collect(),
-            );
-            self.graph.faces[fce].label.right = Some(
-                vm::get_right_side(&self.graph.faces, fce)
-                    .iter()
-                    .scan(start, replace)
-                    .flatten()
-                    .collect(),
-            );
+        }
+
+        // Reshow-face
+        if let Some(fce) = self.selected_face {
+            self.show_face(fce)
         }
 
         // Hiding

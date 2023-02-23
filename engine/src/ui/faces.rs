@@ -1,6 +1,4 @@
-use crate::data::Morphism;
-use crate::vm;
-use crate::vm::{EdgeLabel, VM};
+use crate::vm::VM;
 
 pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
     let prev = vm.selected_face;
@@ -27,55 +25,10 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
 
     if vm.selected_face != prev {
         if let Some(fce) = prev {
-            on_path(
-                &mut vm.graph.edges,
-                vm.graph.faces[fce].start,
-                vm::get_left_side(&vm.graph.faces, fce),
-                |lbl| {
-                    lbl.style.left = false;
-                },
-            );
-            on_path(
-                &mut vm.graph.edges,
-                vm.graph.faces[fce].start,
-                vm::get_right_side(&vm.graph.faces, fce),
-                |lbl| {
-                    lbl.style.right = false;
-                },
-            );
+            vm.unshow_face(fce);
         }
         if let Some(fce) = vm.selected_face {
-            on_path(
-                &mut vm.graph.edges,
-                vm.graph.faces[fce].start,
-                vm::get_left_side(&vm.graph.faces, fce),
-                |lbl| {
-                    lbl.style.left = true;
-                },
-            );
-            on_path(
-                &mut vm.graph.edges,
-                vm.graph.faces[fce].start,
-                vm::get_right_side(&vm.graph.faces, fce),
-                |lbl| {
-                    lbl.style.right = true;
-                },
-            );
+            vm.show_face(fce);
         }
-    }
-}
-
-fn on_path<F>(
-    edges: &mut Vec<Vec<(usize, EdgeLabel, Morphism)>>,
-    mut node: usize,
-    nexts: &[usize],
-    f: F,
-) where
-    F: Fn(&mut EdgeLabel),
-{
-    for nid in 0..nexts.len() {
-        let (dst, lbl, _) = &mut edges[node][nexts[nid]];
-        f(lbl);
-        node = *dst;
     }
 }
