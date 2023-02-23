@@ -1,7 +1,9 @@
+use crate::data::ActualMorphism;
 use crate::vm;
 use crate::vm::graph::GraphId;
 use crate::vm::VM;
 use std::iter;
+use std::ops::Deref;
 
 impl VM {
     fn hide_node(&mut self, id: usize) {
@@ -84,5 +86,16 @@ impl VM {
 
         // Hiding
         self.hide(GraphId::Morphism(src, mph))
+    }
+
+    // Hide all identities in the graph
+    pub fn hide_identities(&mut self) {
+        for src in 0..self.graph.edges.len() {
+            for mph in 0..self.graph.edges[src].len() {
+                if let ActualMorphism::Identity(_) = self.graph.edges[src][mph].2.deref() {
+                    self.graph.edges[src][mph].1.hidden = true;
+                }
+            }
+        }
     }
 }

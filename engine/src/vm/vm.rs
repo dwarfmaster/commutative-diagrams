@@ -37,9 +37,10 @@ impl VM {
             zoom: 1.0,
             selected_face: None,
         };
-        res.layout();
         res.renumber_edges();
         res.autoname();
+        res.hide_identities();
+        res.layout();
         res
     }
 
