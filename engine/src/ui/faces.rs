@@ -1,4 +1,5 @@
 use crate::data::Morphism;
+use crate::vm;
 use crate::vm::{EdgeLabel, VM};
 
 pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
@@ -29,7 +30,7 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
             on_path(
                 &mut vm.graph.edges,
                 vm.graph.faces[fce].start,
-                &vm.graph.faces[fce].left,
+                vm::get_left_side(&vm.graph.faces, fce),
                 |lbl| {
                     lbl.style.left = false;
                 },
@@ -37,7 +38,7 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
             on_path(
                 &mut vm.graph.edges,
                 vm.graph.faces[fce].start,
-                &vm.graph.faces[fce].right,
+                vm::get_right_side(&vm.graph.faces, fce),
                 |lbl| {
                     lbl.style.right = false;
                 },
@@ -47,7 +48,7 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
             on_path(
                 &mut vm.graph.edges,
                 vm.graph.faces[fce].start,
-                &vm.graph.faces[fce].left,
+                vm::get_left_side(&vm.graph.faces, fce),
                 |lbl| {
                     lbl.style.left = true;
                 },
@@ -55,7 +56,7 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
             on_path(
                 &mut vm.graph.edges,
                 vm.graph.faces[fce].start,
-                &vm.graph.faces[fce].right,
+                vm::get_right_side(&vm.graph.faces, fce),
                 |lbl| {
                     lbl.style.right = true;
                 },

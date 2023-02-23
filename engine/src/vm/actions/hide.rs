@@ -1,5 +1,7 @@
+use crate::vm;
 use crate::vm::graph::GraphId;
 use crate::vm::VM;
+use std::iter;
 
 impl VM {
     fn hide_node(&mut self, id: usize) {
@@ -42,5 +44,45 @@ impl VM {
             Face(f) => self.graph.faces[f].label.hidden = false,
         }
         self.layout()
+    }
+
+    // Hide a morphism, and create an alias for all faces that go through that
+    // morphism
+    pub fn hide_and_replace_morphism(&mut self, src: usize, mph: usize, rep_fce: usize) {
+        assert_eq!(src, self.graph.faces[rep_fce].start);
+        assert_eq!(self.graph.edges[src][mph].0, self.graph.faces[rep_fce].end);
+
+        // Replacement
+        let rep = self.get_right_side(rep_fce).clone();
+        let replace = |node: &mut usize, nxt: &usize| -> Option<Box<dyn Iterator<Item = usize>>> {
+            let (dst, _, _) = &self.graph.edges[*node][*nxt];
+            let prev = *node;
+            *node = *dst;
+            if prev == src && *nxt == mph {
+                Some(Box::new(rep.iter().map(|i| *i)))
+            } else {
+                Some(Box::new(iter::once(*nxt)))
+            }
+        };
+        for fce in 0..self.graph.faces.len() {
+            let start = self.graph.faces[fce].start;
+            self.graph.faces[fce].label.left = Some(
+                vm::get_left_side(&self.graph.faces, fce)
+                    .iter()
+                    .scan(start, replace)
+                    .flatten()
+                    .collect(),
+            );
+            self.graph.faces[fce].label.right = Some(
+                vm::get_right_side(&self.graph.faces, fce)
+                    .iter()
+                    .scan(start, replace)
+                    .flatten()
+                    .collect(),
+            );
+        }
+
+        // Hiding
+        self.hide(GraphId::Morphism(src, mph))
     }
 }

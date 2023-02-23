@@ -65,6 +65,9 @@ pub struct FaceLabel {
     pub label: String,
     pub name: Option<String>,
     pub hidden: bool,
+    // The paths to show for this equality
+    pub left: Option<Vec<usize>>,
+    pub right: Option<Vec<usize>>,
 }
 
 impl FaceLabel {
@@ -73,6 +76,8 @@ impl FaceLabel {
             name: None,
             label,
             hidden: false,
+            left: None,
+            right: None,
         }
     }
 }
