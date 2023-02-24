@@ -32,6 +32,13 @@ module Make(PA: Pa.ProofAssistant) = struct
     | Ctx (i,_) -> cons "term" (Pk.Integer (mkid i))
     | Evar (e,_) -> cons "existential" (Pk.Integer e)
 
+  let unpack_evar id =
+    let* ev = St.getEvar id in
+    match ev with
+    | Abstract -> ret (Evar (id,None))
+    | Realized e -> ret (Evar (id,Some e))
+    | NotFound -> let* _ = St.newEvarAt id in ret (Evar (id,None))
+
   module Cat = struct
     type t = PA.t category
 
@@ -57,7 +64,9 @@ module Make(PA: Pa.ProofAssistant) = struct
               if id < Array.length cats
               then ret (Some (AtomicCategory cats.(id)))
               else ret None
-          | "existential" -> raise Unimplemented
+          | "existential" ->
+              let* atom = unpack_evar id in
+              ret (Some (AtomicCategory { cat_atom = atom }))
           | _ -> ret None
         end
         | _ -> ret None
@@ -88,15 +97,23 @@ module Make(PA: Pa.ProofAssistant) = struct
       match mp with
       | Pk.Map [ (Pk.String cons, mp) ] -> begin
         match cons, mp with
-        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; _; _ ] -> begin 
-          match name with
-          | "term" ->
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; src; dst ] -> begin 
+          let* src = Cat.unpack src in
+          let* dst = Cat.unpack dst in
+          match src, dst, name with
+          | Some _, Some _, "term" ->
               let id = un_id id in
               let* functs = St.getFunctors () in
               if id < Array.length functs
               then ret (Some (AtomicFunctor functs.(id)))
               else ret None
-          | "existential" -> raise Unimplemented
+          | Some src, Some dst, "existential" ->
+              let* atom = unpack_evar id in
+              ret (Some (AtomicFunctor {
+                funct_atom = atom;
+                funct_src_ = src;
+                funct_dst_ = dst;
+              }))
           | _ -> ret None
         end
         | _ -> ret None
@@ -129,15 +146,21 @@ module Make(PA: Pa.ProofAssistant) = struct
       match mp with
       | Pk.Map [ (Pk.String cons, mp) ] -> begin
         match cons, mp with
-        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; _ ] -> begin 
-          match name with
-          | "term" ->
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; cat ] -> begin 
+          let* cat = Cat.unpack cat in
+          match cat, name with
+          | Some _, "term" ->
               let id = un_id id in
               let* elems = St.getElems () in
               if id < Array.length elems 
               then ret (Some (AtomicElem elems.(id)))
               else ret None
-          | "existential" -> raise Unimplemented
+          | Some cat, "existential" ->
+              let* atom = unpack_evar id in
+              ret (Some (AtomicElem {
+                elem_atom = atom;
+                elem_cat_ = cat;
+              }))
           | _ -> ret None
         end
         | "funct", Pk.Array [ funct; elem ] -> begin
@@ -189,15 +212,28 @@ module Make(PA: Pa.ProofAssistant) = struct
       match mp with
       | Pk.Map [ (Pk.String cons, mp) ] -> begin
         match cons, mp with
-        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; _; _; _ ] -> begin 
-          match name with
-          | "term" ->
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; cat; src; dst ] -> begin
+          let* cat = Cat.unpack cat in
+          let* src = Elem.unpack src in
+          let* dst = Elem.unpack dst in
+          match cat, src, dst, name with
+          | Some _, Some _, Some _, "term" ->
               let id = un_id id in
               let* mphs = St.getMorphisms () in
               if id < Array.length mphs
               then ret (Some (AtomicMorphism mphs.(id)))
               else ret None
-          | "existential" -> raise Unimplemented
+          | Some cat, Some src, Some dst, "existential" ->
+              let* atom = unpack_evar id in
+              ret (Some (AtomicMorphism {
+                mph_atom = atom;
+                mph_cat_ = cat;
+                mph_src_ = src;
+                mph_dst_ = dst;
+                mono = None;
+                epi = None;
+                iso = None;
+              }))
           | _ -> ret None
         end
         | "comp", Pk.Array [ m1; m2 ] -> begin
@@ -304,15 +340,29 @@ module Make(PA: Pa.ProofAssistant) = struct
       match mp with
       | Pk.Map [ (Pk.String cons, mp) ] -> begin
         match cons, mp with
-        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; _; _; _; _; _ ] -> begin 
-          match name with
-          | "term" ->
+        | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ]; cat; src; dst; left; right ] -> begin 
+          let* cat = Cat.unpack cat in
+          let* src = Elem.unpack src in
+          let* dst = Elem.unpack dst in
+          let* left = Mph.unpack left in
+          let* right = Mph.unpack right in
+          match cat, src, dst, left, right, name with
+          | Some _, Some _, Some _, Some _, Some _, "term" ->
               let id = un_id id in
               let* eqs = St.getEqs () in
               if id < Array.length eqs 
               then ret (Some (AtomicEq eqs.(id)))
               else ret None
-          | "existential" -> raise Unimplemented
+          | Some cat, Some src, Some dst, Some left, Some right, "existential" ->
+              let* atom = unpack_evar id in
+              ret (Some (AtomicEq {
+                eq_atom = atom;
+                eq_cat_ = cat;
+                eq_src_ = src;
+                eq_dst_ = dst;
+                eq_left_ = left;
+                eq_right_ = right;
+              }))
           | _ -> ret None
         end
         | "refl", m -> begin
