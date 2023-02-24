@@ -26,22 +26,22 @@ module Make(PA: Pa.ProofAssistant) = struct
     match cat with
     | AtomicCategory data ->
         let* tp = PA.realizeCatType data |> lift in
-        let* atom = instantiateAtomic data.cat_obj tp in
-        AtomicCategory { data with cat_obj = atom } |> ret
+        let* atom = instantiateAtomic data.cat_atom tp in
+        AtomicCategory { cat_atom = atom } |> ret
 
   let instantiateFunct funct =
     match funct with
     | AtomicFunctor data ->
         let* tp = PA.realizeFunctType data |> lift in
-        let* atom = instantiateAtomic data.funct_obj tp in
-        AtomicFunctor { data with funct_obj = atom } |> ret
+        let* atom = instantiateAtomic data.funct_atom tp in
+        AtomicFunctor { data with funct_atom = atom } |> ret
 
   let rec instantiateElem elem =
     match elem with
     | AtomicElem data ->
         let* tp = PA.realizeElemType data |> lift in
-        let* atom = instantiateAtomic data.elem_obj tp in
-        AtomicElem { data with elem_obj = atom } |> ret
+        let* atom = instantiateAtomic data.elem_atom tp in
+        AtomicElem { data with elem_atom = atom } |> ret
     | FObj (f,o) ->
         let* f = instantiateFunct f in
         let* o = instantiateElem o in
@@ -51,8 +51,8 @@ module Make(PA: Pa.ProofAssistant) = struct
     match mph with
     | AtomicMorphism data ->
         let* tp = PA.realizeMphType data |> lift in
-        let* atom = instantiateAtomic data.mph_obj tp in
-        AtomicMorphism { data with mph_obj = atom } |> ret
+        let* atom = instantiateAtomic data.mph_atom tp in
+        AtomicMorphism { data with mph_atom = atom } |> ret
     | Identity o ->
         let* o = instantiateElem o in
         Identity o |> ret
@@ -72,8 +72,8 @@ module Make(PA: Pa.ProofAssistant) = struct
     match eq with
     | AtomicEq data ->
         let* tp = PA.realizeEqType data |> lift in
-        let* atom = instantiateAtomic data.eq_obj tp in
-        AtomicEq { data with eq_obj = atom } |> ret
+        let* atom = instantiateAtomic data.eq_atom tp in
+        AtomicEq { data with eq_atom = atom } |> ret
     | Refl m ->
         let* m = instantiateMorphism m in
         Refl m |> ret

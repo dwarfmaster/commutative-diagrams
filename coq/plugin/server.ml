@@ -97,30 +97,30 @@ module Make(PA: Pa.ProofAssistant) = struct
   let prepare_atom a =
     let open Data in
     match a with
-    | Ctx e -> Some e
+    | Ctx (_,e) -> Some e
     | Evar _ -> None
 
   let handle_hyps (args : Msgpack.t list) : handler_ret m =
     let* cats = St.getCategories () in
     let* rt =
       serialize_obj_on [] cats 
-        (fun cat -> prepare_atom cat.Data.cat_obj) Sd.mk_cat_id in
+        (fun cat -> prepare_atom cat.Data.cat_atom) Sd.mk_cat_id in
     let* functs = St.getFunctors () in
     let* rt =
       serialize_obj_on rt functs
-        (fun funct -> prepare_atom funct.Data.funct_obj) Sd.mk_funct_id in
+        (fun funct -> prepare_atom funct.Data.funct_atom) Sd.mk_funct_id in
     let* elems = St.getElems () in
     let* rt =
       serialize_obj_on rt elems
-        (fun elem -> prepare_atom elem.Data.elem_obj) Sd.mk_elem_id in
+        (fun elem -> prepare_atom elem.Data.elem_atom) Sd.mk_elem_id in
     let* mphs = St.getMorphisms () in
     let* rt =
       serialize_obj_on rt mphs
-        (fun mph -> prepare_atom mph.Data.mph_obj) Sd.mk_mph_id in
+        (fun mph -> prepare_atom mph.Data.mph_atom) Sd.mk_mph_id in
     let* eqs = St.getEqs () in
     let* rt =
       serialize_obj_on rt eqs
-        (fun eq -> prepare_atom eq.Data.eq_obj) Sd.mk_eq_id in
+        (fun eq -> prepare_atom eq.Data.eq_atom) Sd.mk_eq_id in
     ret (HRet (Msgpack.Array rt))
 
   let handle_goal (goal: goal) (args : Msgpack.t list) : handler_ret m =
@@ -172,14 +172,14 @@ module Make(PA: Pa.ProofAssistant) = struct
         end
         | _ -> let* _ = fail "Expected 2 arguments from engine" in assert false in
       let* evar = St.newEvar () in
-      let* hole =
-        St.registerEq
-          ~eq:(Evar (evar,None))
-          ~right:mph1
-          ~left:mph2
-          ~cat:(Data.morphism_cat mph1)
-          ~src:(Data.morphism_src mph1)
-          ~dst:(Data.morphism_dst mph1) in
+      let hole = let open Data in
+        { eq_atom = Evar (evar,None)
+        ; eq_right_ = mph1
+        ; eq_left_ = mph2
+        ; eq_cat_ = morphism_cat mph1
+        ; eq_src_ = morphism_src mph1
+        ; eq_dst_ = morphism_dst mph1
+        } in
       let eq = Data.Concat (eq1, Data.Concat (Data.AtomicEq hole, Data.InvEq eq2)) in
       let* eq = R.realizeEq (SimplEq.simpl eq) in
       let* env = lift (PA.env ()) in
@@ -277,14 +277,14 @@ module Make(PA: Pa.ProofAssistant) = struct
           let goal = Builder.empty () in
           let* goal = Builder.import_hyps goal in
           let* evar = St.newEvar () in
-          let* hole =
-            St.registerEq
-              ~eq:(Evar (evar,None))
-              ~right
-              ~left
-              ~cat:(Data.morphism_cat right)
-              ~src:(Data.morphism_src right)
-              ~dst:(Data.morphism_dst right) in
+          let hole = let open Data in 
+            { eq_atom = Evar (evar,None)
+            ; eq_left_ = left
+            ; eq_right_ = right
+            ; eq_cat_ = morphism_cat right
+            ; eq_src_ = morphism_src right
+            ; eq_dst_ = morphism_dst right
+            } in
           let goal = Builder.add_face (Data.AtomicEq hole) goal in
           let goal = Builder.build goal in
           GGraph goal |> ret

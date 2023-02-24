@@ -1,36 +1,32 @@
 
 type 't atomic =
-  | Ctx of 't (* A constant in the context or an hypothesis *)
+  | Ctx of int * 't (* A constant in the context or an hypothesis *)
   | Evar of int * 't option (* An evar. It may be backed by a coq evar (and will be at realization time) *)
 
 type 't categoryData =
-  { cat_obj : 't atomic
-  ; cat_id  : int
+  { cat_atom : 't atomic
   }
 and 't category =
   | AtomicCategory of 't categoryData
 and 't functData =
-  { funct_obj  : 't atomic
-  ; funct_id   : int
+  { funct_atom : 't atomic
   ; funct_src_ : 't category
   ; funct_dst_ : 't category
   }
 and 't funct =
   | AtomicFunctor of 't functData
 and 't elemData =
-  { elem_obj  : 't atomic
+  { elem_atom : 't atomic
   ; elem_cat_ : 't category
-  ; elem_id   : int
   }
 and 't elem =
   | AtomicElem of 't elemData
   | FObj of 't funct * 't elem
 and 't morphismData =
-  { mph_obj  : 't atomic
+  { mph_atom : 't atomic
   ; mph_cat_ : 't category
   ; mph_src_ : 't elem 
   ; mph_dst_ : 't elem
-  ; mph_id   : int
   ; mutable mono : 't option
   ; mutable epi  : 't option
   ; mutable iso  : 't isoData option
@@ -94,8 +90,7 @@ and 't eqData =
   ; eq_src_   : 't elem 
   ; eq_dst_   : 't elem 
   ; eq_cat_   : 't category
-  ; eq_obj    : 't atomic
-  ; eq_id     : int
+  ; eq_atom   : 't atomic
   }
 val check_eq : 't eq -> bool
 val cmp_eq : 't eq -> 't eq -> int

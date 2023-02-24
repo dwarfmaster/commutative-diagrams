@@ -5,7 +5,7 @@ open Data
 
 let ppe = fun sigma env atom -> 
   match atom with
-  | Ctx c -> Printer.pr_econstr_env env sigma c
+  | Ctx (i,c) -> Pp.(Printer.pr_econstr_env env sigma c ++ str ":" ++ int i)
   | Evar (i,Some e) -> Pp.(str "?" ++ int i ++ str ":<" ++ Printer.pr_econstr_env env sigma e ++ str ">")
   | Evar (i,None) -> Pp.(str "?" ++ int i)
 let (++) = Pp.(++)
@@ -13,24 +13,24 @@ let (++) = Pp.(++)
 let cat sigma env cat =
   match cat with
   | AtomicCategory cat ->
-      ppe sigma env cat.cat_obj ++ Pp.str ":" ++ Pp.int cat.cat_id
+      ppe sigma env cat.cat_atom
 
 let funct sigma env funct =
   match funct with
   | AtomicFunctor funct ->
-      ppe sigma env funct.funct_obj ++ Pp.str ":" ++ Pp.int funct.funct_id
+      ppe sigma env funct.funct_atom
 
 let rec elem sigma env e =
   match e with
   | AtomicElem e ->
-      ppe sigma env e.elem_obj ++ Pp.str ":" ++ Pp.int e.elem_id
+      ppe sigma env e.elem_atom
   | FObj (f,e) ->
       Pp.str "(" ++ funct sigma env f ++ Pp.str " _0 " ++ elem sigma env e ++ Pp.str ")"
 
 let rec mph sigma env m =
   match m with
   | AtomicMorphism m ->
-      ppe sigma env m.mph_obj ++ Pp.str ":" ++ Pp.int m.mph_id
+      ppe sigma env m.mph_atom
   | Identity e -> Pp.str "id<" ++ elem sigma env e ++ Pp.str ">"
   | Comp (m1,m2) -> Pp.str "(" ++ mph sigma env m1 ++ Pp.str " >> " ++ mph sigma env m2 ++ Pp.str ")"
   | Inv m -> mph sigma env m ++ Pp.str "^-1"

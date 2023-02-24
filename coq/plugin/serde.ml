@@ -27,13 +27,18 @@ module Make(PA: Pa.ProofAssistant) = struct
   let mk_mph_id = mk_global_id 3
   let mk_eq_id = mk_global_id 4
 
+  let pack_atom mkid atom =
+    match atom with
+    | Ctx (i,_) -> cons "term" (Pk.Integer (mkid i))
+    | Evar (e,_) -> cons "existential" (Pk.Integer e)
+
   module Cat = struct
     type t = PA.t category
 
     let mk_id = mk_global_id 0
 
     let pack_data cat =
-      let po = cons "term" (Pk.Integer (mk_id cat.cat_id)) in
+      let po = pack_atom mk_id cat.cat_atom in
       ret (cons "atomic" (cons "pobj" po))
 
     let pack cat =
@@ -65,7 +70,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     let mk_id = mk_global_id 1
 
     let pack_data funct =
-      let po = cons "term" (Pk.Integer (mk_id funct.funct_id)) in
+      let po = pack_atom mk_id funct.funct_atom in
       let* src = Cat.pack funct.funct_src_ in
       let* dst = Cat.pack funct.funct_dst_ in
       let po = Pk.Map [
@@ -104,7 +109,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     let mk_id = mk_global_id 2
 
     let pack_data elem =
-      let po = cons "term" (Pk.Integer (mk_id elem.elem_id)) in
+      let po = pack_atom mk_id elem.elem_atom in
       let* cat = Cat.pack elem.elem_cat_ in
       let po = Pk.Map [
         (Pk.String "pobj", po);
@@ -152,7 +157,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     let mk_id = mk_global_id 3
 
     let pack_data mph =
-      let po = cons "term" (Pk.Integer (mk_id mph.mph_id)) in
+      let po = pack_atom mk_id mph.mph_atom in
       let* cat = Cat.pack mph.mph_cat_ in
       let* src = Elem.pack mph.mph_src_ in
       let* dst = Elem.pack mph.mph_dst_ in
@@ -225,7 +230,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     let mk_id = mk_global_id 4
 
     let pack_data eq =
-      let po = cons "term" (Pk.Integer (mk_id eq.eq_id)) in
+      let po = pack_atom mk_id eq.eq_atom in
       let* cat = Cat.pack eq.eq_cat_ in
       let* src = Elem.pack eq.eq_src_ in
       let* dst = Elem.pack eq.eq_dst_ in

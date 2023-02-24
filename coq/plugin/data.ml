@@ -14,37 +14,33 @@ let cmp3 i1 i2 i3 =
 (* Types *)
 
 type 't atomic =
-  | Ctx of 't
+  | Ctx of int * 't
   | Evar of int * 't option
 
 type 't categoryData =
-  { cat_obj : 't atomic
-  ; cat_id  : int
+  { cat_atom : 't atomic
   }
 and 't category =
   | AtomicCategory of 't categoryData
 and 't functData =
-  { funct_obj  : 't atomic
-  ; funct_id   : int
+  { funct_atom : 't atomic
   ; funct_src_ : 't category
   ; funct_dst_ : 't category
   }
 and 't funct =
   | AtomicFunctor of 't functData
 and 't elemData =
-  { elem_obj  : 't atomic
+  { elem_atom : 't atomic
   ; elem_cat_ : 't category
-  ; elem_id   : int
   }
 and 't elem =
   | AtomicElem of 't elemData
   | FObj of 't funct * 't elem
 and 't morphismData =
-  { mph_obj  : 't atomic
+  { mph_atom : 't atomic
   ; mph_cat_ : 't category
   ; mph_src_ : 't elem 
   ; mph_dst_ : 't elem
-  ; mph_id   : int
   ; mutable mono : 't option
   ; mutable epi  : 't option
   ; mutable iso  : 't isoData option
@@ -86,9 +82,24 @@ and 't eqData =
   ; eq_src_   : 't elem 
   ; eq_dst_   : 't elem 
   ; eq_cat_   : 't category
-  ; eq_obj    : 't atomic
-  ; eq_id     : int
+  ; eq_atom   : 't atomic
   }
+
+
+
+(*     _   _                  _       *)
+(*    / \ | |_ ___  _ __ ___ (_) ___  *)
+(*   / _ \| __/ _ \| '_ ` _ \| |/ __| *)
+(*  / ___ \ || (_) | | | | | | | (__  *)
+(* /_/   \_\__\___/|_| |_| |_|_|\___| *)
+(*                                    *)
+(* Atomic *)
+let cmp_atomic (a1 : 't atomic) (a2 : 't atomic) : int =
+  match a1, a2 with
+  | Ctx (i1,_), Ctx (i2,_) -> i2 - i1
+  | Evar (i1,_), Evar (i2,_) -> i2 - i1
+  | Evar _, Ctx _ -> -1
+  | Ctx _, Evar _ -> 1
 
 
 (*   ____      _                               *)
@@ -101,7 +112,7 @@ and 't eqData =
 let check_category : 't category -> bool = fun _ -> true
 let cmp_category (c1 : 't category) (c2 : 't category) : int =
   match c1, c2 with
-  | AtomicCategory c1, AtomicCategory c2 -> c2.cat_id - c1.cat_id
+  | AtomicCategory c1, AtomicCategory c2 -> cmp_atomic c1.cat_atom c2.cat_atom
 
 (*  _____                 _              *)
 (* |  ___|   _ _ __   ___| |_ ___  _ __  *)
@@ -121,7 +132,7 @@ let funct_dst (f : 't funct) : 't category =
 let check_funct : 't funct -> bool = fun _ -> true
 let cmp_funct (f1 : 't funct) (f2 : 't funct) : int =
   match f1, f2 with
-  | AtomicFunctor f1, AtomicFunctor f2 -> f2.funct_id - f1.funct_id
+  | AtomicFunctor f1, AtomicFunctor f2 -> cmp_atomic f1.funct_atom f2.funct_atom
 
 (*  _____ _                 *)
 (* | ____| | ___ _ __ ___   *)
@@ -144,7 +155,7 @@ let rec check_elem (e : 't elem) : bool =
 
 let rec cmp_elem (e1 : 't elem) (e2 : 't elem) : int =
   match e1, e2 with
-  | AtomicElem e1, AtomicElem e2 -> e2.elem_id - e1.elem_id
+  | AtomicElem e1, AtomicElem e2 -> cmp_atomic e1.elem_atom e2.elem_atom
   | FObj (f1,e1), FObj (f2,e2) ->
       let cf = cmp_funct f1 f2 in 
       if cf = 0 then cmp_elem e1 e2 else cf 
@@ -208,7 +219,7 @@ let morphism_constructor_id (m : 't morphism) : int =
   | FMph _ -> 4
 let rec cmp_morphism (m1 : 't morphism) (m2 : 't morphism) : int =
   match m1, m2 with
-  | AtomicMorphism m1, AtomicMorphism m2 -> m2.mph_id - m1.mph_id
+  | AtomicMorphism m1, AtomicMorphism m2 -> cmp_atomic m1.mph_atom m2.mph_atom
   | Identity e1, Identity e2 -> cmp_elem e1 e2
   | Comp (m11,m12), Comp (m21,m22) ->
       let d = cmp_morphism m11 m21 in 
@@ -226,7 +237,7 @@ let rec cmp_morphism (m1 : 't morphism) (m2 : 't morphism) : int =
 (* |_____\__, |\__,_|\__,_|_|_|\__|\__, | *)
 (*          |_|                    |___/  *)
 (* Equality *)
-let rec eq_left (e : 't eq) : ' tmorphism = 
+let rec eq_left (e : 't eq) : 't morphism = 
   match e with
   | Refl m -> m 
   | Concat (e1,_) -> eq_left e1
@@ -403,8 +414,8 @@ let rec cmp_eq eq1 eq2 =
   | RightId m1, RightId m2 -> cmp_morphism m1 m2
   | RAp (eq1,m1), RAp (eq2,m2) -> cmp2 (cmp_eq eq1 eq2) (cmp_morphism m1 m2)
   | LAp (m1,eq1), LAp (m2,eq2) -> cmp2 (cmp_morphism m1 m2) (cmp_eq eq1 eq2)
-  | RInv iso1, RInv iso2 -> iso2.iso_mph.mph_id - iso1.iso_mph.mph_id
-  | LInv iso1, LInv iso2 -> iso2.iso_mph.mph_id - iso1.iso_mph.mph_id
+  | RInv iso1, RInv iso2 -> cmp_atomic iso2.iso_mph.mph_atom iso1.iso_mph.mph_atom
+  | LInv iso1, LInv iso2 -> cmp_atomic iso2.iso_mph.mph_atom iso1.iso_mph.mph_atom
   | Mono (_,m11,m12,eq1), Mono (_,m21,m22,eq2) ->
       cmp3 (cmp_morphism m11 m21) (cmp_morphism m12 m22) (cmp_eq eq1 eq2)
   | Epi (_,m11,m12,eq1), Epi (_,m21,m22,eq2) ->
@@ -413,7 +424,7 @@ let rec cmp_eq eq1 eq2 =
   | FComp (f1,m11,m12), FComp (f2,m21,m22) ->
       cmp3 (cmp_funct f1 f2) (cmp_morphism m11 m21) (cmp_morphism m12 m22)
   | FCtx (f1,eq1), FCtx (f2,eq2) -> cmp2 (cmp_funct f1 f2) (cmp_eq eq1 eq2)
-  | AtomicEq eq1, AtomicEq eq2 -> eq2.eq_id - eq1.eq_id
+  | AtomicEq eq1, AtomicEq eq2 -> cmp_atomic eq1.eq_atom eq2.eq_atom
   | _, _ -> eq_constructor_id eq2 - eq_constructor_id eq1
 
 
