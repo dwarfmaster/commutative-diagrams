@@ -27,6 +27,7 @@ use std::vec::Vec;
 use clap::{Parser, Subcommand};
 use rmp_serde::encode;
 
+use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 
@@ -133,8 +134,8 @@ fn test_main(packfile: &str) {
 
 fn goal_graph<In, Out>(ctx: data::Context, mut client: rpc::Client<In, Out>)
 where
-    In: std::io::Read,
-    Out: std::io::Write,
+    In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
+    Out: std::io::Write + std::marker::Sync + std::marker::Send + 'static,
 {
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
@@ -152,11 +153,54 @@ where
     App::new()
         .add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
         .add_plugin(EguiPlugin)
+        .add_state(vm::EndStatus::Running)
         .insert_resource(vm)
-        .add_system(goal_ui_system)
+        .insert_resource(client)
+        .add_system_set(SystemSet::on_update(vm::EndStatus::Running).with_system(goal_ui_system))
+        .add_system_set(
+            SystemSet::on_enter(vm::EndStatus::Success).with_system(success_system::<In, Out>),
+        )
+        .add_system_set(SystemSet::on_enter(vm::EndStatus::Failure).with_system(failure_system))
         .run();
+}
+
+fn goal_ui_system(
+    mut egui_context: ResMut<EguiContext>,
+    mut vm: ResMut<vm::VM>,
+    mut state: ResMut<State<vm::EndStatus>>,
+) {
+    egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| ui::code(ui, vm.as_mut()));
+    egui::SidePanel::right("Faces")
+        .show(egui_context.ctx_mut(), |ui| ui::faces(ui, &mut vm.as_mut()));
+
+    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
+        ui.add(ui::graph(&mut vm.as_mut()))
+    });
+
+    match vm.end_status {
+        vm::EndStatus::Success => state.set(vm::EndStatus::Success).unwrap(),
+        vm::EndStatus::Failure => state.set(vm::EndStatus::Failure).unwrap(),
+        _ => (),
+    }
+}
+
+fn failure_system(mut exit: EventWriter<AppExit>) {
+    log::info!("Entering failed state");
+
+    // Exit the app
+    exit.send(AppExit)
+}
+
+fn success_system<In, Out>(mut exit: EventWriter<AppExit>, mut client: ResMut<rpc::Client<In, Out>>)
+where
+    In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
+    Out: std::io::Write + std::marker::Sync + std::marker::Send + 'static,
+{
+    log::info!("Entering success state");
+    let client = client.as_mut();
 
     // Result is a vector of existentials and their instantiation
+    // TODO compute the substitutions to send
     let result: Vec<(u64, anyterm::AnyTerm)> = Vec::new();
     log::info!("Sending refinements");
     let refine_req = client.send_msg("refine", result).unwrap();
@@ -167,16 +211,8 @@ where
             panic!()
         });
     log::info!("Acknowledgement of refinements received");
-}
 
-fn goal_ui_system(mut egui_context: ResMut<EguiContext>, mut vm: ResMut<vm::VM>) {
-    egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| ui::code(ui, vm.as_mut()));
-    egui::SidePanel::right("Faces")
-        .show(egui_context.ctx_mut(), |ui| ui::faces(ui, &mut vm.as_mut()));
-
-    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
-        ui.add(ui::graph(&mut vm.as_mut()))
-    });
+    exit.send(AppExit)
 }
 
 fn goal_print<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>, path: String)

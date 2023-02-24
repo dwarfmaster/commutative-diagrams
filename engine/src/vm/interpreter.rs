@@ -1,6 +1,6 @@
 use crate::vm::ast::Action;
 use crate::vm::graph::GraphId;
-use crate::vm::VM;
+use crate::vm::{EndStatus, VM};
 
 pub enum ExecutionResult {
     Success,
@@ -136,16 +136,14 @@ impl VM {
         Unfinished
     }
 
-    pub fn run(&mut self) -> ExecutionResult {
+    pub fn run(&mut self) {
         use ExecutionResult::*;
         for a in 0..self.ast.len() {
             match self.execute(a) {
-                Success => return Success,
-                Failure => return Failure,
-                ExecutionError => return ExecutionError,
+                Success => self.end_status = EndStatus::Success,
+                Failure => self.end_status = EndStatus::Failure,
                 _ => (),
             }
         }
-        Unfinished
     }
 }

@@ -7,6 +7,14 @@ use crate::vm::parser;
 use egui::Vec2;
 use std::collections::HashMap;
 
+#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq, Default)]
+pub enum EndStatus {
+    Success,
+    Failure,
+    #[default]
+    Running,
+}
+
 #[derive(Resource)]
 pub struct VM {
     pub ctx: Context,
@@ -20,6 +28,7 @@ pub struct VM {
     pub offset: Vec2,
     pub zoom: f32,
     pub selected_face: Option<usize>,
+    pub end_status: EndStatus,
 }
 
 impl VM {
@@ -36,6 +45,7 @@ impl VM {
             offset: Vec2::ZERO,
             zoom: 1.0,
             selected_face: None,
+            end_status: EndStatus::Running,
         };
         res.renumber_edges();
         res.autoname();

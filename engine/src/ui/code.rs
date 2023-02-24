@@ -86,13 +86,6 @@ pub fn code(ui: &mut egui::Ui, vm: &mut vm::VM) {
                 ..Default::default()
             },
         };
-        //
-        //     job.sections.push(egui::text::LayoutSection {
-        //         leading_space: 0.0,
-        //         byte_range: std::ops::Range { start, end },
-        //         format: Default::default(),
-        //     })
-        // }
         ui.fonts().layout_job(job)
     };
 

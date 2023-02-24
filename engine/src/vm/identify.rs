@@ -440,10 +440,7 @@ mod tests {
         let y = obj!(ctx, (:2) in cat);
 
         let gr = Graph {
-            nodes: vec![
-                (x, NodeLabel::new()),
-                (y, NodeLabel::new()),
-            ],
+            nodes: vec![(x, NodeLabel::new()), (y, NodeLabel::new())],
             edges: vec![vec![], vec![]],
             faces: vec![],
         };

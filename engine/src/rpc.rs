@@ -1,3 +1,4 @@
+use bevy::ecs::system::Resource;
 use rmp_serde::decode::{Deserializer, ReadReader};
 use rmp_serde::{decode, encode};
 use serde::de;
@@ -7,6 +8,7 @@ use serde::Serialize;
 use std::fmt;
 use std::io::Write;
 
+#[derive(Resource)]
 pub struct Client<In, Out>
 where
     In: std::io::Read,
