@@ -1,5 +1,6 @@
 use bevy::ecs::system::Resource;
 
+use crate::anyterm::AnyTerm;
 use crate::data::Context;
 use crate::vm::ast::AST;
 use crate::vm::graph::{Graph, GraphId};
@@ -29,6 +30,7 @@ pub struct VM {
     pub zoom: f32,
     pub selected_face: Option<usize>,
     pub end_status: EndStatus,
+    pub refinements: Vec<(u64, AnyTerm)>,
 }
 
 impl VM {
@@ -46,6 +48,7 @@ impl VM {
             zoom: 1.0,
             selected_face: None,
             end_status: EndStatus::Running,
+            refinements: Vec::new(),
         };
         res.renumber_edges();
         res.autoname();

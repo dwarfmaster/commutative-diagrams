@@ -206,8 +206,11 @@ where
     exit.send(AppExit)
 }
 
-fn success_system<In, Out>(mut exit: EventWriter<AppExit>, mut client: ResMut<rpc::Client<In, Out>>)
-where
+fn success_system<In, Out>(
+    mut exit: EventWriter<AppExit>,
+    mut client: ResMut<rpc::Client<In, Out>>,
+    vm: ResMut<vm::VM>,
+) where
     In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
     Out: std::io::Write + std::marker::Sync + std::marker::Send + 'static,
 {
@@ -215,8 +218,7 @@ where
     let client = client.as_mut();
 
     // Result is a vector of existentials and their instantiation
-    // TODO compute the substitutions to send
-    let result: Vec<(u64, anyterm::AnyTerm)> = Vec::new();
+    let result = &vm.refinements;
     log::info!("Sending refinements");
     let refine_req = client.send_msg("refine", result).unwrap();
     client
