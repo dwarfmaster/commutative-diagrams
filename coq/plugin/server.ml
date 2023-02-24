@@ -203,6 +203,9 @@ module Make(PA: Pa.ProofAssistant) = struct
   let handle_unsolvable _ : handler_ret m =
     ret HFail
 
+  let handle_failed _ : handler_ret m =
+    ret HFail
+
   let handle_solved (args: Msgpack.t list) : handler_ret m =
     match args with
     | [ eq ] ->
@@ -255,6 +258,7 @@ module Make(PA: Pa.ProofAssistant) = struct
       | "goal" -> run_handler rm msgid params (handle_goal rm.goal)
       | "hyps" -> run_handler rm msgid params handle_hyps
       | "refine" -> run_handler rm msgid params (handle_refine rm.goal)
+      | "failed" -> run_handler rm msgid params handle_failed
       | "normalized" -> run_handler rm msgid params (handle_norm rm.goal)
       | "printed" -> run_handler rm msgid params handle_printed
       | "tosolve" -> run_handler rm msgid params (handle_tosolve rm.goal)
