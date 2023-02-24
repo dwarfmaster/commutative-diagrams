@@ -716,6 +716,9 @@ pub trait ContextMakable {
     fn make(self, ctx: &Context) -> HConsed<Self>
     where
         Self: Sized;
+    fn def(ctx: &Context) -> HConsed<Self>
+    where
+        Self: Sized;
 }
 impl ContextMakable for ActualCategory {
     fn make(self, ctx: &Context) -> HConsed<Self> {
@@ -727,6 +730,9 @@ impl ContextMakable for ActualCategory {
         }
         ctx.cat_factory.lock().unwrap().mk(self)
     }
+    fn def(ctx: &Context) -> HConsed<Self> {
+        ctx.def_cat()
+    }
 }
 impl ContextMakable for ActualFunctor {
     fn make(self, ctx: &Context) -> HConsed<Self> {
@@ -737,6 +743,9 @@ impl ContextMakable for ActualFunctor {
             },
         }
         ctx.funct_factory.lock().unwrap().mk(self)
+    }
+    fn def(ctx: &Context) -> HConsed<Self> {
+        ctx.def_funct()
     }
 }
 impl ContextMakable for ActualObject {
@@ -750,6 +759,9 @@ impl ContextMakable for ActualObject {
         }
         ctx.obj_factory.lock().unwrap().mk(self)
     }
+    fn def(ctx: &Context) -> HConsed<Self> {
+        ctx.def_obj()
+    }
 }
 impl ContextMakable for ActualMorphism {
     fn make(self, ctx: &Context) -> HConsed<Self> {
@@ -762,6 +774,9 @@ impl ContextMakable for ActualMorphism {
         }
         ctx.mph_factory.lock().unwrap().mk(self)
     }
+    fn def(ctx: &Context) -> HConsed<Self> {
+        ctx.def_mph()
+    }
 }
 impl ContextMakable for ActualEquality {
     fn make(self, ctx: &Context) -> HConsed<Self> {
@@ -773,6 +788,9 @@ impl ContextMakable for ActualEquality {
             _ => (),
         }
         ctx.eq_factory.lock().unwrap().mk(self)
+    }
+    fn def(ctx: &Context) -> HConsed<Self> {
+        ctx.def_eq()
     }
 }
 
@@ -837,6 +855,52 @@ impl Context {
 
     pub fn fmph(&self, f: Functor, m: Morphism) -> Morphism {
         self.mk(ActualMorphism::Funct(f, m))
+    }
+
+    // Create an arbitrary value of each type, useful for temporary values
+    pub fn def_cat(&self) -> Category {
+        self.mk(ActualCategory::Atomic(CategoryData {
+            pobj: ProofObject::Term(0),
+        }))
+    }
+
+    pub fn def_funct(&self) -> Functor {
+        self.mk(ActualFunctor::Atomic(FunctorData {
+            pobj: ProofObject::Term(0),
+            src: self.def_cat(),
+            dst: self.def_cat(),
+        }))
+    }
+
+    pub fn def_obj(&self) -> Object {
+        self.mk(ActualObject::Atomic(ObjectData {
+            pobj: ProofObject::Term(0),
+            category: self.def_cat(),
+        }))
+    }
+
+    pub fn def_mph(&self) -> Morphism {
+        self.mk(ActualMorphism::Atomic(MorphismData {
+            pobj: ProofObject::Term(0),
+            category: self.def_cat(),
+            src: self.def_obj(),
+            dst: self.def_obj(),
+        }))
+    }
+
+    pub fn def_eq(&self) -> Equality {
+        self.mk(ActualEquality::Atomic(EqualityData {
+            pobj: ProofObject::Term(0),
+            category: self.def_cat(),
+            src: self.def_obj(),
+            dst: self.def_obj(),
+            left: self.def_mph(),
+            right: self.def_mph(),
+        }))
+    }
+
+    pub fn def<T: ContextMakable>(&self) -> HConsed<T> {
+        T::def(self)
     }
 }
 

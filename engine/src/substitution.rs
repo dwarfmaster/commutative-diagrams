@@ -34,6 +34,13 @@ pub trait Substitutable {
     }
 }
 
+pub trait SubstitutableInPlace {
+    fn subst_slice_in_place(&mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]);
+    fn subst_in_place(&mut self, ctx: &Context, sigma: &Substitution) {
+        self.subst_slice_in_place(ctx, sigma)
+    }
+}
+
 impl Substitutable for AnyTerm {
     fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
         use AnyTerm::*;
@@ -52,6 +59,15 @@ impl Substitutable for AnyTerm {
     }
 }
 
+impl SubstitutableInPlace for AnyTerm {
+    fn subst_slice_in_place(&mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) {
+        // Value used to prevent uninitialized reference, will be discarded by the end
+        let def = AnyTerm::Cat(ctx.def_cat());
+        let new = std::mem::replace(self, def).subst_slice(ctx, sigma);
+        *self = new;
+    }
+}
+
 impl Substitutable for Category {
     fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Category {
         use ActualCategory::*;
@@ -63,6 +79,13 @@ impl Substitutable for Category {
                     .unwrap_or(self),
             },
         }
+    }
+}
+
+impl SubstitutableInPlace for Category {
+    fn subst_slice_in_place(&mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) {
+        let new = std::mem::replace(self, ctx.def()).subst_slice(ctx, sigma);
+        *self = new;
     }
 }
 
@@ -91,6 +114,13 @@ impl Substitutable for Functor {
     }
 }
 
+impl SubstitutableInPlace for Functor {
+    fn subst_slice_in_place(&mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) {
+        let new = std::mem::replace(self, ctx.def()).subst_slice(ctx, sigma);
+        *self = new;
+    }
+}
+
 impl Substitutable for Object {
     fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
         use ActualObject::*;
@@ -116,6 +146,13 @@ impl Substitutable for Object {
                 ctx.mk(Funct(f, o))
             }
         }
+    }
+}
+
+impl SubstitutableInPlace for Object {
+    fn subst_slice_in_place(&mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) {
+        let new = std::mem::replace(self, ctx.def()).subst_slice(ctx, sigma);
+        *self = new;
     }
 }
 
@@ -157,6 +194,13 @@ impl Substitutable for Morphism {
                 ctx.mk(Funct(f, m))
             }
         }
+    }
+}
+
+impl SubstitutableInPlace for Morphism {
+    fn subst_slice_in_place(&mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) {
+        let new = std::mem::replace(self, ctx.def()).subst_slice(ctx, sigma);
+        *self = new;
     }
 }
 
@@ -246,6 +290,13 @@ impl Substitutable for Equality {
                 ctx.mk(FunctCtx(f, eq))
             }
         }
+    }
+}
+
+impl SubstitutableInPlace for Equality {
+    fn subst_slice_in_place(&mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) {
+        let new = std::mem::replace(self, ctx.def()).subst_slice(ctx, sigma);
+        *self = new;
     }
 }
 

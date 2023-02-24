@@ -1,6 +1,6 @@
 use crate::anyterm::AnyTerm;
 use crate::data::{Context, Equality, Morphism, Object};
-use crate::substitution::Substitutable;
+use crate::substitution::{Substitutable, SubstitutableInPlace};
 use std::vec::Vec;
 
 /// A pair of two paths in a graph with the same start and end
@@ -66,6 +66,12 @@ impl<FL> Substitutable for Face<FL> {
     }
 }
 
+impl<FL> SubstitutableInPlace for Face<FL> {
+    fn subst_slice_in_place(&mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) {
+        self.eq.subst_slice_in_place(ctx, sigma);
+    }
+}
+
 impl<NL, EL, FL> Graph<NL, EL, FL> {
     pub fn new() -> Self {
         Self {
@@ -122,5 +128,21 @@ impl<NL, EL, FL> Substitutable for Graph<NL, EL, FL> {
             .map(|face| face.subst_slice(ctx, sigma))
             .collect();
         self
+    }
+}
+
+impl<NL, EL, FL> SubstitutableInPlace for Graph<NL, EL, FL> {
+    fn subst_slice_in_place(&mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) {
+        for (n, _) in self.nodes.iter_mut() {
+            n.subst_slice_in_place(ctx, sigma)
+        }
+        for src in 0..self.nodes.len() {
+            for (_, _, e) in self.edges[src].iter_mut() {
+                e.subst_slice_in_place(ctx, sigma)
+            }
+        }
+        for fce in self.faces.iter_mut() {
+            fce.eq.subst_slice_in_place(ctx, sigma)
+        }
     }
 }
