@@ -160,7 +160,9 @@ where
         .add_system_set(
             SystemSet::on_enter(vm::EndStatus::Success).with_system(success_system::<In, Out>),
         )
-        .add_system_set(SystemSet::on_enter(vm::EndStatus::Failure).with_system(failure_system))
+        .add_system_set(
+            SystemSet::on_enter(vm::EndStatus::Failure).with_system(failure_system::<In, Out>),
+        )
         .run();
 }
 
@@ -184,8 +186,21 @@ fn goal_ui_system(
     }
 }
 
-fn failure_system(mut exit: EventWriter<AppExit>) {
+fn failure_system<In, Out>(mut exit: EventWriter<AppExit>, mut client: ResMut<rpc::Client<In, Out>>)
+where
+    In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
+    Out: std::io::Write + std::marker::Sync + std::marker::Send + 'static,
+{
     log::info!("Entering failed state");
+
+    // Notify server of failure before exiting
+    let solve_req = client.send_msg("failed", ()).unwrap();
+    client
+        .receive_msg(solve_req, core::marker::PhantomData::<()>::default())
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse failed answer: {:#?}", err);
+            panic!()
+        });
 
     // Exit the app
     exit.send(AppExit)
