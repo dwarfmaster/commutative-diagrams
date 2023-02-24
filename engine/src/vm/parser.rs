@@ -4,7 +4,7 @@ use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, alphanumeric1, char, digit1, newline, space0, space1};
 use nom::combinator::{eof, fail, map, map_res, recognize, success, value};
 use nom::multi::{many0_count, many_till};
-use nom::sequence::{delimited, pair, preceded};
+use nom::sequence::{delimited, pair, preceded, tuple};
 use nom::IResult;
 
 fn integer(input: &str) -> IResult<&str, usize> {
@@ -96,7 +96,12 @@ fn act_split(input: &str) -> IResult<&str, ast::Action> {
 
 fn act_solve(input: &str) -> IResult<&str, ast::Action> {
     let (input, _) = space1(input)?;
-    map(term_descr, |desc| ast::Action::Solve(desc))(input)
+    alt((
+        map(tuple((integer, sep, term_descr)), |(size, _, d)| {
+            ast::Action::Solve(Some(size), d)
+        }),
+        map(term_descr, |desc| ast::Action::Solve(None, desc)),
+    ))(input)
 }
 
 fn act_refine(input: &str) -> IResult<&str, ast::Action> {
@@ -167,7 +172,8 @@ mod tests {
             InsertMorphismAt(5, Ref(Id::Name("toto".to_string()))),
         );
         test("split [2]", Split(Ref(Id::Id(2))));
-        test("solve fce1", Solve(Ref(Id::Name("fce1".to_string()))));
+        test("solve fce1", Solve(None, Ref(Id::Name("fce1".to_string()))));
+        test("solve 10, fce1", Solve(Some(10), Ref(Id::Name("fce1".to_string()))));
         test("refine [1], [2]", Refine(Ref(Id::Id(1)), Ref(Id::Id(2))));
         test("hide node [1]", HideNode(Ref(Id::Id(1))));
         test("reveal morphism [3]", RevealMorphism(Ref(Id::Id(3))));

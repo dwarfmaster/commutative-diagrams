@@ -20,7 +20,7 @@ pub enum Action {
     HideFace(TermDescr),
     RevealFace(TermDescr),
     // Try to solve a face using the automatic solver
-    Solve(TermDescr),
+    Solve(Option<usize>, TermDescr),
     // Unify the two terms as equalities
     Refine(TermDescr, TermDescr),
     // End the interface with a success

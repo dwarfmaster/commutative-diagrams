@@ -114,7 +114,21 @@ impl VM {
                     }
                 }
             }
-            Solve(_) => todo!(),
+            Solve(size, f) => {
+                let f = self.identify_face(&f);
+                match f {
+                    Some(f) => {
+                        if !self.solve_face(f, size.unwrap_or(5)) {
+                            self.error_msg = format!("Couldn't solve face {}", f);
+                            return ExecutionError;
+                        }
+                    }
+                    None => {
+                        self.error_msg = "Couldn't interpret face description".to_string();
+                        return ExecutionError;
+                    }
+                }
+            }
             Refine(_, _) => todo!(),
             Succeed => return Success,
             Fail => return Failure,
