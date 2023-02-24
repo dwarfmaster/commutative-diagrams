@@ -40,7 +40,7 @@ impl VM {
         res.renumber_edges();
         res.autoname();
         res.hide_identities();
-        res.layout();
+        res.relabel();
         res
     }
 

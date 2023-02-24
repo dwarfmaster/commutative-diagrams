@@ -50,16 +50,16 @@ fn test_ui() {
     let i = mph!(ctx, (:7) : x -> z);
     let mut gr: vm::Graph = Graph {
         nodes: vec![
-            (x, vm::NodeLabel::new("x".to_string())),
-            (y, vm::NodeLabel::new("y".to_string())),
-            (z, vm::NodeLabel::new("z".to_string())),
+            (x, vm::NodeLabel::new()),
+            (y, vm::NodeLabel::new()),
+            (z, vm::NodeLabel::new()),
         ],
         edges: vec![
             vec![
-                (1, vm::EdgeLabel::new("f".to_string()), f),
-                (1, vm::EdgeLabel::new("g".to_string()), g),
-                (2, vm::EdgeLabel::new("h".to_string()), h),
-                (2, vm::EdgeLabel::new("i".to_string()), i),
+                (1, vm::EdgeLabel::new(), f),
+                (1, vm::EdgeLabel::new(), g),
+                (2, vm::EdgeLabel::new(), h),
+                (2, vm::EdgeLabel::new(), i),
             ],
             vec![],
             vec![],
@@ -131,34 +131,20 @@ fn test_main(packfile: &str) {
     messagepack_to_file(packfile, &gr);
 }
 
-fn goal_graph<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>)
+fn goal_graph<In, Out>(ctx: data::Context, mut client: rpc::Client<In, Out>)
 where
     In: std::io::Read,
     Out: std::io::Write,
 {
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
-    let mut goal: vm::Graph = client
+    let goal: vm::Graph = client
         .receive_msg(goal_req, parser::Parser::<vm::Graph>::new(ctx.clone()))
         .unwrap_or_else(|err| {
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
         });
     log::info!("Goal received");
-
-    // Label/name all objects
-    log::info!("Autolabelling graph");
-    for n in 0..goal.nodes.len() {
-        goal.nodes[n].1.label = goal.nodes[n].0.render(&mut ctx, 100);
-    }
-    for src in 0..goal.nodes.len() {
-        for mph in 0..goal.edges[src].len() {
-            goal.edges[src][mph].1.label = goal.edges[src][mph].2.render(&mut ctx, 100);
-        }
-    }
-    for fce in 0..goal.faces.len() {
-        goal.faces[fce].label = vm::FaceLabel::new(goal.faces[fce].eq.render(&mut ctx, 100));
-    }
 
     // Run the ui
     log::info!("Running the ui");

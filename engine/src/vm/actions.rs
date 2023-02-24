@@ -1,6 +1,7 @@
 mod alias;
 mod hide;
 mod insert;
+mod label;
 mod layout;
 mod sides;
 mod solve;

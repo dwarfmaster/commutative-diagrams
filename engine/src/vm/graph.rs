@@ -7,21 +7,31 @@ pub enum GraphId {
     Face(usize),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LabelSource {
+    Manual,
+    Render(u64),
+    #[default]
+    None,
+}
+
 #[derive(Debug, Default)]
 pub struct NodeLabel {
     pub pos: egui::Pos2,
     pub name: Option<String>,
     pub label: String,
+    pub label_source: LabelSource,
     // Invariant: when a node is hidden, all in/out-going edges must be hidden too
     pub hidden: bool,
 }
 
 impl NodeLabel {
-    pub fn new(label: String) -> Self {
+    pub fn new() -> Self {
         Self {
             pos: egui::Pos2::ZERO,
             name: None,
-            label,
+            label: String::new(),
+            label_source: LabelSource::None,
             hidden: false,
         }
     }
@@ -42,17 +52,19 @@ pub struct EdgeLabel {
     pub id: usize,
     pub label: String,
     pub label_pos: egui::Pos2,
+    pub label_source: LabelSource,
     pub style: EdgeStyle,
     pub hidden: bool,
 }
 
 impl EdgeLabel {
-    pub fn new(label: String) -> Self {
+    pub fn new() -> Self {
         Self {
             shape: Vec::new(),
             name: None,
-            label,
+            label: String::new(),
             label_pos: egui::Pos2::ZERO,
+            label_source: LabelSource::None,
             id: 0, // Invalid number, but will be set during VM initialization
             style: EdgeStyle::default(),
             hidden: false,
@@ -63,6 +75,7 @@ impl EdgeLabel {
 #[derive(Debug, Default)]
 pub struct FaceLabel {
     pub label: String,
+    pub label_source: LabelSource,
     pub name: Option<String>,
     pub hidden: bool,
     // The paths to show for this equality
@@ -71,10 +84,11 @@ pub struct FaceLabel {
 }
 
 impl FaceLabel {
-    pub fn new(label: String) -> Self {
+    pub fn new() -> Self {
         Self {
             name: None,
-            label,
+            label: String::new(),
+            label_source: LabelSource::None,
             hidden: false,
             left: None,
             right: None,

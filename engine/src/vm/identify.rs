@@ -400,7 +400,7 @@ mod tests {
         let x = obj!(ctx, (:1) in cat);
 
         let gr = Graph {
-            nodes: vec![(x, NodeLabel::new("x".to_string()))],
+            nodes: vec![(x, NodeLabel::new())],
             edges: vec![vec![]],
             faces: vec![],
         };
@@ -441,8 +441,8 @@ mod tests {
 
         let gr = Graph {
             nodes: vec![
-                (x, NodeLabel::new("x".to_string())),
-                (y, NodeLabel::new("y".to_string())),
+                (x, NodeLabel::new()),
+                (y, NodeLabel::new()),
             ],
             edges: vec![vec![], vec![]],
             faces: vec![],
