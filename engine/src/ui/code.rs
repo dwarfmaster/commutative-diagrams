@@ -18,7 +18,7 @@ pub fn code(ui: &mut egui::Ui, vm: &mut vm::VM) {
             width: ui.style().visuals.text_cursor_width,
         };
         let job = match error {
-            Some((start, end)) => egui::text::LayoutJob {
+            Some((start, end)) if end < string.len() => egui::text::LayoutJob {
                 text: string.to_string(),
                 sections: vec![
                     egui::text::LayoutSection {
@@ -48,7 +48,32 @@ pub fn code(ui: &mut egui::Ui, vm: &mut vm::VM) {
                 ],
                 ..Default::default()
             },
-            None => egui::text::LayoutJob {
+            Some((start, _)) if start < string.len() => egui::text::LayoutJob {
+                text: string.to_string(),
+                sections: vec![
+                    egui::text::LayoutSection {
+                        leading_space: 0.0,
+                        byte_range: std::ops::Range {
+                            start: 0,
+                            end: start,
+                        },
+                        format: format.clone(),
+                    },
+                    egui::text::LayoutSection {
+                        leading_space: 0.0,
+                        byte_range: std::ops::Range {
+                            start,
+                            end: string.len(),
+                        },
+                        format: egui::TextFormat {
+                            underline: under_stroke,
+                            ..format.clone()
+                        },
+                    },
+                ],
+                ..Default::default()
+            },
+            _ => egui::text::LayoutJob {
                 text: string.to_string(),
                 sections: vec![egui::text::LayoutSection {
                     leading_space: 0.0,
