@@ -18,6 +18,9 @@ impl VM {
     // Apply substitutions to graph, handling relabeling and relayouting
     pub fn do_subst(&mut self, sigma: Vec<(u64, AnyTerm)>) {
         self.graph.subst_in_place(&self.ctx, &sigma);
+        self.refinements
+            .iter_mut()
+            .for_each(|rf| rf.1.subst_in_place(&self.ctx, &sigma));
         self.relabel();
         self.refinements.extend(sigma);
     }
