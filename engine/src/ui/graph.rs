@@ -168,7 +168,7 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
                     // Since it is expensive we first check if hover_pos is in
                     // the bounding rect of the curve.
                     if let Some(hpos) = hover_pos {
-                        if curve.visual_bounding_rect().contains(hpos) {
+                        if curve.visual_bounding_rect().expand(10.0).contains(hpos) {
                             let mut dist = f32::INFINITY;
                             curve.for_each_flattened_with_t(1.0, &mut |p: Pos2, _: f32| {
                                 let d = p.distance(hpos);
