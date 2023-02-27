@@ -18,7 +18,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     else ret ()
 
   type goal =
-    | GGraph of Gr.graph
+    | GGraph of int * Gr.graph
     | GPrint of string * Gr.graph
     | GNormalize of PA.t Data.morphism * PA.t Data.morphism
     | GSolve of int * Gr.graph * PA.t Data.morphism * PA.t Data.morphism
@@ -126,7 +126,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   let handle_goal (goal: goal) (args : Msgpack.t list) : handler_ret m =
     let* _ = message "Sending goal" in
     match goal with
-    | GGraph goal ->
+    | GGraph (_,goal) ->
         let* goal_mp = Gr.Serde.pack goal in
         ret (HRet goal_mp)
     | GPrint (_,goal) ->
@@ -148,9 +148,36 @@ module Make(PA: Pa.ProofAssistant) = struct
     | GNormalize _ -> ret (HError "Current goal is normalization")
     | GPrint _ -> ret (HError "Current goal is print")
     | GSolve _ -> ret (HError "Current goal is solve")
-    | GGraph _ -> begin
-      (* TODO do something *)
-      ret HFinish
+    | GGraph (evar,_) -> begin
+      let subst = ref None in
+      let rec process_arguments lst =
+        match lst with
+        | [] -> ret false
+        | (Msgpack.Array [Msgpack.Integer id; rf]) :: t ->
+            let* r = process_arguments t in
+            if id = evar then begin
+              let* eq = Sd.Eq.unpack rf in
+              match eq with
+              | Some eq -> subst := Some eq; ret true
+              | None ->
+                  let* _ = fail "Couldn't parse refinement" in
+                  ret false
+            end else ret r
+        | _ :: _ ->
+            let* _ = fail "Refinement is not a pair of an evar and a value" in
+            ret false
+        in
+      let* res = process_arguments args in
+      if res then begin
+        match !subst with
+        | Some eq ->
+            let* eq = R.realizeEq (SimplEq.simpl eq) in
+            let* env = lift (PA.env ()) in
+            let* _ = lift (PA.lift_tactic (Refine.refine ~typecheck:false
+              (add_universes_constraints env (PA.to_econstr eq)))) in
+            ret HFinish
+        | None -> ret (HError "No refinement found for goal variable")
+      end else ret (HError "Invalid refine arguments")
     end
 
   let handle_norm (goal: goal) (args: Msgpack.t list) : handler_ret m =
@@ -291,7 +318,7 @@ module Make(PA: Pa.ProofAssistant) = struct
             } in
           let goal = Builder.add_face (Data.AtomicEq hole) goal in
           let goal = Builder.build goal in
-          GGraph goal |> ret
+          GGraph (evar,goal) |> ret
       | Normalize (left,right) ->
           ret (GNormalize (left,right))
       | Print path -> 
