@@ -3,11 +3,9 @@ use crate::graph::Face;
 use crate::vm::{EdgeLabel, FaceLabel, NodeLabel};
 use std::fmt::{Debug, Error, Formatter};
 
-trait Closure<T>: Fn(&mut T) + Send + Sync {}
-
 pub struct Updater<T> {
-    direct: Box<dyn Closure<T>>,
-    reverse: Box<dyn Closure<T>>,
+    pub direct: Box<dyn Fn(&mut T) + Send + Sync>,
+    pub reverse: Box<dyn Fn(&mut T) + Send + Sync>,
 }
 impl<T> Debug for Updater<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {

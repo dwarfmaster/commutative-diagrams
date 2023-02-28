@@ -27,6 +27,11 @@ impl VM {
         }
     }
 
+    // Setup to do before executing instructions
+    pub fn initialize_execution(&mut self) {
+        todo!()
+    }
+
     // After executing potentially multiple instruction, finish the evaluation
     // and prepare the vm for display
     pub fn finalize_execution(&mut self) {
