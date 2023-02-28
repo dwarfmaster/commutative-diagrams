@@ -59,7 +59,8 @@ impl VM {
 
     // Compile the code, but do not run it
     pub fn recompile(&mut self) -> bool {
-        let r = parser::script(&self.code);
+        let p = parser::Parser::new(&self.code);
+        let r = p.parse();
         match r {
             Ok((_, ast)) => {
                 self.ast = ast;

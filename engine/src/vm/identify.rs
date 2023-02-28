@@ -5,7 +5,7 @@ use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectD
 use crate::data::{Context, ProofObject, TestExistential};
 use crate::substitution::Substitutable;
 use crate::unification::{unify, UnifState};
-use crate::vm::ast::{Id, TermDescr};
+use crate::vm::ast::{Annot, Id, TermDescr};
 use crate::vm::graph::GraphId;
 use crate::vm::VM;
 use std::collections::HashSet;
@@ -98,14 +98,20 @@ impl VM {
             obj
         };
         match descr {
-            Ref(Id::Id(id)) => {
+            Ref(Annot {
+                value: Id::Id(id),
+                range: _,
+            }) => {
                 if *id < self.graph.nodes.len() {
                     Some(register(self.graph.nodes[*id].0.clone()))
                 } else {
                     None
                 }
             }
-            Ref(Id::Name(name)) => {
+            Ref(Annot {
+                value: Id::Name(name),
+                range: _,
+            }) => {
                 if let Some(GraphId::Node(id)) = self.names.get(name) {
                     Some(register(self.graph.nodes[*id].0.clone()))
                 } else {
@@ -179,11 +185,17 @@ impl VM {
             mph
         };
         match descr {
-            Ref(Id::Id(id)) => {
+            Ref(Annot {
+                value: Id::Id(id),
+                range: _,
+            }) => {
                 let (src, mph) = self.graph.edge_by_id(*id)?;
                 Some(register(self.graph.edges[src][mph].2.clone()))
             }
-            Ref(Id::Name(name)) => {
+            Ref(Annot {
+                value: Id::Name(name),
+                range: _,
+            }) => {
                 if let Some(GraphId::Morphism(src, mph)) = self.names.get(name) {
                     Some(register(self.graph.edges[*src][*mph].2.clone()))
                 } else {
@@ -283,14 +295,20 @@ impl VM {
             eq
         };
         match descr {
-            Ref(Id::Id(id)) => {
+            Ref(Annot {
+                value: Id::Id(id),
+                range: _,
+            }) => {
                 if *id < self.graph.faces.len() {
                     Some(register(self.graph.faces[*id].eq.clone()))
                 } else {
                     None
                 }
             }
-            Ref(Id::Name(name)) => {
+            Ref(Annot {
+                value: Id::Name(name),
+                range: _,
+            }) => {
                 if let Some(GraphId::Face(id)) = self.names.get(name) {
                     Some(register(self.graph.faces[*id].eq.clone()))
                 } else {
@@ -387,7 +405,7 @@ mod tests {
     use crate::data::{ActualObject, ObjectData};
     use crate::data::{Context, ProofObject};
     use crate::dsl::{cat, obj};
-    use crate::vm::ast::{Id, TermDescr};
+    use crate::vm::ast::{Annot, Id, TermDescr};
     use crate::vm::identify;
     use crate::vm::VM;
     use crate::vm::{Graph, NodeLabel};
@@ -406,7 +424,10 @@ mod tests {
         };
         let mut vm = VM::new(ctx, gr);
 
-        let descr = TermDescr::Ref(Id::Id(0));
+        let descr = TermDescr::Ref(Annot {
+            value: Id::Id(0),
+            range: std::ops::Range { start: 0, end: 1 },
+        });
         let (obj, _) = vm.descr_as_object(&descr).unwrap();
         assert!(obj.check(&vm.ctx), "Realization is invalid");
     }
@@ -446,11 +467,17 @@ mod tests {
         };
         let mut vm = VM::new(ctx, gr);
 
-        let id0 = vm.identify_node(&TermDescr::Ref(Id::Id(0))).unwrap();
+        let annot = |v: Id| -> Annot<Id> {
+            Annot {
+                value: v,
+                range: std::ops::Range { start: 0, end: 1 },
+            }
+        };
+        let id0 = vm.identify_node(&TermDescr::Ref(annot(Id::Id(0)))).unwrap();
         assert_eq!(id0, 0, "Found node by id 0");
-        let id1 = vm.identify_node(&TermDescr::Ref(Id::Id(1))).unwrap();
+        let id1 = vm.identify_node(&TermDescr::Ref(annot(Id::Id(1)))).unwrap();
         assert_eq!(id1, 1, "Found node by id 0");
-        let id2 = vm.identify_node(&TermDescr::Ref(Id::Id(2)));
+        let id2 = vm.identify_node(&TermDescr::Ref(annot(Id::Id(2))));
         assert!(id2.is_none(), "Succeeded in finding inexisting node");
     }
 }

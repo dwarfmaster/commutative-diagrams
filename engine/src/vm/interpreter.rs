@@ -13,9 +13,9 @@ impl VM {
     fn execute(&mut self, act: usize) -> ExecutionResult {
         use Action::*;
         use ExecutionResult::*;
-        match self.ast[act].clone() {
+        match self.ast[act].value.clone() {
             InsertNode(node) => {
-                let node = self.descr_as_object(&node);
+                let node = self.descr_as_object(&node.value);
                 match node {
                     Some((node, _)) => self.insert_node(node),
                     None => {
@@ -25,7 +25,7 @@ impl VM {
                 }
             }
             InsertMorphism(mph) => {
-                let mph = self.descr_as_morphism(&mph);
+                let mph = self.descr_as_morphism(&mph.value);
                 match mph {
                     Some((mph, _)) => self.insert_mph(mph),
                     None => {
@@ -35,9 +35,9 @@ impl VM {
                 }
             }
             InsertMorphismAt(node, mph) => {
-                let mph = self.descr_as_morphism(&mph);
+                let mph = self.descr_as_morphism(&mph.value);
                 match mph {
-                    Some((mph, _)) => self.insert_mph_at(node, mph),
+                    Some((mph, _)) => self.insert_mph_at(node.value, mph),
                     None => {
                         self.error_msg = "Couldn't interpret morphism description".to_string();
                         return ExecutionError;
@@ -45,7 +45,7 @@ impl VM {
                 }
             }
             Split(mph) => {
-                let mph = self.identify_edge(&mph);
+                let mph = self.identify_edge(&mph.value);
                 match mph {
                     Some((src, mph)) => self.split(src, mph),
                     None => {
@@ -55,7 +55,7 @@ impl VM {
                 }
             }
             HideNode(n) => {
-                let n = self.identify_node(&n);
+                let n = self.identify_node(&n.value);
                 match n {
                     Some(n) => self.hide(GraphId::Node(n)),
                     None => {
@@ -65,7 +65,7 @@ impl VM {
                 }
             }
             RevealNode(n) => {
-                let n = self.identify_node(&n);
+                let n = self.identify_node(&n.value);
                 match n {
                     Some(n) => self.reveal(GraphId::Node(n)),
                     None => {
@@ -75,7 +75,7 @@ impl VM {
                 }
             }
             HideMorphism(m) => {
-                let m = self.identify_edge(&m);
+                let m = self.identify_edge(&m.value);
                 match m {
                     Some((s, m)) => self.hide(GraphId::Morphism(s, m)),
                     None => {
@@ -85,7 +85,7 @@ impl VM {
                 }
             }
             RevealMorphism(m) => {
-                let m = self.identify_edge(&m);
+                let m = self.identify_edge(&m.value);
                 match m {
                     Some((s, m)) => self.reveal(GraphId::Morphism(s, m)),
                     None => {
@@ -95,7 +95,7 @@ impl VM {
                 }
             }
             HideFace(f) => {
-                let f = self.identify_face(&f);
+                let f = self.identify_face(&f.value);
                 match f {
                     Some(f) => self.hide(GraphId::Face(f)),
                     None => {
@@ -105,7 +105,7 @@ impl VM {
                 }
             }
             RevealFace(f) => {
-                let f = self.identify_face(&f);
+                let f = self.identify_face(&f.value);
                 match f {
                     Some(f) => self.reveal(GraphId::Face(f)),
                     None => {
@@ -115,10 +115,10 @@ impl VM {
                 }
             }
             Solve(size, f) => {
-                let f = self.identify_face(&f);
+                let f = self.identify_face(&f.value);
                 match f {
                     Some(f) => {
-                        if !self.solve_face(f, size.unwrap_or(5)) {
+                        if !self.solve_face(f, size.map(|a| a.value).unwrap_or(5)) {
                             self.error_msg = format!("Couldn't solve face {}", f);
                             return ExecutionError;
                         }
