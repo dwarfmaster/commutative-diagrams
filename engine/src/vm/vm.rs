@@ -2,8 +2,10 @@ use bevy::ecs::system::Resource;
 
 use crate::anyterm::AnyTerm;
 use crate::data::Context;
+use crate::vm::asm;
 use crate::vm::ast::AST;
 use crate::vm::graph::{Graph, GraphId};
+use crate::vm::interpreter;
 use crate::vm::parser;
 use egui::Vec2;
 use std::collections::HashMap;
@@ -21,6 +23,8 @@ pub struct VM {
     pub ctx: Context,
     pub code: String,
     pub ast: AST,
+    pub instructions: Vec<asm::Instruction>,
+    pub eval_status: interpreter::InterpreterStatus,
     pub names: HashMap<String, GraphId>,
     pub error_at: Option<(usize, usize)>,
     pub error_msg: String,
@@ -39,6 +43,8 @@ impl VM {
             ctx,
             code: String::new(),
             ast: Vec::new(),
+            instructions: Vec::new(),
+            eval_status: interpreter::InterpreterStatus::new(),
             names: HashMap::new(),
             error_at: None,
             error_msg: String::new(),

@@ -4,7 +4,7 @@ use crate::substitution::{Substitutable, SubstitutableInPlace};
 use std::vec::Vec;
 
 /// A pair of two paths in a graph with the same start and end
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Face<FaceLabel> {
     pub start: usize,
     pub end: usize,

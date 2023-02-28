@@ -15,7 +15,7 @@ pub enum LabelSource {
     None,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct NodeLabel {
     pub pos: egui::Pos2,
     pub name: Option<String>,
@@ -38,14 +38,14 @@ impl NodeLabel {
 }
 
 // Default is all false
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct EdgeStyle {
     pub left: bool,
     pub right: bool,
     pub highlight: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct EdgeLabel {
     pub shape: Vec<[egui::Pos2; 4]>,
     pub name: Option<String>,
@@ -72,7 +72,7 @@ impl EdgeLabel {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct FaceLabel {
     pub label: String,
     pub label_source: LabelSource,
