@@ -1,12 +1,12 @@
-use bevy::ecs::system::Resource;
-
 use crate::anyterm::AnyTerm;
 use crate::data::Context;
+use crate::substitution::Substitutable;
 use crate::vm::asm;
 use crate::vm::ast::AST;
 use crate::vm::graph::{Graph, GraphId};
 use crate::vm::interpreter;
 use crate::vm::parser;
+use bevy::ecs::system::Resource;
 use egui::Vec2;
 use std::collections::HashMap;
 
@@ -54,6 +54,9 @@ impl VM {
             zoom: 1.0,
             selected_face: None,
             end_status: EndStatus::Running,
+            // The final substitution, given as a sequential substitution. Before sending
+            // it to the proof assistant, all elements must be substituted with the tail
+            // of the vector, using finalize_refinements
             refinements: Vec::new(),
         };
         res.renumber_edges();
@@ -98,5 +101,20 @@ impl VM {
                 count += 1;
             }
         }
+    }
+
+    // Build the refinements to send to the proof assistant
+    pub fn finalize_refinements(&self) -> Vec<(u64, AnyTerm)> {
+        (0..self.refinements.len())
+            .into_iter()
+            .map(|n| {
+                let (id, term) = &self.refinements[n];
+                (
+                    *id,
+                    term.clone()
+                        .subst_slice(&self.ctx, &self.refinements[n + 1..]),
+                )
+            })
+            .collect()
     }
 }

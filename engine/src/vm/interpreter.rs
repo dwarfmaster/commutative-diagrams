@@ -82,6 +82,7 @@ impl VM {
                 self.graph.faces[*fce].eq = new.clone();
             }
             UpdateFaceLabel(fce, upd) => upd.apply(&mut self.graph.faces[*fce].label),
+            ExtendRefinements(sigma) => self.refinements.extend(sigma.iter().map(|p| p.clone())),
         }
     }
 
@@ -126,6 +127,9 @@ impl VM {
                 self.graph.faces[*fce].eq = old.clone();
             }
             UpdateFaceLabel(fce, upd) => upd.undo(&mut self.graph.faces[*fce].label),
+            ExtendRefinements(sigma) => self
+                .refinements
+                .truncate(self.refinements.len().saturating_sub(sigma.len())),
         }
     }
 }

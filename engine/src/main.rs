@@ -217,7 +217,7 @@ fn success_system<In, Out>(
     let client = client.as_mut();
 
     // Result is a vector of existentials and their instantiation
-    let result = &vm.refinements;
+    let result = vm.finalize_refinements();
     log::info!("Sending refinements");
     let refine_req = client.send_msg("refine", result).unwrap();
     client

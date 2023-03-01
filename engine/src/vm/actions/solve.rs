@@ -1,6 +1,6 @@
 use crate::anyterm::AnyTerm;
 use crate::autofill::solve;
-use crate::substitution::{Substitutable, SubstitutableInPlace};
+use crate::substitution::Substitutable;
 use crate::vm::VM;
 
 type Ins = crate::vm::asm::Instruction;
@@ -42,11 +42,7 @@ impl VM {
             self.register_instruction(Ins::UpdateFace(id, fce, fsubst));
         }
 
-        // TODO handle refinements
-        self.refinements
-            .iter_mut()
-            .for_each(|rf| rf.1.subst_in_place(&self.ctx, &sigma));
+        self.register_instruction(Ins::ExtendRefinements(sigma));
         self.relabel();
-        self.refinements.extend(sigma);
     }
 }

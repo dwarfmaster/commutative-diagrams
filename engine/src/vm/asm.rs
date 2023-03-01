@@ -1,5 +1,6 @@
 use crate::data::{Equality, Morphism, Object};
 use crate::graph::Face;
+use crate::substitution::Substitution;
 use crate::vm::{EdgeLabel, FaceLabel, NodeLabel};
 use lens_rs::LensMut;
 use std::fmt::{Debug, Error, Formatter};
@@ -66,4 +67,5 @@ pub enum Instruction {
     InsertFace(Face<FaceLabel>),
     UpdateFace(usize, Equality, Equality),
     UpdateFaceLabel(usize, Updater<FaceLabel>),
+    ExtendRefinements(Substitution),
 }
