@@ -1,7 +1,9 @@
 use crate::anyterm::AnyTerm;
 use crate::autofill::solve;
-use crate::substitution::SubstitutableInPlace;
+use crate::substitution::{Substitutable, SubstitutableInPlace};
 use crate::vm::VM;
+
+type Ins = crate::vm::asm::Instruction;
 
 impl VM {
     // Returns true if it succeeded in solving the face
@@ -17,7 +19,30 @@ impl VM {
 
     // Apply substitutions to graph, handling relabeling and relayouting
     pub fn do_subst(&mut self, sigma: Vec<(u64, AnyTerm)>) {
-        self.graph.subst_in_place(&self.ctx, &sigma);
+        // Substitute nodes
+        for id in 0..self.graph.nodes.len() {
+            let nd = self.graph.nodes[id].0.clone();
+            let nsubst = nd.clone().subst(&self.ctx, &sigma);
+            self.register_instruction(Ins::UpdateNode(id, nd, nsubst));
+        }
+
+        // Substitute morphisms
+        for src in 0..self.graph.edges.len() {
+            for edge in 0..self.graph.edges[src].len() {
+                let mph = self.graph.edges[src][edge].2.clone();
+                let msubst = mph.clone().subst(&self.ctx, &sigma);
+                self.register_instruction(Ins::UpdateMorphism(src, edge, mph, msubst));
+            }
+        }
+
+        // Substitute faces
+        for id in 0..self.graph.faces.len() {
+            let fce = self.graph.faces[id].eq.clone();
+            let fsubst = fce.clone().subst(&self.ctx, &sigma);
+            self.register_instruction(Ins::UpdateFace(id, fce, fsubst));
+        }
+
+        // TODO handle refinements
         self.refinements
             .iter_mut()
             .for_each(|rf| rf.1.subst_in_place(&self.ctx, &sigma));
