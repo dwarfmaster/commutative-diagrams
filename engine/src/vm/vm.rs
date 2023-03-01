@@ -63,6 +63,7 @@ impl VM {
         res.autoname();
         res.hide_identities();
         res.relabel();
+        res.layout();
         res
     }
 

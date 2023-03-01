@@ -144,6 +144,7 @@ impl VM {
 
     pub fn run(&mut self) {
         use ExecutionResult::*;
+        self.initialize_execution();
         for a in 0..self.ast.len() {
             match self.execute(a) {
                 Success => self.end_status = EndStatus::Success,
@@ -151,5 +152,6 @@ impl VM {
                 _ => (),
             }
         }
+        self.finalize_execution();
     }
 }
