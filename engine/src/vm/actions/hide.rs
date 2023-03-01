@@ -95,11 +95,6 @@ impl VM {
         assert_eq!(src, self.graph.faces[rep_fce].start);
         assert_eq!(self.graph.edges[src][mph].0, self.graph.faces[rep_fce].end);
 
-        // Unshow face
-        if let Some(fce) = self.selected_face {
-            self.unshow_face(fce)
-        }
-
         // Replacement
         {
             let rep = self.get_right_side(rep_fce).clone();
@@ -150,11 +145,6 @@ impl VM {
                 ));
                 self.graph.faces[fce].label.right = right;
             }
-        }
-
-        // Reshow-face
-        if let Some(fce) = self.selected_face {
-            self.show_face(fce)
         }
 
         // Hiding

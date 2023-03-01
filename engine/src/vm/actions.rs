@@ -2,7 +2,6 @@ mod alias;
 mod hide;
 mod insert;
 mod label;
-mod sides;
 mod solve;
 mod split;
 

@@ -29,7 +29,10 @@ impl VM {
 
     // Setup to do before executing instructions
     pub fn initialize_execution(&mut self) {
-        todo!()
+        self.eval_status.should_relayout = false;
+        if let Some(face) = self.selected_face {
+            self.unshow_face(face)
+        }
     }
 
     // After executing potentially multiple instruction, finish the evaluation
@@ -38,7 +41,9 @@ impl VM {
         if self.eval_status.should_relayout {
             self.layout()
         }
-        self.eval_status.should_relayout = false;
+        if let Some(face) = self.selected_face {
+            self.show_face(face)
+        }
     }
 
     // Execute one instruction

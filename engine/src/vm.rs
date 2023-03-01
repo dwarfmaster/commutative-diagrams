@@ -8,6 +8,7 @@ mod interpreter;
 mod layout;
 mod namer;
 mod parser;
+mod sides;
 mod vm;
 
 pub use actions::{get_left_side, get_right_side};
