@@ -43,11 +43,84 @@ impl VM {
 
     // Execute one instruction
     fn execute_instruction(&mut self, ins: &Instruction) {
-        todo!()
+        use Instruction::*;
+        self.eval_status.should_relayout = true;
+        match ins {
+            InsertNode(obj) => {
+                self.graph.nodes.push((obj.clone(), Default::default()));
+                self.graph.edges.push(vec![]);
+            }
+            UpdateNode(nd, old, new) => {
+                assert_eq!(self.graph.nodes[*nd].0, *old);
+                self.graph.nodes[*nd].0 = new.clone();
+            }
+            UpdateNodeLabel(nd, upd) => upd.apply(&mut self.graph.nodes[*nd].1),
+            InsertMorphism(src, dst, mph) => {
+                self.graph.edges[*src].push((*dst, Default::default(), mph.clone()))
+            }
+            UpdateMorphism(src, mph, old, new) => {
+                assert_eq!(self.graph.edges[*src][*mph].2, *old);
+                self.graph.edges[*src][*mph].2 = new.clone();
+            }
+            RelocateMorphismSrc(old_src, new_src, mph) => {
+                let edge = self.graph.edges[*old_src].swap_remove(*mph);
+                self.graph.edges[*new_src].push(edge);
+            }
+            RelocateMorphismDst(src, mph, old_dst, new_dst) => {
+                assert_eq!(self.graph.edges[*src][*mph].0, *old_dst);
+                self.graph.edges[*src][*mph].0 = *new_dst;
+            }
+            UpdateMorphismLabel(src, mph, upd) => upd.apply(&mut self.graph.edges[*src][*mph].1),
+            InsertFace(fce) => self.graph.faces.push(fce.clone()),
+            UpdateFace(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].eq, *old);
+                self.graph.faces[*fce].eq = new.clone();
+            }
+            UpdateFaceLabel(fce, upd) => upd.apply(&mut self.graph.faces[*fce].label),
+        }
     }
 
     // Undo one instruction
     fn undo_instruction(&mut self, ins: &Instruction) {
-        todo!()
+        use Instruction::*;
+        self.eval_status.should_relayout = true;
+        match ins {
+            InsertNode(_) => {
+                self.graph.nodes.pop();
+                self.graph.edges.pop();
+            }
+            UpdateNode(nd, old, new) => {
+                assert_eq!(self.graph.nodes[*nd].0, *new);
+                self.graph.nodes[*nd].0 = old.clone();
+            }
+            UpdateNodeLabel(nd, upd) => upd.undo(&mut self.graph.nodes[*nd].1),
+            InsertMorphism(src, _, _) => {
+                self.graph.edges[*src].pop();
+            }
+            UpdateMorphism(src, mph, old, new) => {
+                assert_eq!(self.graph.edges[*src][*mph].2, *new);
+                self.graph.edges[*src][*mph].2 = old.clone();
+            }
+            RelocateMorphismSrc(old_src, new_src, mph) => {
+                let mut edge = self.graph.edges[*new_src].pop().unwrap();
+                if *mph < self.graph.edges[*old_src].len() {
+                    std::mem::swap(&mut edge, &mut self.graph.edges[*old_src][*mph]);
+                }
+                self.graph.edges[*old_src].push(edge);
+            }
+            RelocateMorphismDst(src, mph, old_dst, new_dst) => {
+                assert_eq!(self.graph.edges[*src][*mph].0, *new_dst);
+                self.graph.edges[*src][*mph].0 = *old_dst;
+            }
+            UpdateMorphismLabel(src, mph, upd) => upd.undo(&mut self.graph.edges[*src][*mph].1),
+            InsertFace(_) => {
+                self.graph.faces.pop();
+            }
+            UpdateFace(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].eq, *new);
+                self.graph.faces[*fce].eq = old.clone();
+            }
+            UpdateFaceLabel(fce, upd) => upd.undo(&mut self.graph.faces[*fce].label),
+        }
     }
 }
