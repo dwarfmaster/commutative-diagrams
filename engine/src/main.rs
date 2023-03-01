@@ -8,7 +8,6 @@ pub mod parser;
 pub mod pretty;
 pub mod rpc;
 pub mod substitution;
-pub mod tactics;
 pub mod ui;
 pub mod unification;
 pub mod vm;

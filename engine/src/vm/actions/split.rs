@@ -1,7 +1,6 @@
 use crate::data::Morphism;
 use crate::graph::Face;
 use crate::normalize;
-use crate::tactics;
 use crate::vm::asm;
 use crate::vm::graph::FaceLabel;
 use crate::vm::VM;
@@ -90,15 +89,13 @@ impl VM {
         use crate::data::ActualMorphism::Comp;
         match mph.deref() {
             Comp(l, r) => {
-                let (mph_id, dst) =
-                    tactics::insert_mph_at(&mut self.ctx, &mut self.graph, src, l.clone());
+                let (mph_id, dst) = self.insert_mph_at(src, l.clone());
                 let (mut res, ndst) = self.insert_split_at(dst, r.clone());
                 res.push(mph_id);
                 (res, ndst)
             }
             _ => {
-                let (mph_id, ndst) =
-                    tactics::insert_mph_at(&mut self.ctx, &mut self.graph, src, mph);
+                let (mph_id, ndst) = self.insert_mph_at(src, mph);
                 (vec![mph_id], ndst)
             }
         }

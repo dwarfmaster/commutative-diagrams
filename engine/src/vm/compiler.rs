@@ -17,7 +17,9 @@ impl VM {
             InsertNode(node) => {
                 let node = self.descr_as_object(&node.value);
                 match node {
-                    Some((node, _)) => self.insert_node(node),
+                    Some((node, _)) => {
+                        self.insert_node(node);
+                    }
                     None => {
                         self.error_msg = "Couldn't interpret object description".to_string();
                         return ExecutionError;
@@ -27,7 +29,9 @@ impl VM {
             InsertMorphism(mph) => {
                 let mph = self.descr_as_morphism(&mph.value);
                 match mph {
-                    Some((mph, _)) => self.insert_mph(mph),
+                    Some((mph, _)) => {
+                        self.insert_mph(mph);
+                    }
                     None => {
                         self.error_msg = "Couldn't interpret morphism description".to_string();
                         return ExecutionError;
@@ -37,7 +41,9 @@ impl VM {
             InsertMorphismAt(node, mph) => {
                 let mph = self.descr_as_morphism(&mph.value);
                 match mph {
-                    Some((mph, _)) => self.insert_mph_at(node.value, mph),
+                    Some((mph, _)) => {
+                        self.insert_mph_at(node.value, mph);
+                    }
                     None => {
                         self.error_msg = "Couldn't interpret morphism description".to_string();
                         return ExecutionError;
