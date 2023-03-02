@@ -61,6 +61,7 @@ impl VM {
     /// Split a morphism along compositions, add the components to the graph, and
     /// add a reflexivity face between the source morphism and the new path. Returns
     /// the id of the new face or None if the morphism is already fully split
+    #[allow(dead_code)]
     fn split_mph(&mut self, src: usize, mph: usize) -> Option<usize> {
         assert!(src < self.graph.nodes.len(), "src out of bounds");
         assert!(mph < self.graph.edges[src].len(), "mph out of bounds");
