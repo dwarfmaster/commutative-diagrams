@@ -179,14 +179,13 @@ impl VM {
     // On code change, undo all actions that were downstream the edit
     pub fn sync_code(&mut self) {
         // Find first change
-        let mut first_change_id: usize = self.prev_code.len();
+        let mut first_change_id: usize = self.code.len().min(self.prev_code.len());
         for i in 0..self.code.len().min(self.prev_code.len()) {
             if self.code.as_bytes()[i] != self.prev_code.as_bytes()[i] {
                 first_change_id = i;
                 break;
             }
         }
-        log::debug!("Change found at {}", first_change_id);
 
         // If nothing has changed in the part that has been run, there is
         // nothing to do
@@ -207,9 +206,8 @@ impl VM {
                     Equal
                 }
             })
-            .unwrap_or(self.ast.len());
-        log::debug!("Found modified {}/{}", first_modified, self.ast.len());
-        if first_modified == self.ast.len() {
+            .unwrap_or_else(|i| i);
+        if first_modified >= self.ast.len() {
             return;
         }
 
