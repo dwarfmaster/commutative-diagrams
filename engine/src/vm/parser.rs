@@ -5,7 +5,7 @@ use nom::character::complete::{alpha1, alphanumeric1, char, digit1, newline, spa
 use nom::combinator::{eof, fail, map, map_res, recognize, success, value};
 use nom::error::ParseError;
 use nom::multi::{many0_count, many1_count, many_till};
-use nom::sequence::{delimited, pair, preceded, tuple};
+use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::{IResult, Offset};
 
 fn integer(input: &str) -> IResult<&str, usize> {
@@ -99,7 +99,7 @@ impl<'a> Parser<'a> {
         preceded(
             alt((endl, spaces)),
             map(
-                many_till(self.with_annot(|i| self.action(i)), eof),
+                many_till(terminated(self.with_annot(|i| self.action(i)), endl), eof),
                 |(acts, _)| acts,
             ),
         )(input)
@@ -120,7 +120,6 @@ impl<'a> Parser<'a> {
             "fail" => success(ast::Action::Fail)(input),
             _ => fail(input),
         }?;
-        let (input, _) = endl(input)?;
         success(act)(input)
     }
 
@@ -363,7 +362,7 @@ mod tests {
         test("fail", Fail);
 
         test(
-            "  insert_at\t5        ,   [0]    ",
+            "  insert_at\t5        ,   [0]",
             InsertMorphismAt(
                 Annot {
                     value: 5,
