@@ -103,6 +103,7 @@ pub fn code(ui: &mut egui::Ui, vm: &mut vm::VM) {
                 );
                 if event.changed() {
                     vm.error_at = None;
+                    vm.sync_code();
                 }
             });
         egui::ScrollArea::vertical()
@@ -119,8 +120,8 @@ pub fn code(ui: &mut egui::Ui, vm: &mut vm::VM) {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui.add(egui::Button::new("Run")).clicked() {
                 log::debug!("Running");
-                if vm.recompile() {
-                    vm.run();
+                if let Some(ast) = vm.recompile() {
+                    vm.run(ast);
                 }
             }
             if ui.add(egui::Button::new("Check")).clicked() {

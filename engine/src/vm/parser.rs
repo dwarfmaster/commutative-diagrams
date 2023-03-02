@@ -33,11 +33,15 @@ fn sep(input: &str) -> IResult<&str, ()> {
 
 pub struct Parser<'a> {
     complete: &'a str,
+    offset: usize,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(input: &'a str) -> Self {
-        Self { complete: input }
+    pub fn new(offset: usize, input: &'a str) -> Self {
+        Self {
+            complete: input,
+            offset,
+        }
     }
 
     pub fn parse(&self) -> IResult<&str, ast::AST> {
@@ -55,8 +59,8 @@ impl<'a> Parser<'a> {
             let i = input.clone();
             match parser.parse(i) {
                 Ok((i, r)) => {
-                    let start = self.complete.offset(&input);
-                    let end = self.complete.offset(&i);
+                    let start = self.offset + self.complete.offset(&input);
+                    let end = self.offset + self.complete.offset(&i);
                     Ok((
                         i,
                         ast::Annot {
@@ -190,11 +194,11 @@ mod tests {
     #[test]
     fn termdescr() {
         fn test(input: &str, expected: ast::TermDescr) {
-            let p = Parser::new(input);
+            let p = Parser::new(0, input);
             assert_eq!(p.term_descr(input), Ok(("", expected)))
         }
         fn test_fail<'a>(input: &'a str) {
-            let p = Parser::<'a>::new(input);
+            let p = Parser::<'a>::new(0, input);
             assert_eq!(not(|i| { p.term_descr(i) })(input), Ok((input, ())));
         }
 
@@ -233,7 +237,7 @@ mod tests {
 
         // Successes
         fn test(input: &str, expected: ast::Action) {
-            let p = Parser::new(input);
+            let p = Parser::new(0, input);
             assert_eq!(p.action(input), Ok(("", expected)))
         }
 

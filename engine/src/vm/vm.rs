@@ -2,11 +2,12 @@ use crate::anyterm::AnyTerm;
 use crate::data::Context;
 use crate::substitution::Substitutable;
 use crate::vm::asm;
-use crate::vm::ast::AST;
+use crate::vm::ast;
 use crate::vm::graph::{Graph, GraphId};
 use crate::vm::interpreter;
 use crate::vm::parser;
 use bevy::ecs::system::Resource;
+use core::ops::Range;
 use egui::Vec2;
 use std::collections::HashMap;
 
@@ -18,17 +19,24 @@ pub enum EndStatus {
     Running,
 }
 
+pub struct Action {
+    pub act: ast::Action,
+    pub text: Range<usize>,
+    pub asm: Range<usize>,
+}
+
 #[derive(Resource)]
 pub struct VM {
     pub ctx: Context,
+    pub prev_code: String,
     pub code: String,
-    pub ast: AST,
+    pub ast: Vec<Action>,
     pub instructions: Vec<asm::Instruction>,
+    pub run_until: usize, // In bytes
     pub eval_status: interpreter::InterpreterStatus,
     pub names: HashMap<String, GraphId>,
     pub error_at: Option<(usize, usize)>,
     pub error_msg: String,
-    pub run_until: usize,
     pub graph: Graph,
     pub offset: Vec2,
     pub zoom: f32,
@@ -41,6 +49,7 @@ impl VM {
     pub fn new(ctx: Context, gd: Graph) -> Self {
         let mut res = Self {
             ctx,
+            prev_code: String::new(),
             code: String::new(),
             ast: Vec::new(),
             instructions: Vec::new(),
@@ -68,15 +77,14 @@ impl VM {
     }
 
     // Compile the code, but do not run it
-    pub fn recompile(&mut self) -> bool {
-        let p = parser::Parser::new(&self.code);
+    pub fn recompile(&mut self) -> Option<ast::AST> {
+        let p = parser::Parser::new(self.run_until, &self.code[self.run_until..]);
         let r = p.parse();
         match r {
             Ok((_, ast)) => {
-                self.ast = ast;
                 self.error_msg.clear();
                 self.error_at = None;
-                true
+                Some(ast)
             }
             Err(err) => {
                 let err = match err {
@@ -89,7 +97,7 @@ impl VM {
                 self.ast.clear();
                 self.error_msg = format!("{}:{}: {}", start, end, err);
                 self.error_at = Some((start, end));
-                false
+                None
             }
         }
     }
