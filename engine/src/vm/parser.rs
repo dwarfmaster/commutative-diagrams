@@ -4,7 +4,7 @@ use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, alphanumeric1, char, digit1, newline, space0, space1};
 use nom::combinator::{eof, fail, map, map_res, recognize, success, value};
 use nom::error::ParseError;
-use nom::multi::{many0_count, many_till};
+use nom::multi::{many0_count, many1_count, many_till};
 use nom::sequence::{delimited, pair, preceded, tuple};
 use nom::{IResult, Offset};
 
@@ -20,7 +20,11 @@ fn ident(input: &str) -> IResult<&str, &str> {
 }
 
 fn endl(input: &str) -> IResult<&str, ()> {
-    preceded(spaces, alt((value((), newline), value((), eof))))(input)
+    let sep = pair(newline, spaces);
+    let case_eof = value((), pair(many0_count(sep), eof));
+    let sep = pair(newline, spaces);
+    let case_newline = value((), many1_count(sep));
+    value((), pair(spaces, alt((case_eof, case_newline))))(input)
 }
 
 fn spaces(input: &str) -> IResult<&str, ()> {
@@ -92,9 +96,12 @@ impl<'a> Parser<'a> {
     }
 
     fn script(&'a self, input: &'a str) -> IResult<&'a str, Vec<ast::Annot<ast::Action>>> {
-        map(
-            many_till(self.with_annot(|i| self.action(i)), eof),
-            |(acts, _)| acts,
+        preceded(
+            alt((endl, spaces)),
+            map(
+                many_till(self.with_annot(|i| self.action(i)), eof),
+                |(acts, _)| acts,
+            ),
         )(input)
     }
 
