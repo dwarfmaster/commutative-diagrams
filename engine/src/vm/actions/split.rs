@@ -35,7 +35,7 @@ impl VM {
     /// introduce the components as edges, add a face between the source morphism
     /// and the new path, and return the index of the new face or None is the
     /// morphism is already normalized and split
-    fn split_norm(&mut self, src: usize, mph: usize) -> Option<usize> {
+    pub fn split_norm(&mut self, src: usize, mph: usize) -> Option<usize> {
         assert!(src < self.graph.nodes.len(), "src out of bounds");
         assert!(mph < self.graph.edges[src].len(), "mph out of bounds");
         let (norm, eqnorm) =

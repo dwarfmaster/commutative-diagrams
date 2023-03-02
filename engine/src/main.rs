@@ -296,110 +296,108 @@ where
     log::info!("Acknowledgement of normalization received");
 }
 
-fn goal_solve<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>, level: usize)
+fn goal_solve<In, Out>(ctx: data::Context, mut client: rpc::Client<In, Out>, level: usize)
 where
     In: std::io::Read,
     Out: std::io::Write,
 {
-    // TODO once the refactor of the vm to use instruction is finished, makes goal_solve use
-    // the VM instead of calling the underlying functions directly
-    todo!()
+    log::info!("Asking for goal");
+    let goal_req = client.send_msg("goal", ()).unwrap();
+    let goal: vm::Graph = client
+        .receive_msg(goal_req, parser::Parser::<vm::Graph>::new(ctx.clone()))
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse goal answer: {:#?}", err);
+            panic!()
+        });
+    log::info!("Goal received");
 
-    // log::info!("Asking for goal");
-    // let goal_req = client.send_msg("goal", ()).unwrap();
-    // let mut goal: SolveGraph = client
-    //     .receive_msg(goal_req, parser::Parser::<SolveGraph>::new(ctx.clone()))
-    //     .unwrap_or_else(|err| {
-    //         log::warn!("Couldn't parse goal answer: {:#?}", err);
-    //         panic!()
-    //     });
-    // log::info!("Goal received");
-    //
-    // log::info!("Asking for pair of morphisms to equate");
-    // let tosolve_req = client.send_msg("tosolve", ()).unwrap();
-    // let mut tosolve: Vec<data::Morphism> = client
-    //     .receive_msg(
-    //         tosolve_req,
-    //         parser::Parser::<data::Morphism>::new_vec(ctx.clone()),
-    //     )
-    //     .unwrap_or_else(|err| {
-    //         log::warn!("Couldn't parse goal answer: {:#?}", err);
-    //         panic!()
-    //     });
-    // if tosolve.len() != 2 {
-    //     log::error!("Received {} morphisms, expected 2", tosolve.len());
-    //     panic!()
-    // }
-    //
-    // let right = tosolve.pop().unwrap();
-    // let left = tosolve.pop().unwrap();
-    // if right.cat(&ctx) != left.cat(&ctx) {
-    //     log::error!("The two morphism do not have the same category");
-    //     panic!()
-    // } else if right.src(&ctx) != left.src(&ctx) {
-    //     log::error!("The two morphism do not have the same domain");
-    //     panic!()
-    // } else if right.dst(&ctx) != left.dst(&ctx) {
-    //     log::error!("The two morphism do not have the same codomain");
-    //     panic!()
-    // }
-    // log::info!("Received valid pair of morphisms");
-    //
-    // let (left_src, left_id, left_dst) = tactics::insert_mph(&mut ctx, &mut goal, left.clone());
-    // let (right_src, right_id, right_dst) = tactics::insert_mph(&mut ctx, &mut goal, right.clone());
-    // assert_eq!(left_src, right_src, "The two goals should be parallel");
-    // assert_eq!(left_dst, right_dst, "The two goals should be parallel");
-    //
-    // log::info!("Creating goal face");
-    // let ex = ctx.new_existential();
-    // let goal_face = graph::Face {
-    //     start: left_src,
-    //     end: left_dst,
-    //     left: vec![left_id],
-    //     right: vec![right_id],
-    //     eq: eq!(ctx, (?ex) : left == right),
-    //     label: Default::default(),
-    // };
-    // let goal_id = goal.faces.len();
-    // goal.faces.push(goal_face);
-    //
-    // log::info!("Normalizing graph");
-    // let esizes = goal.edges.iter().map(|v| v.len()).collect::<Vec<_>>();
-    // for node in 0..esizes.len() {
-    //     for edge in 0..esizes[node] {
-    //         tactics::split_norm(&mut ctx, &mut goal, node, edge);
-    //     }
-    // }
-    //
-    // log::debug!("Graph to solve: {:#?}", goal);
-    //
-    // log::info!("Trying to solve face {}", goal_id);
-    // let sol = autofill::solve(&mut ctx, &goal, goal_id, level);
-    // match sol {
-    //     None => {
-    //         log::info!("Failed to solve");
-    //         let solve_req = client.send_msg("unsolvable", ()).unwrap();
-    //         client
-    //             .receive_msg(solve_req, core::marker::PhantomData::<()>::default())
-    //             .unwrap_or_else(|err| {
-    //                 log::warn!("Couldn't parse unsolvable answer: {:#?}", err);
-    //                 panic!()
-    //             });
-    //     }
-    //     Some(sigma) => {
-    //         log::info!("Solving succeeded");
-    //         let eq = goal.faces[goal_id].eq.clone().subst(&ctx, &sigma);
-    //         let solve_req = client.send_msg("solved", vec![eq.term()]).unwrap();
-    //         client
-    //             .receive_msg(solve_req, core::marker::PhantomData::<()>::default())
-    //             .unwrap_or_else(|err| {
-    //                 log::warn!("Couldn't parse solved answer: {:#?}", err);
-    //                 panic!()
-    //             })
-    //     }
-    // }
-    //
-    // log::info!("Solving finished")
+    let mut vm = vm::VM::new(ctx, goal);
+
+    log::info!("Asking for pair of morphisms to equate");
+    let tosolve_req = client.send_msg("tosolve", ()).unwrap();
+    let mut tosolve: Vec<data::Morphism> = client
+        .receive_msg(
+            tosolve_req,
+            parser::Parser::<data::Morphism>::new_vec(vm.ctx.clone()),
+        )
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse goal answer: {:#?}", err);
+            panic!()
+        });
+    if tosolve.len() != 2 {
+        log::error!("Received {} morphisms, expected 2", tosolve.len());
+        panic!()
+    }
+
+    let right = tosolve.pop().unwrap();
+    let left = tosolve.pop().unwrap();
+    if right.cat(&vm.ctx) != left.cat(&vm.ctx) {
+        log::error!("The two morphism do not have the same category");
+        panic!()
+    } else if right.src(&vm.ctx) != left.src(&vm.ctx) {
+        log::error!("The two morphism do not have the same domain");
+        panic!()
+    } else if right.dst(&vm.ctx) != left.dst(&vm.ctx) {
+        log::error!("The two morphism do not have the same codomain");
+        panic!()
+    }
+    log::info!("Received valid pair of morphisms");
+
+    let (left_src, left_id, left_dst) = vm.insert_mph(left.clone());
+    let (right_src, right_id, right_dst) = vm.insert_mph(right.clone());
+    assert_eq!(left_src, right_src, "The two goals should be parallel");
+    assert_eq!(left_dst, right_dst, "The two goals should be parallel");
+
+    log::info!("Creating goal face");
+    let ex = vm.ctx.new_existential();
+    let goal_face = graph::Face {
+        start: left_src,
+        end: left_dst,
+        left: vec![left_id],
+        right: vec![right_id],
+        eq: eq!(vm.ctx, (?ex) : left == right),
+        label: Default::default(),
+    };
+    let goal_id = vm.graph.faces.len();
+    vm.graph.faces.push(goal_face);
+
+    log::info!("Normalizing graph");
+    let esizes = vm.graph.edges.iter().map(|v| v.len()).collect::<Vec<_>>();
+    for node in 0..esizes.len() {
+        for edge in 0..esizes[node] {
+            vm.split_norm(node, edge);
+        }
+    }
+
+    log::debug!("Graph to solve: {:#?}", vm.graph);
+
+    log::info!("Trying to solve face {}", goal_id);
+    let sol = autofill::solve(&mut vm.ctx, &vm.graph, goal_id, level);
+    match sol {
+        None => {
+            log::info!("Failed to solve");
+            let solve_req = client.send_msg("unsolvable", ()).unwrap();
+            client
+                .receive_msg(solve_req, core::marker::PhantomData::<()>::default())
+                .unwrap_or_else(|err| {
+                    log::warn!("Couldn't parse unsolvable answer: {:#?}", err);
+                    panic!()
+                });
+        }
+        Some(sigma) => {
+            log::info!("Solving succeeded");
+            let eq = vm.graph.faces[goal_id].eq.clone().subst(&vm.ctx, &sigma);
+            let solve_req = client.send_msg("solved", vec![eq.term()]).unwrap();
+            client
+                .receive_msg(solve_req, core::marker::PhantomData::<()>::default())
+                .unwrap_or_else(|err| {
+                    log::warn!("Couldn't parse solved answer: {:#?}", err);
+                    panic!()
+                })
+        }
+    }
+
+    log::info!("Solving finished")
 }
 
 fn embed(normalize: bool, autosolve: Option<usize>, print: Option<String>) {
