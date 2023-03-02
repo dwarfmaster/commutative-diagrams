@@ -1,8 +1,7 @@
 use crate::vm::asm;
-use crate::vm::graph::{GraphId, LabelSource};
+use crate::vm::graph::{EdgeLabel, FaceLabel, LabelSource, NodeLabel};
 use crate::vm::VM;
 use hashconsing::HConsed;
-use lens_rs::{optics, LensMut, Optics};
 
 type Ins = asm::Instruction;
 
@@ -15,19 +14,44 @@ fn should_render<T>(src: &LabelSource, obj: &HConsed<T>) -> bool {
     }
 }
 
-fn label_upd<Label>(uid: u64, label: &Label, text: String) -> asm::Updater<Label>
-where
-    Label: LensMut<Optics![label], String> + LensMut<Optics![label_source], LabelSource>,
-{
-    let direct = move |lbl: &mut Label| {
-        *lbl.view_mut(optics!(label)) = text.clone();
-        *lbl.view_mut(optics!(label_source)) = LabelSource::Render(uid);
+trait HasLabel {
+    fn label<'a>(&'a mut self) -> &'a mut String;
+    fn get_label(&self) -> String;
+    fn label_source<'a>(&'a mut self) -> &'a mut LabelSource;
+    fn get_label_source(&self) -> LabelSource;
+}
+macro_rules! derive_has_label {
+    ($t:ty) => {
+        impl HasLabel for $t {
+            fn label<'a>(&'a mut self) -> &'a mut String {
+                &mut self.label
+            }
+            fn get_label(&self) -> String {
+                self.label.clone()
+            }
+            fn label_source<'a>(&'a mut self) -> &'a mut LabelSource {
+                &mut self.label_source
+            }
+            fn get_label_source(&self) -> LabelSource {
+                self.label_source.clone()
+            }
+        }
     };
-    let prev_label = label.view_ref(optics!(label)).clone();
-    let prev_label_source = label.view_ref(optics!(label_source)).clone();
+}
+derive_has_label!(NodeLabel);
+derive_has_label!(EdgeLabel);
+derive_has_label!(FaceLabel);
+
+fn label_upd<Label: HasLabel>(uid: u64, label: &Label, text: String) -> asm::Updater<Label> {
+    let direct = move |lbl: &mut Label| {
+        *lbl.label() = text.clone();
+        *lbl.label_source() = LabelSource::Render(uid);
+    };
+    let prev_label = label.get_label();
+    let prev_label_source = label.get_label_source();
     let reverse = move |lbl: &mut Label| {
-        *lbl.view_mut(optics!(label)) = prev_label.clone();
-        *lbl.view_mut(optics!(label_source)) = prev_label_source.clone();
+        *lbl.label() = prev_label.clone();
+        *lbl.label_source() = prev_label_source.clone();
     };
     asm::Updater {
         direct: Box::new(direct),

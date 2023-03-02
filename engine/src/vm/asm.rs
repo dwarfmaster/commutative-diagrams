@@ -2,7 +2,6 @@ use crate::data::{Equality, Morphism, Object};
 use crate::graph::Face;
 use crate::substitution::Substitution;
 use crate::vm::{EdgeLabel, FaceLabel, NodeLabel};
-use lens_rs::LensMut;
 use std::fmt::{Debug, Error, Formatter};
 
 pub struct Updater<T> {
@@ -26,25 +25,6 @@ impl<T> Updater<T> {
 
     pub fn inverse(&mut self) {
         std::mem::swap(&mut self.direct, &mut self.reverse);
-    }
-
-    pub fn from_lens<L, O>(val: &T, lens: L, new: O) -> Self
-    where
-        T: LensMut<L, O>,
-        O: Clone + Send + Sync + 'static,
-        L: Copy + Send + Sync + 'static,
-    {
-        let old = val.view_ref(lens).clone();
-        let direct = move |v: &mut T| {
-            *v.view_mut(lens) = new.clone();
-        };
-        let reverse = move |v: &mut T| {
-            *v.view_mut(lens) = old.clone();
-        };
-        Self {
-            direct: Box::new(direct),
-            reverse: Box::new(reverse),
-        }
     }
 }
 

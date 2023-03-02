@@ -2,12 +2,74 @@ use crate::data::ActualMorphism;
 use crate::vm;
 use crate::vm::asm;
 use crate::vm::graph::GraphId;
+use crate::vm::graph::{EdgeLabel, FaceLabel, NodeLabel};
 use crate::vm::VM;
-use lens_rs::optics;
 use std::iter;
 use std::ops::Deref;
 
 type Ins = asm::Instruction;
+
+trait HasHidden {
+    fn hidden<'a>(&'a mut self) -> &'a mut bool;
+    fn is_hidden(&self) -> bool;
+}
+macro_rules! derive_has_hidden {
+    ($t:ty) => {
+        impl HasHidden for $t {
+            fn hidden<'a>(&'a mut self) -> &'a mut bool {
+                &mut self.hidden
+            }
+            fn is_hidden(&self) -> bool {
+                self.hidden
+            }
+        }
+    };
+}
+derive_has_hidden!(NodeLabel);
+derive_has_hidden!(EdgeLabel);
+derive_has_hidden!(FaceLabel);
+
+fn hidden_upd<T: HasHidden + Clone>(val: &T, new: bool) -> asm::Updater<T> {
+    let direct = move |v: &mut T| {
+        *v.hidden() = new;
+    };
+    let old = val.is_hidden();
+    let reverse = move |v: &mut T| {
+        *v.hidden() = old;
+    };
+    asm::Updater {
+        direct: Box::new(direct),
+        reverse: Box::new(reverse),
+    }
+}
+
+fn left_upd(lbl: &FaceLabel, new: Vec<usize>) -> asm::Updater<FaceLabel> {
+    let direct = move |v: &mut FaceLabel| {
+        v.left = Some(new.clone());
+    };
+    let old = lbl.left.clone();
+    let reverse = move |v: &mut FaceLabel| {
+        v.left = old.clone();
+    };
+    asm::Updater {
+        direct: Box::new(direct),
+        reverse: Box::new(reverse),
+    }
+}
+
+fn right_upd(lbl: &FaceLabel, new: Vec<usize>) -> asm::Updater<FaceLabel> {
+    let direct = move |v: &mut FaceLabel| {
+        v.right = Some(new.clone());
+    };
+    let old = lbl.right.clone();
+    let reverse = move |v: &mut FaceLabel| {
+        v.right = old.clone();
+    };
+    asm::Updater {
+        direct: Box::new(direct),
+        reverse: Box::new(reverse),
+    }
+}
 
 impl VM {
     fn hide_node(&mut self, id: usize) {
@@ -17,7 +79,7 @@ impl VM {
 
         self.register_instruction(Ins::UpdateNodeLabel(
             id,
-            asm::Updater::from_lens(&self.graph.nodes[id].1, optics!(hidden), true),
+            hidden_upd(&self.graph.nodes[id].1, true),
         ));
         for src in 0..self.graph.nodes.len() {
             for mph in 0..self.graph.edges[src].len() {
@@ -25,11 +87,7 @@ impl VM {
                     self.register_instruction(Ins::UpdateMorphismLabel(
                         src,
                         mph,
-                        asm::Updater::from_lens(
-                            &self.graph.edges[src][mph].1,
-                            optics!(hidden),
-                            true,
-                        ),
+                        hidden_upd(&self.graph.edges[src][mph].1, true),
                     ));
                 }
             }
@@ -45,13 +103,13 @@ impl VM {
                 self.register_instruction(Ins::UpdateMorphismLabel(
                     src,
                     mph,
-                    asm::Updater::from_lens(&self.graph.edges[src][mph].1, optics!(hidden), true),
+                    hidden_upd(&self.graph.edges[src][mph].1, true),
                 ));
             }
             Face(f) => {
                 self.register_instruction(Ins::UpdateFaceLabel(
                     f,
-                    asm::Updater::from_lens(&self.graph.faces[f].label, optics!(hidden), true),
+                    hidden_upd(&self.graph.faces[f].label, true),
                 ));
             }
         }
@@ -63,27 +121,27 @@ impl VM {
         match id {
             Node(n) => self.register_instruction(Ins::UpdateNodeLabel(
                 n,
-                asm::Updater::from_lens(&self.graph.nodes[n].1, optics!(hidden), false),
+                hidden_upd(&self.graph.nodes[n].1, false),
             )),
             Morphism(src, mph) => {
                 let dst = self.graph.edges[src][mph].0;
                 self.register_instruction(Ins::UpdateMorphismLabel(
                     src,
                     mph,
-                    asm::Updater::from_lens(&self.graph.edges[src][mph].1, optics!(hidden), false),
+                    hidden_upd(&self.graph.edges[src][mph].1, false),
                 ));
                 self.register_instruction(Ins::UpdateNodeLabel(
                     src,
-                    asm::Updater::from_lens(&self.graph.nodes[src].1, optics!(hidden), false),
+                    hidden_upd(&self.graph.nodes[src].1, false),
                 ));
                 self.register_instruction(Ins::UpdateNodeLabel(
                     dst,
-                    asm::Updater::from_lens(&self.graph.nodes[dst].1, optics!(hidden), false),
+                    hidden_upd(&self.graph.nodes[dst].1, false),
                 ));
             }
             Face(f) => self.register_instruction(Ins::UpdateFaceLabel(
                 f,
-                asm::Updater::from_lens(&self.graph.faces[f].label, optics!(hidden), false),
+                hidden_upd(&self.graph.faces[f].label, false),
             )),
         }
         self.layout()
@@ -111,39 +169,27 @@ impl VM {
                 };
             for fce in 0..self.graph.faces.len() {
                 let start = self.graph.faces[fce].start;
-                let left = Some(
-                    vm::get_left_side(&self.graph.faces, fce)
-                        .iter()
-                        .scan(start, replace)
-                        .flatten()
-                        .collect(),
-                );
+                let left = vm::get_left_side(&self.graph.faces, fce)
+                    .iter()
+                    .scan(start, replace)
+                    .flatten()
+                    .collect::<Vec<_>>();
                 self.instructions.push(Ins::UpdateFaceLabel(
                     fce,
-                    asm::Updater::from_lens(
-                        &self.graph.faces[fce].label,
-                        optics!(left),
-                        left.clone(),
-                    ),
+                    left_upd(&self.graph.faces[fce].label, left.clone()),
                 ));
-                self.graph.faces[fce].label.left = left;
+                self.graph.faces[fce].label.left = Some(left);
 
-                let right = Some(
-                    vm::get_right_side(&self.graph.faces, fce)
-                        .iter()
-                        .scan(start, replace)
-                        .flatten()
-                        .collect(),
-                );
+                let right = vm::get_right_side(&self.graph.faces, fce)
+                    .iter()
+                    .scan(start, replace)
+                    .flatten()
+                    .collect::<Vec<_>>();
                 self.instructions.push(Ins::UpdateFaceLabel(
                     fce,
-                    asm::Updater::from_lens(
-                        &self.graph.faces[fce].label,
-                        optics!(right),
-                        right.clone(),
-                    ),
+                    right_upd(&self.graph.faces[fce].label, right.clone()),
                 ));
-                self.graph.faces[fce].label.right = right;
+                self.graph.faces[fce].label.right = Some(right);
             }
         }
 
