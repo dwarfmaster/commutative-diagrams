@@ -1,90 +1,51 @@
 use crate::vm;
+use itertools::Itertools;
 
 pub fn code(ui: &mut egui::Ui, vm: &mut vm::VM) {
-    let error = vm.error_at.clone();
-    // TODO memoize
-    let mut layouter = |ui: &egui::Ui, string: &str, _width: f32| {
-        let format = egui::TextFormat {
-            font_id: egui::FontId::monospace(14.0),
-            color: ui.style().noninteractive().fg_stroke.color,
-            background: ui.style().visuals.extreme_bg_color,
-            italics: false,
-            underline: egui::Stroke::NONE,
-            strikethrough: egui::Stroke::NONE,
-            valign: egui::Align::BOTTOM,
-        };
-        let under_stroke = egui::Stroke {
+    let format_none = egui::TextFormat {
+        font_id: egui::FontId::monospace(14.0),
+        color: ui.style().noninteractive().fg_stroke.color,
+        background: ui.style().visuals.extreme_bg_color,
+        italics: false,
+        underline: egui::Stroke::NONE,
+        strikethrough: egui::Stroke::NONE,
+        valign: egui::Align::BOTTOM,
+    };
+    let format_err = egui::TextFormat {
+        underline: egui::Stroke {
             color: ui.style().visuals.error_fg_color,
             width: ui.style().visuals.text_cursor_width,
-        };
-        let job = match error {
-            Some((start, end)) if end < string.len() => egui::text::LayoutJob {
-                text: string.to_string(),
-                sections: vec![
-                    egui::text::LayoutSection {
-                        leading_space: 0.0,
-                        byte_range: std::ops::Range {
-                            start: 0,
-                            end: start,
-                        },
-                        format: format.clone(),
-                    },
-                    egui::text::LayoutSection {
-                        leading_space: 0.0,
-                        byte_range: std::ops::Range { start, end },
-                        format: egui::TextFormat {
-                            underline: under_stroke,
-                            ..format.clone()
-                        },
-                    },
-                    egui::text::LayoutSection {
-                        leading_space: 0.0,
-                        byte_range: std::ops::Range {
-                            start: end,
-                            end: string.len(),
-                        },
-                        format,
-                    },
-                ],
-                ..Default::default()
+        },
+        ..format_none.clone()
+    };
+    let format_run = egui::TextFormat {
+        background: ui.style().visuals.faint_bg_color,
+        ..format_none.clone()
+    };
+    let sections = vm
+        .code_style
+        .iter()
+        .chain(std::iter::once(&(vm.code.len(), vm::CodeStyle::None)))
+        .tuple_windows()
+        .map(|((start, style), (end, _))| egui::text::LayoutSection {
+            leading_space: 0.0,
+            byte_range: *start..*end,
+            format: match style {
+                vm::CodeStyle::None => format_none.clone(),
+                vm::CodeStyle::Error => format_err.clone(),
+                vm::CodeStyle::Run => format_run.clone(),
             },
-            Some((start, _)) if start < string.len() => egui::text::LayoutJob {
-                text: string.to_string(),
-                sections: vec![
-                    egui::text::LayoutSection {
-                        leading_space: 0.0,
-                        byte_range: std::ops::Range {
-                            start: 0,
-                            end: start,
-                        },
-                        format: format.clone(),
-                    },
-                    egui::text::LayoutSection {
-                        leading_space: 0.0,
-                        byte_range: std::ops::Range {
-                            start,
-                            end: string.len(),
-                        },
-                        format: egui::TextFormat {
-                            underline: under_stroke,
-                            ..format.clone()
-                        },
-                    },
-                ],
-                ..Default::default()
-            },
-            _ => egui::text::LayoutJob {
-                text: string.to_string(),
-                sections: vec![egui::text::LayoutSection {
-                    leading_space: 0.0,
-                    byte_range: std::ops::Range {
-                        start: 0,
-                        end: string.len(),
-                    },
-                    format,
-                }],
-                ..Default::default()
-            },
+        })
+        .collect::<Vec<_>>();
+    let mut layouter = |ui: &egui::Ui, string: &str, _width: f32| {
+        // TODO memoize to avoid to realloc on each frame
+        let mut sections = sections.clone();
+        // When the layouter is called, string may not be vm.code
+        sections.last_mut().unwrap().byte_range.end = string.len();
+        let job = egui::text::LayoutJob {
+            text: string.to_string(),
+            sections,
+            ..Default::default()
         };
         ui.fonts().layout_job(job)
     };
@@ -102,7 +63,8 @@ pub fn code(ui: &mut egui::Ui, vm: &mut vm::VM) {
                         .layouter(&mut layouter),
                 );
                 if event.changed() {
-                    vm.error_at = None;
+                    vm.reset_style();
+                    vm.style_range(0..vm.run_until, vm::CodeStyle::Run);
                     vm.sync_code();
                 }
             });

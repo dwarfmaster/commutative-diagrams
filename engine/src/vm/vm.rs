@@ -25,6 +25,14 @@ pub struct Action {
     pub asm: Range<usize>,
 }
 
+#[derive(Copy, Hash, Clone, Debug, Eq, PartialEq, Default)]
+pub enum CodeStyle {
+    Run,
+    Error,
+    #[default]
+    None,
+}
+
 #[derive(Resource)]
 pub struct VM {
     pub ctx: Context,
@@ -35,7 +43,9 @@ pub struct VM {
     pub run_until: usize, // In bytes
     pub eval_status: interpreter::InterpreterStatus,
     pub names: HashMap<String, GraphId>,
-    pub error_at: Option<(usize, usize)>,
+    // Means that at offset .0, the text must be styled with style .1, and the
+    // offset are kept stored in increasing order. The first offset is always 0.
+    pub code_style: Vec<(usize, CodeStyle)>,
     pub error_msg: String,
     pub graph: Graph,
     pub offset: Vec2,
@@ -55,7 +65,7 @@ impl VM {
             instructions: Vec::new(),
             eval_status: interpreter::InterpreterStatus::new(),
             names: HashMap::new(),
-            error_at: None,
+            code_style: vec![(0, CodeStyle::None)],
             error_msg: String::new(),
             run_until: 0,
             graph: gd,
@@ -83,7 +93,8 @@ impl VM {
         match r {
             Ok((_, ast)) => {
                 self.error_msg.clear();
-                self.error_at = None;
+                self.reset_style();
+                self.style_range(0..self.run_until, CodeStyle::Run);
                 Some(ast)
             }
             Err(err) => {
@@ -96,7 +107,7 @@ impl VM {
                 let end = start + err.input.len();
                 self.ast.clear();
                 self.error_msg = format!("{}:{}: {}", start, end, err);
-                self.error_at = Some((start, end));
+                self.style_range(start..end, CodeStyle::Error);
                 None
             }
         }

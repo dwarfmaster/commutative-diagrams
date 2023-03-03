@@ -2,7 +2,7 @@ use crate::vm::ast;
 use crate::vm::ast::Action;
 use crate::vm::graph::GraphId;
 use crate::vm::vm;
-use crate::vm::{EndStatus, VM};
+use crate::vm::{CodeStyle, EndStatus, VM};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ExecutionResult {
@@ -153,6 +153,8 @@ impl VM {
         } else {
             // Register the action as having been executed
             self.run_until = act.range.end;
+            self.reset_style();
+            self.style_range(0..self.run_until, CodeStyle::Run);
             self.ast.push(vm::Action {
                 act: act.value,
                 text: act.range,
@@ -222,8 +224,10 @@ impl VM {
         self.finalize_execution();
 
         // Update run_until
+        self.reset_style();
         if let Some(lst) = self.ast.last() {
             self.run_until = lst.text.end;
+            self.style_range(0..self.run_until, CodeStyle::Run);
         } else {
             self.run_until = 0;
         }
