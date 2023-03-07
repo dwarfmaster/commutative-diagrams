@@ -13,9 +13,6 @@ pub mod unification;
 pub mod vm;
 
 use anyterm::IsTerm;
-use data::ProofObject;
-use data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
-use data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData};
 use dsl::{cat, eq, funct, mph, obj};
 use graph::Graph;
 use substitution::Substitutable;

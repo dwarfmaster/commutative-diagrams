@@ -1,5 +1,5 @@
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
-use crate::data::{Context, ProofObject};
+use crate::data::{ActualProofObject, Context};
 use pretty::RcDoc;
 use std::iter::IntoIterator;
 
@@ -31,15 +31,24 @@ fn render(d: RcDoc<()>, width: usize) -> String {
     String::from_utf8(buf).unwrap()
 }
 
-impl ProofObject {
+impl ActualProofObject {
     pub fn to_pretty(&self, ctx: &mut Context) -> RcDoc<()> {
-        use ProofObject::*;
-        match *self {
-            Term(t) => match ctx.term(t) {
+        use ActualProofObject::*;
+        match self {
+            Term(t) => match ctx.term(*t) {
                 Some(str) => RcDoc::text(str),
                 None => RcDoc::text(format!(":{}", t)),
             },
             Existential(e) => RcDoc::text(format!("?{}", e)),
+            Cat(c) => c.to_pretty(ctx),
+            Funct(f) => f.to_pretty(ctx),
+            Obj(o) => o.to_pretty(ctx),
+            Mph(m) => m.to_pretty(ctx),
+            Eq(eq) => eq.to_pretty(ctx),
+            Composed(_, name, args) => app(
+                RcDoc::text(name),
+                args.into_iter().map(|a| a.to_pretty(ctx)),
+            ),
         }
     }
 

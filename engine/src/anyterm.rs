@@ -1,6 +1,7 @@
 use crate::data::TestExistential;
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
-use crate::data::{Category, Context, Equality, Functor, Morphism, Object, ProofObject};
+use crate::data::{ActualProofObject, Context, ProofObject};
+use crate::data::{Category, Equality, Functor, Morphism, Object};
 use core::ops::Deref;
 use serde::{Serialize, Serializer};
 
@@ -12,6 +13,7 @@ pub enum AnyTerm {
     Obj(Object),
     Mph(Morphism),
     Eq(Equality),
+    Pobj(ProofObject),
     TypedCat(Category),
     TypedFunct(Functor),
     TypedObj(Object),
@@ -28,6 +30,7 @@ impl TestExistential for AnyTerm {
             Obj(o) => o.is_ex(),
             Mph(m) => m.is_ex(),
             Eq(e) => e.is_ex(),
+            Pobj(obj) => obj.is_ex(),
             TypedCat(c) => c.is_ex(),
             TypedFunct(f) => f.is_ex(),
             TypedObj(o) => o.is_ex(),
@@ -46,6 +49,7 @@ impl AnyTerm {
             Obj(o) => o.check(ctx),
             Mph(m) => m.check(ctx),
             Eq(eq) => eq.check(ctx),
+            Pobj(obj) => obj.check(ctx),
             TypedCat(cat) => cat.check(ctx),
             TypedFunct(f) => f.check(ctx),
             TypedObj(o) => o.check(ctx),
@@ -66,33 +70,28 @@ impl AnyTerm {
         }
     }
 
-    fn pobj_as_var<T: crate::data::IsPOBacked>(pobj: T) -> Option<u64> {
-        use crate::data::ProofObject::*;
-        match pobj.pobj() {
-            Term(_) => None,
-            Existential(e) => Some(e.clone()),
+    pub fn to_proof_object(self, ctx: &Context) -> ProofObject {
+        use AnyTerm::*;
+        match self {
+            Cat(c) => ctx.mk(ActualProofObject::Cat(c)),
+            Funct(f) => ctx.mk(ActualProofObject::Funct(f)),
+            Obj(o) => ctx.mk(ActualProofObject::Obj(o)),
+            Mph(m) => ctx.mk(ActualProofObject::Mph(m)),
+            Eq(e) => ctx.mk(ActualProofObject::Eq(e)),
+            Pobj(obj) => obj,
+            TypedCat(c) => ctx.mk(ActualProofObject::Cat(c)),
+            TypedFunct(f) => ctx.mk(ActualProofObject::Funct(f)),
+            TypedObj(o) => ctx.mk(ActualProofObject::Obj(o)),
+            TypedMph(m) => ctx.mk(ActualProofObject::Mph(m)),
+            TypedEq(e) => ctx.mk(ActualProofObject::Eq(e)),
         }
     }
 
     pub fn as_var(&self) -> Option<u64> {
         use AnyTerm::*;
         match self {
-            Cat(c) => match c.deref() {
-                ActualCategory::Atomic(data) => AnyTerm::pobj_as_var(data.clone()),
-            },
-            Funct(f) => match f.deref() {
-                ActualFunctor::Atomic(data) => AnyTerm::pobj_as_var(data.clone()),
-            },
-            Obj(o) => match o.deref() {
-                ActualObject::Atomic(data) => AnyTerm::pobj_as_var(data.clone()),
-                _ => None,
-            },
-            Mph(m) => match m.deref() {
-                ActualMorphism::Atomic(data) => AnyTerm::pobj_as_var(data.clone()),
-                _ => None,
-            },
-            Eq(e) => match e.deref() {
-                ActualEquality::Atomic(data) => AnyTerm::pobj_as_var(data.clone()),
+            Pobj(obj) => match obj.deref() {
+                ActualProofObject::Existential(e) => Some(*e),
                 _ => None,
             },
             _ => None,
@@ -247,6 +246,7 @@ impl IsTerm for AnyTerm {
             (Obj(o1), Obj(o2)) => o1.same_head(o2),
             (Mph(m1), Mph(m2)) => m1.same_head(m2),
             (Eq(e1), Eq(e2)) => e1.same_head(e2),
+            (Pobj(obj1), Pobj(obj2)) => obj1.same_head(obj2),
             (TypedCat(..), TypedCat(..)) => true,
             (TypedFunct(..), TypedFunct(..)) => true,
             (TypedObj(..), TypedObj(..)) => true,
@@ -257,14 +257,35 @@ impl IsTerm for AnyTerm {
     }
 }
 
-fn pobj_same(p1: &ProofObject, p2: &ProofObject) -> bool {
-    use ProofObject::*;
-    match (p1, p2) {
-        (Term(t1), Term(t2)) => t1 == t2,
-        _ => false,
+impl IsTerm for ProofObject {
+    fn term(self) -> AnyTerm {
+        AnyTerm::Pobj(self)
+    }
+
+    fn subterms(self, ctx: Context) -> TermIterator {
+        TermIterator {
+            term: self.term(),
+            child: 0,
+            ctx,
+        }
+    }
+
+    fn same_head(&self, other: &Self) -> bool {
+        use ActualProofObject::*;
+        match (self.deref(), other.deref()) {
+            (Term(t1), Term(t2)) => t1 == t2,
+            (Cat(c1), Cat(c2)) => c1.same_head(c2),
+            (Funct(f1), Funct(f2)) => f1.same_head(f2),
+            (Obj(o1), Obj(o2)) => o1.same_head(o2),
+            (Mph(m1), Mph(m2)) => m1.same_head(m2),
+            (Eq(e1), Eq(e2)) => e1.same_head(e2),
+            (Composed(id1, name1, subs1), Composed(id2, name2, subs2)) => {
+                id1 == id2 && name1 == name2 && subs1.len() == subs2.len()
+            }
+            _ => false,
+        }
     }
 }
-
 impl IsTerm for Category {
     fn term(self) -> AnyTerm {
         AnyTerm::Cat(self)
@@ -281,7 +302,7 @@ impl IsTerm for Category {
     fn same_head(&self, other: &Self) -> bool {
         use ActualCategory::*;
         match (self.deref(), other.deref()) {
-            (Atomic(d1), Atomic(d2)) => pobj_same(&d1.pobj, &d2.pobj),
+            (Atomic(..), Atomic(..)) => true,
         }
     }
 }
@@ -301,7 +322,7 @@ impl IsTerm for Functor {
     fn same_head(&self, other: &Self) -> bool {
         use ActualFunctor::*;
         match (self.deref(), other.deref()) {
-            (Atomic(d1), Atomic(d2)) => pobj_same(&d1.pobj, &d2.pobj),
+            (Atomic(..), Atomic(..)) => true,
         }
     }
 }
@@ -321,7 +342,7 @@ impl IsTerm for Object {
     fn same_head(&self, other: &Self) -> bool {
         use ActualObject::*;
         match (self.deref(), other.deref()) {
-            (Atomic(d1), Atomic(d2)) => pobj_same(&d1.pobj, &d2.pobj),
+            (Atomic(..), Atomic(..)) => true,
             (Funct(..), Funct(..)) => true,
             _ => false,
         }
@@ -343,7 +364,7 @@ impl IsTerm for Morphism {
     fn same_head(&self, other: &Self) -> bool {
         use ActualMorphism::*;
         match (self.deref(), other.deref()) {
-            (Atomic(d1), Atomic(d2)) => pobj_same(&d1.pobj, &d2.pobj),
+            (Atomic(..), Atomic(..)) => true,
             (Identity(..), Identity(..)) => true,
             (Comp(..), Comp(..)) => true,
             (Funct(..), Funct(..)) => true,
@@ -367,7 +388,7 @@ impl IsTerm for Equality {
     fn same_head(&self, other: &Self) -> bool {
         use ActualEquality::*;
         match (self.deref(), other.deref()) {
-            (Atomic(d1), Atomic(d2)) => pobj_same(&d1.pobj, &d2.pobj),
+            (Atomic(..), Atomic(..)) => true,
             (Refl(..), Refl(..)) => true,
             (Concat(..), Concat(..)) => true,
             (Inv(..), Inv(..)) => true,
@@ -414,12 +435,18 @@ impl Iterator for TermIterator {
             (TypedEq(e), 4) => Some(e.right(&self.ctx).typed()),
             (TypedEq(e), 5) => Some(e.term()),
             // Cat
+            (Cat(c), _) => {
+                use ActualCategory::*;
+                match (c.deref(), child) {
+                    (Atomic(data), 0) => Some(data.pobj.clone().term()),
+                    _ => None,
+                }
+            }
             // Funct
             (Funct(f), _) => {
                 use ActualFunctor::*;
                 match (f.deref(), child) {
-                    (Atomic(data), 0) if data.pobj.is_term() => Some(data.src.clone().typed()),
-                    (Atomic(data), 1) if data.pobj.is_term() => Some(data.dst.clone().typed()),
+                    (Atomic(data), 0) => Some(data.pobj.clone().term()),
                     _ => None,
                 }
             }
@@ -427,7 +454,7 @@ impl Iterator for TermIterator {
             (Obj(o), _) => {
                 use ActualObject::*;
                 match (o.deref(), child) {
-                    (Atomic(data), 0) if data.pobj.is_term() => Some(data.category.clone().typed()),
+                    (Atomic(data), 0) => Some(data.pobj.clone().term()),
                     (Funct(f, _), 0) => Some(f.clone().typed()),
                     (Funct(_, o), 1) => Some(o.clone().typed()),
                     _ => None,
@@ -437,9 +464,7 @@ impl Iterator for TermIterator {
             (Mph(m), _) => {
                 use ActualMorphism::*;
                 match (m.deref(), child) {
-                    (Atomic(data), 0) if data.pobj.is_term() => Some(data.category.clone().typed()),
-                    (Atomic(data), 1) if data.pobj.is_term() => Some(data.src.clone().typed()),
-                    (Atomic(data), 2) if data.pobj.is_term() => Some(data.dst.clone().typed()),
+                    (Atomic(data), 0) => Some(data.pobj.clone().term()),
                     (Identity(o), 0) => Some(o.clone().typed()),
                     (Comp(m1, _), 0) => Some(m1.clone().typed()),
                     (Comp(_, m2), 1) => Some(m2.clone().typed()),
@@ -452,11 +477,7 @@ impl Iterator for TermIterator {
             (Eq(e), _) => {
                 use ActualEquality::*;
                 match (e.deref(), child) {
-                    (Atomic(data), 0) if data.pobj.is_term() => Some(data.category.clone().typed()),
-                    (Atomic(data), 1) if data.pobj.is_term() => Some(data.src.clone().typed()),
-                    (Atomic(data), 2) if data.pobj.is_term() => Some(data.dst.clone().typed()),
-                    (Atomic(data), 3) if data.pobj.is_term() => Some(data.left.clone().typed()),
-                    (Atomic(data), 4) if data.pobj.is_term() => Some(data.right.clone().typed()),
+                    (Atomic(data), 0) => Some(data.pobj.clone().term()),
                     (Refl(m), 0) => Some(m.clone().typed()),
                     (Concat(e1, _), 0) => Some(e1.clone().typed()),
                     (Concat(_, e2), 1) => Some(e2.clone().typed()),
@@ -482,6 +503,19 @@ impl Iterator for TermIterator {
                     _ => None,
                 }
             }
+            // Proofobject
+            (Pobj(obj), _) => {
+                use ActualProofObject::*;
+                match (obj.deref(), child) {
+                    (Cat(c), 0) => Some(c.clone().typed()),
+                    (Funct(f), 0) => Some(f.clone().typed()),
+                    (Obj(o), 0) => Some(o.clone().typed()),
+                    (Mph(m), 0) => Some(m.clone().typed()),
+                    (Eq(e), 0) => Some(e.clone().typed()),
+                    (Composed(_, _, subs), c) if c < subs.len() => Some(subs[c].clone().term()),
+                    _ => None,
+                }
+            }
             _ => None,
         }
     }
@@ -499,6 +533,7 @@ impl Serialize for AnyTerm {
             Obj(o) => o.serialize(s),
             Mph(m) => m.serialize(s),
             Eq(e) => e.serialize(s),
+            Pobj(obj) => obj.serialize(s),
             TypedCat(c) => s.serialize_newtype_variant("term", 0, "category", c.deref()),
             TypedFunct(f) => s.serialize_newtype_variant("term", 1, "functor", f.deref()),
             TypedObj(o) => s.serialize_newtype_variant("term", 2, "object", o.deref()),

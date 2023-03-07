@@ -1,7 +1,7 @@
 macro_rules! cat {
     ($ctx:expr, ?$e:expr) => {
-        $ctx.mk(ActualCategory::Atomic(CategoryData {
-            pobj: ProofObject::Existential($e),
+        $ctx.mk(crate::data::ActualCategory::Atomic(crate::data::CategoryData {
+            pobj: $ctx.mk(crate::data::ActualProofObject::Existential($e)),
         }))
     };
     ($ctx:expr, (?$e:expr)) => {
@@ -11,8 +11,8 @@ macro_rules! cat {
         {
             let name = format!("cat-{}", $e);
             let _ = $ctx.new_term($e, name.as_str());
-            $ctx.mk(ActualCategory::Atomic(CategoryData {
-                pobj: ProofObject::Term($e),
+            $ctx.mk(crate::data::ActualCategory::Atomic(crate::data::CategoryData {
+                pobj: $ctx.mk(crate::data::ActualProofObject::Term($e)),
             }))
         }
     };
@@ -37,8 +37,8 @@ macro_rules! funct {
         funct!($ctx, $e : $s => $d)
     };
     ($ctx:expr, ?$e:expr, $src:expr, $dst:expr) => {
-        $ctx.mk(ActualFunctor::Atomic(FunctorData {
-            pobj: ProofObject::Existential($e),
+        $ctx.mk(crate::data::ActualFunctor::Atomic(crate::data::FunctorData {
+            pobj: $ctx.mk(crate::data::ActualProofObject::Existential($e)),
             src: $src,
             dst: $dst,
         }))
@@ -50,8 +50,8 @@ macro_rules! funct {
         {
             let name = format!("funct-{}", $e);
             let _ = $ctx.new_term($e, name.as_str());
-            $ctx.mk(ActualFunctor::Atomic(FunctorData {
-                pobj: ProofObject::Term($e),
+            $ctx.mk(crate::data::ActualFunctor::Atomic(crate::data::FunctorData {
+                pobj: $ctx.mk(crate::data::ActualProofObject::Term($e)),
                 src: $src,
                 dst: $dst,
             }))
@@ -80,15 +80,15 @@ macro_rules! obj {
         {
             let fnt = funct!($ctx, $f);
             let obj = obj!($ctx,$e);
-            $ctx.mk(ActualObject::Funct(fnt,obj))
+            $ctx.mk(crate::data::ActualObject::Funct(fnt,obj))
         }
     };
     ($ctx:expr, ($f:tt _0 $e:tt)) => {
         obj!($ctx, $f _0 $e)
     };
     ($ctx:expr, ?$e:expr, $cat:expr) => {
-        $ctx.mk(ActualObject::Atomic(ObjectData {
-            pobj: ProofObject::Existential($e),
+        $ctx.mk(crate::data::ActualObject::Atomic(crate::data::ObjectData {
+            pobj: $ctx.mk(crate::data::ActualProofObject::Existential($e)),
             category: $cat,
         }))
     };
@@ -99,8 +99,8 @@ macro_rules! obj {
         {
             let name = format!("obj-{}", $e);
             let _ = $ctx.new_term($e, name.as_str());
-            $ctx.mk(ActualObject::Atomic(ObjectData {
-                pobj: ProofObject::Term($e),
+            $ctx.mk(crate::data::ActualObject::Atomic(crate::data::ObjectData {
+                pobj: $ctx.mk(crate::data::ActualProofObject::Term($e)),
                 category: $cat,
             }))
         }
@@ -128,7 +128,7 @@ macro_rules! mph {
     ($ctx:expr, id $o:tt) => {
         {
             let obj = obj!($ctx, $o);
-            $ctx.mk(ActualMorphism::Identity(obj))
+            $ctx.mk(crate::data::ActualMorphism::Identity(obj))
         }
     };
     ($ctx:expr, (id $o:tt)) => {
@@ -138,7 +138,7 @@ macro_rules! mph {
         {
             let mph1 = mph!($ctx,$m);
             let mph2 = mph!($ctx,$($ms)>>+);
-            $ctx.mk(ActualMorphism::Comp(mph1,mph2))
+            $ctx.mk(crate::data::ActualMorphism::Comp(mph1,mph2))
         }
     };
     ($ctx:expr, ($m:tt >> $($ms:tt)>>+)) => {
@@ -148,7 +148,7 @@ macro_rules! mph {
         {
             let fnt = funct!($ctx, $f);
             let mph = mph!($ctx,$m);
-            $ctx.mk(ActualMorphism::Funct(fnt,mph))
+            $ctx.mk(crate::data::ActualMorphism::Funct(fnt,mph))
         }
     };
     ($ctx:expr, ($f:tt _1 $m:tt)) => {
@@ -157,8 +157,8 @@ macro_rules! mph {
     ($ctx:expr, ?$m:expr, $s:expr, $d:expr) => {
         {
             let cat = ($s).cat(&$ctx);
-            $ctx.mk(ActualMorphism::Atomic(MorphismData {
-                pobj: ProofObject::Existential($m),
+            $ctx.mk(crate::data::ActualMorphism::Atomic(crate::data::MorphismData {
+                pobj: $ctx.mk(crate::data::ActualProofObject::Existential($m)),
                 category: cat,
                 src: $s,
                 dst: $d,
@@ -173,8 +173,8 @@ macro_rules! mph {
             let name = format!("mph-{}", $m);
             let _ = $ctx.new_term($m, name.as_str());
             let cat = ($s).cat(&$ctx);
-            $ctx.mk(ActualMorphism::Atomic(MorphismData {
-                pobj: ProofObject::Term($m),
+            $ctx.mk(crate::data::ActualMorphism::Atomic(crate::data::MorphismData {
+                pobj: $ctx.mk(crate::data::ActualProofObject::Term($m)),
                 category: cat,
                 src: $s,
                 dst: $d,
@@ -204,7 +204,7 @@ macro_rules! eq {
     ($ctx:expr, 1_($m:tt)) => {
         {
             let mph = mph!($ctx, $m);
-            $ctx.mk(ActualEquality::Refl(mph))
+            $ctx.mk(crate::data::ActualEquality::Refl(mph))
         }
     };
     ($ctx:expr, (1_($m:tt))) => {
@@ -214,7 +214,7 @@ macro_rules! eq {
         {
             let eq1 = eq!($ctx, $eq1);
             let eq2 = eq!($ctx, $eq2);
-            $ctx.mk(ActualEquality::Concat(eq1, eq2))
+            $ctx.mk(crate::data::ActualEquality::Concat(eq1, eq2))
         }
     };
     ($ctx:expr, ($eq1:tt . $eq2:tt)) => {
@@ -223,7 +223,7 @@ macro_rules! eq {
     ($ctx:expr, ~$eq:tt) => {
         {
             let eq = eq!($ctx, $eq);
-            $ctx.mk(ActualEquality::Inv(eq))
+            $ctx.mk(crate::data::ActualEquality::Inv(eq))
         }
     };
     ($ctx:expr, (~$eq:tt)) => {
@@ -234,8 +234,8 @@ macro_rules! eq {
             let cat = ($l).cat(&$ctx);
             let src = ($l).src(&$ctx);
             let dst = ($l).dst(&$ctx);
-            $ctx.mk(ActualEquality::Atomic(EqualityData {
-                pobj: ProofObject::Existential($eq),
+            $ctx.mk(crate::data::ActualEquality::Atomic(crate::data::EqualityData {
+                pobj: $ctx.mk(crate::data::ActualProofObject::Existential($eq)),
                 category: cat,
                 src: src,
                 dst: dst,
@@ -254,8 +254,8 @@ macro_rules! eq {
             let cat = ($l).cat(&$ctx);
             let src = ($l).src(&$ctx);
             let dst = ($l).dst(&$ctx);
-            $ctx.mk(ActualEquality::Atomic(EqualityData {
-                pobj: ProofObject::Term($eq),
+            $ctx.mk(crate::data::ActualEquality::Atomic(crate::data::EqualityData {
+                pobj: $ctx.mk(crate::data::ActualProofObject::Term($eq)),
                 category: cat,
                 src: src,
                 dst: dst,
@@ -275,11 +275,7 @@ pub(crate) use eq;
 
 #[cfg(test)]
 mod test {
-    use crate::data::{
-        ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject,
-    };
-    use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData};
-    use crate::data::{Context, ProofObject};
+    use crate::data::Context;
 
     #[test]
     pub fn cat_macro() {

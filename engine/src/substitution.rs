@@ -1,8 +1,8 @@
 use crate::anyterm::AnyTerm;
-use crate::data::ProofObject::{Existential, Term};
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
-use crate::data::{Category, Context, Equality, Functor, Morphism, Object};
-use crate::data::{EqualityData, FunctorData, MorphismData, ObjectData};
+use crate::data::{ActualProofObject, Context, ProofObject};
+use crate::data::{Category, Equality, Functor, Morphism, Object};
+use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData};
 use core::ops::Deref;
 
 /// A substitution for a graph, with replacement for existential of all types
@@ -50,6 +50,7 @@ impl Substitutable for AnyTerm {
             Obj(o) => Obj(o.subst_slice(ctx, sigma)),
             Mph(m) => Mph(m.subst_slice(ctx, sigma)),
             Eq(eq) => Eq(eq.subst_slice(ctx, sigma)),
+            Pobj(obj) => Pobj(obj.subst_slice(ctx, sigma)),
             TypedCat(cat) => TypedCat(cat.subst_slice(ctx, sigma)),
             TypedFunct(f) => TypedFunct(f.subst_slice(ctx, sigma)),
             TypedObj(o) => TypedObj(o.subst_slice(ctx, sigma)),
@@ -68,16 +69,50 @@ impl SubstitutableInPlace for AnyTerm {
     }
 }
 
+impl Substitutable for ProofObject {
+    fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Self {
+        use ActualProofObject::*;
+        match self.deref() {
+            Term(_) => self,
+            Existential(e) => find_applicable(sigma, *e)
+                .map(|(i, v)| v.subst_slice(ctx, &sigma[i + 1..]))
+                .unwrap()
+                .to_proof_object(ctx),
+            Cat(c) => ctx.mk(Cat(c.clone().subst_slice(ctx, sigma))),
+            Funct(f) => ctx.mk(Funct(f.clone().subst_slice(ctx, sigma))),
+            Obj(o) => ctx.mk(Obj(o.clone().subst_slice(ctx, sigma))),
+            Mph(m) => ctx.mk(Mph(m.clone().subst_slice(ctx, sigma))),
+            Eq(eq) => ctx.mk(Eq(eq.clone().subst_slice(ctx, sigma))),
+            Composed(id, name, subs) => ctx.mk(Composed(
+                *id,
+                name.clone(),
+                subs.into_iter()
+                    .map(|s| s.clone().subst_slice(ctx, sigma))
+                    .collect(),
+            )),
+        }
+    }
+}
+
+impl SubstitutableInPlace for ProofObject {
+    fn subst_slice_in_place(&mut self, ctx: &Context, sigma: &[(u64, AnyTerm)]) {
+        let new = std::mem::replace(self, ctx.def()).subst_slice(ctx, sigma);
+        *self = new;
+    }
+}
+
 impl Substitutable for Category {
     fn subst_slice(self, ctx: &Context, sigma: &[(u64, AnyTerm)]) -> Category {
         use ActualCategory::*;
         match self.deref() {
-            Atomic(data) => match data.pobj {
-                Term(_) => self,
-                Existential(e) => find_applicable(sigma, e)
-                    .map(|(i, v)| v.subst_slice(ctx, &sigma[i + 1..]).expect_cat(ctx))
-                    .unwrap_or(self),
-            },
+            Atomic(data) => {
+                let pobj = data.pobj.clone().subst_slice(ctx, sigma);
+                if let ActualProofObject::Cat(c) = pobj.deref() {
+                    c.clone()
+                } else {
+                    ctx.mk(Atomic(CategoryData { pobj }))
+                }
+            }
         }
     }
 }
@@ -96,18 +131,11 @@ impl Substitutable for Functor {
             Atomic(data) => {
                 let src = data.src.clone().subst_slice(ctx, sigma);
                 let dst = data.dst.clone().subst_slice(ctx, sigma);
-                match data.pobj {
-                    Term(e) => ctx.mk(Atomic(FunctorData {
-                        pobj: Term(e),
-                        src,
-                        dst,
-                    })),
-                    Existential(e) => find_applicable(sigma, e)
-                        .map(|(i, v)| {
-                            v.subst_slice(ctx, &sigma[i + 1..])
-                                .expect_funct(ctx, src, dst)
-                        })
-                        .unwrap_or(self),
+                let pobj = data.pobj.clone().subst_slice(ctx, sigma);
+                if let ActualProofObject::Funct(f) = pobj.deref() {
+                    f.clone()
+                } else {
+                    ctx.mk(Atomic(FunctorData { pobj, src, dst }))
                 }
             }
         }
@@ -127,17 +155,11 @@ impl Substitutable for Object {
         match self.deref() {
             Atomic(data) => {
                 let category = data.category.clone().subst_slice(ctx, sigma);
-                match data.pobj {
-                    Term(e) => ctx.mk(Atomic(ObjectData {
-                        pobj: Term(e),
-                        category,
-                    })),
-                    Existential(e) => find_applicable(sigma, e)
-                        .map(|(i, v)| {
-                            v.subst_slice(ctx, &sigma[i + 1..])
-                                .expect_obj(ctx, category)
-                        })
-                        .unwrap_or(self),
+                let pobj = data.pobj.clone().subst_slice(ctx, sigma);
+                if let ActualProofObject::Obj(o) = pobj.deref() {
+                    o.clone()
+                } else {
+                    ctx.mk(Atomic(ObjectData { category, pobj }))
                 }
             }
             Funct(f, o) => {
@@ -164,19 +186,16 @@ impl Substitutable for Morphism {
                 let category = data.category.clone().subst_slice(ctx, sigma);
                 let src = data.src.clone().subst_slice(ctx, sigma);
                 let dst = data.dst.clone().subst_slice(ctx, sigma);
-                match data.pobj {
-                    Term(e) => ctx.mk(Atomic(MorphismData {
-                        pobj: Term(e),
+                let pobj = data.pobj.clone().subst_slice(ctx, sigma);
+                if let ActualProofObject::Mph(m) = pobj.deref() {
+                    m.clone()
+                } else {
+                    ctx.mk(Atomic(MorphismData {
                         category,
                         src,
                         dst,
-                    })),
-                    Existential(e) => find_applicable(sigma, e)
-                        .map(|(i, v)| {
-                            v.subst_slice(ctx, &sigma[i + 1..])
-                                .expect_mph(ctx, category, src, dst)
-                        })
-                        .unwrap_or(self),
+                        pobj,
+                    }))
                 }
             }
             Identity(o) => {
@@ -214,21 +233,18 @@ impl Substitutable for Equality {
                 let dst = data.dst.clone().subst_slice(ctx, sigma);
                 let left = data.left.clone().subst_slice(ctx, sigma);
                 let right = data.right.clone().subst_slice(ctx, sigma);
-                match data.pobj {
-                    Term(e) => ctx.mk(Atomic(EqualityData {
-                        pobj: Term(e),
+                let pobj = data.pobj.clone().subst_slice(ctx, sigma);
+                if let ActualProofObject::Eq(eq) = pobj.deref() {
+                    eq.clone()
+                } else {
+                    ctx.mk(Atomic(EqualityData {
                         category,
                         src,
                         dst,
                         left,
                         right,
-                    })),
-                    Existential(e) => find_applicable(sigma, e)
-                        .map(|(i, v)| {
-                            v.subst_slice(ctx, &sigma[i + 1..])
-                                .expect_eq(ctx, category, src, dst, left, right)
-                        })
-                        .unwrap_or(self),
+                        pobj,
+                    }))
                 }
             }
             Refl(m) => {
@@ -303,9 +319,7 @@ impl SubstitutableInPlace for Equality {
 #[cfg(test)]
 mod tests {
     use crate::anyterm::AnyTerm;
-    use crate::data::{ActualCategory, ActualMorphism, ActualObject};
-    use crate::data::{CategoryData, MorphismData, ObjectData};
-    use crate::data::{Context, ProofObject};
+    use crate::data::Context;
     use crate::dsl::{cat, mph, obj};
     use crate::substitution::Substitutable;
 

@@ -132,9 +132,7 @@ fn norm_under_functors(
 
 #[cfg(test)]
 pub mod tests {
-    use crate::data::{ActualCategory, ActualFunctor, ActualMorphism, ActualObject};
-    use crate::data::{CategoryData, FunctorData, MorphismData, ObjectData};
-    use crate::data::{Context, ProofObject};
+    use crate::data::Context;
     use crate::dsl::{cat, funct, mph, obj};
     use crate::normalize::{
         apply_functors, morphism, post_compose, raise_composition, raise_identity,

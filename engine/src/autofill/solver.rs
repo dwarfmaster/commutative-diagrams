@@ -77,10 +77,7 @@ fn setup_hooks<NL, EL, FL>(uf: &mut UF, _ctx: &mut Context, gr: &Graph<NL, EL, F
 #[cfg(test)]
 mod tests {
     use crate::autofill::solve;
-    use crate::data::{ActualCategory, ActualMorphism, ActualObject};
-    use crate::data::{ActualEquality, EqualityData};
-    use crate::data::{CategoryData, MorphismData, ObjectData};
-    use crate::data::{Context, ProofObject};
+    use crate::data::Context;
     use crate::dsl::{cat, eq, mph, obj};
     use crate::graph::{Face, Graph};
     use crate::substitution::Substitutable;

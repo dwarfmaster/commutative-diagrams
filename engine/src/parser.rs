@@ -1,6 +1,7 @@
 use crate::anyterm::AnyTerm;
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
-use crate::data::{Category, Context, Equality, Functor, Morphism, Object, ProofObject};
+use crate::data::{ActualProofObject, Context, ProofObject};
+use crate::data::{Category, Equality, Functor, Morphism, Object};
 use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData};
 use core::fmt;
 use core::marker::PhantomData;
@@ -210,6 +211,54 @@ variant_visitor!(
 );
 variant_visitor!(eq, ActualEquality, FunctCtx, f: Functor, eq: Equality);
 
+//  ____                   __  ___  _     _           _
+// |  _ \ _ __ ___   ___  / _|/ _ \| |__ (_) ___  ___| |_
+// | |_) | '__/ _ \ / _ \| |_| | | | '_ \| |/ _ \/ __| __|
+// |  __/| | | (_) | (_) |  _| |_| | |_) | |  __/ (__| |_
+// |_|   |_|  \___/ \___/|_|  \___/|_.__// |\___|\___|\__|
+//                                     |__/
+// ProofObject
+impl<'a> Visitor<'a> for Parser<ProofObject> {
+    type Value = ProofObject;
+    fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "a proof object")
+    }
+
+    fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+    where
+        A: EnumAccess<'a>,
+    {
+        let (id, variant) = data.variant::<String>()?;
+        match id.as_str() {
+            "term" => {
+                let t = variant.newtype_variant()?;
+                let pobj = ActualProofObject::Term(t);
+                Ok(self.ctx.mk(pobj))
+            }
+            "existential" => {
+                let t = variant.newtype_variant()?;
+                let pobj = ActualProofObject::Existential(t);
+                Ok(self.ctx.mk(pobj))
+            }
+            "composed" => {
+                // ACTUALPO
+                todo!()
+            }
+            _ => {
+                return Err(Error::unknown_variant(
+                    id.as_str(),
+                    &["term", "existential", "composed"],
+                ))
+            }
+        }
+    }
+}
+deserializer_enum!(
+    ProofObject,
+    "proofobject",
+    &["term", "existential", "composed"]
+);
+
 //   ____      _
 //  / ___|__ _| |_ ___  __ _  ___  _ __ _   _
 // | |   / _` | __/ _ \/ _` |/ _ \| '__| | | |
@@ -231,7 +280,7 @@ impl<'a> Visitor<'a> for Parser<CategoryData> {
         while let Some(k) = map.next_key::<String>()? {
             match k.as_str() {
                 "pobj" => match pobj {
-                    None => pobj = Some(map.next_value()?),
+                    None => pobj = Some(map.next_value_seed(self.clone().to::<ProofObject>())?),
                     Some(_) => return Err(Error::duplicate_field("pobj")),
                 },
                 _ => return Err(Error::unknown_field(k.as_str(), &["pobj"])),
@@ -289,7 +338,7 @@ impl<'a> Visitor<'a> for Parser<FunctorData> {
         while let Some(k) = map.next_key::<String>()? {
             match k.as_str() {
                 "pobj" => match pobj {
-                    None => pobj = Some(map.next_value()?),
+                    None => pobj = Some(map.next_value_seed(self.clone().to::<ProofObject>())?),
                     Some(_) => return Err(Error::duplicate_field("pobj")),
                 },
                 "src" => match src {
@@ -356,7 +405,7 @@ impl<'a> Visitor<'a> for Parser<ObjectData> {
         while let Some(k) = map.next_key::<String>()? {
             match k.as_str() {
                 "pobj" => match pobj {
-                    None => pobj = Some(map.next_value()?),
+                    None => pobj = Some(map.next_value_seed(self.clone().to::<ProofObject>())?),
                     Some(_) => return Err(Error::duplicate_field("pobj")),
                 },
                 "category" => match category {
@@ -424,7 +473,7 @@ impl<'a> Visitor<'a> for Parser<MorphismData> {
         while let Some(k) = map.next_key::<String>()? {
             match k.as_str() {
                 "pobj" => match pobj {
-                    None => pobj = Some(map.next_value()?),
+                    None => pobj = Some(map.next_value_seed(self.clone().to::<ProofObject>())?),
                     Some(_) => return Err(Error::duplicate_field("pobj")),
                 },
                 "category" => match category {
@@ -532,7 +581,7 @@ impl<'a> Visitor<'a> for Parser<EqualityData> {
         while let Some(k) = map.next_key::<String>()? {
             match k.as_str() {
                 "pobj" => match pobj {
-                    None => pobj = Some(map.next_value()?),
+                    None => pobj = Some(map.next_value_seed(self.clone().to::<ProofObject>())?),
                     Some(_) => return Err(Error::duplicate_field("pobj")),
                 },
                 "category" => match category {

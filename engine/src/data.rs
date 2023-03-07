@@ -1,7 +1,7 @@
 use core::ops::Deref;
 use hashconsing::{HConsed, HConsign, HashConsign};
 use serde::ser::{SerializeStruct, SerializeTupleVariant};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Serialize, Serializer};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -12,28 +12,85 @@ use std::sync::{Arc, Mutex};
 // |_|   |_|  \___/ \___/|_|    \___/|_.__// |\___|\___|\__|
 //                                       |__/
 // Proof Object
-#[derive(Serialize, Deserialize, Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ProofObject {
-    #[serde(rename = "term")]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ActualProofObject {
     Term(u64),
-    #[serde(rename = "existential")]
     Existential(u64),
+    Cat(Category),
+    Funct(Functor),
+    Obj(Object),
+    Mph(Morphism),
+    Eq(Equality),
+    Composed(u64, String, Vec<ProofObject>),
+}
+pub type ProofObject = HConsed<ActualProofObject>;
+
+impl ActualProofObject {
+    fn is_simple_wrapper(&self) -> bool {
+        use ActualProofObject::*;
+        match self {
+            Term(..) => false,
+            Existential(..) => false,
+            Composed(..) => false,
+            _ => true,
+        }
+    }
+
+    pub fn check(&self, ctx: &Context) -> bool {
+        use ActualProofObject::*;
+        match self.deref() {
+            Term(id) => ctx.terms.lock().unwrap().contains_key(&id),
+            Existential(_) => true,
+            Cat(c) => c.check(ctx),
+            Funct(f) => f.check(ctx),
+            Obj(o) => o.check(ctx),
+            Mph(m) => m.check(ctx),
+            Eq(e) => e.check(ctx),
+            Composed(_, _, subs) => subs.iter().all(|po| po.check(ctx)),
+        }
+    }
+}
+
+impl Serialize for ActualProofObject {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use ActualProofObject::*;
+        match self {
+            Term(t) => s.serialize_newtype_variant("proofobject", 0, "term", t),
+            Existential(e) => s.serialize_newtype_variant("proofobject", 1, "existential", e),
+            Cat(c) => s.serialize_newtype_variant("proofobject", 2, "category", c.deref()),
+            Funct(f) => s.serialize_newtype_variant("proofobject", 3, "functor", f.deref()),
+            Obj(o) => s.serialize_newtype_variant("proofobject", 4, "object", o.deref()),
+            Mph(m) => s.serialize_newtype_variant("proofobject", 5, "morphism", m.deref()),
+            Eq(e) => s.serialize_newtype_variant("proofobject", 6, "equality", e.deref()),
+            Composed(id, name, subs) => {
+                let mut tup = s.serialize_tuple_variant("proofobject", 2, "composed", 3)?;
+                tup.serialize_field(id)?;
+                tup.serialize_field(name)?;
+                let subs = subs.into_iter().map(|s| s.deref()).collect::<Vec<_>>();
+                tup.serialize_field(&subs)?;
+                tup.end()
+            }
+        }
+    }
 }
 
 pub trait TestExistential {
     fn is_ex(&self) -> Option<u64>;
 }
 
-impl ProofObject {
+impl ActualProofObject {
     pub fn is_term(&self) -> bool {
         match self {
-            ProofObject::Term(..) => true,
+            ActualProofObject::Term(..) => true,
             _ => false,
         }
     }
 }
 
-impl TestExistential for ProofObject {
+impl TestExistential for ActualProofObject {
     fn is_ex(&self) -> Option<u64> {
         match self {
             Self::Existential(ex) => Some(*ex),
@@ -95,7 +152,7 @@ impl ActualCategory {
     pub fn check(&self, ctx: &Context) -> bool {
         use ActualCategory::*;
         match self {
-            Atomic(data) => ctx.has_po(&data.pobj),
+            Atomic(data) => data.pobj.check(ctx) && !data.pobj.is_simple_wrapper(),
         }
     }
 }
@@ -107,7 +164,7 @@ impl Serialize for CategoryData {
         S: Serializer,
     {
         let mut cat = s.serialize_struct("categoryData", 1)?;
-        cat.serialize_field("pobj", &self.pobj)?;
+        cat.serialize_field("pobj", &self.pobj.deref())?;
         cat.end()
     }
 }
@@ -159,7 +216,12 @@ impl ActualFunctor {
     pub fn check(&self, ctx: &Context) -> bool {
         use ActualFunctor::*;
         match self {
-            Atomic(data) => data.src.check(ctx) && data.dst.check(ctx) && ctx.has_po(&data.pobj),
+            Atomic(data) => {
+                data.src.check(ctx)
+                    && data.dst.check(ctx)
+                    && data.pobj.check(ctx)
+                    && !data.pobj.is_simple_wrapper()
+            }
         }
     }
 }
@@ -171,7 +233,7 @@ impl Serialize for FunctorData {
         S: Serializer,
     {
         let mut f = s.serialize_struct("functorData", 3)?;
-        f.serialize_field("pobj", &self.pobj)?;
+        f.serialize_field("pobj", &self.pobj.deref())?;
         f.serialize_field("src", &self.src.deref())?;
         f.serialize_field("dst", &self.dst.deref())?;
         f.end()
@@ -220,7 +282,9 @@ impl ActualObject {
     pub fn check(&self, ctx: &Context) -> bool {
         use ActualObject::*;
         match self {
-            Atomic(data) => data.category.check(ctx) && ctx.has_po(&data.pobj),
+            Atomic(data) => {
+                data.category.check(ctx) && data.pobj.check(ctx) && !data.pobj.is_simple_wrapper()
+            }
             Funct(funct, obj) => {
                 funct.check(ctx) && obj.check(ctx) && funct.src(ctx) == obj.cat(ctx)
             }
@@ -235,7 +299,7 @@ impl Serialize for ObjectData {
         S: Serializer,
     {
         let mut o = s.serialize_struct("objectData", 2)?;
-        o.serialize_field("pobj", &self.pobj)?;
+        o.serialize_field("pobj", &self.pobj.deref())?;
         o.serialize_field("category", &self.category.deref())?;
         o.end()
     }
@@ -326,7 +390,8 @@ impl ActualMorphism {
                     && data.dst.check(ctx)
                     && data.src.cat(ctx) == data.category
                     && data.dst.cat(ctx) == data.category
-                    && ctx.has_po(&data.pobj)
+                    && data.pobj.check(ctx)
+                    && !data.pobj.is_simple_wrapper()
             }
             Identity(obj) => obj.check(ctx),
             Comp(m1, m2) => m1.check(ctx) && m2.check(ctx) && m1.dst(ctx) == m2.src(ctx),
@@ -342,7 +407,7 @@ impl Serialize for MorphismData {
         S: Serializer,
     {
         let mut m = s.serialize_struct("objectData", 4)?;
-        m.serialize_field("pobj", &self.pobj)?;
+        m.serialize_field("pobj", &self.pobj.deref())?;
         m.serialize_field("category", &self.category.deref())?;
         m.serialize_field("src", &self.src.deref())?;
         m.serialize_field("dst", &self.dst.deref())?;
@@ -580,7 +645,8 @@ impl ActualEquality {
                     && data.left.dst(ctx) == data.dst
                     && data.right.src(ctx) == data.src
                     && data.right.dst(ctx) == data.dst
-                    && ctx.has_po(&data.pobj)
+                    && data.pobj.check(ctx)
+                    && !data.pobj.is_simple_wrapper()
             }
             Refl(m) => m.check(ctx),
             Concat(eq1, eq2) => eq1.check(ctx) && eq2.check(ctx) && eq1.right(ctx) == eq2.left(ctx),
@@ -617,7 +683,7 @@ impl Serialize for EqualityData {
         S: Serializer,
     {
         let mut e = s.serialize_struct("equalityData:", 6)?;
-        e.serialize_field("pobj", &self.pobj)?;
+        e.serialize_field("pobj", &self.pobj.deref())?;
         e.serialize_field("category", &self.category.deref())?;
         e.serialize_field("src", &self.src.deref())?;
         e.serialize_field("dst", &self.dst.deref())?;
@@ -704,6 +770,7 @@ impl Serialize for ActualEquality {
 pub struct Context {
     /// The names of the terms proofobjects
     terms: Arc<Mutex<HashMap<u64, String>>>,
+    proof_factory: Arc<Mutex<HConsign<ActualProofObject>>>,
     cat_factory: Arc<Mutex<HConsign<ActualCategory>>>,
     funct_factory: Arc<Mutex<HConsign<ActualFunctor>>>,
     obj_factory: Arc<Mutex<HConsign<ActualObject>>>,
@@ -720,11 +787,19 @@ pub trait ContextMakable {
     where
         Self: Sized;
 }
+impl ContextMakable for ActualProofObject {
+    fn make(self, ctx: &Context) -> HConsed<Self> {
+        ctx.proof_factory.lock().unwrap().mk(self)
+    }
+    fn def(ctx: &Context) -> HConsed<Self> {
+        ctx.def_po()
+    }
+}
 impl ContextMakable for ActualCategory {
     fn make(self, ctx: &Context) -> HConsed<Self> {
         match &self {
-            Self::Atomic(data) => match data.pobj() {
-                ProofObject::Existential(e) => ctx.update_max_ex(e),
+            Self::Atomic(data) => match data.pobj().deref() {
+                ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
                 _ => (),
             },
         }
@@ -737,8 +812,8 @@ impl ContextMakable for ActualCategory {
 impl ContextMakable for ActualFunctor {
     fn make(self, ctx: &Context) -> HConsed<Self> {
         match &self {
-            Self::Atomic(data) => match data.pobj() {
-                ProofObject::Existential(e) => ctx.update_max_ex(e),
+            Self::Atomic(data) => match data.pobj().deref() {
+                ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
                 _ => (),
             },
         }
@@ -751,8 +826,8 @@ impl ContextMakable for ActualFunctor {
 impl ContextMakable for ActualObject {
     fn make(self, ctx: &Context) -> HConsed<Self> {
         match &self {
-            Self::Atomic(data) => match data.pobj() {
-                ProofObject::Existential(e) => ctx.update_max_ex(e),
+            Self::Atomic(data) => match data.pobj().deref() {
+                ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
                 _ => (),
             },
             _ => (),
@@ -766,8 +841,8 @@ impl ContextMakable for ActualObject {
 impl ContextMakable for ActualMorphism {
     fn make(self, ctx: &Context) -> HConsed<Self> {
         match &self {
-            Self::Atomic(data) => match data.pobj() {
-                ProofObject::Existential(e) => ctx.update_max_ex(e),
+            Self::Atomic(data) => match data.pobj().deref() {
+                ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
                 _ => (),
             },
             _ => (),
@@ -781,8 +856,8 @@ impl ContextMakable for ActualMorphism {
 impl ContextMakable for ActualEquality {
     fn make(self, ctx: &Context) -> HConsed<Self> {
         match &self {
-            Self::Atomic(data) => match data.pobj() {
-                ProofObject::Existential(e) => ctx.update_max_ex(e),
+            Self::Atomic(data) => match data.pobj().deref() {
+                ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
                 _ => (),
             },
             _ => (),
@@ -798,19 +873,13 @@ impl Context {
     pub fn new() -> Context {
         Context {
             terms: Arc::new(Mutex::new(HashMap::new())),
+            proof_factory: Arc::new(Mutex::new(HConsign::empty())),
             cat_factory: Arc::new(Mutex::new(HConsign::empty())),
             funct_factory: Arc::new(Mutex::new(HConsign::empty())),
             obj_factory: Arc::new(Mutex::new(HConsign::empty())),
             mph_factory: Arc::new(Mutex::new(HConsign::empty())),
             eq_factory: Arc::new(Mutex::new(HConsign::empty())),
             max_existential: Arc::new(Mutex::new(0)),
-        }
-    }
-
-    fn has_po(&self, po: &ProofObject) -> bool {
-        match po {
-            ProofObject::Term(id) => self.terms.lock().unwrap().contains_key(&id),
-            ProofObject::Existential(_) => true,
         }
     }
 
@@ -858,15 +927,19 @@ impl Context {
     }
 
     // Create an arbitrary value of each type, useful for temporary values
+    pub fn def_po(&self) -> ProofObject {
+        self.mk(ActualProofObject::Term(0))
+    }
+
     pub fn def_cat(&self) -> Category {
         self.mk(ActualCategory::Atomic(CategoryData {
-            pobj: ProofObject::Term(0),
+            pobj: self.def_po(),
         }))
     }
 
     pub fn def_funct(&self) -> Functor {
         self.mk(ActualFunctor::Atomic(FunctorData {
-            pobj: ProofObject::Term(0),
+            pobj: self.def_po(),
             src: self.def_cat(),
             dst: self.def_cat(),
         }))
@@ -874,14 +947,14 @@ impl Context {
 
     pub fn def_obj(&self) -> Object {
         self.mk(ActualObject::Atomic(ObjectData {
-            pobj: ProofObject::Term(0),
+            pobj: self.def_po(),
             category: self.def_cat(),
         }))
     }
 
     pub fn def_mph(&self) -> Morphism {
         self.mk(ActualMorphism::Atomic(MorphismData {
-            pobj: ProofObject::Term(0),
+            pobj: self.def_po(),
             category: self.def_cat(),
             src: self.def_obj(),
             dst: self.def_obj(),
@@ -890,7 +963,7 @@ impl Context {
 
     pub fn def_eq(&self) -> Equality {
         self.mk(ActualEquality::Atomic(EqualityData {
-            pobj: ProofObject::Term(0),
+            pobj: self.def_po(),
             category: self.def_cat(),
             src: self.def_obj(),
             dst: self.def_obj(),
@@ -919,28 +992,28 @@ fn build_term() {
     ctx.new_term(2, "b");
     ctx.new_term(3, "c");
     let cat = ctx.mk(ActualCategory::Atomic(CategoryData {
-        pobj: ProofObject::Term(0),
+        pobj: ctx.mk(ActualProofObject::Term(0)),
     }));
     let a = ctx.mk(ActualObject::Atomic(ObjectData {
-        pobj: ProofObject::Term(1),
+        pobj: ctx.mk(ActualProofObject::Term(1)),
         category: cat.clone(),
     }));
     let b = ctx.mk(ActualObject::Atomic(ObjectData {
-        pobj: ProofObject::Term(2),
+        pobj: ctx.mk(ActualProofObject::Term(2)),
         category: cat.clone(),
     }));
     let c = ctx.mk(ActualObject::Atomic(ObjectData {
-        pobj: ProofObject::Term(2),
+        pobj: ctx.mk(ActualProofObject::Term(2)),
         category: cat.clone(),
     }));
     let m1 = ctx.mk(ActualMorphism::Atomic(MorphismData {
-        pobj: ProofObject::Existential(0),
+        pobj: ctx.mk(ActualProofObject::Existential(0)),
         category: cat.clone(),
         src: a.clone(),
         dst: b.clone(),
     }));
     let m2 = ctx.mk(ActualMorphism::Atomic(MorphismData {
-        pobj: ProofObject::Existential(1),
+        pobj: ctx.mk(ActualProofObject::Existential(1)),
         category: cat.clone(),
         src: b.clone(),
         dst: c.clone(),

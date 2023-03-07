@@ -569,9 +569,9 @@ pub fn mces<NL, EL, FL>(
 #[cfg(test)]
 mod tests {
     use crate::data::Context;
-    use crate::data::ProofObject;
-    use crate::data::{ActualCategory, ActualEquality, ActualMorphism, ActualObject};
-    use crate::data::{CategoryData, EqualityData, MorphismData, ObjectData};
+    use crate::data::ActualProofObject;
+    use crate::data::ActualEquality;
+    use crate::data::EqualityData;
     use crate::dsl::{cat, mph, obj};
     use crate::graph::*;
 
@@ -669,7 +669,7 @@ mod tests {
         let fg = mph!(ctx, f >> g);
 
         let p1 = ActualEquality::Atomic(EqualityData {
-            pobj: ProofObject::Existential(0),
+            pobj: ctx.mk(ActualProofObject::Existential(0)),
             category: cat.clone(),
             src: a.clone(),
             dst: c.clone(),
@@ -697,7 +697,7 @@ mod tests {
 
         ctx.new_term(7, "p");
         let p2 = ActualEquality::Atomic(EqualityData {
-            pobj: ProofObject::Term(7),
+            pobj: ctx.mk(ActualProofObject::Term(7)),
             category: cat.clone(),
             src: a.clone(),
             dst: c.clone(),

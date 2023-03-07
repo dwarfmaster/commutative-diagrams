@@ -142,10 +142,7 @@ impl UF {
 #[cfg(test)]
 mod tests {
     use crate::autofill::UF;
-    use crate::data::{ActualCategory, ActualMorphism, ActualObject};
-    use crate::data::{ActualEquality, EqualityData};
-    use crate::data::{CategoryData, MorphismData, ObjectData};
-    use crate::data::{Context, ProofObject};
+    use crate::data::Context;
     use crate::dsl::{cat, eq, mph, obj};
     use crate::graph::Graph;
 

@@ -49,9 +49,7 @@ impl VM {
 
 #[cfg(test)]
 mod tests {
-    use crate::data::{ActualCategory, ActualMorphism, ActualObject};
-    use crate::data::{CategoryData, MorphismData, ObjectData};
-    use crate::data::{Context, ProofObject};
+    use crate::data::Context;
     use crate::dsl::{cat, mph, obj};
     use crate::vm::{Graph, VM};
 

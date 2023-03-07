@@ -384,9 +384,7 @@ pub fn unify(ctx: &Context, t1: AnyTerm, t2: AnyTerm) -> Option<Substitution> {
 #[cfg(test)]
 mod tests {
     use crate::anyterm::AnyTerm;
-    use crate::data::{ActualCategory, ActualMorphism, ActualObject};
-    use crate::data::{CategoryData, MorphismData, ObjectData};
-    use crate::data::{Context, ProofObject};
+    use crate::data::Context;
     use crate::dsl::{cat, mph, obj};
     use crate::substitution::Substitutable;
     use crate::unification::{unify, UnifState};

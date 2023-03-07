@@ -1,8 +1,8 @@
 use crate::anyterm::{AnyTerm, IsTerm};
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
+use crate::data::{ActualProofObject, Context, TestExistential};
 use crate::data::{Category, Equality, Functor, Morphism, Object};
 use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData};
-use crate::data::{Context, ProofObject, TestExistential};
 use crate::substitution::Substitutable;
 use crate::unification::{unify, UnifState};
 use crate::vm::ast::{Annot, Id, TermDescr};
@@ -25,7 +25,7 @@ impl VM {
                 let ex = self.ctx.new_existential();
                 exs.insert(ex);
                 Some(self.ctx.mk(Atomic(CategoryData {
-                    pobj: ProofObject::Existential(ex),
+                    pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
                 })))
             }
         }
@@ -55,7 +55,7 @@ impl VM {
                 let ex = self.ctx.new_existential();
                 exs.insert(ex);
                 Some(self.ctx.mk(Atomic(FunctorData {
-                    pobj: ProofObject::Existential(ex),
+                    pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
                     src,
                     dst,
                 })))
@@ -69,12 +69,12 @@ impl VM {
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let src = self.ctx.mk(ActualCategory::Atomic(CategoryData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
         }));
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let dst = self.ctx.mk(ActualCategory::Atomic(CategoryData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
         }));
         let funct = self.realize_descr_as_functor(&mut hash, &mut unif, descr, src, dst)?;
         let sigma = unif.solve()?;
@@ -122,7 +122,7 @@ impl VM {
                 let ex = self.ctx.new_existential();
                 exs.insert(ex);
                 Some(self.ctx.mk(Atomic(ObjectData {
-                    pobj: ProofObject::Existential(ex),
+                    pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
                     category: cat,
                 })))
             }
@@ -135,7 +135,7 @@ impl VM {
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let cat = self.ctx.mk(ActualCategory::Atomic(CategoryData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
         }));
         let obj = self.realize_descr_as_object(&mut hash, &mut unif, descr, cat)?;
         let sigma = unif.solve()?;
@@ -206,7 +206,7 @@ impl VM {
                 let ex = self.ctx.new_existential();
                 exs.insert(ex);
                 Some(self.ctx.mk(Atomic(MorphismData {
-                    pobj: ProofObject::Existential(ex),
+                    pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
                     src,
                     dst,
                     category,
@@ -221,18 +221,18 @@ impl VM {
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let cat = self.ctx.mk(ActualCategory::Atomic(CategoryData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
         }));
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let src = self.ctx.mk(ActualObject::Atomic(ObjectData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat.clone(),
         }));
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let dst = self.ctx.mk(ActualObject::Atomic(ObjectData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat,
         }));
         let mph = self.realize_descr_as_morphism(&mut hash, &mut unif, descr, src, dst)?;
@@ -319,7 +319,7 @@ impl VM {
                 let ex = self.ctx.new_existential();
                 exs.insert(ex);
                 Some(self.ctx.mk(Atomic(EqualityData {
-                    pobj: ProofObject::Existential(ex),
+                    pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
                     src,
                     dst,
                     category,
@@ -336,24 +336,24 @@ impl VM {
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let cat = self.ctx.mk(ActualCategory::Atomic(CategoryData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
         }));
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let src = self.ctx.mk(ActualObject::Atomic(ObjectData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat.clone(),
         }));
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let dst = self.ctx.mk(ActualObject::Atomic(ObjectData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat.clone(),
         }));
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let left = self.ctx.mk(ActualMorphism::Atomic(MorphismData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat.clone(),
             src: src.clone(),
             dst: dst.clone(),
@@ -361,7 +361,7 @@ impl VM {
         let ex = self.ctx.new_existential();
         hash.insert(ex);
         let right = self.ctx.mk(ActualMorphism::Atomic(MorphismData {
-            pobj: ProofObject::Existential(ex),
+            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat,
             src,
             dst,
@@ -401,9 +401,7 @@ fn match_term(ctx: &Context, exs: &HashSet<u64>, pattern: AnyTerm, term: AnyTerm
 #[cfg(test)]
 mod tests {
     use crate::anyterm::IsTerm;
-    use crate::data::{ActualCategory, CategoryData};
-    use crate::data::{ActualObject, ObjectData};
-    use crate::data::{Context, ProofObject};
+    use crate::data::Context;
     use crate::dsl::{cat, obj};
     use crate::vm::ast::{Annot, Id, TermDescr};
     use crate::vm::identify;

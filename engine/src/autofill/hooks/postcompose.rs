@@ -1,4 +1,4 @@
-use crate::data::{ActualEquality, ActualMorphism, Context, Equality, Morphism};
+use crate::data::{ActualEquality, Context, Equality, Morphism};
 use crate::dsl::{eq, mph};
 use crate::normalize;
 
