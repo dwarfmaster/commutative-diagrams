@@ -153,6 +153,11 @@ macro_rules! variant_visitor {
 pub(crate) use variant_visitor;
 
 mod parsers {
+    pub mod proofobject {
+        #[derive(Clone)]
+        pub struct Composed {}
+    }
+
     pub mod object {
         #[derive(Clone)]
         pub struct Funct {}
@@ -218,6 +223,40 @@ variant_visitor!(eq, ActualEquality, FunctCtx, f: Functor, eq: Equality);
 // |_|   |_|  \___/ \___/|_|  \___/|_.__// |\___|\___|\__|
 //                                     |__/
 // ProofObject
+impl<'a> Visitor<'a> for Parser<parsers::proofobject::Composed> {
+    type Value = ActualProofObject;
+    fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "arguments for ProofObject::Composed")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'a>,
+    {
+        let id = seq.next_element()?;
+        let name = seq.next_element()?;
+        let subs = seq.next_element_seed(self.clone().to_vec::<ProofObject>())?;
+        match seq.next_element::<()>().unwrap_or(Some(())) {
+            Some(_) => {
+                return Err(Error::custom(format!(
+                    "Too many arguments for ProofObject::Composed"
+                )))
+            }
+            None => (),
+        }
+        let id = id.ok_or(Error::custom(format!(
+            "Not enough arguments for ProofObject::Composed"
+        )))?;
+        let name = name.ok_or(Error::custom(format!(
+            "Not enough arguments for ProofObject::Composed"
+        )))?;
+        let subs = subs.ok_or(Error::custom(format!(
+            "Not enough arguments for ProofObject::Composed"
+        )))?;
+        Ok(ActualProofObject::Composed(id, name, subs))
+    }
+}
+
 impl<'a> Visitor<'a> for Parser<ProofObject> {
     type Value = ProofObject;
     fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
@@ -240,14 +279,49 @@ impl<'a> Visitor<'a> for Parser<ProofObject> {
                 let pobj = ActualProofObject::Existential(t);
                 Ok(self.ctx.mk(pobj))
             }
+            "category" => {
+                let c = variant.newtype_variant_seed(self.clone().to::<Category>())?;
+                let pobj = ActualProofObject::Cat(c);
+                Ok(self.ctx.mk(pobj))
+            }
+            "functor" => {
+                let f = variant.newtype_variant_seed(self.clone().to::<Functor>())?;
+                let pobj = ActualProofObject::Funct(f);
+                Ok(self.ctx.mk(pobj))
+            }
+            "object" => {
+                let o = variant.newtype_variant_seed(self.clone().to::<Object>())?;
+                let pobj = ActualProofObject::Obj(o);
+                Ok(self.ctx.mk(pobj))
+            }
+            "morphism" => {
+                let m = variant.newtype_variant_seed(self.clone().to::<Morphism>())?;
+                let pobj = ActualProofObject::Mph(m);
+                Ok(self.ctx.mk(pobj))
+            }
+            "equality" => {
+                let e = variant.newtype_variant_seed(self.clone().to::<Equality>())?;
+                let pobj = ActualProofObject::Eq(e);
+                Ok(self.ctx.mk(pobj))
+            }
             "composed" => {
-                // ACTUALPO
-                todo!()
+                let comp = variant
+                    .tuple_variant(3, self.clone().to::<parsers::proofobject::Composed>())?;
+                Ok(self.ctx.mk(comp))
             }
             _ => {
                 return Err(Error::unknown_variant(
                     id.as_str(),
-                    &["term", "existential", "composed"],
+                    &[
+                        "term",
+                        "existential",
+                        "category",
+                        "functor",
+                        "object",
+                        "morphism",
+                        "equality",
+                        "composed",
+                    ],
                 ))
             }
         }
@@ -256,7 +330,16 @@ impl<'a> Visitor<'a> for Parser<ProofObject> {
 deserializer_enum!(
     ProofObject,
     "proofobject",
-    &["term", "existential", "composed"]
+    &[
+        "term",
+        "existential",
+        "category",
+        "functor",
+        "object",
+        "morphism",
+        "equality",
+        "composed"
+    ]
 );
 
 //   ____      _
