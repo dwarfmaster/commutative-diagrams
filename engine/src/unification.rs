@@ -3,6 +3,7 @@ use crate::anyterm::IsTerm;
 use crate::data::Context;
 use crate::substitution::Substitution;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::vec::Vec;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -12,7 +13,7 @@ enum NodeStatus {
     Live,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum NodeValue {
     RootLeft,
     RootRight,
@@ -226,6 +227,101 @@ impl Graph {
 
     fn assert_reset(&self) {
         self.nodes.iter().for_each(|n| n.assert_reset())
+    }
+
+    /// Print as a graphviz graph for debug purposes
+    #[allow(dead_code)]
+    fn debug_graphviz<O: std::io::Write>(&self, fmt: &mut O) -> Result<(), std::io::Error> {
+        writeln!(fmt, "digraph {{")?;
+
+        // Nodes
+        for (i, nd) in self.nodes.iter().enumerate() {
+            use AnyTerm::*;
+            use NodeValue::*;
+            let label = match &nd.value {
+                RootLeft => "ROOT_LEFT".to_string(),
+                RootRight => "ROOT_RIGHT".to_string(),
+                Term(TypedCat(_)) => "CAT".to_string(),
+                Term(TypedFunct(_)) => "FUNCT".to_string(),
+                Term(TypedObj(_)) => "OBJ".to_string(),
+                Term(TypedMph(_)) => "MPH".to_string(),
+                Term(TypedEq(_)) => "EQ".to_string(),
+                Term(Pobj(obj)) => {
+                    use crate::data::ActualProofObject::*;
+                    match obj.deref() {
+                        Term(t) => format!(":{}", t),
+                        Existential(e) => format!("?{}", e),
+                        Cat(..) => "Cat".to_string(),
+                        Funct(..) => "Funct".to_string(),
+                        Obj(..) => "Obj".to_string(),
+                        Mph(..) => "Mph".to_string(),
+                        Eq(..) => "Eq".to_string(),
+                        Composed(id, name, _) => format!("{}-{}", id, name),
+                    }
+                }
+                Term(Cat(_)) => "Atomic".to_string(),
+                Term(Funct(_)) => "Atomic".to_string(),
+                Term(Obj(o)) => {
+                    use crate::data::ActualObject::*;
+                    match o.deref() {
+                        Atomic(..) => "Atomic".to_string(),
+                        Funct(..) => "Funct".to_string(),
+                    }
+                }
+                Term(Mph(m)) => {
+                    use crate::data::ActualMorphism::*;
+                    match m.deref() {
+                        Atomic(..) => "Atomic".to_string(),
+                        Identity(..) => "Id".to_string(),
+                        Comp(..) => "Comp".to_string(),
+                        Funct(..) => "Funct".to_string(),
+                    }
+                }
+                Term(Eq(e)) => {
+                    use crate::data::ActualEquality::*;
+                    match e.deref() {
+                        Atomic(..) => "Atomic".to_string(),
+                        Refl(..) => "Refl".to_string(),
+                        Concat(..) => "Concat".to_string(),
+                        Inv(..) => "Inv".to_string(),
+                        Compose(..) => "Compose".to_string(),
+                        Assoc(..) => "Assoc".to_string(),
+                        LeftId(..) => "LeftId".to_string(),
+                        RightId(..) => "RightId".to_string(),
+                        RAp(..) => "RAp".to_string(),
+                        LAp(..) => "LAp".to_string(),
+                        FunctId(..) => "FId".to_string(),
+                        FunctComp(..) => "FComp".to_string(),
+                        FunctCtx(..) => "FCtx".to_string(),
+                    }
+                }
+            };
+            let color = match &nd.status {
+                NodeStatus::Live => "black",
+                NodeStatus::Deleted => "red",
+                NodeStatus::Variable(_) => "green",
+            };
+            writeln!(fmt, "  n{} [label=\"{}\", color=\"{}\"];", i, label, color)?;
+        }
+
+        for (i, nd) in self.nodes.iter().enumerate() {
+            // Subterms
+            for (k, j) in nd.descendants.iter().enumerate() {
+                writeln!(fmt, "  n{} -> n{} [label=\"{}\"];", i, j, k)?;
+            }
+            // Pointer
+            if let Some(j) = &nd.pointer {
+                writeln!(fmt, "  n{} -> n{} [color=\"red\"];", i, j)?;
+            }
+            // Siblings
+            for j in &nd.siblings {
+                if *j < i {
+                    writeln!(fmt, "  n{} -> n{} [color=\"green\",dir=none];", i, j)?;
+                }
+            }
+        }
+
+        writeln!(fmt, "}}")
     }
 }
 
