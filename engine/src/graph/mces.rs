@@ -568,9 +568,9 @@ pub fn mces<NL, EL, FL>(
 
 #[cfg(test)]
 mod tests {
-    use crate::data::Context;
-    use crate::data::ActualProofObject;
     use crate::data::ActualEquality;
+    use crate::data::ActualProofObject;
+    use crate::data::Context;
     use crate::data::EqualityData;
     use crate::dsl::{cat, mph, obj};
     use crate::graph::*;

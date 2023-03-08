@@ -75,9 +75,8 @@ impl Substitutable for ProofObject {
         match self.deref() {
             Term(_) => self,
             Existential(e) => find_applicable(sigma, *e)
-                .map(|(i, v)| v.subst_slice(ctx, &sigma[i + 1..]))
-                .unwrap()
-                .to_proof_object(ctx),
+                .map(|(i, v)| v.subst_slice(ctx, &sigma[i + 1..]).to_proof_object(ctx))
+                .unwrap_or(self),
             Cat(c) => ctx.mk(Cat(c.clone().subst_slice(ctx, sigma))),
             Funct(f) => ctx.mk(Funct(f.clone().subst_slice(ctx, sigma))),
             Obj(o) => ctx.mk(Obj(o.clone().subst_slice(ctx, sigma))),

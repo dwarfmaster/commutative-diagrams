@@ -213,6 +213,7 @@ pub struct TermIterator {
 
 pub trait IsTerm {
     fn term(self) -> AnyTerm;
+    fn squash(self) -> AnyTerm;
     fn typed(self) -> AnyTerm
     where
         Self: Sized,
@@ -227,6 +228,9 @@ pub trait IsTerm {
 
 impl IsTerm for AnyTerm {
     fn term(self) -> AnyTerm {
+        self
+    }
+    fn squash(self) -> AnyTerm {
         self
     }
 
@@ -261,6 +265,9 @@ impl IsTerm for ProofObject {
     fn term(self) -> AnyTerm {
         AnyTerm::Pobj(self)
     }
+    fn squash(self) -> AnyTerm {
+        AnyTerm::Pobj(self)
+    }
 
     fn subterms(self, ctx: Context) -> TermIterator {
         TermIterator {
@@ -290,6 +297,11 @@ impl IsTerm for Category {
     fn term(self) -> AnyTerm {
         AnyTerm::Cat(self)
     }
+    fn squash(self) -> AnyTerm {
+        match self.deref() {
+            ActualCategory::Atomic(data) => AnyTerm::Pobj(data.pobj.clone()),
+        }
+    }
 
     fn subterms(self, ctx: Context) -> TermIterator {
         TermIterator {
@@ -310,6 +322,11 @@ impl IsTerm for Functor {
     fn term(self) -> AnyTerm {
         AnyTerm::Funct(self)
     }
+    fn squash(self) -> AnyTerm {
+        match self.deref() {
+            ActualFunctor::Atomic(data) => AnyTerm::Pobj(data.pobj.clone()),
+        }
+    }
 
     fn subterms(self, ctx: Context) -> TermIterator {
         TermIterator {
@@ -329,6 +346,12 @@ impl IsTerm for Functor {
 impl IsTerm for Object {
     fn term(self) -> AnyTerm {
         AnyTerm::Obj(self)
+    }
+    fn squash(self) -> AnyTerm {
+        match self.deref() {
+            ActualObject::Atomic(data) => AnyTerm::Pobj(data.pobj.clone()),
+            _ => AnyTerm::Obj(self),
+        }
     }
 
     fn subterms(self, ctx: Context) -> TermIterator {
@@ -351,6 +374,12 @@ impl IsTerm for Object {
 impl IsTerm for Morphism {
     fn term(self) -> AnyTerm {
         AnyTerm::Mph(self)
+    }
+    fn squash(self) -> AnyTerm {
+        match self.deref() {
+            ActualMorphism::Atomic(data) => AnyTerm::Pobj(data.pobj.clone()),
+            _ => AnyTerm::Mph(self),
+        }
     }
 
     fn subterms(self, ctx: Context) -> TermIterator {
@@ -375,6 +404,12 @@ impl IsTerm for Morphism {
 impl IsTerm for Equality {
     fn term(self) -> AnyTerm {
         AnyTerm::Eq(self)
+    }
+    fn squash(self) -> AnyTerm {
+        match self.deref() {
+            ActualEquality::Atomic(data) => AnyTerm::Pobj(data.pobj.clone()),
+            _ => AnyTerm::Eq(self),
+        }
     }
 
     fn subterms(self, ctx: Context) -> TermIterator {
@@ -414,26 +449,26 @@ impl Iterator for TermIterator {
         self.child += 1;
         match (self.term.clone(), child) {
             // TypedCat
-            (TypedCat(c), 0) => Some(c.term()),
+            (TypedCat(c), 0) => Some(c.squash()),
             // TypedFunct
             (TypedFunct(f), 0) => Some(f.src(&self.ctx).typed()),
             (TypedFunct(f), 1) => Some(f.dst(&self.ctx).typed()),
-            (TypedFunct(f), 2) => Some(f.term()),
+            (TypedFunct(f), 2) => Some(f.squash()),
             // TypedObj
             (TypedObj(o), 0) => Some(o.cat(&self.ctx).typed()),
-            (TypedObj(o), 1) => Some(o.term()),
+            (TypedObj(o), 1) => Some(o.squash()),
             // TypedMph
             (TypedMph(m), 0) => Some(m.cat(&self.ctx).typed()),
             (TypedMph(m), 1) => Some(m.src(&self.ctx).typed()),
             (TypedMph(m), 2) => Some(m.dst(&self.ctx).typed()),
-            (TypedMph(m), 3) => Some(m.term()),
+            (TypedMph(m), 3) => Some(m.squash()),
             // TypedEq
             (TypedEq(e), 0) => Some(e.cat(&self.ctx).typed()),
             (TypedEq(e), 1) => Some(e.src(&self.ctx).typed()),
             (TypedEq(e), 2) => Some(e.dst(&self.ctx).typed()),
             (TypedEq(e), 3) => Some(e.left(&self.ctx).typed()),
             (TypedEq(e), 4) => Some(e.right(&self.ctx).typed()),
-            (TypedEq(e), 5) => Some(e.term()),
+            (TypedEq(e), 5) => Some(e.squash()),
             // Cat
             (Cat(c), _) => {
                 use ActualCategory::*;
