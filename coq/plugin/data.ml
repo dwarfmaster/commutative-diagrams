@@ -14,6 +14,7 @@ let cmp3 i1 i2 i3 =
 (* Types *)
 
 type 't atomic =
+  (* The id is a common id shared by all types of objects *)
   | Ctx of int * 't
   | Evar of int * 't option
   | Cat of 't category

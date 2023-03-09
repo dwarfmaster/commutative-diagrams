@@ -104,23 +104,23 @@ module Make(PA: Pa.ProofAssistant) = struct
     let* cats = St.getCategories () in
     let* rt =
       serialize_obj_on [] cats 
-        (fun cat -> prepare_atom cat.Data.cat_atom) Sd.mk_cat_id in
+        (fun cat -> prepare_atom cat.Data.cat_atom) St.catFromIndex in
     let* functs = St.getFunctors () in
     let* rt =
       serialize_obj_on rt functs
-        (fun funct -> prepare_atom funct.Data.funct_atom) Sd.mk_funct_id in
+        (fun funct -> prepare_atom funct.Data.funct_atom) St.functorFromIndex in
     let* elems = St.getElems () in
     let* rt =
       serialize_obj_on rt elems
-        (fun elem -> prepare_atom elem.Data.elem_atom) Sd.mk_elem_id in
+        (fun elem -> prepare_atom elem.Data.elem_atom) St.elemFromIndex in
     let* mphs = St.getMorphisms () in
     let* rt =
       serialize_obj_on rt mphs
-        (fun mph -> prepare_atom mph.Data.mph_atom) Sd.mk_mph_id in
+        (fun mph -> prepare_atom mph.Data.mph_atom) St.mphFromIndex in
     let* eqs = St.getEqs () in
     let* rt =
       serialize_obj_on rt eqs
-        (fun eq -> prepare_atom eq.Data.eq_atom) Sd.mk_eq_id in
+        (fun eq -> prepare_atom eq.Data.eq_atom) St.eqFromIndex in
     ret (HRet (Msgpack.Array rt))
 
   let handle_goal (goal: goal) (args : Msgpack.t list) : handler_ret m =

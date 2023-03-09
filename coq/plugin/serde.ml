@@ -17,16 +17,6 @@ module Make(PA: Pa.ProofAssistant) = struct
     val unpack : Pk.t -> t option m
   end
 
-  let mk_global_id tag id =
-    (id lsl 3) lor (tag land 7)
-  let un_id id = id lsr 3
-
-  let mk_cat_id = mk_global_id 0
-  let mk_funct_id = mk_global_id 1
-  let mk_elem_id = mk_global_id 2
-  let mk_mph_id = mk_global_id 3
-  let mk_eq_id = mk_global_id 4
-
   let rec mapM f = function
     | [] -> ret []
     | x :: t ->
@@ -40,9 +30,9 @@ module Make(PA: Pa.ProofAssistant) = struct
 (*  ___) |  __/ |  | | (_| | | \__ \ (_| | |_| | (_) | | | | *)
 (* |____/ \___|_|  |_|\__,_|_|_|___/\__,_|\__|_|\___/|_| |_| *)
 (*                                                           *)
-  let rec pack_atom mkid atom =
+  let rec pack_atom atom =
     match atom with
-    | Ctx (i,_) -> cons "term" (Pk.Integer (mkid i)) |> ret
+    | Ctx (i,_) -> cons "term" (Pk.Integer i) |> ret
     | Evar (e,_) -> cons "existential" (Pk.Integer e) |> ret
     | Cat c -> cons "category" <$> pack_cat c
     | Funct f -> cons "functor" <$> pack_funct f
@@ -51,18 +41,17 @@ module Make(PA: Pa.ProofAssistant) = struct
     | Eq e -> cons "equality" <$> pack_eq e
     | Composed (id,t,args) ->
         let* name = PA.print t |> lift in
-        (* TODO get rid of mkid, since on recursion we don't know this is what we want *)
-        let* args = mapM (pack_atom mkid) args in
+        let* args = mapM pack_atom args in
         cons "composed" (Pk.Array [Pk.Integer id; Pk.String name; Pk.Array args]) |> ret
   and pack_cat cat =
     match cat with
     | AtomicCategory data -> 
-        let* po = pack_atom mk_cat_id data.cat_atom in
+        let* po = pack_atom data.cat_atom in
         ret (cons "atomic" (cons "pobj" po))
   and pack_funct funct =
     match funct with
     | AtomicFunctor data ->
-        let* po = pack_atom mk_funct_id data.funct_atom in
+        let* po = pack_atom data.funct_atom in
         let* src = pack_cat data.funct_src_ in
         let* dst = pack_cat data.funct_dst_ in
         let po = Pk.Map [
@@ -74,7 +63,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   and pack_elem elem =
     match elem with
     | AtomicElem data ->
-        let* po = pack_atom mk_elem_id data.elem_atom in
+        let* po = pack_atom data.elem_atom in
         let* cat = pack_cat data.elem_cat_ in
         let po = Pk.Map [
           (Pk.String "pobj", po);
@@ -88,7 +77,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   and pack_mph mph =
     match mph with
     | AtomicMorphism data ->
-        let* po = pack_atom mk_mph_id data.mph_atom in
+        let* po = pack_atom data.mph_atom in
         let* cat = pack_cat data.mph_cat_ in
         let* src = pack_elem data.mph_src_ in
         let* dst = pack_elem data.mph_dst_ in
@@ -114,7 +103,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   and pack_eq eq =
     match eq with
     | AtomicEq data -> 
-        let* po = pack_atom mk_eq_id data.eq_atom in
+        let* po = pack_atom data.eq_atom in
         let* cat = pack_cat data.eq_cat_ in
         let* src = pack_elem data.eq_src_ in
         let* dst = pack_elem data.eq_dst_ in
@@ -199,11 +188,12 @@ module Make(PA: Pa.ProofAssistant) = struct
         | "atomic", Pk.Array [ Pk.Map [ (Pk.String name, Pk.Integer id) ] ] -> begin 
           match name with
           | "term" ->
-              let id = un_id id in
+              let id = St.catToIndex id in
               let* cats = St.getCategories () in
-              if id < Array.length cats
-              then ret (Some (AtomicCategory cats.(id)))
-              else ret None
+              begin match id with
+              | Some id when id < Array.length cats -> Some (AtomicCategory cats.(id))
+              | _ -> None
+              end |> ret
           | "existential" ->
               let* atom = unpack_evar id in
               ret (Some (AtomicCategory { cat_atom = atom }))
@@ -228,11 +218,13 @@ module Make(PA: Pa.ProofAssistant) = struct
           let* dst = Cat.unpack dst in
           match src, dst, name with
           | Some _, Some _, "term" ->
-              let id = un_id id in
+              let id = St.functorToIndex id in
               let* functs = St.getFunctors () in
-              if id < Array.length functs
-              then ret (Some (AtomicFunctor functs.(id)))
-              else ret None
+              begin match id with
+              | Some id when id < Array.length functs ->
+                  Some (AtomicFunctor functs.(id))
+              | _ -> None
+              end |> ret
           | Some src, Some dst, "existential" ->
               let* atom = unpack_evar id in
               ret (Some (AtomicFunctor {
@@ -260,11 +252,13 @@ module Make(PA: Pa.ProofAssistant) = struct
           let* cat = Cat.unpack cat in
           match cat, name with
           | Some _, "term" ->
-              let id = un_id id in
+              let id = St.elemToIndex id in
               let* elems = St.getElems () in
-              if id < Array.length elems 
-              then ret (Some (AtomicElem elems.(id)))
-              else ret None
+              begin match id with
+              | Some id when id < Array.length elems ->
+                  Some (AtomicElem elems.(id))
+              | _ -> None
+              end |> ret
           | Some cat, "existential" ->
               let* atom = unpack_evar id in
               ret (Some (AtomicElem {
@@ -300,11 +294,13 @@ module Make(PA: Pa.ProofAssistant) = struct
           let* dst = Elem.unpack dst in
           match cat, src, dst, name with
           | Some _, Some _, Some _, "term" ->
-              let id = un_id id in
+              let id = St.mphToIndex id in
               let* mphs = St.getMorphisms () in
-              if id < Array.length mphs
-              then ret (Some (AtomicMorphism mphs.(id)))
-              else ret None
+              begin match id with
+              | Some id when id < Array.length mphs ->
+                  Some (AtomicMorphism mphs.(id))
+              | _ -> None
+              end |> ret
           | Some cat, Some src, Some dst, "existential" ->
               let* atom = unpack_evar id in
               ret (Some (AtomicMorphism {
@@ -360,11 +356,13 @@ module Make(PA: Pa.ProofAssistant) = struct
           let* right = Mph.unpack right in
           match cat, src, dst, left, right, name with
           | Some _, Some _, Some _, Some _, Some _, "term" ->
-              let id = un_id id in
+              let id = St.eqToIndex id in
               let* eqs = St.getEqs () in
-              if id < Array.length eqs 
-              then ret (Some (AtomicEq eqs.(id)))
-              else ret None
+              begin match id with
+              | Some id when id < Array.length eqs ->
+                  Some (AtomicEq eqs.(id))
+              | _ -> None
+              end |> ret
           | Some cat, Some src, Some dst, Some left, Some right, "existential" ->
               let* atom = unpack_evar id in
               ret (Some (AtomicEq {

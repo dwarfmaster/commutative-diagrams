@@ -31,11 +31,15 @@ module Make(M : Monad) : sig
   
   
   (* State operations *)
+  val catToIndex : int -> int option
+  val catFromIndex : int -> int
   val getCategories : unit -> ('t Data.categoryData array,'t) t 
   val getCategory : int -> ('t Data.categoryData,'t) t
   val registerCategory : cat:'t
                       -> ('t Data.categoryData,'t) t
   
+  val functorToIndex : int -> int option
+  val functorFromIndex : int -> int
   val getFunctors : unit -> ('t Data.functData array,'t) t 
   val getFunctor : int -> ('t Data.functData,'t) t
   val registerFunctor : funct:'t
@@ -43,12 +47,16 @@ module Make(M : Monad) : sig
                      -> dst:'t Data.category
                      -> ('t Data.functData,'t) t
   
+  val elemToIndex : int -> int option
+  val elemFromIndex : int -> int
   val getElems : unit -> ('t Data.elemData array,'t) t 
   val getElem : int -> ('t Data.elemData,'t) t 
   val registerElem : elem:'t
                   -> cat:'t Data.category
                   -> ('t Data.elemData,'t) t
   
+  val mphToIndex : int -> int option
+  val mphFromIndex : int -> int
   val getMorphisms : unit -> ('t Data.morphismData array,'t) t
   val getMorphism : int -> ('t Data.morphismData,'t) t
   val registerMorphism : mph:'t
@@ -57,6 +65,8 @@ module Make(M : Monad) : sig
                       -> dst:'t Data.elem 
                       -> ('t Data.morphismData,'t) t
   
+  val eqToIndex : int -> int option
+  val eqFromIndex : int -> int
   val getEqs : unit -> ('t Data.eqData array,'t) t 
   val getEq : int -> ('t Data.eqData,'t) t 
   val registerEq : eq:'t

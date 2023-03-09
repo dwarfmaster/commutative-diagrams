@@ -97,60 +97,81 @@ module Make(M : Monad) = struct
       match atom with
       | Ctx (_, h) -> st.eqPred h obj
       | _ -> M.return false)
+
+  let toId base i =
+    if i mod 8 = base then Some (i / 8) else None
+  let fromId base i =
+    i * 8 + base
   
+  let catToIndex = toId 0
+  let catFromIndex = fromId 0
   let getCategories () : ('t categoryData array,'t) t = get (fun (st : 't store) -> st.categories)
-  let getCategory i = get (fun st -> st.categories.(i))
+  let getCategory i = match catToIndex i with
+  | Some i -> get (fun st -> st.categories.(i))
+  | None -> assert false
   let registerCategory ~cat =
     let* pred = mkPred () in
     let* id = arr_find_optM (fun c -> pred c.cat_atom cat) @<< getCategories () in 
     match id with
     | Some cat -> ret cat
     | None ->
-        let* nid = Array.length <$> getCategories () in 
+        let* nid = catFromIndex <$> (Array.length <$> getCategories ()) in 
         let* _ = set (fun st -> 
           { st with categories = push_back st.categories 
             { cat_atom = Ctx (nid,cat) }}) in 
         getCategory nid
   
+  let functorToIndex = toId 1
+  let functorFromIndex = fromId 1
   let getFunctors () = get (fun st -> st.functors) 
-  let getFunctor i = get (fun st -> st.functors.(i))
+  let getFunctor i = match functorToIndex i with
+  | Some i -> get (fun st -> st.functors.(i))
+  | None -> assert false
   let registerFunctor ~funct ~src ~dst =
     let* pred = mkPred () in 
     let* id = arr_find_optM (fun c -> pred c.funct_atom funct) @<< getFunctors () in 
     match id with
     | Some funct -> ret funct
     | None ->
-        let* nid = Array.length <$> getFunctors () in 
+        let* nid = functorFromIndex <$> (Array.length <$> getFunctors ()) in 
         let* _ = set (fun st ->
           { st with functors = push_back st.functors 
             { funct_atom = Ctx (nid,funct)
             ; funct_src_ = src; funct_dst_ = dst }}) in
         getFunctor nid
   
+  let elemToIndex = toId 2
+  let elemFromIndex = fromId 2
   let getElems () = get (fun st -> st.elems)
-  let getElem i = get (fun st -> st.elems.(i))
+  let getElem i = match elemToIndex i with
+  | Some i -> get (fun st -> st.elems.(i))
+  | None -> assert false
   let registerElem ~elem ~cat =
     let* pred = mkPred () in 
     let* id = arr_find_optM (fun e -> pred e.elem_atom elem) @<< getElems () in 
     match id with
     | Some elem -> ret elem 
     | None ->
-        let* nid = Array.length <$> getElems () in 
+        let* nid = elemFromIndex <$> (Array.length <$> getElems ()) in 
         let* _ = set (fun st ->
           { st with elems = push_back st.elems 
             { elem_atom = Ctx (nid,elem)
             ; elem_cat_ = cat }}) in 
         getElem nid
   
+  let mphToIndex = toId 3
+  let mphFromIndex = fromId 3
   let getMorphisms () = get (fun st -> st.morphisms)
-  let getMorphism i = get (fun st -> st.morphisms.(i))
+  let getMorphism i = match mphToIndex i with
+  | Some i -> get (fun st -> st.morphisms.(i))
+  | None -> assert false
   let registerMorphism ~mph ~cat ~src ~dst =
     let* pred = mkPred () in 
     let* id = arr_find_optM (fun m -> pred m.mph_atom mph) @<< getMorphisms () in 
     match id with 
     | Some mph -> ret mph
     | None ->
-        let* nid = Array.length <$> getMorphisms () in 
+        let* nid = mphFromIndex <$> (Array.length <$> getMorphisms ()) in 
         let* _ = set (fun st ->
           { st with morphisms = push_back st.morphisms 
             { mph_atom = Ctx (nid,mph)
@@ -158,15 +179,19 @@ module Make(M : Monad) = struct
             ; mono = None; epi = None; iso = None }}) in
         getMorphism nid
   
+  let eqToIndex = toId 4
+  let eqFromIndex = fromId 4
   let getEqs () = get (fun st -> st.faces)
-  let getEq i = get (fun st -> st.faces.(i))
+  let getEq i = match eqToIndex i with
+  | Some i -> get (fun st -> st.faces.(i))
+  | None -> assert false
   let registerEq ~eq ~right ~left ~cat ~src ~dst =
     let* pred = mkPred () in 
     let* id = arr_find_optM (fun e -> pred e.eq_atom eq) @<< getEqs () in
     match id with 
     | Some eq -> ret eq 
     | None -> 
-        let* nid = Array.length <$> getEqs () in 
+        let* nid = eqFromIndex <$> (Array.length <$> getEqs ()) in 
         let* _ = set (fun st ->
           { st with faces = push_back st.faces 
             { eq_atom = Ctx (nid,eq)
