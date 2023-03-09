@@ -27,10 +27,158 @@ module Make(PA: Pa.ProofAssistant) = struct
   let mk_mph_id = mk_global_id 3
   let mk_eq_id = mk_global_id 4
 
-  let pack_atom mkid atom =
+  let rec mapM f = function
+    | [] -> ret []
+    | x :: t ->
+        let* x = f x in
+        let* t = mapM f t in
+        ret (x :: t)
+
+(*  ____            _       _ _           _   _              *)
+(* / ___|  ___ _ __(_) __ _| (_)___  __ _| |_(_) ___  _ __   *)
+(* \___ \ / _ \ '__| |/ _` | | / __|/ _` | __| |/ _ \| '_ \  *)
+(*  ___) |  __/ |  | | (_| | | \__ \ (_| | |_| | (_) | | | | *)
+(* |____/ \___|_|  |_|\__,_|_|_|___/\__,_|\__|_|\___/|_| |_| *)
+(*                                                           *)
+  let rec pack_atom mkid atom =
     match atom with
-    | Ctx (i,_) -> cons "term" (Pk.Integer (mkid i))
-    | Evar (e,_) -> cons "existential" (Pk.Integer e)
+    | Ctx (i,_) -> cons "term" (Pk.Integer (mkid i)) |> ret
+    | Evar (e,_) -> cons "existential" (Pk.Integer e) |> ret
+    | Cat c -> cons "category" <$> pack_cat c
+    | Funct f -> cons "functor" <$> pack_funct f
+    | Elem e -> cons "object" <$> pack_elem e
+    | Mph m -> cons "morphism" <$> pack_mph m
+    | Eq e -> cons "equality" <$> pack_eq e
+    | Composed (id,t,args) ->
+        let* name = PA.print t |> lift in
+        (* TODO get rid of mkid, since on recursion we don't know this is what we want *)
+        let* args = mapM (pack_atom mkid) args in
+        cons "composed" (Pk.Array [Pk.Integer id; Pk.String name; Pk.Array args]) |> ret
+  and pack_cat cat =
+    match cat with
+    | AtomicCategory data -> 
+        let* po = pack_atom mk_cat_id data.cat_atom in
+        ret (cons "atomic" (cons "pobj" po))
+  and pack_funct funct =
+    match funct with
+    | AtomicFunctor data ->
+        let* po = pack_atom mk_funct_id data.funct_atom in
+        let* src = pack_cat data.funct_src_ in
+        let* dst = pack_cat data.funct_dst_ in
+        let po = Pk.Map [
+          (Pk.String "pobj", po);
+          (Pk.String "src", src);
+          (Pk.String "dst", dst);
+        ] in
+        ret (cons "atomic" po)
+  and pack_elem elem =
+    match elem with
+    | AtomicElem data ->
+        let* po = pack_atom mk_elem_id data.elem_atom in
+        let* cat = pack_cat data.elem_cat_ in
+        let po = Pk.Map [
+          (Pk.String "pobj", po);
+          (Pk.String "category", cat);
+        ] in
+      ret (cons "atomic" po)
+    | FObj (funct,elem) ->
+        let* funct = pack_funct funct in
+        let* elem = pack_elem elem in
+        ret (cons "funct" (Pk.Array [funct; elem]))
+  and pack_mph mph =
+    match mph with
+    | AtomicMorphism data ->
+        let* po = pack_atom mk_mph_id data.mph_atom in
+        let* cat = pack_cat data.mph_cat_ in
+        let* src = pack_elem data.mph_src_ in
+        let* dst = pack_elem data.mph_dst_ in
+        let po = Pk.Map [
+          (Pk.String "pobj", po);
+          (Pk.String "category", cat);
+          (Pk.String "src", src);
+          (Pk.String "dst", dst);
+        ] in
+        ret (cons "atomic" po)
+    | Comp (m1,m2) ->
+        let* m1 = pack_mph m1 in
+        let* m2 = pack_mph m2 in
+        ret (cons "comp" (Pk.Array [ m1; m2 ]))
+    | Identity x ->
+        let* x = pack_elem x in
+        ret (cons "identity" x)
+    | FMph (funct,mph) ->
+        let* funct = pack_funct funct in
+        let* mph = pack_mph mph in
+        ret (cons "funct" (Pk.Array [ funct; mph ]))
+    | Inv _ -> raise Unimplemented (* Not supported on rust side *)
+  and pack_eq eq =
+    match eq with
+    | AtomicEq data -> 
+        let* po = pack_atom mk_eq_id data.eq_atom in
+        let* cat = pack_cat data.eq_cat_ in
+        let* src = pack_elem data.eq_src_ in
+        let* dst = pack_elem data.eq_dst_ in
+        let* left = pack_mph data.eq_left_ in
+        let* right = pack_mph data.eq_right_ in
+        let po = Pk.Map [
+          (Pk.String "pobj", po);
+          (Pk.String "category", cat);
+          (Pk.String "src", src);
+          (Pk.String "dst", dst);
+          (Pk.String "left", left);
+          (Pk.String "right", right);
+        ] in
+        ret (cons "atomic" po)
+    | Refl m ->
+        let* m = pack_mph m in
+        ret (cons "refl" m)
+    | Concat (p1,p2) ->
+        let* p1 = pack_eq p1 in
+        let* p2 = pack_eq p2 in
+        ret (cons "concat" (Pk.Array [ p1; p2 ]))
+    | InvEq p ->
+        let* p = pack_eq p in
+        ret (cons "inv" p)
+    | Compose (p1,p2) ->
+        let* p1 = pack_eq p1 in
+        let* p2 = pack_eq p2 in
+        ret (cons "compose" (Pk.Array [ p1; p2 ]))
+    | Assoc (m1,m2,m3) ->
+        let* m1 = pack_mph m1 in
+        let* m2 = pack_mph m2 in
+        let* m3 = pack_mph m3 in
+        ret (cons "assoc" (Pk.Array [ m1; m2; m3 ]))
+    | LeftId m ->
+        let* m = pack_mph m in
+        ret (cons "right_id" m)
+    | RightId m ->
+        let* m = pack_mph m in
+        ret (cons "left_id" m)
+    | RAp (p,m) ->
+        let* p = pack_eq p in
+        let* m = pack_mph m in
+        ret (cons "rap" (Pk.Array [ p; m ]))
+    | LAp (m,p) ->
+        let* m = pack_mph m in
+        let* p = pack_eq p in
+        ret (cons "lap" (Pk.Array [ m; p ]))
+    | RInv _ -> raise Unimplemented (* not implemented on rust side *)
+    | LInv _ -> raise Unimplemented (* not implemented on rust side *)
+    | Mono _ -> raise Unimplemented (* not implemented on rust side *)
+    | Epi _ -> raise Unimplemented (* not implemented on rust side *)
+    | FId (f,x) ->
+        let* f = pack_funct f in
+        let* x = pack_elem x in
+        ret (cons "funct_id" (Pk.Array [ f; x ]))
+    | FComp (f, m1, m2) ->
+        let* f = pack_funct f in
+        let* m1 = pack_mph m1 in
+        let* m2 = pack_mph m2 in
+        ret (cons "funct_comp" (Pk.Array [ f; m1; m2 ]))
+    | FCtx (f,p) ->
+        let* f = pack_funct f in
+        let* p = pack_eq p in
+        ret (cons "funct_ctx" (Pk.Array [ f; p ]))
 
   let unpack_evar id =
     let* ev = St.getEvar id in
@@ -42,15 +190,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   module Cat = struct
     type t = PA.t category
 
-    let mk_id = mk_global_id 0
-
-    let pack_data cat =
-      let po = pack_atom mk_id cat.cat_atom in
-      ret (cons "atomic" (cons "pobj" po))
-
-    let pack cat =
-      match cat with
-      | AtomicCategory data -> pack_data data
+    let pack = pack_cat
 
     let unpack mp =
       match mp with
@@ -76,22 +216,8 @@ module Make(PA: Pa.ProofAssistant) = struct
 
   module Funct = struct
     type t = PA.t funct
-    let mk_id = mk_global_id 1
 
-    let pack_data funct =
-      let po = pack_atom mk_id funct.funct_atom in
-      let* src = Cat.pack funct.funct_src_ in
-      let* dst = Cat.pack funct.funct_dst_ in
-      let po = Pk.Map [
-        (Pk.String "pobj", po);
-        (Pk.String "src", src);
-        (Pk.String "dst", dst);
-      ] in
-      ret (cons "atomic" po)
-
-    let pack funct =
-      match funct with
-      | AtomicFunctor data -> pack_data data
+    let pack = pack_funct
 
     let unpack mp =
       match mp with
@@ -123,24 +249,8 @@ module Make(PA: Pa.ProofAssistant) = struct
 
   module Elem = struct
     type t = PA.t elem
-    let mk_id = mk_global_id 2
 
-    let pack_data elem =
-      let po = pack_atom mk_id elem.elem_atom in
-      let* cat = Cat.pack elem.elem_cat_ in
-      let po = Pk.Map [
-        (Pk.String "pobj", po);
-        (Pk.String "category", cat);
-      ] in
-      ret (cons "atomic" po)
-
-    let rec pack elem =
-      match elem with
-      | AtomicElem data -> pack_data data
-      | FObj (funct,elem) ->
-          let* funct = Funct.pack funct in
-          let* elem = pack elem in
-          ret (cons "funct" (Pk.Array [funct; elem]))
+    let pack = pack_elem
 
     let rec unpack mp =
       match mp with
@@ -177,36 +287,8 @@ module Make(PA: Pa.ProofAssistant) = struct
 
   module Mph = struct
     type t = PA.t morphism
-    let mk_id = mk_global_id 3
 
-    let pack_data mph =
-      let po = pack_atom mk_id mph.mph_atom in
-      let* cat = Cat.pack mph.mph_cat_ in
-      let* src = Elem.pack mph.mph_src_ in
-      let* dst = Elem.pack mph.mph_dst_ in
-      let po = Pk.Map [
-        (Pk.String "pobj", po);
-        (Pk.String "category", cat);
-        (Pk.String "src", src);
-        (Pk.String "dst", dst);
-      ] in
-      ret (cons "atomic" po)
-
-    let rec pack mph =
-      match mph with
-      | AtomicMorphism data -> pack_data data
-      | Comp (m1,m2) ->
-          let* m1 = pack m1 in
-          let* m2 = pack m2 in
-          ret (cons "comp" (Pk.Array [ m1; m2 ]))
-      | Identity x ->
-          let* x = Elem.pack x in
-          ret (cons "identity" x)
-      | FMph (funct,mph) ->
-          let* funct = Funct.pack funct in
-          let* mph = pack mph in
-          ret (cons "funct" (Pk.Array [ funct; mph ]))
-      | Inv _ -> raise Unimplemented (* Not supported on rust side *)
+    let pack = pack_mph
 
     let rec unpack mp =
       match mp with
@@ -263,78 +345,8 @@ module Make(PA: Pa.ProofAssistant) = struct
 
   module Eq = struct
     type t = PA.t eq
-    let mk_id = mk_global_id 4
 
-    let pack_data eq =
-      let po = pack_atom mk_id eq.eq_atom in
-      let* cat = Cat.pack eq.eq_cat_ in
-      let* src = Elem.pack eq.eq_src_ in
-      let* dst = Elem.pack eq.eq_dst_ in
-      let* left = Mph.pack eq.eq_left_ in
-      let* right = Mph.pack eq.eq_right_ in
-      let po = Pk.Map [
-        (Pk.String "pobj", po);
-        (Pk.String "category", cat);
-        (Pk.String "src", src);
-        (Pk.String "dst", dst);
-        (Pk.String "left", left);
-        (Pk.String "right", right);
-      ] in
-      ret (cons "atomic" po)
-
-    let rec pack eq =
-      match eq with
-      | AtomicEq data -> pack_data data
-      | Refl m ->
-          let* m = Mph.pack m in
-          ret (cons "refl" m)
-      | Concat (p1,p2) ->
-          let* p1 = pack p1 in
-          let* p2 = pack p2 in
-          ret (cons "concat" (Pk.Array [ p1; p2 ]))
-      | InvEq p ->
-          let* p = pack p in
-          ret (cons "inv" p)
-      | Compose (p1,p2) ->
-          let* p1 = pack p1 in
-          let* p2 = pack p2 in
-          ret (cons "compose" (Pk.Array [ p1; p2 ]))
-      | Assoc (m1,m2,m3) ->
-          let* m1 = Mph.pack m1 in
-          let* m2 = Mph.pack m2 in
-          let* m3 = Mph.pack m3 in
-          ret (cons "assoc" (Pk.Array [ m1; m2; m3 ]))
-      | LeftId m ->
-          let* m = Mph.pack m in
-          ret (cons "right_id" m)
-      | RightId m ->
-          let* m = Mph.pack m in
-          ret (cons "left_id" m)
-      | RAp (p,m) ->
-          let* p = pack p in
-          let* m = Mph.pack m in
-          ret (cons "rap" (Pk.Array [ p; m ]))
-      | LAp (m,p) ->
-          let* m = Mph.pack m in
-          let* p = pack p in
-          ret (cons "lap" (Pk.Array [ m; p ]))
-      | RInv _ -> raise Unimplemented (* not implemented on rust side *)
-      | LInv _ -> raise Unimplemented (* not implemented on rust side *)
-      | Mono _ -> raise Unimplemented (* not implemented on rust side *)
-      | Epi _ -> raise Unimplemented (* not implemented on rust side *)
-      | FId (f,x) ->
-          let* f = Funct.pack f in
-          let* x = Elem.pack x in
-          ret (cons "funct_id" (Pk.Array [ f; x ]))
-      | FComp (f, m1, m2) ->
-          let* f = Funct.pack f in
-          let* m1 = Mph.pack m1 in
-          let* m2 = Mph.pack m2 in
-          ret (cons "funct_comp" (Pk.Array [ f; m1; m2 ]))
-      | FCtx (f,p) ->
-          let* f = Funct.pack f in
-          let* p = pack p in
-          ret (cons "funct_ctx" (Pk.Array [ f; p ]))
+    let pack = pack_eq
 
     let rec unpack mp =
       match mp with

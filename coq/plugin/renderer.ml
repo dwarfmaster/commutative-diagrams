@@ -3,31 +3,42 @@ module St = Hyps.Make(Hott.M)
 open St.Combinators
 open Data
 
-let ppe = fun sigma env atom -> 
+let (++) = Pp.(++)
+let rec ppe = fun sigma env atom -> 
   match atom with
   | Ctx (i,c) -> Pp.(Printer.pr_econstr_env env sigma c ++ str ":" ++ int i)
   | Evar (i,Some e) -> Pp.(str "?" ++ int i ++ str ":<" ++ Printer.pr_econstr_env env sigma e ++ str ">")
   | Evar (i,None) -> Pp.(str "?" ++ int i)
-let (++) = Pp.(++)
+  | Cat c -> cat sigma env c
+  | Funct f -> funct sigma env f
+  | Elem e -> elem sigma env e
+  | Mph m -> mph sigma env m
+  | Eq e -> eq sigma env e
+  | Composed (id,f,args) ->
+      let rec pargs = function
+        | [] -> Pp.str ""
+        | x :: t -> Pp.(ppe sigma env x ++ str "," ++ pargs t)
+      in Pp.(Printer.pr_econstr_env env sigma f ++ str "<" ++ int id
+           ++ str ">(" ++ pargs args ++ str ")")
 
-let cat sigma env cat =
+and cat sigma env cat =
   match cat with
   | AtomicCategory cat ->
       ppe sigma env cat.cat_atom
 
-let funct sigma env funct =
+and funct sigma env funct =
   match funct with
   | AtomicFunctor funct ->
       ppe sigma env funct.funct_atom
 
-let rec elem sigma env e =
+and elem sigma env e =
   match e with
   | AtomicElem e ->
       ppe sigma env e.elem_atom
   | FObj (f,e) ->
       Pp.str "(" ++ funct sigma env f ++ Pp.str " _0 " ++ elem sigma env e ++ Pp.str ")"
 
-let rec mph sigma env m =
+and mph sigma env m =
   match m with
   | AtomicMorphism m ->
       ppe sigma env m.mph_atom
@@ -37,7 +48,7 @@ let rec mph sigma env m =
   | FMph (f,m) ->
       Pp.str "(" ++ funct sigma env f ++ Pp.str " _1 " ++ mph sigma env m ++ Pp.str ")"
 
-let eq = fun sigma env eq ->
+and eq = fun sigma env eq ->
   Pp.str "{{eq}}"
 
 let rec mphList sigma env ms =

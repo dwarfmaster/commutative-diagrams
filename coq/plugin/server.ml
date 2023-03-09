@@ -98,7 +98,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     let open Data in
     match a with
     | Ctx (_,e) -> Some e
-    | Evar _ -> None
+    | _ -> None
 
   let handle_hyps (args : Msgpack.t list) : handler_ret m =
     let* cats = St.getCategories () in

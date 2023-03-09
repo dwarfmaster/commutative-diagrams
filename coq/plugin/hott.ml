@@ -376,24 +376,39 @@ let realizeEvar tp =
   let$ _ = M.lift (Proofview.Unsafe.tclEVARS sigma) in
   pret evar
 
-let realizeAtomic a =
+let rec realizeAtomic a : EConstr.t M.m =
   let open Data in
   match a with
   | Ctx (_,h) -> pret h
   | Evar (_,Some e) -> pret e
   | Evar _ -> assert false (* Should never happen *)
+  | Cat c -> realizeCategory c
+  | Funct f -> realizeFunctor f
+  | Elem e -> realizeElem e
+  | Mph m -> realizeMorphism m
+  | Eq e -> realizeEq e
+  | Composed (_,ec,args) ->
+      let rec mapM f = function
+        | [] -> pret []
+        | x :: t ->
+            let$ x = f x in
+            let$ t = mapM f t in
+            pret (x :: t) in
+      let$ args = mapM realizeAtomic args in
+      let args = Array.of_list args in
+      pret (EConstr.mkApp (ec,args))
 
-let realizeCategory cat =
+and realizeCategory cat =
   let open Data in
   match cat with
   | AtomicCategory cat -> realizeAtomic cat.cat_atom
 
-let realizeFunctor funct =
+and realizeFunctor funct =
   let open Data in
   match funct with
   | AtomicFunctor funct -> realizeAtomic funct.funct_atom
 
-let rec realizeElem elem =
+and realizeElem elem =
   let open Data in 
   match elem with
   | AtomicElem elem -> realizeAtomic elem.elem_atom
@@ -406,7 +421,7 @@ let rec realizeElem elem =
         (Env.mk_funct_obj ())
         [| src; dst; funct; elem |]
 
-let rec realizeMorphism mph =
+and realizeMorphism mph =
   let open Data in 
   match mph with
   | AtomicMorphism mph -> realizeAtomic mph.mph_atom
@@ -443,14 +458,14 @@ let rec realizeMorphism mph =
       app (Env.mk_funct_mph ()) [| cat_src; cat_dst; funct; src; dst; mph |]
 
 
-let mphT m =
+and mphT m =
   let open Data in
   let$ cat = realizeCategory (morphism_cat m) in 
   let$ src = realizeElem (morphism_src m) in 
   let$ dst = realizeElem (morphism_dst m) in 
   app (Env.mk_mphT ()) [| cat; src; dst |]
 
-let rec realizeEq eq =
+and realizeEq eq =
   let open Data in
   match eq with
   | Refl m ->

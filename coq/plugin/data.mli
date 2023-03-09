@@ -2,8 +2,13 @@
 type 't atomic =
   | Ctx of int * 't (* A constant in the context or an hypothesis *)
   | Evar of int * 't option (* An evar. It may be backed by a coq evar (and will be at realization time) *)
-
-type 't categoryData =
+  | Cat of 't category
+  | Funct of 't funct
+  | Elem of 't elem
+  | Mph of 't morphism
+  | Eq of 't eq
+  | Composed of int * 't * 't atomic list
+and 't categoryData =
   { cat_atom : 't atomic
   }
 and 't category =
@@ -42,31 +47,8 @@ and 't morphism =
   | Comp of 't morphism * 't morphism (* Comp (m1,m2) ~ m2 o m1 *)
   | Inv of 't morphism
   | FMph of 't funct * 't morphism
-
-(* check_* check invariants about the structure assumed everywhere in the code
-   that are not enforced by the type system, for example that the composition
-   of two morphisms have the right endpoints.
- *)
-val check_category : 't category -> bool
-val cmp_category : 't category -> 't category -> int
-
-val check_funct : 't funct -> bool
-val cmp_funct : 't funct -> 't funct -> int
-val funct_src : 't funct -> 't category 
-val funct_dst : 't funct -> 't category 
-
-val check_elem : 't elem -> bool
-val cmp_elem : 't elem -> 't elem -> int
-val elem_cat  : 't elem -> 't category 
-
-val check_morphism : 't morphism -> bool
-val cmp_morphism : 't morphism -> 't morphism -> int
-val morphism_cat : 't morphism -> 't category 
-val morphism_src : 't morphism -> 't elem 
-val morphism_dst : 't morphism -> 't elem
-
 (* Equality between uninterned morphisms *)
-type 't eq =
+and 't eq =
   | Refl of 't morphism
   | Concat of 't eq * 't eq
   | InvEq of 't eq
@@ -92,6 +74,29 @@ and 't eqData =
   ; eq_cat_   : 't category
   ; eq_atom   : 't atomic
   }
+
+(* check_* check invariants about the structure assumed everywhere in the code
+   that are not enforced by the type system, for example that the composition
+   of two morphisms have the right endpoints.
+ *)
+val check_category : 't category -> bool
+val cmp_category : 't category -> 't category -> int
+
+val check_funct : 't funct -> bool
+val cmp_funct : 't funct -> 't funct -> int
+val funct_src : 't funct -> 't category 
+val funct_dst : 't funct -> 't category 
+
+val check_elem : 't elem -> bool
+val cmp_elem : 't elem -> 't elem -> int
+val elem_cat  : 't elem -> 't category 
+
+val check_morphism : 't morphism -> bool
+val cmp_morphism : 't morphism -> 't morphism -> int
+val morphism_cat : 't morphism -> 't category 
+val morphism_src : 't morphism -> 't elem 
+val morphism_dst : 't morphism -> 't elem
+
 val check_eq : 't eq -> bool
 val cmp_eq : 't eq -> 't eq -> int
 val eq_left  : 't eq -> 't morphism 

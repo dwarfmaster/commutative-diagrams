@@ -96,7 +96,7 @@ module Make(M : Monad) = struct
     get (fun st -> fun atom obj ->
       match atom with
       | Ctx (_, h) -> st.eqPred h obj
-      | Evar _ -> M.return false)
+      | _ -> M.return false)
   
   let getCategories () : ('t categoryData array,'t) t = get (fun (st : 't store) -> st.categories)
   let getCategory i = get (fun st -> st.categories.(i))
