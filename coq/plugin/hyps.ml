@@ -105,6 +105,15 @@ module Make(M : Monad) = struct
     if i mod 8 = base then Some (i / 8) else None
   let fromId base i =
     i * 8 + base
+
+  let getAtom id =
+    match id mod 8 with
+    | 0 -> get (fun st -> Some st.categories.(id/8).cat_atom)
+    | 1 -> get (fun st -> Some st.functors.(id/8).funct_atom)
+    | 2 -> get (fun st -> Some st.elems.(id/8).elem_atom)
+    | 3 -> get (fun st -> Some st.morphisms.(id/8).mph_atom)
+    | 4 -> get (fun st -> Some st.faces.(id/8).eq_atom)
+    | _ -> ret None
   
   let catToIndex = toId 0
   let catFromIndex = fromId 0

@@ -31,6 +31,8 @@ module Make(M : Monad) : sig
   
   
   (* State operations *)
+  val getAtom : int -> ('t Data.atomic option, 't) t
+
   val catToIndex : int -> int option
   val catFromIndex : int -> int
   val getCategories : unit -> ('t Data.categoryData array,'t) t 
