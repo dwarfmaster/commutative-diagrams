@@ -77,6 +77,15 @@ module Make(M : Monad) : sig
                 -> dst:'t Data.elem
                 -> ('t Data.eqData,'t) t
 
+  (* Functions are arbitrary Coq symbols that appear in function position of
+     atomic Composed *)
+  val funToIndex : int -> int option
+  val funFromIndex : int -> int
+  val getFuns : unit -> ('t array, 't) t
+  val getFun : int -> ('t, 't) t
+  val registerFun : fn:'t
+                 -> (int, 't) t
+
   (* Evars are an array of either uninstantiate evars (meaning not yet realized
      as evars in Coq, just abstract unique numbers), or linked to a coq Evar.t.
      Since build the econstr from the evar is too much a pain, we directly store

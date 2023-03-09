@@ -16,6 +16,7 @@ module Make(M : Monad) = struct
     ; elems      : 't elemData array 
     ; morphisms  : 't morphismData array 
     ; faces      : 't eqData array
+    ; funs       : 't array
     ; evars      : 't option IntMap.t
     ; eqPred     : 't -> 't -> bool M.m
     }
@@ -25,6 +26,7 @@ module Make(M : Monad) = struct
     ; elems      = [| |]
     ; morphisms  = [| |]
     ; faces      = [| |]
+    ; funs       = [| |]
     ; evars      = IntMap.empty
     ; eqPred     = fun _ _ -> M.return false
     }
@@ -82,15 +84,16 @@ module Make(M : Monad) = struct
     | Evar (e1,_), Evar (e2,_) -> M.return (e1 = e2)
     | _ -> M.return false)
 
-  let rec arr_find_optM' (id : int) (pred : 'a -> bool M.m) (arr : 'a array) : 'a option M.m =
+  let rec arr_find_optM' (id : int) (pred : 'a -> bool M.m) (arr : 'a array) : (int*'a) option M.m =
     if id >= Array.length arr
     then M.return None
     else
       M.bind
         (pred arr.(id)) 
-        (fun p -> if p then M.return (Some arr.(id)) else arr_find_optM' (id + 1) pred arr)
+        (fun p -> if p then M.return (Some (id,arr.(id))) else arr_find_optM' (id + 1) pred arr)
 
-  let arr_find_optM pred (arr : 'a array) : ('a option,'t) t = lift (arr_find_optM' 0 pred arr)
+  let arr_find_optM pred (arr : 'a array) : ((int*'a) option,'t) t = 
+    lift (arr_find_optM' 0 pred arr)
 
   let mkPred () =
     get (fun st -> fun atom obj ->
@@ -113,7 +116,7 @@ module Make(M : Monad) = struct
     let* pred = mkPred () in
     let* id = arr_find_optM (fun c -> pred c.cat_atom cat) @<< getCategories () in 
     match id with
-    | Some cat -> ret cat
+    | Some (_,cat) -> ret cat
     | None ->
         let* nid = catFromIndex <$> (Array.length <$> getCategories ()) in 
         let* _ = set (fun st -> 
@@ -131,7 +134,7 @@ module Make(M : Monad) = struct
     let* pred = mkPred () in 
     let* id = arr_find_optM (fun c -> pred c.funct_atom funct) @<< getFunctors () in 
     match id with
-    | Some funct -> ret funct
+    | Some (_,funct) -> ret funct
     | None ->
         let* nid = functorFromIndex <$> (Array.length <$> getFunctors ()) in 
         let* _ = set (fun st ->
@@ -150,7 +153,7 @@ module Make(M : Monad) = struct
     let* pred = mkPred () in 
     let* id = arr_find_optM (fun e -> pred e.elem_atom elem) @<< getElems () in 
     match id with
-    | Some elem -> ret elem 
+    | Some (_,elem) -> ret elem 
     | None ->
         let* nid = elemFromIndex <$> (Array.length <$> getElems ()) in 
         let* _ = set (fun st ->
@@ -169,7 +172,7 @@ module Make(M : Monad) = struct
     let* pred = mkPred () in 
     let* id = arr_find_optM (fun m -> pred m.mph_atom mph) @<< getMorphisms () in 
     match id with 
-    | Some mph -> ret mph
+    | Some (_,mph) -> ret mph
     | None ->
         let* nid = mphFromIndex <$> (Array.length <$> getMorphisms ()) in 
         let* _ = set (fun st ->
@@ -189,7 +192,7 @@ module Make(M : Monad) = struct
     let* pred = mkPred () in 
     let* id = arr_find_optM (fun e -> pred e.eq_atom eq) @<< getEqs () in
     match id with 
-    | Some eq -> ret eq 
+    | Some (_,eq) -> ret eq 
     | None -> 
         let* nid = eqFromIndex <$> (Array.length <$> getEqs ()) in 
         let* _ = set (fun st ->
@@ -198,6 +201,23 @@ module Make(M : Monad) = struct
             ; eq_left_ = left; eq_right_ = right 
             ; eq_cat_ = cat; eq_src_ = src; eq_dst_ = dst }}) in
         getEq nid
+
+  let funToIndex = toId 5
+  let funFromIndex = fromId 5
+  let getFuns () = get (fun st -> st.funs)
+  let getFun i = match  funToIndex i with
+  | Some i -> get (fun st -> st.funs.(i))
+  | None -> assert false
+  let registerFun ~fn =
+    let* pred = get (fun st -> st.eqPred) in
+    let* id = arr_find_optM (fun (f:'t) -> pred f fn) @<< getFuns () in
+    match id with
+    | Some (id,_) -> ret id
+    | None ->
+        let* nid = funFromIndex <$> (Array.length <$> getFuns ()) in
+        let* _ = set (fun st ->
+          { st with funs = push_back st.funs fn }) in
+        ret nid
 
   type 't evar =
     | Abstract
