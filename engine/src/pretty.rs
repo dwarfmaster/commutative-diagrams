@@ -164,7 +164,7 @@ impl ActualEquality {
                 let m = m.to_pretty(ctx);
                 paren(p)
                     .group()
-                    .append(RcDoc::line().append(RcDoc::text("o")).nest(2).group())
+                    .append(RcDoc::line().append(RcDoc::text("o>")).nest(2).group())
                     .append(sub(m))
             }
             LAp(m, p) => {
@@ -172,7 +172,7 @@ impl ActualEquality {
                 let p = p.to_pretty(ctx);
                 paren(m)
                     .group()
-                    .append(RcDoc::line().append(RcDoc::text("o")).nest(2).group())
+                    .append(RcDoc::line().append(RcDoc::text("<o")).nest(2).group())
                     .append(sub(p))
             }
             FunctId(f, o) => {

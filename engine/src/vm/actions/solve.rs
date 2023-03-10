@@ -38,7 +38,7 @@ impl VM {
         // Substitute faces
         for id in 0..self.graph.faces.len() {
             let fce = self.graph.faces[id].eq.clone();
-            let fsubst = fce.clone().subst(&self.ctx, &sigma);
+            let fsubst = self.ctx.simpl_eq(fce.clone().subst(&self.ctx, &sigma));
             self.register_instruction(Ins::UpdateFace(id, fce, fsubst));
         }
 

@@ -7,6 +7,7 @@ pub mod normalize;
 pub mod parser;
 pub mod pretty;
 pub mod rpc;
+pub mod simpleq;
 pub mod substitution;
 pub mod ui;
 pub mod unification;
