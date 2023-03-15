@@ -1,9 +1,9 @@
-use crate::data::Morphism;
+use crate::data::{ActualEquality, Morphism};
 use crate::graph::Face;
 use crate::normalize;
 use crate::vm::asm;
 use crate::vm::graph::FaceLabel;
-use crate::vm::VM;
+use crate::vm::{GraphId, VM};
 use std::ops::Deref;
 
 type Ins = asm::Instruction;
@@ -27,7 +27,7 @@ impl VM {
                     }),
                 },
             ));
-            self.hide_and_replace_morphism(src, mph, fce)
+            self.extend_face_in_eqs(fce);
         }
     }
 
@@ -56,6 +56,139 @@ impl VM {
         };
         self.register_instruction(Ins::InsertFace(fce));
         Some(self.graph.faces.len() - 1)
+    }
+
+    // fce must be a face from a single morphism. Its equality is then inserted
+    // in all equalities that have on side that go through this morphism. Then
+    // it hides the morphism and the face
+    fn extend_face_in_eqs(&mut self, fce: usize) {
+        use ActualEquality::*;
+        assert_eq!(
+            self.graph.faces[fce].left.len(),
+            1,
+            "extend_face_in_eqs expect a face from a single morphism"
+        );
+        let src = self.graph.faces[fce].start;
+        let mph = self.graph.faces[fce].left[0];
+
+        for face in 0..self.graph.faces.len() {
+            if face == fce {
+                continue;
+            }
+            let mut changed = false;
+
+            // Build equality on left side
+            let mut node = self.graph.faces[face].start;
+            let mut lefteq = None;
+            for nxt in &self.graph.faces[face].left {
+                if node == src && *nxt == mph {
+                    let neq = self.graph.faces[fce].eq.clone();
+                    changed = true;
+                    if let Some(eq) = lefteq {
+                        lefteq = Some(self.ctx.mk(Concat(eq, neq)));
+                    } else {
+                        lefteq = Some(neq);
+                    }
+                } else {
+                    let neq = self.ctx.mk(Refl(self.graph.edges[node][*nxt].2.clone()));
+                    if let Some(eq) = lefteq {
+                        lefteq = Some(self.ctx.mk(Concat(eq, neq)));
+                    } else {
+                        lefteq = Some(neq);
+                    }
+                }
+                node = self.graph.edges[node][*nxt].0;
+            }
+
+            // Build equality on right side
+            let mut node = self.graph.faces[face].start;
+            let mut righteq = None;
+            for nxt in &self.graph.faces[face].right {
+                if node == src && *nxt == mph {
+                    let neq = self.graph.faces[fce].eq.clone();
+                    changed = true;
+                    if let Some(eq) = righteq {
+                        righteq = Some(self.ctx.mk(Concat(eq, neq)));
+                    } else {
+                        righteq = Some(neq);
+                    }
+                } else {
+                    let neq = self.ctx.mk(Refl(self.graph.edges[node][*nxt].2.clone()));
+                    if let Some(eq) = righteq {
+                        righteq = Some(self.ctx.mk(Concat(eq, neq)));
+                    } else {
+                        righteq = Some(neq);
+                    }
+                }
+                node = self.graph.edges[node][*nxt].0;
+            }
+
+            if !changed {
+                continue;
+            }
+
+            // Build new equality
+            let mut new_eq = self.graph.faces[face].eq.clone();
+            if let Some(leq) = lefteq {
+                let right = leq.right(&self.ctx);
+                let (_, norm) = normalize::morphism(&mut self.ctx, right);
+                new_eq = self.ctx.mk(Concat(
+                    self.ctx.mk(Inv(self.ctx.mk(Concat(leq, norm)))),
+                    new_eq,
+                ));
+            }
+            if let Some(req) = righteq {
+                let right = req.right(&self.ctx);
+                let (_, norm) = normalize::morphism(&mut self.ctx, right);
+                new_eq = self.ctx.mk(Concat(new_eq, self.ctx.mk(Concat(req, norm))));
+            }
+            self.register_instruction(Ins::UpdateFace(
+                face,
+                self.graph.faces[face].eq.clone(),
+                new_eq,
+            ));
+
+            // Update left and right paths
+            let rep = self.graph.faces[fce].right.clone();
+            let replace =
+                |node: &mut usize, nxt: &usize| -> Option<Box<dyn Iterator<Item = usize>>> {
+                    let (dst, _, _) = &self.graph.edges[*node][*nxt];
+                    let prev = *node;
+                    *node = *dst;
+                    if prev == src && *nxt == mph {
+                        Some(Box::new(rep.iter().map(|i| *i)))
+                    } else {
+                        Some(Box::new(std::iter::once(*nxt)))
+                    }
+                };
+            let start = self.graph.faces[face].start;
+            let left = self.graph.faces[face]
+                .left
+                .iter()
+                .scan(start, replace)
+                .flatten()
+                .collect::<Vec<_>>();
+            let right = self.graph.faces[face]
+                .right
+                .iter()
+                .scan(start, replace)
+                .flatten()
+                .collect::<Vec<_>>();
+            self.register_instruction(Ins::ExtendFaceLeft(
+                face,
+                self.graph.faces[face].left.clone(),
+                left,
+            ));
+            self.register_instruction(Ins::ExtendFaceRight(
+                face,
+                self.graph.faces[face].right.clone(),
+                right,
+            ));
+        }
+
+        self.hide(GraphId::Face(fce));
+        self.hide(GraphId::Morphism(src, mph));
+        self.relabel();
     }
 
     /// Split a morphism along compositions, add the components to the graph, and
