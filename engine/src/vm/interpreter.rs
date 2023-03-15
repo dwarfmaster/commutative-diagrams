@@ -81,6 +81,14 @@ impl VM {
                 assert_eq!(self.graph.faces[*fce].eq, *old);
                 self.graph.faces[*fce].eq = new.clone();
             }
+            ExtendFaceLeft(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].left, *old);
+                self.graph.faces[*fce].left = new.clone();
+            }
+            ExtendFaceRight(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].right, *old);
+                self.graph.faces[*fce].right = new.clone();
+            }
             UpdateFaceLabel(fce, upd) => upd.apply(&mut self.graph.faces[*fce].label),
             ExtendRefinements(sigma) => self.refinements.extend(sigma.iter().map(|p| p.clone())),
         }
@@ -125,6 +133,14 @@ impl VM {
             UpdateFace(fce, old, new) => {
                 assert_eq!(self.graph.faces[*fce].eq, *new);
                 self.graph.faces[*fce].eq = old.clone();
+            }
+            ExtendFaceLeft(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].left, *new);
+                self.graph.faces[*fce].left = old.clone();
+            }
+            ExtendFaceRight(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].right, *new);
+                self.graph.faces[*fce].right = old.clone();
             }
             UpdateFaceLabel(fce, upd) => upd.undo(&mut self.graph.faces[*fce].label),
             ExtendRefinements(sigma) => self
