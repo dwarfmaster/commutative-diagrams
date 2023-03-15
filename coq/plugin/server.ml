@@ -171,7 +171,7 @@ module Make(PA: Pa.ProofAssistant) = struct
       if res then begin
         match !subst with
         | Some eq ->
-            let* eq = R.realizeEq (SimplEq.simpl eq) in
+            let* eq = R.realizeEq eq in
             let* env = lift (PA.env ()) in
             let* _ = lift (PA.lift_tactic (Refine.refine ~typecheck:false
               (add_universes_constraints env (PA.to_econstr eq)))) in
@@ -208,7 +208,7 @@ module Make(PA: Pa.ProofAssistant) = struct
         ; eq_dst_ = morphism_dst mph1
         } in
       let eq = Data.Concat (eq1, Data.Concat (Data.AtomicEq hole, Data.InvEq eq2)) in
-      let* eq = R.realizeEq (SimplEq.simpl eq) in
+      let* eq = R.realizeEq eq in
       let* env = lift (PA.env ()) in
       let* _ =
         lift (PA.lift_tactic (Refine.refine ~typecheck:false
@@ -239,7 +239,7 @@ module Make(PA: Pa.ProofAssistant) = struct
         let* eq = Sd.Eq.unpack eq in
         begin match eq with
         | Some eq ->
-            let* eq = R.realizeEq (SimplEq.simpl eq) in
+            let* eq = R.realizeEq eq in
             let* env = lift (PA.env ()) in
             let* _ = lift (PA.lift_tactic (Refine.refine ~typecheck:false
               (add_universes_constraints env (PA.to_econstr eq)))) in
