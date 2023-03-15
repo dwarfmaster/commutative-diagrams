@@ -38,7 +38,13 @@ impl Context {
     fn simpl_eq_inv_to_concat(&self, inv: bool, eq: Equality) -> Equality {
         use ActualEquality::*;
         match eq.deref() {
-            Concat(m1, m2) => if inv { self.mk(Concat(m2.clone(), m1.clone())) } else { eq },
+            Concat(m1, m2) => {
+                if inv {
+                    self.mk(Concat(m2.clone(), m1.clone()))
+                } else {
+                    eq
+                }
+            }
             Refl(_) => eq,
             Inv(eq) => self.simpl_eq_inv(!inv, eq.clone()),
             Compose(eq1, eq2) => {
