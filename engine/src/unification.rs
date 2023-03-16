@@ -466,6 +466,11 @@ impl UnifState {
     pub fn assert_ready(&self) {
         self.gr.assert_reset()
     }
+
+    // For debugging purposes
+    pub fn debug_graphviz<O: std::io::Write>(&self, fmt: &mut O) -> Result<(), std::io::Error> {
+        self.gr.debug_graphviz(fmt)
+    }
 }
 
 /// Wrapper over UnifState when we only want to unify two terms
