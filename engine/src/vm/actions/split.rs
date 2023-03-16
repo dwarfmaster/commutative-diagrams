@@ -72,6 +72,8 @@ impl VM {
         let mph = self.graph.faces[fce].left[0];
 
         for face in 0..self.graph.faces.len() {
+            // TODO create a new existential and a new face, and hide the previous
+            // one. Faces should never change sides !
             if face == fce {
                 continue;
             }
@@ -79,49 +81,43 @@ impl VM {
 
             // Build equality on left side
             let mut node = self.graph.faces[face].start;
-            let mut lefteq = None;
+            let mut lefteq_vec = Vec::new();
             for nxt in &self.graph.faces[face].left {
                 if node == src && *nxt == mph {
                     let neq = self.graph.faces[fce].eq.clone();
                     changed = true;
-                    if let Some(eq) = lefteq {
-                        lefteq = Some(self.ctx.mk(Concat(eq, neq)));
-                    } else {
-                        lefteq = Some(neq);
-                    }
+                    lefteq_vec.push(neq);
                 } else {
                     let neq = self.ctx.mk(Refl(self.graph.edges[node][*nxt].2.clone()));
-                    if let Some(eq) = lefteq {
-                        lefteq = Some(self.ctx.mk(Concat(eq, neq)));
-                    } else {
-                        lefteq = Some(neq);
-                    }
+                    lefteq_vec.push(neq);
                 }
                 node = self.graph.edges[node][*nxt].0;
             }
+            let lefteq = lefteq_vec
+                .into_iter()
+                .rev()
+                .reduce(|eq1, eq2| self.ctx.mk(Compose(eq2, eq1)));
+            assert!(lefteq.as_ref().map(|e| e.check(&self.ctx)).unwrap_or(true));
 
             // Build equality on right side
             let mut node = self.graph.faces[face].start;
-            let mut righteq = None;
+            let mut righteq_vec = Vec::new();
             for nxt in &self.graph.faces[face].right {
                 if node == src && *nxt == mph {
                     let neq = self.graph.faces[fce].eq.clone();
                     changed = true;
-                    if let Some(eq) = righteq {
-                        righteq = Some(self.ctx.mk(Concat(eq, neq)));
-                    } else {
-                        righteq = Some(neq);
-                    }
+                    righteq_vec.push(neq);
                 } else {
                     let neq = self.ctx.mk(Refl(self.graph.edges[node][*nxt].2.clone()));
-                    if let Some(eq) = righteq {
-                        righteq = Some(self.ctx.mk(Concat(eq, neq)));
-                    } else {
-                        righteq = Some(neq);
-                    }
+                    righteq_vec.push(neq);
                 }
                 node = self.graph.edges[node][*nxt].0;
             }
+            let righteq = righteq_vec
+                .into_iter()
+                .rev()
+                .reduce(|eq1, eq2| self.ctx.mk(Compose(eq2, eq1)));
+            assert!(righteq.as_ref().map(|e| e.check(&self.ctx)).unwrap_or(true));
 
             if !changed {
                 continue;
@@ -142,6 +138,8 @@ impl VM {
                 let (_, norm) = normalize::morphism(&mut self.ctx, right);
                 new_eq = self.ctx.mk(Concat(new_eq, self.ctx.mk(Concat(req, norm))));
             }
+            new_eq = self.ctx.simpl_eq(new_eq);
+            assert!(new_eq.check(&self.ctx));
             self.register_instruction(Ins::UpdateFace(
                 face,
                 self.graph.faces[face].eq.clone(),
