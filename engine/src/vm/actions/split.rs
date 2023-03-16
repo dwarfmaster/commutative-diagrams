@@ -138,7 +138,7 @@ impl VM {
                 let (_, norm) = normalize::morphism(&mut self.ctx, right);
                 new_eq = self.ctx.mk(Concat(new_eq, self.ctx.mk(Concat(req, norm))));
             }
-            new_eq = self.ctx.simpl_eq(new_eq);
+            new_eq = new_eq.simpl(&self.ctx);
             assert!(new_eq.check(&self.ctx));
             self.register_instruction(Ins::UpdateFace(
                 face,
