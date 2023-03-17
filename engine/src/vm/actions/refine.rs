@@ -20,8 +20,14 @@ impl VM {
         right_path: Vec<usize>,
     ) -> Option<usize> {
         use ActualEquality::*;
-        assert_eq!(left_eq.left(&self.ctx), self.graph.faces[fce].eq.left(&self.ctx));
-        assert_eq!(right_eq.left(&self.ctx), self.graph.faces[fce].eq.right(&self.ctx));
+        assert_eq!(
+            left_eq.left(&self.ctx),
+            self.graph.faces[fce].eq.left(&self.ctx)
+        );
+        assert_eq!(
+            right_eq.left(&self.ctx),
+            self.graph.faces[fce].eq.right(&self.ctx)
+        );
 
         // Construct hole
         let left = left_eq.right(&self.ctx);
