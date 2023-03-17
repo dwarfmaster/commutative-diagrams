@@ -76,7 +76,14 @@ impl VM {
                 self.graph.edges[*src][*mph].0 = *new_dst;
             }
             UpdateMorphismLabel(src, mph, upd) => upd.apply(&mut self.graph.edges[*src][*mph].1),
-            InsertFace(fce) => self.graph.faces.push(fce.clone()),
+            InsertFace(fce, parent) => {
+                self.graph.faces.push(fce.clone());
+                if let (Some(sel), Some(parent)) = (self.selected_face, parent) {
+                    if sel == *parent {
+                        self.selected_face = Some(self.graph.faces.len() - 1);
+                    }
+                }
+            }
             UpdateFace(fce, old, new) => {
                 assert_eq!(self.graph.faces[*fce].eq, *old);
                 self.graph.faces[*fce].eq = new.clone();
@@ -119,10 +126,10 @@ impl VM {
                 self.graph.edges[*src][*mph].0 = *old_dst;
             }
             UpdateMorphismLabel(src, mph, upd) => upd.undo(&mut self.graph.edges[*src][*mph].1),
-            InsertFace(_) => {
+            InsertFace(_, parent) => {
                 if let Some(focused) = self.selected_face {
                     if focused == self.graph.faces.len() - 1 {
-                        self.selected_face = None;
+                        self.selected_face = *parent;
                     }
                 }
                 self.graph.faces.pop();

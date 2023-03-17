@@ -11,7 +11,7 @@ impl VM {
     // Create a new face of sides left_path and right_path, with equality a new
     // hole, marking the face fce as hidden and refining its equality with
     // left_eq <> ex <> right_eq^-1
-    pub fn replace_face(
+    pub fn conjugate_face(
         &mut self,
         fce: usize,
         left_eq: Equality,
@@ -70,12 +70,9 @@ impl VM {
         };
         assert!(face.check(&self.ctx, &self.graph));
         let face_id = self.graph.faces.len();
-        self.register_instruction(Ins::InsertFace(face));
+        self.register_instruction(Ins::InsertFace(face, Some(fce)));
 
         // Hide previous face
-        if self.selected_face == Some(fce) {
-            self.selected_face = Some(face_id);
-        }
         self.hide(GraphId::Face(fce));
 
         Some(face_id)

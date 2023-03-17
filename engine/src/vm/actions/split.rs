@@ -37,7 +37,7 @@ impl VM {
             eq: eqnorm,
             label: Default::default(),
         };
-        self.register_instruction(Ins::InsertFace(fce));
+        self.register_instruction(Ins::InsertFace(fce, None));
         Some(self.graph.faces.len() - 1)
     }
 
@@ -147,7 +147,7 @@ impl VM {
                 .flatten()
                 .collect::<Vec<_>>();
 
-            self.replace_face(face, lefteq, righteq, left, right);
+            self.conjugate_face(face, lefteq, righteq, left, right);
         }
 
         self.hide(GraphId::Face(fce));
@@ -177,7 +177,7 @@ impl VM {
             )),
             label: Default::default(),
         };
-        self.register_instruction(Ins::InsertFace(fce));
+        self.register_instruction(Ins::InsertFace(fce, None));
         Some(self.graph.faces.len() - 1)
     }
 
