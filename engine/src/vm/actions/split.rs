@@ -2,7 +2,6 @@ use crate::data::{ActualEquality, Morphism};
 use crate::graph::Face;
 use crate::normalize;
 use crate::vm::asm;
-use crate::vm::graph::FaceLabel;
 use crate::vm::{GraphId, VM};
 use std::ops::Deref;
 
@@ -11,22 +10,6 @@ type Ins = asm::Instruction;
 impl VM {
     pub fn split(&mut self, src: usize, mph: usize) {
         if let Some(fce) = self.split_norm(src, mph) {
-            let render = self.graph.faces[fce].eq.render(&mut self.ctx, 100);
-            self.register_instruction(Ins::UpdateFaceLabel(
-                fce,
-                asm::Updater {
-                    direct: Box::new(move |label: &mut FaceLabel| {
-                        label.label = render.clone();
-                        label.hidden = true;
-                    }),
-                    reverse: Box::new(|label: &mut FaceLabel| {
-                        // We don't other restoring to previous values since the face will
-                        // be removed just after
-                        label.label.clear();
-                        label.hidden = false;
-                    }),
-                },
-            ));
             self.extend_face_in_eqs(fce);
         }
     }
@@ -72,8 +55,6 @@ impl VM {
         let mph = self.graph.faces[fce].left[0];
 
         for face in 0..self.graph.faces.len() {
-            // TODO create a new existential and a new face, and hide the previous
-            // one. Faces should never change sides !
             if face == fce {
                 continue;
             }
@@ -96,8 +77,13 @@ impl VM {
             let lefteq = lefteq_vec
                 .into_iter()
                 .rev()
-                .reduce(|eq1, eq2| self.ctx.mk(Compose(eq2, eq1)));
-            assert!(lefteq.as_ref().map(|e| e.check(&self.ctx)).unwrap_or(true));
+                .reduce(|eq1, eq2| self.ctx.mk(Compose(eq2, eq1)))
+                .unwrap_or(self.ctx.mk(Refl(self.graph.faces[fce].eq.left(&self.ctx))));
+            let lefteq_right = lefteq.right(&self.ctx);
+            let (_, norm_left) = normalize::morphism(&mut self.ctx, lefteq_right);
+            let lefteq = self.ctx.mk(Concat(lefteq, norm_left));
+            assert!(lefteq.check(&self.ctx));
+            assert_eq!(lefteq.left(&self.ctx), self.graph.faces[face].eq.left(&self.ctx));
 
             // Build equality on right side
             let mut node = self.graph.faces[face].start;
@@ -116,35 +102,17 @@ impl VM {
             let righteq = righteq_vec
                 .into_iter()
                 .rev()
-                .reduce(|eq1, eq2| self.ctx.mk(Compose(eq2, eq1)));
-            assert!(righteq.as_ref().map(|e| e.check(&self.ctx)).unwrap_or(true));
+                .reduce(|eq1, eq2| self.ctx.mk(Compose(eq2, eq1)))
+                .unwrap_or(self.ctx.mk(Refl(self.graph.faces[fce].eq.right(&self.ctx))));
+            let righteq_right = righteq.right(&self.ctx);
+            let (_, norm_right) = normalize::morphism(&mut self.ctx, righteq_right);
+            let righteq = self.ctx.mk(Concat(righteq, norm_right));
+            assert!(righteq.check(&self.ctx));
+            assert_eq!(righteq.left(&self.ctx), self.graph.faces[face].eq.right(&self.ctx));
 
             if !changed {
                 continue;
             }
-
-            // Build new equality
-            let mut new_eq = self.graph.faces[face].eq.clone();
-            if let Some(leq) = lefteq {
-                let right = leq.right(&self.ctx);
-                let (_, norm) = normalize::morphism(&mut self.ctx, right);
-                new_eq = self.ctx.mk(Concat(
-                    self.ctx.mk(Inv(self.ctx.mk(Concat(leq, norm)))),
-                    new_eq,
-                ));
-            }
-            if let Some(req) = righteq {
-                let right = req.right(&self.ctx);
-                let (_, norm) = normalize::morphism(&mut self.ctx, right);
-                new_eq = self.ctx.mk(Concat(new_eq, self.ctx.mk(Concat(req, norm))));
-            }
-            new_eq = new_eq.simpl(&self.ctx);
-            assert!(new_eq.check(&self.ctx));
-            self.register_instruction(Ins::UpdateFace(
-                face,
-                self.graph.faces[face].eq.clone(),
-                new_eq,
-            ));
 
             // Update left and right paths
             let rep = self.graph.faces[fce].right.clone();
@@ -172,16 +140,8 @@ impl VM {
                 .scan(start, replace)
                 .flatten()
                 .collect::<Vec<_>>();
-            self.register_instruction(Ins::ExtendFaceLeft(
-                face,
-                self.graph.faces[face].left.clone(),
-                left,
-            ));
-            self.register_instruction(Ins::ExtendFaceRight(
-                face,
-                self.graph.faces[face].right.clone(),
-                right,
-            ));
+
+            self.replace_face(face, lefteq, righteq, left, right);
         }
 
         self.hide(GraphId::Face(fce));
