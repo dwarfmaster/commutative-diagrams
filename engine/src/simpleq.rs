@@ -67,6 +67,6 @@ impl ActualEquality {
     }
 
     pub fn simpl(&self, ctx: &Context) -> Equality {
-        self.simpl_inv(ctx, true)
+        self.simpl_inv(ctx, false)
     }
 }
