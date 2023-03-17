@@ -128,6 +128,11 @@ impl VM {
             }
             UpdateMorphismLabel(src, mph, upd) => upd.undo(&mut self.graph.edges[*src][*mph].1),
             InsertFace(_) => {
+                if let Some(focused) = self.selected_face {
+                    if focused == self.graph.faces.len() - 1 {
+                        self.selected_face = None;
+                    }
+                }
                 self.graph.faces.pop();
             }
             UpdateFace(fce, old, new) => {
