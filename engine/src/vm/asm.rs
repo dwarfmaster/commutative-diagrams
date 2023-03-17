@@ -46,8 +46,6 @@ pub enum Instruction {
     UpdateMorphismLabel(usize, usize, Updater<EdgeLabel>),
     InsertFace(Face<FaceLabel>),
     UpdateFace(usize, Equality, Equality),
-    ExtendFaceLeft(usize, Vec<usize>, Vec<usize>),
-    ExtendFaceRight(usize, Vec<usize>, Vec<usize>),
     UpdateFaceLabel(usize, Updater<FaceLabel>),
     ExtendRefinements(Substitution),
 }
