@@ -1,10 +1,8 @@
 use crate::data::ActualMorphism;
-use crate::vm;
 use crate::vm::asm;
 use crate::vm::graph::GraphId;
 use crate::vm::graph::{EdgeLabel, FaceLabel, NodeLabel};
 use crate::vm::VM;
-use std::iter;
 use std::ops::Deref;
 
 type Ins = asm::Instruction;
@@ -36,34 +34,6 @@ fn hidden_upd<T: HasHidden + Clone>(val: &T, new: bool) -> asm::Updater<T> {
     let old = val.is_hidden();
     let reverse = move |v: &mut T| {
         *v.hidden() = old;
-    };
-    asm::Updater {
-        direct: Box::new(direct),
-        reverse: Box::new(reverse),
-    }
-}
-
-fn left_upd(lbl: &FaceLabel, new: Vec<usize>) -> asm::Updater<FaceLabel> {
-    let direct = move |v: &mut FaceLabel| {
-        v.left = Some(new.clone());
-    };
-    let old = lbl.left.clone();
-    let reverse = move |v: &mut FaceLabel| {
-        v.left = old.clone();
-    };
-    asm::Updater {
-        direct: Box::new(direct),
-        reverse: Box::new(reverse),
-    }
-}
-
-fn right_upd(lbl: &FaceLabel, new: Vec<usize>) -> asm::Updater<FaceLabel> {
-    let direct = move |v: &mut FaceLabel| {
-        v.right = Some(new.clone());
-    };
-    let old = lbl.right.clone();
-    let reverse = move |v: &mut FaceLabel| {
-        v.right = old.clone();
     };
     asm::Updater {
         direct: Box::new(direct),
@@ -149,54 +119,6 @@ impl VM {
 
     // Hide a morphism, and create an alias for all faces that go through that
     // morphism
-    pub fn hide_and_replace_morphism(&mut self, src: usize, mph: usize, rep_fce: usize) {
-        assert_eq!(src, self.graph.faces[rep_fce].start);
-        assert_eq!(self.graph.edges[src][mph].0, self.graph.faces[rep_fce].end);
-
-        // Replacement
-        {
-            let rep = self.get_right_side(rep_fce).clone();
-            let replace =
-                |node: &mut usize, nxt: &usize| -> Option<Box<dyn Iterator<Item = usize>>> {
-                    let (dst, _, _) = &self.graph.edges[*node][*nxt];
-                    let prev = *node;
-                    *node = *dst;
-                    if prev == src && *nxt == mph {
-                        Some(Box::new(rep.iter().map(|i| *i)))
-                    } else {
-                        Some(Box::new(iter::once(*nxt)))
-                    }
-                };
-            for fce in 0..self.graph.faces.len() {
-                let start = self.graph.faces[fce].start;
-                let left = vm::get_left_side(&self.graph.faces, fce)
-                    .iter()
-                    .scan(start, replace)
-                    .flatten()
-                    .collect::<Vec<_>>();
-                self.instructions.push(Ins::UpdateFaceLabel(
-                    fce,
-                    left_upd(&self.graph.faces[fce].label, left.clone()),
-                ));
-                self.graph.faces[fce].label.left = Some(left);
-
-                let right = vm::get_right_side(&self.graph.faces, fce)
-                    .iter()
-                    .scan(start, replace)
-                    .flatten()
-                    .collect::<Vec<_>>();
-                self.instructions.push(Ins::UpdateFaceLabel(
-                    fce,
-                    right_upd(&self.graph.faces[fce].label, right.clone()),
-                ));
-                self.graph.faces[fce].label.right = Some(right);
-            }
-        }
-
-        // Hiding
-        self.hide(GraphId::Morphism(src, mph))
-    }
-
     // Hide all identities in the graph
     pub fn hide_identities(&mut self) {
         for src in 0..self.graph.edges.len() {

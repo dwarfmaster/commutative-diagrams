@@ -1,5 +1,4 @@
 use crate::data::Morphism;
-use crate::vm;
 use crate::vm::graph::EdgeLabel;
 use crate::vm::VM;
 
@@ -23,7 +22,7 @@ impl VM {
         on_path(
             &mut self.graph.edges,
             self.graph.faces[fce].start,
-            vm::get_left_side(&self.graph.faces, fce),
+            &self.graph.faces[fce].left,
             |lbl| {
                 lbl.style.left = true;
             },
@@ -31,7 +30,7 @@ impl VM {
         on_path(
             &mut self.graph.edges,
             self.graph.faces[fce].start,
-            vm::get_right_side(&self.graph.faces, fce),
+            &self.graph.faces[fce].right,
             |lbl| {
                 lbl.style.right = true;
             },
@@ -42,7 +41,7 @@ impl VM {
         on_path(
             &mut self.graph.edges,
             self.graph.faces[fce].start,
-            vm::get_left_side(&self.graph.faces, fce),
+            &self.graph.faces[fce].left,
             |lbl| {
                 lbl.style.left = false;
             },
@@ -50,7 +49,7 @@ impl VM {
         on_path(
             &mut self.graph.edges,
             self.graph.faces[fce].start,
-            vm::get_right_side(&self.graph.faces, fce),
+            &self.graph.faces[fce].right,
             |lbl| {
                 lbl.style.right = false;
             },

@@ -83,7 +83,10 @@ impl VM {
             let (_, norm_left) = normalize::morphism(&mut self.ctx, lefteq_right);
             let lefteq = self.ctx.mk(Concat(lefteq, norm_left));
             assert!(lefteq.check(&self.ctx));
-            assert_eq!(lefteq.left(&self.ctx), self.graph.faces[face].eq.left(&self.ctx));
+            assert_eq!(
+                lefteq.left(&self.ctx),
+                self.graph.faces[face].eq.left(&self.ctx)
+            );
 
             // Build equality on right side
             let mut node = self.graph.faces[face].start;
@@ -108,7 +111,10 @@ impl VM {
             let (_, norm_right) = normalize::morphism(&mut self.ctx, righteq_right);
             let righteq = self.ctx.mk(Concat(righteq, norm_right));
             assert!(righteq.check(&self.ctx));
-            assert_eq!(righteq.left(&self.ctx), self.graph.faces[face].eq.right(&self.ctx));
+            assert_eq!(
+                righteq.left(&self.ctx),
+                self.graph.faces[face].eq.right(&self.ctx)
+            );
 
             if !changed {
                 continue;
