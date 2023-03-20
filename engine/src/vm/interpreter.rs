@@ -1,5 +1,5 @@
 use crate::vm::asm::Instruction;
-use crate::vm::VM;
+use crate::vm::{GraphId, VM};
 
 pub struct InterpreterStatus {
     should_relayout: bool,
@@ -53,6 +53,7 @@ impl VM {
         match ins {
             InsertNode(obj) => {
                 self.graph.nodes.push((obj.clone(), Default::default()));
+                self.autoname_node(self.graph.nodes.len() - 1);
                 self.graph.edges.push(vec![]);
             }
             UpdateNode(nd, old, new) => {
@@ -60,8 +61,15 @@ impl VM {
                 self.graph.nodes[*nd].0 = new.clone();
             }
             UpdateNodeLabel(nd, upd) => upd.apply(&mut self.graph.nodes[*nd].1),
+            RenameNode(nd, prev, new) => {
+                assert_eq!(&self.graph.nodes[*nd].1.name, prev);
+                self.graph.nodes[*nd].1.name = new.clone();
+                self.names.remove(prev);
+                self.names.insert(new.clone(), GraphId::Node(*nd));
+            }
             InsertMorphism(src, dst, mph) => {
-                self.graph.edges[*src].push((*dst, Default::default(), mph.clone()))
+                self.graph.edges[*src].push((*dst, Default::default(), mph.clone()));
+                self.autoname_morphism(*src, self.graph.edges[*src].len() - 1);
             }
             UpdateMorphism(src, mph, old, new) => {
                 assert_eq!(self.graph.edges[*src][*mph].2, *old);
@@ -76,8 +84,16 @@ impl VM {
                 self.graph.edges[*src][*mph].0 = *new_dst;
             }
             UpdateMorphismLabel(src, mph, upd) => upd.apply(&mut self.graph.edges[*src][*mph].1),
+            RenameMorphism(src, mph, prev, new) => {
+                assert_eq!(&self.graph.edges[*src][*mph].1.name, prev);
+                self.graph.edges[*src][*mph].1.name = new.clone();
+                self.names.remove(prev);
+                self.names
+                    .insert(new.clone(), GraphId::Morphism(*src, *mph));
+            }
             InsertFace(fce, parent) => {
                 self.graph.faces.push(fce.clone());
+                self.autoname_face(self.graph.faces.len() - 1, *parent);
                 if let (Some(sel), Some(parent)) = (self.selected_face, parent) {
                     if sel == *parent {
                         self.selected_face = Some(self.graph.faces.len() - 1);
@@ -90,6 +106,12 @@ impl VM {
             }
             UpdateFaceLabel(fce, upd) => upd.apply(&mut self.graph.faces[*fce].label),
             ExtendRefinements(sigma) => self.refinements.extend(sigma.iter().map(|p| p.clone())),
+            RenameFace(fce, prev, new) => {
+                assert_eq!(&self.graph.faces[*fce].label.name, prev);
+                self.graph.faces[*fce].label.name = new.clone();
+                self.names.remove(prev);
+                self.names.insert(new.clone(), GraphId::Face(*fce));
+            }
         }
     }
 
@@ -99,7 +121,9 @@ impl VM {
         self.eval_status.should_relayout = true;
         match ins {
             InsertNode(_) => {
-                self.graph.nodes.pop();
+                if let Some(nd) = self.graph.nodes.pop() {
+                    self.names.remove(&nd.1.name);
+                }
                 self.graph.edges.pop();
             }
             UpdateNode(nd, old, new) => {
@@ -107,8 +131,16 @@ impl VM {
                 self.graph.nodes[*nd].0 = old.clone();
             }
             UpdateNodeLabel(nd, upd) => upd.undo(&mut self.graph.nodes[*nd].1),
+            RenameNode(nd, prev, new) => {
+                assert_eq!(&self.graph.nodes[*nd].1.name, new);
+                self.graph.nodes[*nd].1.name = prev.clone();
+                self.names.remove(new);
+                self.names.insert(prev.clone(), GraphId::Node(*nd));
+            }
             InsertMorphism(src, _, _) => {
-                self.graph.edges[*src].pop();
+                if let Some(mph) = self.graph.edges[*src].pop() {
+                    self.names.remove(&mph.1.name);
+                }
             }
             UpdateMorphism(src, mph, old, new) => {
                 assert_eq!(self.graph.edges[*src][*mph].2, *new);
@@ -126,13 +158,22 @@ impl VM {
                 self.graph.edges[*src][*mph].0 = *old_dst;
             }
             UpdateMorphismLabel(src, mph, upd) => upd.undo(&mut self.graph.edges[*src][*mph].1),
+            RenameMorphism(src, mph, prev, new) => {
+                assert_eq!(&self.graph.edges[*src][*mph].1.name, new);
+                self.graph.edges[*src][*mph].1.name = prev.clone();
+                self.names.remove(new);
+                self.names
+                    .insert(prev.clone(), GraphId::Morphism(*src, *mph));
+            }
             InsertFace(_, parent) => {
                 if let Some(focused) = self.selected_face {
                     if focused == self.graph.faces.len() - 1 {
                         self.selected_face = *parent;
                     }
                 }
-                self.graph.faces.pop();
+                if let Some(fce) = self.graph.faces.pop() {
+                    self.names.remove(&fce.label.name);
+                }
             }
             UpdateFace(fce, old, new) => {
                 assert_eq!(self.graph.faces[*fce].eq, *new);
@@ -142,6 +183,12 @@ impl VM {
             ExtendRefinements(sigma) => self
                 .refinements
                 .truncate(self.refinements.len().saturating_sub(sigma.len())),
+            RenameFace(fce, prev, new) => {
+                assert_eq!(&self.graph.faces[*fce].label.name, new);
+                self.graph.faces[*fce].label.name = prev.clone();
+                self.names.remove(new);
+                self.names.insert(prev.clone(), GraphId::Face(*fce));
+            }
         }
     }
 }

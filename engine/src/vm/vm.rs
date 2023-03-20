@@ -79,9 +79,9 @@ impl VM {
             refinements: Vec::new(),
         };
         res.renumber_edges();
+        res.relabel();
         res.autoname();
         res.hide_identities();
-        res.relabel();
         res.layout();
         res
     }

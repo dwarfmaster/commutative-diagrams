@@ -11,13 +11,7 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
             }
             let label = format!(
                 "{}[{}]: {}",
-                vm.graph.faces[fce]
-                    .label
-                    .name
-                    .as_ref()
-                    .unwrap_or(&"".to_string()),
-                fce,
-                &vm.graph.faces[fce].label.label
+                vm.graph.faces[fce].label.name, fce, &vm.graph.faces[fce].label.label
             );
             ui.radio_value(&mut vm.selected_face, Some(fce), label);
         }

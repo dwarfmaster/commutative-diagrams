@@ -39,13 +39,16 @@ pub enum Instruction {
     InsertNode(Object),
     UpdateNode(usize, Object, Object),
     UpdateNodeLabel(usize, Updater<NodeLabel>),
+    RenameNode(usize, String, String),
     InsertMorphism(usize, usize, Morphism),
     UpdateMorphism(usize, usize, Morphism, Morphism),
     RelocateMorphismSrc(usize, usize, usize),
     RelocateMorphismDst(usize, usize, usize, usize),
     UpdateMorphismLabel(usize, usize, Updater<EdgeLabel>),
+    RenameMorphism(usize, usize, String, String),
     InsertFace(Face<FaceLabel>, Option<usize>), // Add a face, optionally indicating a parent
     UpdateFace(usize, Equality, Equality),
     UpdateFaceLabel(usize, Updater<FaceLabel>),
+    RenameFace(usize, String, String),
     ExtendRefinements(Substitution),
 }

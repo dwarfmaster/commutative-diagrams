@@ -18,7 +18,7 @@ pub enum LabelSource {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct NodeLabel {
     pub pos: egui::Pos2,
-    pub name: Option<String>,
+    pub name: String,
     pub label: String,
     pub label_source: LabelSource,
     // Invariant: when a node is hidden, all in/out-going edges must be hidden too
@@ -29,7 +29,7 @@ impl NodeLabel {
     pub fn new() -> Self {
         Self {
             pos: egui::Pos2::ZERO,
-            name: None,
+            name: "".to_string(),
             label: String::new(),
             label_source: LabelSource::None,
             hidden: false,
@@ -48,7 +48,7 @@ pub struct EdgeStyle {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct EdgeLabel {
     pub shape: Vec<[egui::Pos2; 4]>,
-    pub name: Option<String>,
+    pub name: String,
     pub id: usize,
     pub label: String,
     pub label_pos: egui::Pos2,
@@ -61,7 +61,7 @@ impl EdgeLabel {
     pub fn new() -> Self {
         Self {
             shape: Vec::new(),
-            name: None,
+            name: "".to_string(),
             label: String::new(),
             label_pos: egui::Pos2::ZERO,
             label_source: LabelSource::None,
@@ -76,14 +76,14 @@ impl EdgeLabel {
 pub struct FaceLabel {
     pub label: String,
     pub label_source: LabelSource,
-    pub name: Option<String>,
+    pub name: String,
     pub hidden: bool,
 }
 
 impl FaceLabel {
     pub fn new() -> Self {
         Self {
-            name: None,
+            name: "".to_string(),
             label: String::new(),
             label_source: LabelSource::None,
             hidden: false,

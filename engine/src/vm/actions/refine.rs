@@ -3,6 +3,7 @@ use crate::data::ActualProofObject;
 use crate::data::{ActualEquality, Equality, EqualityData};
 use crate::graph::Face;
 use crate::unification::unify;
+use crate::vm::graph::FaceLabel;
 use crate::vm::{GraphId, VM};
 
 type Ins = crate::vm::asm::Instruction;
@@ -66,7 +67,10 @@ impl VM {
             left: left_path,
             right: right_path,
             eq: hole,
-            label: self.graph.faces[fce].label.clone(),
+            label: FaceLabel {
+                name: "".to_string(),
+                ..self.graph.faces[fce].label.clone()
+            },
         };
         assert!(face.check(&self.ctx, &self.graph));
         let face_id = self.graph.faces.len();
