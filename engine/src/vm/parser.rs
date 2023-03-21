@@ -113,6 +113,9 @@ impl<'a> Parser<'a> {
             "insert_at" => self.act_insert_at(input),
             "split" => self.act_split(input),
             "solve" => self.act_solve(input),
+            "pull" => self.act_pull(input),
+            "push" => self.act_push(input),
+            "shrink" => self.act_shrink(input),
             "refine" => self.act_refine(input),
             "hide" => self.act_hide(true, input),
             "reveal" => self.act_hide(false, input),
@@ -188,6 +191,32 @@ impl<'a> Parser<'a> {
             (false, "face") => success(ast::Action::RevealFace(d))(input),
             _ => fail(input),
         }
+    }
+
+    fn act_pull(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
+        let (input, _) = space1(input)?;
+        let (input, fce) = self.loc_term_descr(input)?;
+        let (input, _) = sep(input)?;
+        let (input, span) = alt((
+            value(None, char('*')),
+            map(integer, |i| Some(i))))(input)?;
+        success(ast::Action::PullFace(fce, span))(input)
+    }
+
+    fn act_push(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
+        let (input, _) = space1(input)?;
+        let (input, fce) = self.loc_term_descr(input)?;
+        let (input, _) = sep(input)?;
+        let (input, span) = alt((
+            value(None, char('*')),
+            map(integer, |i| Some(i))))(input)?;
+        success(ast::Action::PushFace(fce, span))(input)
+    }
+
+    fn act_shrink(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
+        let (input, _) = space1(input)?;
+        let (input, fce) = self.loc_term_descr(input)?;
+        success(ast::Action::ShrinkFace(fce))(input)
     }
 }
 

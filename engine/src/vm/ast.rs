@@ -29,6 +29,13 @@ pub enum Action {
     RevealFace(Annot<TermDescr>),
     // Try to solve a face using the automatic solver
     Solve(Option<Annot<usize>>, Annot<TermDescr>),
+    // If too sides of a face are the same at the end, simplify it. None means
+    // by as much as possible.
+    PullFace(Annot<TermDescr>, Option<usize>),
+    // Same but for the beggining
+    PushFace(Annot<TermDescr>, Option<usize>),
+    // Combined action
+    ShrinkFace(Annot<TermDescr>),
     // Unify the two terms as equalities
     Refine(Annot<TermDescr>, Annot<TermDescr>),
     // End the interface with a success

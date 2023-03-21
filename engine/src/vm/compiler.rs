@@ -140,6 +140,9 @@ impl VM {
                     }
                 }
             }
+            PullFace(_,_) => todo!(),
+            PushFace(_,_) => todo!(),
+            ShrinkFace(_) => todo!(),
             Refine(_, _) => todo!(),
             Succeed => result = Success,
             Fail => result = Failure,
