@@ -10,18 +10,22 @@ use crate::unification::unify;
 
 /// Use a union find based algorithm to try and find an equality for the face
 /// given by its index. In case of success, unify the found equality with the
-/// one of the face and return the substitution.
+/// one of the face and return the substitution. mask decides which equality
+/// will be used when solving. If mask[face] == true, the solution found will
+/// probably not be interesting.
 pub fn solve<NL, EL, FL>(
     ctx: &mut Context,
     gr: &Graph<NL, EL, FL>,
+    mask: &Vec<bool>,
     face: usize,
     max_size: usize,
 ) -> Option<Substitution> {
+    assert_eq!(mask.len(), gr.faces.len());
     let paths = gr.enumerate(ctx, max_size);
     let mut uf = UF::new(ctx, &paths.paths);
     setup_hooks(&mut uf, ctx, gr);
     for fce in 0..gr.faces.len() {
-        if fce == face {
+        if !mask[fce] {
             continue;
         }
         let eq = gr.faces[fce].eq.clone();
@@ -143,8 +147,9 @@ mod tests {
             ],
             faces: vec![fce23, fce12, fce13, fce45],
         };
+        let mask = vec![false, true, true, true];
 
-        let result = solve(&mut ctx, &gr, 0, 1);
+        let result = solve(&mut ctx, &gr, &mask, 0, 1);
         assert!(result.is_some(), "Solving should succeed");
         let eq = gr.faces[0].eq.clone().subst(&ctx, &result.unwrap());
         assert!(eq.check(&ctx), "Resulting equality is incorrect");
@@ -185,8 +190,9 @@ mod tests {
             edges: vec![vec![(1, (), m)], vec![(2, (), m1), (2, (), m2)], vec![]],
             faces: vec![exist, fce],
         };
+        let mask = vec![false, true];
 
-        let result = solve(&mut ctx, &gr, 0, 2);
+        let result = solve(&mut ctx, &gr, &mask, 0, 2);
         assert!(result.is_some(), "Solving should succeed");
         let eq = gr.faces[0].eq.clone().subst(&ctx, &result.unwrap());
         assert!(eq.check(&ctx), "Resulting equality is incorrect");
@@ -227,8 +233,9 @@ mod tests {
             edges: vec![vec![(1, (), m1), (1, (), m2)], vec![(2, (), m)], vec![]],
             faces: vec![exist, fce],
         };
+        let mask = vec![false, true];
 
-        let result = solve(&mut ctx, &gr, 0, 2);
+        let result = solve(&mut ctx, &gr, &mask, 0, 2);
         assert!(result.is_some(), "Solving should succeed");
         let eq = gr.faces[0].eq.clone().subst(&ctx, &result.unwrap());
         assert!(eq.check(&ctx), "Resulting equality is incorrect");

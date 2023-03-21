@@ -370,7 +370,14 @@ where
     log::debug!("Graph to solve: {:#?}", vm.graph);
 
     log::info!("Trying to solve face {}", goal_id);
-    let sol = autofill::solve(&mut vm.ctx, &vm.graph, goal_id, level);
+    let mask = vm
+        .graph
+        .faces
+        .iter()
+        .enumerate()
+        .map(|(i, _)| i != goal_id)
+        .collect();
+    let sol = autofill::solve(&mut vm.ctx, &vm.graph, &mask, goal_id, level);
     match sol {
         None => {
             log::info!("Failed to solve");
