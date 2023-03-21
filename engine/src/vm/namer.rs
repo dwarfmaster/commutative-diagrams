@@ -126,12 +126,12 @@ impl VM {
         self.set_name(GraphId::Morphism(src, mph), name);
     }
 
-    pub fn autoname_face(&mut self, fce: usize, parent: Option<usize>) {
+    pub fn autoname_face(&mut self, fce: usize) {
         assert!(self.graph.faces[fce].label.name.is_empty());
 
         // If the name of the parent is not empty (ie we're the first children of the parent),
         // we copy the name
-        if let Some(parent) = parent {
+        if let Some(parent) = self.graph.faces[fce].label.parent {
             if !self.graph.faces[parent].label.name.is_empty() {
                 let parent_name = self.graph.faces[parent].label.name.clone();
                 self.set_name(GraphId::Face(parent), "".to_string());
@@ -181,7 +181,7 @@ impl VM {
             }
         }
         for fce in 0..self.graph.faces.len() {
-            self.autoname_face(fce, None);
+            self.autoname_face(fce);
         }
     }
 }

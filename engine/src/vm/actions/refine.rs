@@ -69,12 +69,16 @@ impl VM {
             eq: hole,
             label: FaceLabel {
                 name: "".to_string(),
-                ..self.graph.faces[fce].label.clone()
+                parent: Some(fce),
+                children: Vec::new(),
+                label: self.graph.faces[fce].label.label.clone(),
+                label_source: self.graph.faces[fce].label.label_source,
+                hidden: false,
             },
         };
         assert!(face.check(&self.ctx, &self.graph));
         let face_id = self.graph.faces.len();
-        self.register_instruction(Ins::InsertFace(face, Some(fce)));
+        self.register_instruction(Ins::InsertFace(face));
 
         // Hide previous face
         self.hide(GraphId::Face(fce));

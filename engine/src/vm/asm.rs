@@ -46,7 +46,7 @@ pub enum Instruction {
     RelocateMorphismDst(usize, usize, usize, usize),
     UpdateMorphismLabel(usize, usize, Updater<EdgeLabel>),
     RenameMorphism(usize, usize, String, String),
-    InsertFace(Face<FaceLabel>, Option<usize>), // Add a face, optionally indicating a parent
+    InsertFace(Face<FaceLabel>), // Add a face
     UpdateFace(usize, Equality, Equality),
     UpdateFaceLabel(usize, Updater<FaceLabel>),
     RenameFace(usize, String, String),

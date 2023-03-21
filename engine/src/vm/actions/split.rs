@@ -37,7 +37,7 @@ impl VM {
             eq: eqnorm,
             label: Default::default(),
         };
-        self.register_instruction(Ins::InsertFace(fce, None));
+        self.register_instruction(Ins::InsertFace(fce));
         Some(self.graph.faces.len() - 1)
     }
 
@@ -177,7 +177,7 @@ impl VM {
             )),
             label: Default::default(),
         };
-        self.register_instruction(Ins::InsertFace(fce, None));
+        self.register_instruction(Ins::InsertFace(fce));
         Some(self.graph.faces.len() - 1)
     }
 

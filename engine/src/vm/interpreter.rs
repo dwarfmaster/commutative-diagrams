@@ -91,12 +91,16 @@ impl VM {
                 self.names
                     .insert(new.clone(), GraphId::Morphism(*src, *mph));
             }
-            InsertFace(fce, parent) => {
+            InsertFace(fce) => {
                 self.graph.faces.push(fce.clone());
-                self.autoname_face(self.graph.faces.len() - 1, *parent);
-                if let (Some(sel), Some(parent)) = (self.selected_face, parent) {
-                    if sel == *parent {
-                        self.selected_face = Some(self.graph.faces.len() - 1);
+                let nfce = self.graph.faces.len() - 1;
+                self.autoname_face(nfce);
+                if let Some(parent) = fce.label.parent {
+                    self.graph.faces[parent].label.children.push(nfce);
+                    if let Some(sel) = self.selected_face {
+                        if sel == parent {
+                            self.selected_face = Some(self.graph.faces.len() - 1);
+                        }
                     }
                 }
             }
@@ -165,13 +169,16 @@ impl VM {
                 self.names
                     .insert(prev.clone(), GraphId::Morphism(*src, *mph));
             }
-            InsertFace(_, parent) => {
-                if let Some(focused) = self.selected_face {
-                    if focused == self.graph.faces.len() - 1 {
-                        self.selected_face = *parent;
-                    }
-                }
+            InsertFace(_) => {
                 if let Some(fce) = self.graph.faces.pop() {
+                    if let Some(focused) = self.selected_face {
+                        if focused == self.graph.faces.len() {
+                            self.selected_face = fce.label.parent;
+                        }
+                    }
+                    if let Some(parent) = fce.label.parent {
+                        self.graph.faces[parent].label.children.pop();
+                    }
                     self.names.remove(&fce.label.name);
                 }
             }

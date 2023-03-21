@@ -78,6 +78,8 @@ pub struct FaceLabel {
     pub label_source: LabelSource,
     pub name: String,
     pub hidden: bool,
+    pub parent: Option<usize>,
+    pub children: Vec<usize>,
 }
 
 impl FaceLabel {
@@ -87,6 +89,8 @@ impl FaceLabel {
             label: String::new(),
             label_source: LabelSource::None,
             hidden: false,
+            parent: None,
+            children: Vec::new(),
         }
     }
 }
