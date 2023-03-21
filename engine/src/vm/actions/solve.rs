@@ -9,7 +9,12 @@ impl VM {
     // Returns true if it succeeded in solving the face
     pub fn solve_face(&mut self, fce: usize, max_size: usize) -> bool {
         let mut mask = vec![true; self.graph.faces.len()];
-        mask[fce] = false;
+        // Disable all parents
+        let mut current = Some(fce);
+        while let Some(nxt) = current {
+            mask[nxt] = false;
+            current = self.graph.faces[nxt].label.parent;
+        }
 
         let sigma = solve(&mut self.ctx, &self.graph, &mask, fce, max_size);
         if let Some(sigma) = sigma {
