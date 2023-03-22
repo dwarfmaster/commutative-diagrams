@@ -176,10 +176,11 @@ impl VM {
                             self.selected_face = fce.label.parent;
                         }
                     }
+                    self.names.remove(&fce.label.name);
                     if let Some(parent) = fce.label.parent {
+                        self.set_name(GraphId::Face(parent), fce.label.name);
                         self.graph.faces[parent].label.children.pop();
                     }
-                    self.names.remove(&fce.label.name);
                 }
             }
             UpdateFace(fce, old, new) => {
