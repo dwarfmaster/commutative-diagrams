@@ -197,9 +197,7 @@ impl<'a> Parser<'a> {
         let (input, _) = space1(input)?;
         let (input, fce) = self.loc_term_descr(input)?;
         let (input, _) = sep(input)?;
-        let (input, span) = alt((
-            value(None, char('*')),
-            map(integer, |i| Some(i))))(input)?;
+        let (input, span) = alt((value(None, char('*')), map(integer, |i| Some(i))))(input)?;
         success(ast::Action::PullFace(fce, span))(input)
     }
 
@@ -207,9 +205,7 @@ impl<'a> Parser<'a> {
         let (input, _) = space1(input)?;
         let (input, fce) = self.loc_term_descr(input)?;
         let (input, _) = sep(input)?;
-        let (input, span) = alt((
-            value(None, char('*')),
-            map(integer, |i| Some(i))))(input)?;
+        let (input, span) = alt((value(None, char('*')), map(integer, |i| Some(i))))(input)?;
         success(ast::Action::PushFace(fce, span))(input)
     }
 

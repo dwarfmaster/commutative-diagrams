@@ -26,9 +26,11 @@ fn is_valid_name(name: &String) -> bool {
 
 impl VM {
     // Set name without any checks, assuming the previous name is empty
-    fn set_name(&mut self, id: GraphId, name: String) {
+    pub fn set_name(&mut self, id: GraphId, name: String) {
         use GraphId::*;
-        self.names.insert(name.clone(), id);
+        if !name.is_empty() {
+            self.names.insert(name.clone(), id);
+        }
         match id {
             Node(n) => self.graph.nodes[n].1.name = name,
             Morphism(src, mph) => self.graph.edges[src][mph].1.name = name,

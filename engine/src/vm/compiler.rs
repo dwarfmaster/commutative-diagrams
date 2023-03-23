@@ -140,9 +140,23 @@ impl VM {
                     }
                 }
             }
-            PullFace(_,_) => todo!(),
-            PushFace(_,_) => todo!(),
-            ShrinkFace(_) => todo!(),
+            PullFace(_, _) => todo!(),
+            PushFace(_, _) => todo!(),
+            ShrinkFace(f) => {
+                let f = self.identify_face(&f.value);
+                match f {
+                    Some(f) => {
+                        if !self.shrink(f) {
+                            self.error_msg = "Couldn't shrink previous face".to_string();
+                            result = ExecutionError;
+                        }
+                    }
+                    None => {
+                        self.error_msg = "Couldn't interpret face description".to_string();
+                        result = ExecutionError;
+                    }
+                }
+            }
             Refine(_, _) => todo!(),
             Succeed => result = Success,
             Fail => result = Failure,
