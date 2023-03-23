@@ -140,13 +140,41 @@ impl VM {
                     }
                 }
             }
-            PullFace(_, _) => todo!(),
-            PushFace(_, _) => todo!(),
+            PullFace(f, size) => {
+                let f = self.identify_face(&f.value);
+                match f {
+                    Some(f) => {
+                        if !self.shrink(f, Some(0), size) {
+                            self.error_msg = "Couldn't pull previous face".to_string();
+                            result = ExecutionError;
+                        }
+                    }
+                    None => {
+                        self.error_msg = "Couldn't interpret face description".to_string();
+                        result = ExecutionError;
+                    }
+                }
+            }
+            PushFace(f, size) => {
+                let f = self.identify_face(&f.value);
+                match f {
+                    Some(f) => {
+                        if !self.shrink(f, size, Some(0)) {
+                            self.error_msg = "Couldn't push previous face".to_string();
+                            result = ExecutionError;
+                        }
+                    }
+                    None => {
+                        self.error_msg = "Couldn't interpret face description".to_string();
+                        result = ExecutionError;
+                    }
+                }
+            }
             ShrinkFace(f) => {
                 let f = self.identify_face(&f.value);
                 match f {
                     Some(f) => {
-                        if !self.shrink(f) {
+                        if !self.shrink(f, None, None) {
                             self.error_msg = "Couldn't shrink previous face".to_string();
                             result = ExecutionError;
                         }

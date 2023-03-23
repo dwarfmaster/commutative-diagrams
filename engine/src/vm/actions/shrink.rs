@@ -140,9 +140,19 @@ impl VM {
     }
 
     // May fail if fce is not an existential
-    pub fn shrink(&mut self, fce: usize) -> bool {
+    pub fn shrink(
+        &mut self,
+        fce: usize,
+        prefix_size: Option<usize>,
+        suffix_size: Option<usize>,
+    ) -> bool {
         // If left and right are the same, we conclude by reflexivity
-        if self.graph.faces[fce].eq.left(&self.ctx) == self.graph.faces[fce].eq.right(&self.ctx) {
+        let total_size = prefix_size
+            .unwrap_or(std::usize::MAX)
+            .saturating_add(suffix_size.unwrap_or(std::usize::MAX));
+        if self.graph.faces[fce].eq.left(&self.ctx) == self.graph.faces[fce].eq.right(&self.ctx)
+            && total_size >= self.graph.faces[fce].left.len()
+        {
             let new_eq = self.ctx.mk(ActualEquality::Refl(
                 self.graph.faces[fce].eq.left(&self.ctx),
             ));
@@ -159,7 +169,12 @@ impl VM {
             }
         }
 
-        let (prefix_len, suffix_len) = self.find_common(fce, None, None);
+        let (prefix_len, suffix_len) = self.find_common(fce, prefix_size, suffix_size);
+        if prefix_size.map(|l| l != prefix_len).unwrap_or(false)
+            || suffix_size.map(|l| l != suffix_len).unwrap_or(false)
+        {
+            return false;
+        }
 
         // Nothing to do
         if prefix_len == 0 && suffix_len == 0 {
