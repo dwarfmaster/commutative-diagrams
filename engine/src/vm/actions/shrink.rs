@@ -141,14 +141,30 @@ impl VM {
 
     // May fail if fce is not an existential
     pub fn shrink(&mut self, fce: usize) -> bool {
+        // If left and right are the same, we conclude by reflexivity
+        if self.graph.faces[fce].eq.left(&self.ctx) == self.graph.faces[fce].eq.right(&self.ctx) {
+            let new_eq = self.ctx.mk(ActualEquality::Refl(
+                self.graph.faces[fce].eq.left(&self.ctx),
+            ));
+            let sigma = unify(
+                &self.ctx,
+                self.graph.faces[fce].eq.clone().term(),
+                new_eq.term(),
+            );
+            if let Some(sigma) = sigma {
+                self.register_instruction(Ins::ExtendRefinements(sigma));
+                return true;
+            } else {
+                return false;
+            }
+        }
+
         let (prefix_len, suffix_len) = self.find_common(fce, None, None);
 
         // Nothing to do
         if prefix_len == 0 && suffix_len == 0 {
             return true;
         }
-
-        // TODO special case when left and right are the same
 
         // Find src and dst of the common part
         let mut src_id = self.graph.faces[fce].start;
