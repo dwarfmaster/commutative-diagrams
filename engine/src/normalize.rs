@@ -130,12 +130,62 @@ fn norm_under_functors(
     }
 }
 
+pub fn identities(ctx: &mut Context, m: Morphism) -> (Morphism, Equality) {
+    use ActualMorphism::*;
+    match m.deref() {
+        Comp(m1, m2) => {
+            let (m1, eq1) = identities(ctx, m1.clone());
+            let (m2, eq2) = identities(ctx, m2.clone());
+            let eq = ctx.mk(ActualEquality::Compose(eq1, eq2));
+            match (m1.deref(), m2.deref()) {
+                (Identity(_), _) => {
+                    let eq = ctx.mk(ActualEquality::Concat(
+                        eq,
+                        ctx.mk(ActualEquality::LeftId(m2.clone())),
+                    ));
+                    (m2, eq)
+                }
+                (_, Identity(_)) => {
+                    let eq = ctx.mk(ActualEquality::Concat(
+                        eq,
+                        ctx.mk(ActualEquality::RightId(m1.clone())),
+                    ));
+                    (m1, eq)
+                }
+                _ => {
+                    let m = ctx.mk(Comp(m1, m2));
+                    (m, eq)
+                }
+            }
+        }
+        Funct(f, m) => {
+            let (norm, eq) = identities(ctx, m.clone());
+            let eq = ctx.mk(ActualEquality::FunctCtx(f.clone(), eq));
+            match norm.deref() {
+                Identity(e) => {
+                    let norm = ctx.mk(Identity(ctx.mk(ActualObject::Funct(f.clone(), e.clone()))));
+                    let eq = ctx.mk(ActualEquality::Concat(
+                        eq,
+                        ctx.mk(ActualEquality::FunctId(f.clone(), e.clone())),
+                    ));
+                    (norm, eq)
+                }
+                _ => {
+                    let norm = ctx.mk(Funct(f.clone(), norm));
+                    (norm, eq)
+                }
+            }
+        }
+        _ => (m.clone(), ctx.mk(ActualEquality::Refl(m))),
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use crate::data::Context;
     use crate::dsl::{cat, funct, mph, obj};
     use crate::normalize::{
-        apply_functors, morphism, post_compose, raise_composition, raise_identity,
+        apply_functors, identities, morphism, post_compose, raise_composition, raise_identity,
     };
 
     #[test]
@@ -310,5 +360,31 @@ pub mod tests {
             norm,
             "Expected equality to normalized morphism"
         );
+    }
+
+    #[test]
+    pub fn simpl_identities() {
+        let mut ctx = Context::new();
+        let c = cat!(ctx, :0);
+        let d = cat!(ctx, :1);
+        let f = funct!(ctx, (:2) : c => d);
+        let a = obj!(ctx, (:3) in c);
+        let b = obj!(ctx, (:4) in d);
+        let c = obj!(ctx, (:5) in d);
+        let m1 = mph!(ctx, (:6) : (f _0 a) -> b);
+        let m2 = mph!(ctx, (:7) : b -> c);
+        let m = mph!(ctx, ((((f _1 ((id a) >> (id a))) >> (id (f _0 a))) >> m1) >> ((id b) >> m2)) >> ((id c) >> (id c)));
+        let (result, req) = identities(&mut ctx, m.clone());
+        let expected = mph!(ctx, m1 >> m2);
+
+        println!("{}", req.render(&mut ctx, 100));
+        assert!(result.check(&ctx), "Invalid morphism returned");
+        assert!(req.check(&ctx), "Invalid equality returned");
+        assert_eq!(
+            result, expected,
+            "Expected the same morphism without identities"
+        );
+        assert_eq!(req.left(&ctx), m, "Expected equality from source morphism");
+        assert_eq!(req.right(&ctx), result, "Expected equality to result");
     }
 }
