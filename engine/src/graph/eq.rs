@@ -82,6 +82,13 @@ impl Eq {
         // Finally insert block
         self.slices[insert_at].insert_block_at(start, blk);
     }
+
+    // Append a slice by appending blocks one by one. Does not update outp nor inp
+    fn append_slice(&mut self, offset: usize, slice: Slice) {
+        for (start, _, blk) in slice.blocks {
+            self.append_block(start + offset, blk);
+        }
+    }
 }
 
 // TODO simplify concatenation of inverse equalities
@@ -334,5 +341,21 @@ mod tests {
         eq.append_block(5, b25.clone());
         assert_eq!(eq.slices.len(), 2);
         assert_eq!(eq.slices[0].outp, eq.slices[1].inp);
+    }
+
+    #[test]
+    fn eq_append_slice() {
+        let mut eq = Eq::refl((0, vec![(0, 0); 7]));
+        let b25 = Block {
+            inp: (0, vec![(0, 0); 2]),
+            outp: (0, vec![(1, 1); 5]),
+            data: dummy_data(),
+        };
+        eq.append_block(2, b25);
+        eq.append_slice(0, test_slice());
+
+        assert_eq!(eq.slices.len(), 2);
+        assert_eq!(eq.slices[0].blocks.len(), 2);
+        assert_eq!(eq.slices[1].blocks.len(), 2);
     }
 }
