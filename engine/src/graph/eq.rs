@@ -37,10 +37,63 @@ pub enum BlockData {
 // TODO handle functors
 
 impl Eq {
-    fn append_block(&mut self, blk: Block) {}
+    pub fn refl(p: Path) -> Eq {
+        Eq {
+            inp: p.clone(),
+            outp: p,
+            slices: Vec::new(),
+        }
+    }
+
+    // start is relative to the outputs of the block. Does not update outp or inp
+    fn append_block(&mut self, start: usize, blk: Block) {
+        // Find insertion point
+        let mut insert_at = self.slices.len();
+        let mut nstart = start;
+        while insert_at > 0 {
+            if self.slices[insert_at - 1].block_compatible(nstart, &blk) {
+                nstart = self.slices[insert_at - 1].output_source(nstart).unwrap();
+                insert_at -= 1;
+            } else {
+                break;
+            }
+        }
+
+        // If new slice is needed
+        if insert_at == self.slices.len() {
+            let mut slice = Slice::refl(
+                self.slices
+                    .last()
+                    .map(|sl| sl.outp.clone())
+                    .unwrap_or(self.inp.clone()),
+            );
+            slice.insert_block_at(start, blk);
+            self.slices.push(slice);
+            return;
+        }
+
+        // Otherwise commutes until insertion point
+        let range = ((insert_at + 1)..self.slices.len()).rev();
+        let mut start = start;
+        for i in range {
+            start = self.slices[i].commutes_with_block(start, &blk).unwrap();
+        }
+
+        // Finally insert block
+        self.slices[insert_at].insert_block_at(start, blk);
+    }
 }
 
+// TODO simplify concatenation of inverse equalities
 impl Slice {
+    fn refl(p: Path) -> Slice {
+        Slice {
+            inp: p.clone(),
+            outp: p,
+            blocks: Vec::new(),
+        }
+    }
+
     // Try to insert a block. start is the index to insert it at on the outputs.
     // Return None on success, and give back the block on failure
     fn insert_block_at(&mut self, start: usize, blk: Block) -> Option<Block> {
@@ -67,7 +120,7 @@ impl Slice {
     // range.
     fn commutes_with_block(&mut self, start: usize, blk: &Block) -> Option<usize> {
         if !self.block_compatible(start, blk) {
-            return None
+            return None;
         }
 
         // Update input
@@ -81,10 +134,13 @@ impl Slice {
 
         // Update blocks
         let offset = (blk.outp.1.len() as isize) - (blk.inp.1.len() as isize);
-        self.blocks.iter_mut().filter(|(_,st,_)| *st > start).for_each(|b| {
-            b.0 = b.0.saturating_add_signed(offset);
-            b.1 = b.1.saturating_add_signed(offset);
-        });
+        self.blocks
+            .iter_mut()
+            .filter(|(_, st, _)| *st > start)
+            .for_each(|b| {
+                b.0 = b.0.saturating_add_signed(offset);
+                b.1 = b.1.saturating_add_signed(offset);
+            });
 
         Some(start_input)
     }
@@ -149,7 +205,7 @@ impl Slice {
 mod tests {
     use crate::data::{ActualProofObject, Context, EqualityData};
     use crate::dsl::{cat, mph, obj};
-    use crate::graph::eq::{Block, BlockData, Slice};
+    use crate::graph::eq::{Block, BlockData, Eq, Slice};
 
     fn dummy_data() -> BlockData {
         let ctx = Context::new();
@@ -228,8 +284,8 @@ mod tests {
         assert!(ins2.is_none());
         assert_eq!(slice.inp.1.len(), 10);
         assert_eq!(slice.outp.1.len(), 17);
-        assert_eq!(slice.outp.1[8], (1,1));
-        assert_eq!(slice.outp.1[12], (1,1));
+        assert_eq!(slice.outp.1[8], (1, 1));
+        assert_eq!(slice.outp.1[12], (1, 1));
     }
 
     #[test]
@@ -250,12 +306,33 @@ mod tests {
         let ins2 = slice.commutes_with_block(8, &b25);
         assert_eq!(ins2, Some(7));
         assert_eq!(slice.inp.1.len(), 13);
-        assert_eq!(slice.inp.1[7], (1,1));
-        assert_eq!(slice.inp.1[11], (1,1));
+        assert_eq!(slice.inp.1[7], (1, 1));
+        assert_eq!(slice.inp.1[11], (1, 1));
         assert_eq!(slice.outp.1.len(), 17);
-        assert_eq!(slice.outp.1[8], (1,1));
-        assert_eq!(slice.outp.1[12], (1,1));
+        assert_eq!(slice.outp.1[8], (1, 1));
+        assert_eq!(slice.outp.1[12], (1, 1));
         assert_eq!(slice.blocks[2].0, 12);
         assert_eq!(slice.blocks[2].1, 13);
+    }
+
+    #[test]
+    fn eq_append_block() {
+        let mut eq = Eq::refl((0, vec![(0, 0); 10]));
+        let b25 = Block {
+            inp: (0, vec![(0, 0); 2]),
+            outp: (0, vec![(1, 1); 5]),
+            data: dummy_data(),
+        };
+
+        eq.append_block(1, b25.clone());
+        assert_eq!(eq.slices.len(), 1);
+        assert_eq!(eq.inp.1.len(), 10);
+
+        eq.append_block(10, b25.clone());
+        assert_eq!(eq.slices.len(), 1);
+
+        eq.append_block(5, b25.clone());
+        assert_eq!(eq.slices.len(), 2);
+        assert_eq!(eq.slices[0].outp, eq.slices[1].inp);
     }
 }
