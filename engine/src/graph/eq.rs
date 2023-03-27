@@ -1,4 +1,5 @@
 use crate::data::{EqualityData, Functor};
+use itertools::Itertools;
 use std::cmp::Ordering;
 
 type Path = (usize, Vec<(usize, usize)>);
@@ -139,6 +140,34 @@ impl Eq {
         self.inp.1.extend(p.1.iter().copied());
         self.outp.1.extend(p.1.iter().copied());
         self.slices.iter_mut().for_each(|slice| slice.rap(p));
+    }
+
+    pub fn compose(&mut self, eq: Eq) {
+        use itertools::EitherOrBoth::*;
+
+        let mut slices = Vec::new();
+        std::mem::swap(&mut slices, &mut self.slices);
+        self.slices = slices
+            .into_iter()
+            .zip_longest(eq.slices.into_iter())
+            .map(|zp| match zp {
+                Both(mut left, right) => {
+                    left.compose(right);
+                    left
+                }
+                Left(mut left) => {
+                    left.rap(&eq.outp);
+                    left
+                }
+                Right(mut right) => {
+                    right.lap(&self.outp);
+                    right
+                }
+            })
+            .collect();
+
+        self.inp.1.extend(eq.inp.1.into_iter());
+        self.outp.1.extend(eq.outp.1.into_iter());
     }
 }
 
@@ -286,6 +315,18 @@ impl Slice {
     fn rap(&mut self, p: &Path) {
         self.inp.1.extend(p.1.iter().copied());
         self.outp.1.extend(p.1.iter().copied());
+    }
+
+    fn compose(&mut self, o: Slice) {
+        let offset_in = self.inp.1.len();
+        let offset_out = self.outp.1.len();
+        self.inp.1.extend(o.inp.1.into_iter());
+        self.outp.1.extend(o.outp.1.into_iter());
+        self.blocks.extend(
+            o.blocks
+                .into_iter()
+                .map(|(off_in, off_out, blk)| (off_in + offset_in, off_out + offset_out, blk)),
+        );
     }
 }
 
