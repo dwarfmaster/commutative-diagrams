@@ -62,6 +62,33 @@ impl Slice {
         None
     }
 
+    // Commutes slice with block (assuming it is compatible). start is relative
+    // to the output. On success, return the index of the block on the input
+    // range.
+    fn commutes_with_block(&mut self, start: usize, blk: &Block) -> Option<usize> {
+        if !self.block_compatible(start, blk) {
+            return None
+        }
+
+        // Update input
+        let start_input = self.output_source(start).unwrap();
+        let input_range = start_input..(start_input + blk.inp.1.len());
+        self.inp.1.splice(input_range, blk.outp.1.iter().copied());
+
+        // Update output
+        let output_range = start..(start + blk.inp.1.len());
+        self.outp.1.splice(output_range, blk.outp.1.iter().copied());
+
+        // Update blocks
+        let offset = (blk.outp.1.len() as isize) - (blk.inp.1.len() as isize);
+        self.blocks.iter_mut().filter(|(_,st,_)| *st > start).for_each(|b| {
+            b.0 = b.0.saturating_add_signed(offset);
+            b.1 = b.1.saturating_add_signed(offset);
+        });
+
+        Some(start_input)
+    }
+
     // Test if the block is compatible with the slice (assumes well typedness).
     // start is assumed to be relative to output.
     fn block_compatible(&self, start: usize, blk: &Block) -> bool {
@@ -203,5 +230,32 @@ mod tests {
         assert_eq!(slice.outp.1.len(), 17);
         assert_eq!(slice.outp.1[8], (1,1));
         assert_eq!(slice.outp.1[12], (1,1));
+    }
+
+    #[test]
+    fn slice_commutes_block() {
+        let b25 = Block {
+            inp: (0, vec![(0, 0); 2]),
+            outp: (0, vec![(1, 1); 5]),
+            data: dummy_data(),
+        };
+        let mut slice = test_slice();
+
+        let ins1 = slice.commutes_with_block(1, &b25);
+        // Check nothing's changed
+        assert!(ins1.is_none());
+        assert_eq!(slice.inp.1.len(), 10);
+        assert_eq!(slice.outp.1.len(), 14);
+
+        let ins2 = slice.commutes_with_block(8, &b25);
+        assert_eq!(ins2, Some(7));
+        assert_eq!(slice.inp.1.len(), 13);
+        assert_eq!(slice.inp.1[7], (1,1));
+        assert_eq!(slice.inp.1[11], (1,1));
+        assert_eq!(slice.outp.1.len(), 17);
+        assert_eq!(slice.outp.1[8], (1,1));
+        assert_eq!(slice.outp.1[12], (1,1));
+        assert_eq!(slice.blocks[2].0, 12);
+        assert_eq!(slice.blocks[2].1, 13);
     }
 }
