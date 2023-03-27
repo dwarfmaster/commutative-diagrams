@@ -4,6 +4,7 @@ pub mod eq;
 mod graphviz;
 pub mod mces;
 mod parser;
+mod prepare;
 
 pub use definition::*;
 pub use enumeration::*;

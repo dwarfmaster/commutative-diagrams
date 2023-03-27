@@ -1,5 +1,5 @@
 use crate::data::{ActualMorphism, Equality, Morphism, Object};
-use crate::graph::definition::{Face, Graph};
+use crate::graph::definition::{FaceParsed, GraphParsed};
 use crate::parser::{deserializer_struct, Parser};
 use core::fmt;
 use serde::de::{DeserializeSeed, Error, MapAccess, Visitor};
@@ -20,11 +20,11 @@ struct Edge {
 // |____/ \___||___/\___|_|  |_|\__,_|_|_/___\___|
 //
 
-impl<'a, FL> Visitor<'a> for Parser<Face<FL>>
+impl<'a, FL> Visitor<'a> for Parser<FaceParsed<FL>>
 where
     FL: Default,
 {
-    type Value = Face<FL>;
+    type Value = FaceParsed<FL>;
     fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "a face")
     }
@@ -73,7 +73,7 @@ where
         let left = left.ok_or(Error::missing_field("left"))?;
         let right = right.ok_or(Error::missing_field("right"))?;
         let eq = eq.ok_or(Error::missing_field("eq"))?;
-        Ok(Face {
+        Ok(FaceParsed {
             start,
             end,
             left,
@@ -83,7 +83,7 @@ where
         })
     }
 }
-deserializer_struct!(Face<FL>, FL);
+deserializer_struct!(FaceParsed<FL>, FL);
 
 impl<'a> Visitor<'a> for Parser<Edge> {
     type Value = Edge;
@@ -127,13 +127,13 @@ impl<'a> Visitor<'a> for Parser<Edge> {
 }
 deserializer_struct!(Edge);
 
-impl<'a, NL, EL, FL> Visitor<'a> for Parser<Graph<NL, EL, FL>>
+impl<'a, NL, EL, FL> Visitor<'a> for Parser<GraphParsed<NL, EL, FL>>
 where
     NL: Default,
     EL: Default,
     FL: Default,
 {
-    type Value = Graph<NL, EL, FL>;
+    type Value = GraphParsed<NL, EL, FL>;
     fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "a graph")
     }
@@ -144,7 +144,7 @@ where
     {
         let mut nodes: Option<Vec<Object>> = None;
         let mut edges: Option<Vec<Edge>> = None;
-        let mut faces: Option<Vec<Face<FL>>> = None;
+        let mut faces: Option<Vec<FaceParsed<FL>>> = None;
         while let Some(k) = map.next_key::<String>()? {
             match k.as_str() {
                 "nodes" => match nodes {
@@ -156,7 +156,9 @@ where
                     Some(_) => return Err(Error::duplicate_field("edges")),
                 },
                 "faces" => match faces {
-                    None => faces = Some(map.next_value_seed(self.clone().to_vec::<Face<FL>>())?),
+                    None => {
+                        faces = Some(map.next_value_seed(self.clone().to_vec::<FaceParsed<FL>>())?)
+                    }
                     Some(_) => return Err(Error::duplicate_field("faces")),
                 },
                 _ => {
@@ -174,7 +176,7 @@ where
             .collect();
         let edges = edges.ok_or(Error::missing_field("edges"))?;
         let faces = faces.ok_or(Error::missing_field("faces"))?;
-        let mut gr = Graph {
+        let mut gr = GraphParsed {
             nodes,
             edges: Vec::new(),
             faces,
@@ -189,4 +191,4 @@ where
         Ok(gr)
     }
 }
-deserializer_struct!(Graph<NL,EL,FL>, NL, EL, FL);
+deserializer_struct!(GraphParsed<NL,EL,FL>, NL, EL, FL);

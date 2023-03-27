@@ -5,22 +5,28 @@ use std::vec::Vec;
 
 /// A pair of two paths in a graph with the same start and end
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Face<FaceLabel> {
+pub struct FaceImpl<EqType, FaceLabel> {
     pub start: usize,
     pub end: usize,
     pub left: Vec<usize>,
     pub right: Vec<usize>,
-    pub eq: Equality,
+    pub eq: EqType,
     pub label: FaceLabel,
 }
 
+pub type FaceParsed<FaceLabel> = FaceImpl<Equality, FaceLabel>;
+pub type Face<FaceLabel> = FaceImpl<Equality, FaceLabel>;
+
 /// Adjacency list 2-graph of morphisms
 #[derive(Clone, Debug)]
-pub struct Graph<NodeLabel, EdgeLabel, FaceLabel> {
+pub struct GraphImpl<EqType, NodeLabel, EdgeLabel, FaceLabel> {
     pub nodes: Vec<(Object, NodeLabel)>,
     pub edges: Vec<Vec<(usize, EdgeLabel, Morphism)>>,
-    pub faces: Vec<Face<FaceLabel>>,
+    pub faces: Vec<FaceImpl<EqType, FaceLabel>>,
 }
+
+pub type GraphParsed<NL, EL, FL> = GraphImpl<Equality, NL, EL, FL>;
+pub type Graph<NL, EL, FL> = GraphImpl<Equality, NL, EL, FL>;
 
 impl<FL> Face<FL> {
     fn check_path<NL, EL>(

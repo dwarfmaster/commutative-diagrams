@@ -129,11 +129,15 @@ where
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
     let goal: vm::Graph = client
-        .receive_msg(goal_req, parser::Parser::<vm::Graph>::new(ctx.clone()))
+        .receive_msg(
+            goal_req,
+            parser::Parser::<vm::GraphParsed>::new(ctx.clone()),
+        )
         .unwrap_or_else(|err| {
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
-        });
+        })
+        .prepare(&ctx);
     log::info!("Goal received");
 
     // Run the ui
@@ -294,11 +298,15 @@ where
     log::info!("Asking for goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
     let goal: vm::Graph = client
-        .receive_msg(goal_req, parser::Parser::<vm::Graph>::new(ctx.clone()))
+        .receive_msg(
+            goal_req,
+            parser::Parser::<vm::GraphParsed>::new(ctx.clone()),
+        )
         .unwrap_or_else(|err| {
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
-        });
+        })
+        .prepare(&ctx);
     log::info!("Goal received");
 
     let mut vm = vm::VM::new(ctx, goal);
@@ -469,9 +477,7 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Test {} => {
-            test_main()
-        }
+        Commands::Test {} => test_main(),
         Commands::Ui {} => test_ui(),
         Commands::Embed {
             normalize,

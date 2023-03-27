@@ -95,4 +95,5 @@ impl FaceLabel {
     }
 }
 
+pub type GraphParsed = graph::GraphParsed<NodeLabel, EdgeLabel, FaceLabel>;
 pub type Graph = graph::Graph<NodeLabel, EdgeLabel, FaceLabel>;
