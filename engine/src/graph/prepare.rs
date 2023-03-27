@@ -6,18 +6,44 @@ use std::ops::Deref;
 impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
     pub fn prepare(self, ctx: &mut Context) -> Graph<NL, EL, FL> {
         let nodes = self.nodes;
+
+        // Normalize edges and remember identites
         let mut edges = self.edges;
+        let mut edge_map: Vec<Vec<Option<usize>>> = vec![Vec::new(); nodes.len()];
         for src in 0..nodes.len() {
             for mph in 0..edges[src].len() {
                 let (nmph, _) = normalize::identities(ctx, edges[src][mph].2.clone());
                 edges[src][mph].2 = nmph;
             }
+            edge_map[src] = edges[src]
+                .iter()
+                .scan(0, |index, (_, _, m)| match m.deref() {
+                    ActualMorphism::Identity(..) => Some(None),
+                    _ => {
+                        *index += 1;
+                        Some(Some(*index - 1))
+                    }
+                })
+                .collect();
         }
+
         let faces = self
             .faces
             .into_iter()
-            .map(|fce| fce.prepare(ctx, &nodes, &edges))
+            .map(|fce| fce.prepare(ctx, &nodes, &edges, &edge_map))
             .collect();
+
+        // Remove identites from edges
+        for src in 0..nodes.len() {
+            let mut edge = Vec::new();
+            std::mem::swap(&mut edge, &mut edges[src]);
+            edges[src] = edge
+                .into_iter()
+                .enumerate()
+                .filter(|(i, _)| edge_map[src][*i].is_some())
+                .map(|v| v.1)
+                .collect();
+        }
         Graph {
             nodes,
             edges,
@@ -32,18 +58,13 @@ impl<FL> FaceParsed<FL> {
         ctx: &mut Context,
         _nodes: &[(Object, NL)],
         edges: &[Vec<(usize, EL, Morphism)>],
+        edge_map: &[Vec<Option<usize>>],
     ) -> Face<FL> {
         use ActualEquality::*;
         let nxt_mph = |src: &mut usize, mph: usize| -> Option<(usize, usize)> {
             let prev = *src;
             *src = edges[*src][mph].0;
             Some((prev, mph))
-        };
-        let isnt_identity = |(src, mph): &(usize, usize)| -> bool {
-            match edges[*src][*mph].2.deref() {
-                ActualMorphism::Identity(..) => false,
-                _ => true,
-            }
         };
 
         let left = self.eq.left(&ctx);
@@ -52,8 +73,7 @@ impl<FL> FaceParsed<FL> {
             .left
             .into_iter()
             .scan(self.start, nxt_mph)
-            .filter(isnt_identity)
-            .map(|pr| pr.1)
+            .filter_map(|(src, mph)| edge_map[src][mph])
             .collect();
 
         let right = self.eq.right(&ctx);
@@ -62,8 +82,7 @@ impl<FL> FaceParsed<FL> {
             .right
             .into_iter()
             .scan(self.start, nxt_mph)
-            .filter(isnt_identity)
-            .map(|pr| pr.1)
+            .filter_map(|(src, mph)| edge_map[src][mph])
             .collect();
 
         let eq = ctx.mk(Concat(
