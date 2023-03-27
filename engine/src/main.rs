@@ -22,18 +22,12 @@ use std::fs::File;
 use std::vec::Vec;
 
 use clap::{Parser, Subcommand};
-use rmp_serde::encode;
 
 use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 
 type SolveGraph = Graph<(), (), ()>;
-
-fn messagepack_to_file<NL, EL, FL>(path: &str, gr: &Graph<NL, EL, FL>) {
-    let mut file = File::create(path).unwrap();
-    encode::write(&mut file, gr).unwrap();
-}
 
 fn test_ui() {
     // Build the graph
@@ -80,7 +74,7 @@ fn test_ui() {
         .run();
 }
 
-fn test_main(packfile: &str) {
+fn test_main() {
     let mut ctx = data::Context::new();
 
     let cat = cat!(ctx, :0);
@@ -125,8 +119,6 @@ fn test_main(packfile: &str) {
         )
         .unwrap()
     }
-
-    messagepack_to_file(packfile, &gr);
 }
 
 fn goal_graph<In, Out>(ctx: data::Context, mut client: rpc::Client<In, Out>)
@@ -461,10 +453,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    Test {
-        #[arg(short, long)]
-        packfile: Option<String>,
-    },
+    Test {},
     Ui {},
     Embed {
         #[arg(long)]
@@ -480,9 +469,8 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Test { packfile } => {
-            let packfile = packfile.unwrap_or("gr.mp".to_string());
-            test_main(&packfile)
+        Commands::Test {} => {
+            test_main()
         }
         Commands::Ui {} => test_ui(),
         Commands::Embed {

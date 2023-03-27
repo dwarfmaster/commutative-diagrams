@@ -3,8 +3,7 @@ use crate::graph::definition::{Face, Graph};
 use crate::parser::{deserializer_struct, Parser};
 use core::fmt;
 use serde::de::{DeserializeSeed, Error, MapAccess, Visitor};
-use serde::ser::SerializeStruct;
-use serde::{Deserializer, Serialize, Serializer};
+use serde::{Deserializer, Serialize};
 use std::ops::Deref;
 
 #[derive(Serialize)]
@@ -12,55 +11,6 @@ struct Edge {
     src: usize,
     dst: usize,
     mph: ActualMorphism,
-}
-
-//  ____            _       _ _
-// / ___|  ___ _ __(_) __ _| (_)_______
-// \___ \ / _ \ '__| |/ _` | | |_  / _ \
-//  ___) |  __/ |  | | (_| | | |/ /  __/
-// |____/ \___|_|  |_|\__,_|_|_/___\___|
-//
-
-impl<FL> Serialize for Face<FL> {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut f = s.serialize_struct("face", 5)?;
-        f.serialize_field("src", &self.start)?;
-        f.serialize_field("dst", &self.end)?;
-        f.serialize_field("left", &self.left)?;
-        f.serialize_field("right", &self.right)?;
-        f.serialize_field("eq", &self.eq.deref())?;
-        f.end()
-    }
-}
-
-impl<NL, EL, FL> Serialize for Graph<NL, EL, FL> {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let nodes: Vec<_> = self.nodes.iter().map(|(n, _)| n.deref()).collect();
-        let edges: Vec<_> = self
-            .edges
-            .iter()
-            .enumerate()
-            .map(|(s, v)| {
-                v.iter().map(move |(d, _, m)| Edge {
-                    src: s.clone(),
-                    dst: *d,
-                    mph: (*m.deref()).clone(),
-                })
-            })
-            .flatten()
-            .collect();
-        let mut g = s.serialize_struct("graph", 3)?;
-        g.serialize_field("nodes", &nodes)?;
-        g.serialize_field("edges", &edges)?;
-        g.serialize_field("faces", &self.faces)?;
-        g.end()
-    }
 }
 
 //  ____                      _       _ _
