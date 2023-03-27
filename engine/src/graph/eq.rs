@@ -89,6 +89,28 @@ impl Eq {
             self.append_block(start + offset, blk);
         }
     }
+
+    // Append an equality to the current equality. The only condition is that
+    // the inp of the appended equality is a subpath of the outp of self
+    // starting at offset.
+    pub fn append_at(&mut self, offset: usize, eq: Eq) {
+        assert!(self.outp.1.len() >= offset + eq.inp.1.len());
+        assert_eq!(
+            &eq.inp.1[..],
+            &self.outp.1[offset..(offset + eq.inp.1.len())]
+        );
+
+        for slice in eq.slices {
+            self.append_slice(offset, slice);
+        }
+        if let Some(lst) = self.slices.last() {
+            self.outp = lst.outp.clone();
+        }
+    }
+
+    pub fn append(&mut self, eq: Eq) {
+        self.append_at(0, eq);
+    }
 }
 
 // TODO simplify concatenation of inverse equalities
@@ -357,5 +379,24 @@ mod tests {
         assert_eq!(eq.slices.len(), 2);
         assert_eq!(eq.slices[0].blocks.len(), 2);
         assert_eq!(eq.slices[1].blocks.len(), 2);
+    }
+
+    #[test]
+    fn eq_append() {
+        let mut eq1 = Eq::refl((0, vec![(0, 0); 7]));
+        let b25 = Block {
+            inp: (0, vec![(0, 0); 2]),
+            outp: (0, vec![(0, 0); 5]),
+            data: dummy_data(),
+        };
+        eq1.append_block(2, b25.clone());
+        eq1.outp = eq1.slices[0].outp.clone();
+
+        let mut eq2 = Eq::refl((0, vec![(0, 0); 7]));
+        eq2.append_block(5, b25.clone());
+
+        eq1.append_at(2, eq2);
+        assert_eq!(eq1.outp.1.len(), 13);
+        assert_eq!(eq1.slices.len(), 1);
     }
 }
