@@ -111,6 +111,12 @@ impl Eq {
     pub fn append(&mut self, eq: Eq) {
         self.append_at(0, eq);
     }
+
+    pub fn inv(&mut self) {
+        std::mem::swap(&mut self.inp, &mut self.outp);
+        self.slices.reverse();
+        self.slices.iter_mut().for_each(|slice| slice.inv());
+    }
 }
 
 // TODO simplify concatenation of inverse equalities
@@ -225,6 +231,27 @@ impl Slice {
                 let blkid = blkid - 1;
                 let offset = output - self.blocks[blkid].1 - self.blocks[blkid].2.outp.1.len();
                 Ok(self.blocks[blkid].0 + self.blocks[blkid].2.inp.1.len() + offset)
+            }
+        }
+    }
+
+    fn inv(&mut self) {
+        std::mem::swap(&mut self.inp, &mut self.outp);
+        self.blocks.iter_mut().for_each(|(_, _, blk)| blk.inv());
+    }
+}
+
+impl Block {
+    fn inv(&mut self) {
+        use BlockData::*;
+        std::mem::swap(&mut self.inp, &mut self.outp);
+        self.data = match &self.data {
+            Direct(eq) => Inv(eq.clone()),
+            Inv(eq) => Direct(eq.clone()),
+            Funct(f, eq) => {
+                let mut eq = eq.clone();
+                eq.inv();
+                Funct(f.clone(), eq)
             }
         }
     }
