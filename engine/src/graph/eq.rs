@@ -41,7 +41,8 @@ impl Eq {
 }
 
 impl Slice {
-    // Try to insert a block. Return None on success, and give back the block on failure
+    // Try to insert a block. start is the index to insert it at on the outputs.
+    // Return None on success, and give back the block on failure
     fn insert_block_at(&mut self, start: usize, blk: Block) -> Option<Block> {
         if !self.block_compatible(start, &blk) {
             return Some(blk);
@@ -49,23 +50,24 @@ impl Slice {
 
         // inp doesn't change, since we insert on a passthrough place.
         // However output changes
-        let start_output = self.input_target(start).unwrap();
-        let output_range = start_output..(start_output + blk.inp.1.len());
+        let start_input = self.output_source(start).unwrap();
+        let output_range = start..(start + blk.inp.1.len());
         self.outp.1.splice(output_range, blk.outp.1.iter().copied());
 
         let r = self
             .blocks
             .binary_search_by_key(&start, |path| path.0)
             .unwrap_err();
-        self.blocks.insert(r, (start, start_output, blk));
+        self.blocks.insert(r, (start_input, start, blk));
         None
     }
 
-    // Test if the block is compatible with the slice (assumes well typedness)
+    // Test if the block is compatible with the slice (assumes well typedness).
+    // start is assumed to be relative to output.
     fn block_compatible(&self, start: usize, blk: &Block) -> bool {
         (0..blk.inp.1.len())
             .map(|x| x + start)
-            .all(|input| self.input_target(input).is_ok())
+            .all(|output| self.output_source(output).is_ok())
     }
 
     // Given an input index, indicates which output it connects to or if it goes
@@ -195,7 +197,7 @@ mod tests {
         assert_eq!(slice.inp.1.len(), 10);
         assert_eq!(slice.outp.1.len(), 14);
 
-        let ins2 = slice.insert_block_at(7, b25);
+        let ins2 = slice.insert_block_at(8, b25);
         assert!(ins2.is_none());
         assert_eq!(slice.inp.1.len(), 10);
         assert_eq!(slice.outp.1.len(), 17);
