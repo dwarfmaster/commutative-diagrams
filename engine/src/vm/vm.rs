@@ -81,7 +81,6 @@ impl VM {
         res.renumber_edges();
         res.relabel();
         res.autoname();
-        res.hide_identities();
         res.layout();
         res
     }

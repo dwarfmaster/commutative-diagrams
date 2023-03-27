@@ -121,7 +121,7 @@ fn test_main() {
     }
 }
 
-fn goal_graph<In, Out>(ctx: data::Context, mut client: rpc::Client<In, Out>)
+fn goal_graph<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>)
 where
     In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
     Out: std::io::Write + std::marker::Sync + std::marker::Send + 'static,
@@ -137,7 +137,7 @@ where
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
         })
-        .prepare(&ctx);
+        .prepare(&mut ctx);
     log::info!("Goal received");
 
     // Run the ui
@@ -290,7 +290,7 @@ where
     log::info!("Acknowledgement of normalization received");
 }
 
-fn goal_solve<In, Out>(ctx: data::Context, mut client: rpc::Client<In, Out>, level: usize)
+fn goal_solve<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>, level: usize)
 where
     In: std::io::Read,
     Out: std::io::Write,
@@ -306,7 +306,7 @@ where
             log::warn!("Couldn't parse goal answer: {:#?}", err);
             panic!()
         })
-        .prepare(&ctx);
+        .prepare(&mut ctx);
     log::info!("Goal received");
 
     let mut vm = vm::VM::new(ctx, goal);
