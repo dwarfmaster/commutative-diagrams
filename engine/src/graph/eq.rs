@@ -117,6 +117,29 @@ impl Eq {
         self.slices.reverse();
         self.slices.iter_mut().for_each(|slice| slice.inv());
     }
+
+    // Inefficient
+    pub fn lap(&mut self, p: &Path) {
+        self.inp.0 = p.0;
+        self.inp.1 =
+            p.1.iter()
+                .copied()
+                .chain(self.inp.1.iter().copied())
+                .collect();
+        self.outp.0 = p.0;
+        self.outp.1 =
+            p.1.iter()
+                .copied()
+                .chain(self.outp.1.iter().copied())
+                .collect();
+        self.slices.iter_mut().for_each(|slice| slice.lap(p));
+    }
+
+    pub fn rap(&mut self, p: &Path) {
+        self.inp.1.extend(p.1.iter().copied());
+        self.outp.1.extend(p.1.iter().copied());
+        self.slices.iter_mut().for_each(|slice| slice.rap(p));
+    }
 }
 
 // TODO simplify concatenation of inverse equalities
@@ -238,6 +261,31 @@ impl Slice {
     fn inv(&mut self) {
         std::mem::swap(&mut self.inp, &mut self.outp);
         self.blocks.iter_mut().for_each(|(_, _, blk)| blk.inv());
+    }
+
+    // Inefficient, avoid as much as possible
+    fn lap(&mut self, p: &Path) {
+        self.blocks.iter_mut().for_each(|blk| {
+            blk.0 += p.1.len();
+            blk.1 += p.1.len();
+        });
+        self.inp.0 = p.0;
+        self.inp.1 =
+            p.1.iter()
+                .copied()
+                .chain(self.inp.1.iter().copied())
+                .collect();
+        self.outp.0 = p.0;
+        self.outp.1 =
+            p.1.iter()
+                .copied()
+                .chain(self.outp.1.iter().copied())
+                .collect();
+    }
+
+    fn rap(&mut self, p: &Path) {
+        self.inp.1.extend(p.1.iter().copied());
+        self.outp.1.extend(p.1.iter().copied());
     }
 }
 
