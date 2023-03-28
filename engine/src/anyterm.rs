@@ -238,8 +238,8 @@ pub trait IsTerm {
         self.term().to_typed()
     }
     fn subterms(self, ctx: Context) -> TermIterator;
-    /// Checks if the two terms have the same head.
-    /// Behaviour unspecified if one of the two is a variable.
+    /// Checks if the two terms have the same head. Variables should be equal if
+    /// they are the same.
     fn same_head(&self, other: &Self) -> bool;
 }
 
@@ -297,6 +297,7 @@ impl IsTerm for ProofObject {
     fn same_head(&self, other: &Self) -> bool {
         use ActualProofObject::*;
         match (self.deref(), other.deref()) {
+            (Existential(e1), Existential(e2)) => e1 == e2,
             (Term(t1), Term(t2)) => t1 == t2,
             (Cat(c1), Cat(c2)) => c1.same_head(c2),
             (Funct(f1), Funct(f2)) => f1.same_head(f2),

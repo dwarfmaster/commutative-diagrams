@@ -1,10 +1,10 @@
 use crate::anyterm::{AnyTerm, IsTerm};
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
-use crate::data::{ActualProofObject, Context, TestExistential};
+use crate::data::{ActualProofObject, Context};
 use crate::data::{Category, Equality, Functor, Morphism, Object};
 use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData};
 use crate::substitution::Substitutable;
-use crate::unification::{unify, UnifState};
+use crate::unification::{unify, UnifOpts, UnifState};
 use crate::vm::ast::{Annot, Id, TermDescr};
 use crate::vm::graph::GraphId;
 use crate::vm::VM;
@@ -143,15 +143,10 @@ impl VM {
     }
 
     pub fn identify_node(&mut self, descr: &TermDescr) -> Option<usize> {
-        let (obj, hash) = self.descr_as_object(descr)?;
+        let (obj, _) = self.descr_as_object(descr)?;
         let obj = obj.term();
         for i in 0..self.graph.nodes.len() {
-            if match_term(
-                &self.ctx,
-                &hash,
-                obj.clone(),
-                self.graph.nodes[i].0.clone().term(),
-            ) {
+            if match_term(&self.ctx, obj.clone(), self.graph.nodes[i].0.clone().term()) {
                 return Some(i);
             }
         }
@@ -241,13 +236,12 @@ impl VM {
     }
 
     pub fn identify_edge(&mut self, descr: &TermDescr) -> Option<(usize, usize)> {
-        let (mph, hash) = self.descr_as_morphism(descr)?;
+        let (mph, _) = self.descr_as_morphism(descr)?;
         let mph = mph.term();
         for src in 0..self.graph.edges.len() {
             for m in 0..self.graph.edges[src].len() {
                 if match_term(
                     &self.ctx,
-                    &hash,
                     mph.clone(),
                     self.graph.edges[src][m].2.clone().term(),
                 ) {
@@ -372,12 +366,11 @@ impl VM {
     }
 
     pub fn identify_face(&mut self, descr: &TermDescr) -> Option<usize> {
-        let (eq, hash) = self.descr_as_equality(descr)?;
+        let (eq, _) = self.descr_as_equality(descr)?;
         let eq = eq.term();
         for fce in 0..self.graph.faces.len() {
             if match_term(
                 &self.ctx,
-                &hash,
                 eq.clone(),
                 self.graph.faces[fce].eq.clone().term(),
             ) {
@@ -388,14 +381,17 @@ impl VM {
     }
 }
 
-fn match_term(ctx: &Context, exs: &HashSet<u64>, pattern: AnyTerm, term: AnyTerm) -> bool {
-    if let Some(sigma) = unify(ctx, pattern, term) {
-        sigma
-            .iter()
-            .all(|pair| exs.contains(&pair.0) || pair.1.is_ex().is_some())
-    } else {
-        false
-    }
+fn match_term(ctx: &Context, pattern: AnyTerm, term: AnyTerm) -> bool {
+    unify(
+        ctx,
+        pattern,
+        term,
+        UnifOpts {
+            right_ground: true,
+            ..Default::default()
+        },
+    )
+    .is_some()
 }
 
 #[cfg(test)]
@@ -407,7 +403,6 @@ mod tests {
     use crate::vm::identify;
     use crate::vm::VM;
     use crate::vm::{Graph, NodeLabel};
-    use std::collections::HashSet;
 
     #[test]
     fn realize() {
@@ -437,16 +432,13 @@ mod tests {
         let x = obj!(ctx, (?0) in cat).term();
         let y = obj!(ctx, (:1) in cat).term();
 
-        let mut exs = HashSet::new();
-        exs.insert(0);
         assert!(
-            identify::match_term(&ctx, &exs, x.clone(), y.clone()),
+            identify::match_term(&ctx, x.clone(), y.clone()),
             "Match in one direction"
         );
 
-        let exs = HashSet::new();
         assert!(
-            !identify::match_term(&ctx, &exs, x.clone(), y.clone()),
+            !identify::match_term(&ctx, y.clone(), x.clone()),
             "Match in the other direction"
         );
     }

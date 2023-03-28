@@ -2,9 +2,10 @@ use crate::anyterm::IsTerm;
 use crate::data::ActualProofObject;
 use crate::data::{ActualEquality, Equality, EqualityData};
 use crate::graph::Face;
-use crate::unification::unify;
+use crate::unification::{unify, UnifOpts};
 use crate::vm::graph::FaceLabel;
 use crate::vm::{GraphId, VM};
+use std::collections::HashSet;
 
 type Ins = crate::vm::asm::Instruction;
 
@@ -57,6 +58,10 @@ impl VM {
             &self.ctx,
             self.graph.faces[fce].eq.clone().term(),
             new_eq.term(),
+            UnifOpts {
+                ground: HashSet::from([ex]),
+                ..Default::default()
+            },
         )?;
         self.register_instruction(Ins::ExtendRefinements(sigma));
 

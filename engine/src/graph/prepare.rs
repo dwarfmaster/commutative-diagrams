@@ -90,10 +90,12 @@ impl<FL> FaceParsed<FL> {
             .filter_map(|(src, mph)| edge_map[src][mph])
             .collect();
 
-        let eq = ctx.mk(Concat(
-            ctx.mk(Inv(lefteq)),
-            ctx.mk(Concat(self.eq, righteq)),
-        ));
+        let eq = ctx
+            .mk(Concat(
+                ctx.mk(Inv(lefteq)),
+                ctx.mk(Concat(self.eq, righteq)),
+            ))
+            .simpl(ctx);
 
         Face {
             start: self.start,

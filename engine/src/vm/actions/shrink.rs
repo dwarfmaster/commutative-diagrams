@@ -4,10 +4,11 @@ use crate::data::{ActualEquality, Equality, EqualityData};
 use crate::data::{ActualMorphism, Morphism};
 use crate::graph::Face;
 use crate::normalize;
-use crate::unification::unify;
+use crate::unification::{unify, UnifOpts};
 use crate::vm::graph::FaceLabel;
 use crate::vm::graph::LabelSource;
 use crate::vm::{GraphId, VM};
+use std::collections::HashSet;
 
 type Ins = crate::vm::asm::Instruction;
 
@@ -160,6 +161,7 @@ impl VM {
                 &self.ctx,
                 self.graph.faces[fce].eq.clone().term(),
                 new_eq.term(),
+                Default::default(),
             );
             if let Some(sigma) = sigma {
                 self.register_instruction(Ins::ExtendRefinements(sigma));
@@ -237,6 +239,10 @@ impl VM {
             &self.ctx,
             self.graph.faces[fce].eq.clone().term(),
             prev_eq.term(),
+            UnifOpts {
+                ground: HashSet::from([ex]),
+                ..Default::default()
+            },
         );
         if let Some(sigma) = sigma {
             self.register_instruction(Ins::ExtendRefinements(sigma));

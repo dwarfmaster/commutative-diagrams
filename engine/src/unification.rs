@@ -2,7 +2,8 @@ use crate::anyterm::AnyTerm;
 use crate::anyterm::IsTerm;
 use crate::data::Context;
 use crate::substitution::Substitution;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::default::Default;
 use std::ops::Deref;
 use std::vec::Vec;
 
@@ -65,16 +66,27 @@ impl NodeStatus {
     }
 }
 
-/// Their are two root nodes, which are the first two
+/// There are two root nodes, which are the first two
 struct Graph {
     nodes: Vec<Node>,
     mapping: HashMap<AnyTerm, usize>,
+    // Existential to treat as ground term
+    mask: HashSet<u64>,
 }
 
 impl Node {
     fn new(gr: &Graph, ctx: &Context, term: AnyTerm) -> Node {
         use NodeStatus::*;
-        let status = term.as_var().map(|e| Variable(e)).unwrap_or(Live);
+        let status = term
+            .as_var()
+            .map(|e| {
+                if gr.mask.get(&e).is_some() {
+                    Live
+                } else {
+                    Variable(e)
+                }
+            })
+            .unwrap_or(Live);
         Node {
             init_status: status,
             status,
@@ -149,6 +161,7 @@ impl Graph {
         Graph {
             nodes: vec![Node::root(true), Node::root(false)],
             mapping: HashMap::new(),
+            mask: HashSet::new(),
         }
     }
 
@@ -335,6 +348,29 @@ impl UnifState {
         Self { gr: Graph::new() }
     }
 
+    /// Set the existential mask
+    pub fn set_mask(&mut self, mask: HashSet<u64>) {
+        self.gr.mask = mask;
+    }
+
+    pub fn extend_mask<I>(&mut self, range: I)
+    where
+        I: Iterator<Item = u64>,
+    {
+        range.for_each(|x| {
+            self.gr.mask.insert(x);
+        });
+    }
+
+    pub fn reduce_mask<I>(&mut self, range: I)
+    where
+        I: Iterator<Item = u64>,
+    {
+        range.for_each(|x| {
+            self.gr.mask.remove(&x);
+        });
+    }
+
     /// Add a new term to the state
     pub fn add(&mut self, ctx: &Context, term: AnyTerm) {
         self.gr.insert(ctx, term.to_typed());
@@ -477,26 +513,44 @@ impl UnifState {
     }
 }
 
+#[derive(Default)]
+pub struct UnifOpts {
+    /// Should the state of the unification be written to a graphviz file for
+    /// debug purposes
+    pub debug: Option<String>,
+    /// Existentials to treat as ground terms
+    pub ground: HashSet<u64>,
+    /// Automatically add existentials of t1 to ground
+    pub left_ground: bool,
+    /// Automatically add existentials of t2 to ground
+    pub right_ground: bool,
+}
+
 /// Wrapper over UnifState when we only want to unify two terms
-pub fn unify(ctx: &Context, t1: AnyTerm, t2: AnyTerm) -> Option<Substitution> {
+pub fn unify(ctx: &Context, t1: AnyTerm, t2: AnyTerm, opts: UnifOpts) -> Option<Substitution> {
+    let mut mask = opts.ground;
+    if opts.left_ground {
+        mask = mask.union(&t1.existentials(ctx)).copied().collect();
+    }
+    if opts.right_ground {
+        mask = mask.union(&t2.existentials(ctx)).copied().collect();
+    }
+
+    // Unification
     let mut unif = UnifState::new();
+    unif.set_mask(mask);
     unif.add(ctx, t1.clone());
     unif.add(ctx, t2.clone());
     unif.add_goal(t1, t2);
     // For performance reasons we skip the reset part
-    unif.solve_no_reset()
-}
-
-/// Same as unify, but write the state to a graphviz file after the unification
-/// for debug purposes.
-pub fn unify_debug(ctx: &Context, t1: AnyTerm, t2: AnyTerm, path: String) -> Option<Substitution> {
-    let mut unif = UnifState::new();
-    unif.add(ctx, t1.clone());
-    unif.add(ctx, t2.clone());
-    unif.add_goal(t1, t2);
     let result = unif.solve_no_reset();
-    let mut file = std::fs::File::create(path).unwrap();
-    unif.debug_graphviz(&mut file).unwrap();
+
+    // Debug print
+    if let Some(path) = opts.debug {
+        let mut file = std::fs::File::create(path).unwrap();
+        unif.debug_graphviz(&mut file).unwrap();
+    }
+
     result
 }
 
@@ -506,7 +560,8 @@ mod tests {
     use crate::data::Context;
     use crate::dsl::{cat, mph, obj};
     use crate::substitution::Substitutable;
-    use crate::unification::{unify, UnifState};
+    use crate::unification::{unify, UnifOpts, UnifState};
+    use std::collections::HashSet;
 
     #[test]
     pub fn simple() {
@@ -522,9 +577,14 @@ mod tests {
         let x3 = mph!(ctx, (?2) : o -> o);
         let m1 = mph!(ctx, (x2 >> (id o)) >> (x3 >> (id o)));
         let m2 = mph!(ctx, x1 >> x2);
-        let sigma = unify(&ctx, AnyTerm::Mph(m1.clone()), AnyTerm::Mph(m2.clone()))
-            .ok_or("Couldn't unify m1 and m2")
-            .unwrap();
+        let sigma = unify(
+            &ctx,
+            AnyTerm::Mph(m1.clone()),
+            AnyTerm::Mph(m2.clone()),
+            Default::default(),
+        )
+        .ok_or("Couldn't unify m1 and m2")
+        .unwrap();
         let m1 = m1.subst(&ctx, &sigma);
         let m2 = m2.subst(&ctx, &sigma);
         assert_eq!(m1, m2, "Unifier is wrong");
@@ -544,9 +604,14 @@ mod tests {
         let m = mph!(ctx, m1 >> m2);
         assert!(m_ex.check(&ctx), "m_ex is invalid");
         assert!(m.check(&ctx), "m is invalid");
-        let sigma = unify(&ctx, AnyTerm::Mph(m_ex.clone()), AnyTerm::Mph(m.clone()))
-            .ok_or("Couldn't unify m and m_ex")
-            .unwrap();
+        let sigma = unify(
+            &ctx,
+            AnyTerm::Mph(m_ex.clone()),
+            AnyTerm::Mph(m.clone()),
+            Default::default(),
+        )
+        .ok_or("Couldn't unify m and m_ex")
+        .unwrap();
         let m_ex = m_ex.subst(&ctx, &sigma);
         let m = m.subst(&ctx, &sigma);
         assert_eq!(m_ex, m, "Unifier is wrong");
@@ -566,11 +631,71 @@ mod tests {
         let m = mph!(ctx, maa1 >> maa2);
         assert!(m_ex.check(&ctx), "m_ex is invalid");
         assert!(m.check(&ctx), "m is invalid");
-        let sigma = unify(&ctx, AnyTerm::Mph(m_ex.clone()), AnyTerm::Mph(m.clone()));
+        let sigma = unify(
+            &ctx,
+            AnyTerm::Mph(m_ex.clone()),
+            AnyTerm::Mph(m.clone()),
+            Default::default(),
+        );
         match sigma {
             Some(_) => panic!("Unification succeeded when it should have failed"),
             None => (),
         }
+    }
+
+    #[test]
+    pub fn ground() {
+        let ctx = Context::new();
+        let cat = cat!(ctx, :0);
+        let xcat = cat!(ctx, ?0);
+        let a = AnyTerm::Obj(obj!(ctx, (:1) in cat));
+        let x = AnyTerm::Obj(obj!(ctx, (?1) in xcat));
+
+        let mut unif = UnifState::new();
+        unif.set_mask(HashSet::from([0]));
+        unif.add(&ctx, a.clone());
+        unif.add(&ctx, x.clone());
+        unif.add_goal(a, x);
+        assert!(unif.solve().is_none());
+    }
+
+    #[test]
+    pub fn unif_as_match() {
+        let ctx = Context::new();
+        let cat = cat!(ctx, :0);
+        let x = obj!(ctx, (:1) in cat);
+        let y = obj!(ctx, (:2) in cat);
+        let z = obj!(ctx, (:3) in cat);
+        let mxy = mph!(ctx, (:4) : x -> y);
+        let exy = mph!(ctx, (?0) : x -> y);
+        let pxy = mph!(ctx, (?1) : x -> y);
+        let myz = mph!(ctx, (:5) : y -> z);
+        let pyz = mph!(ctx, (?2) : y -> z);
+        let pattern1 = mph!(ctx, pxy >> pyz);
+        let pattern2 = mph!(ctx, mxy >> pyz);
+        let m = mph!(ctx, exy >> myz);
+
+        let rp1 = unify(
+            &ctx,
+            AnyTerm::Mph(pattern1),
+            AnyTerm::Mph(m.clone()),
+            UnifOpts {
+                right_ground: true,
+                ..Default::default()
+            },
+        );
+        assert!(rp1.is_some());
+
+        let rp2 = unify(
+            &ctx,
+            AnyTerm::Mph(pattern2),
+            AnyTerm::Mph(m),
+            UnifOpts {
+                right_ground: true,
+                ..Default::default()
+            },
+        );
+        assert!(rp2.is_none());
     }
 
     #[test]
@@ -585,9 +710,14 @@ mod tests {
         let f = mph!(ctx, (?3) : a -> b);
         assert!(m.check(&ctx), "m is invalid");
         assert!(f.check(&ctx), "f is invalid");
-        let sigma = unify(&ctx, AnyTerm::Mph(m.clone()), AnyTerm::Mph(f.clone()))
-            .ok_or("Couldn't unify f and m")
-            .unwrap();
+        let sigma = unify(
+            &ctx,
+            AnyTerm::Mph(m.clone()),
+            AnyTerm::Mph(f.clone()),
+            Default::default(),
+        )
+        .ok_or("Couldn't unify f and m")
+        .unwrap();
         assert_eq!(
             m.subst(&ctx, &sigma),
             f.subst(&ctx, &sigma),

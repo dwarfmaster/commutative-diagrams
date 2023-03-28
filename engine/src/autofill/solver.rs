@@ -49,7 +49,7 @@ pub fn solve<NL, EL, FL>(
                 ctx.mk(ActualEquality::Inv(eqr)),
             ));
             assert!(result.check(ctx), "Invalid equality returned");
-            unify(ctx, face.clone().term(), result.term())
+            unify(ctx, face.clone().term(), result.term(), Default::default())
         }
         _ => {
             if m1.is_none() {
