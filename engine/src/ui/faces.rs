@@ -1,4 +1,4 @@
-use crate::vm::VM;
+use crate::vm::{FaceStatus, VM};
 
 pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
     let prev = vm.selected_face;
@@ -13,6 +13,15 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
                 "{}[{}]: {}",
                 vm.graph.faces[fce].label.name, fce, &vm.graph.faces[fce].label.label
             );
+            match vm.graph.faces[fce].label.status {
+                FaceStatus::Goal => {
+                    ui.visuals_mut().override_text_color = Some(egui::Color32::GOLD)
+                }
+                FaceStatus::Refined => {
+                    ui.visuals_mut().override_text_color = Some(egui::Color32::GREEN)
+                }
+                FaceStatus::Hypothesis => ui.visuals_mut().override_text_color = None,
+            }
             ui.radio_value(&mut vm.selected_face, Some(fce), label);
         }
     });

@@ -5,8 +5,8 @@ use crate::data::{ActualMorphism, Morphism};
 use crate::graph::Face;
 use crate::normalize;
 use crate::unification::{unify, UnifOpts};
-use crate::vm::graph::FaceLabel;
 use crate::vm::graph::LabelSource;
+use crate::vm::graph::{FaceLabel, FaceStatus};
 use crate::vm::{GraphId, VM};
 use std::collections::HashSet;
 
@@ -266,6 +266,7 @@ impl VM {
                 hidden: false,
                 parent: Some(fce),
                 children: Vec::new(),
+                status: FaceStatus::Goal,
             },
         };
         self.register_instruction(Ins::InsertFace(new_face));

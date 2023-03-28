@@ -72,6 +72,14 @@ impl EdgeLabel {
     }
 }
 
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub enum FaceStatus {
+    Goal,
+    Refined,
+    #[default]
+    Hypothesis,
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct FaceLabel {
     pub label: String,
@@ -80,6 +88,7 @@ pub struct FaceLabel {
     pub hidden: bool,
     pub parent: Option<usize>,
     pub children: Vec<usize>,
+    pub status: FaceStatus,
 }
 
 impl FaceLabel {
@@ -91,6 +100,7 @@ impl FaceLabel {
             hidden: false,
             parent: None,
             children: Vec::new(),
+            status: FaceStatus::Hypothesis,
         }
     }
 }

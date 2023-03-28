@@ -3,7 +3,7 @@ use crate::data::ActualProofObject;
 use crate::data::{ActualEquality, Equality, EqualityData};
 use crate::graph::Face;
 use crate::unification::{unify, UnifOpts};
-use crate::vm::graph::FaceLabel;
+use crate::vm::graph::{FaceLabel, FaceStatus};
 use crate::vm::{GraphId, VM};
 use std::collections::HashSet;
 
@@ -79,6 +79,7 @@ impl VM {
                 label: self.graph.faces[fce].label.label.clone(),
                 label_source: self.graph.faces[fce].label.label_source,
                 hidden: false,
+                status: FaceStatus::Goal,
             },
         };
         assert!(face.check(&self.ctx, &self.graph));

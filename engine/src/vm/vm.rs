@@ -81,6 +81,7 @@ impl VM {
         res.renumber_edges();
         res.relabel();
         res.autoname();
+        res.recompute_face_statuses();
         res.layout();
         res
     }

@@ -103,10 +103,12 @@ impl VM {
                         }
                     }
                 }
+                self.set_face_status(nfce);
             }
             UpdateFace(fce, old, new) => {
                 assert_eq!(self.graph.faces[*fce].eq, *old);
                 self.graph.faces[*fce].eq = new.clone();
+                self.set_face_status(*fce);
             }
             UpdateFaceLabel(fce, upd) => upd.apply(&mut self.graph.faces[*fce].label),
             ExtendRefinements(sigma) => self.refinements.extend(sigma.iter().map(|p| p.clone())),
@@ -186,6 +188,7 @@ impl VM {
             UpdateFace(fce, old, new) => {
                 assert_eq!(self.graph.faces[*fce].eq, *new);
                 self.graph.faces[*fce].eq = old.clone();
+                self.set_face_status(*fce);
             }
             UpdateFaceLabel(fce, upd) => upd.undo(&mut self.graph.faces[*fce].label),
             ExtendRefinements(sigma) => self
