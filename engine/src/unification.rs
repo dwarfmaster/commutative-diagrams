@@ -428,7 +428,7 @@ impl UnifState {
     ///     Paterson, M.S., and M.N. Wegman. “Linear Unification.”
     ///     Journal of Computer and System Sciences 16, no. 2 (April 1978): 158–67.
     ///     https://doi.org/10.1016/0022-0000(78)90043-0.
-    pub fn solve(&mut self) -> Option<Substitution> {
+    fn solve_no_reset(&mut self) -> Option<Substitution> {
         let size = self.gr.nodes.len();
 
         // Prepare the substitution
@@ -440,7 +440,6 @@ impl UnifState {
                 continue;
             }
             if !self.finish(&mut sigma, id) {
-                self.gr.reset();
                 return None;
             }
         }
@@ -451,14 +450,19 @@ impl UnifState {
                 continue;
             }
             if !self.finish(&mut sigma, id) {
-                self.gr.reset();
                 return None;
             }
         }
 
         // If we reached this point we've succeeded
-        self.gr.reset();
         Some(sigma)
+    }
+
+    // Solve the goals, then reset the state to make the unifstate reusable.
+    pub fn solve(&mut self) -> Option<Substitution> {
+        let result = self.solve_no_reset();
+        self.gr.reset();
+        result
     }
 
     /// For debugging purposes, checks that the unification status is ready (should always be after
@@ -479,7 +483,21 @@ pub fn unify(ctx: &Context, t1: AnyTerm, t2: AnyTerm) -> Option<Substitution> {
     unif.add(ctx, t1.clone());
     unif.add(ctx, t2.clone());
     unif.add_goal(t1, t2);
-    unif.solve()
+    // For performance reasons we skip the reset part
+    unif.solve_no_reset()
+}
+
+/// Same as unify, but write the state to a graphviz file after the unification
+/// for debug purposes.
+pub fn unify_debug(ctx: &Context, t1: AnyTerm, t2: AnyTerm, path: String) -> Option<Substitution> {
+    let mut unif = UnifState::new();
+    unif.add(ctx, t1.clone());
+    unif.add(ctx, t2.clone());
+    unif.add_goal(t1, t2);
+    let result = unif.solve_no_reset();
+    let mut file = std::fs::File::create(path).unwrap();
+    unif.debug_graphviz(&mut file).unwrap();
+    result
 }
 
 #[cfg(test)]
