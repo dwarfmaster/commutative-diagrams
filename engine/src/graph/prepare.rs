@@ -1,4 +1,6 @@
-use crate::data::{ActualEquality, ActualMorphism, Context, Morphism, Object};
+use crate::anyterm::IsTerm;
+use crate::data::{ActualEquality, EqualityData};
+use crate::data::{ActualMorphism, ActualProofObject, Context, Morphism, Object};
 use crate::graph::{Face, FaceParsed, Graph, GraphParsed};
 use crate::normalize;
 use crate::substitution::Substitution;
@@ -6,7 +8,7 @@ use std::ops::Deref;
 
 impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
     pub fn prepare(self, ctx: &mut Context) -> (Graph<NL, EL, FL>, Substitution) {
-        let sigma = Vec::new();
+        let mut sigma = Vec::new();
         let nodes = self.nodes;
 
         // Normalize edges and remember identites
@@ -32,7 +34,7 @@ impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
         let faces = self
             .faces
             .into_iter()
-            .map(|fce| fce.prepare(ctx, &nodes, &edges, &edge_map))
+            .map(|fce| fce.prepare(ctx, &nodes, &edges, &edge_map, &mut sigma))
             .collect();
 
         // Remove identites from edges
@@ -64,6 +66,7 @@ impl<FL> FaceParsed<FL> {
         _nodes: &[(Object, NL)],
         edges: &[Vec<(usize, EL, Morphism)>],
         edge_map: &[Vec<Option<usize>>],
+        sigma: &mut Substitution,
     ) -> Face<FL> {
         use ActualEquality::*;
         let nxt_mph = |src: &mut usize, mph: usize| -> Option<(usize, usize)> {
@@ -73,7 +76,7 @@ impl<FL> FaceParsed<FL> {
         };
 
         let left = self.eq.left(&ctx);
-        let (_, lefteq) = normalize::identities(ctx, left);
+        let (leftmph, lefteq) = normalize::identities(ctx, left);
         let left = self
             .left
             .into_iter()
@@ -82,7 +85,7 @@ impl<FL> FaceParsed<FL> {
             .collect();
 
         let right = self.eq.right(&ctx);
-        let (_, righteq) = normalize::identities(ctx, right);
+        let (rightmph, righteq) = normalize::identities(ctx, right);
         let right = self
             .right
             .into_iter()
@@ -90,12 +93,39 @@ impl<FL> FaceParsed<FL> {
             .filter_map(|(src, mph)| edge_map[src][mph])
             .collect();
 
-        let eq = ctx
-            .mk(Concat(
+        let eq = if let ActualEquality::Atomic(data) = self.eq.deref() {
+            if let ActualProofObject::Existential(ex) = data.pobj.deref() {
+                let nex = ctx.new_existential();
+                let hole = ctx.mk(ActualEquality::Atomic(EqualityData {
+                    category: self.eq.cat(ctx),
+                    src: self.eq.src(ctx),
+                    dst: self.eq.dst(ctx),
+                    left: leftmph,
+                    right: rightmph,
+                    pobj: ctx.mk(ActualProofObject::Existential(nex)),
+                }));
+                let refined = ctx
+                    .mk(Concat(
+                        lefteq.clone(),
+                        ctx.mk(Concat(hole.clone(), ctx.mk(Inv(righteq.clone())))),
+                    ))
+                    .simpl(ctx);
+                sigma.push((*ex, refined.term()));
+                Some(hole)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let eq = eq.unwrap_or(
+            ctx.mk(Concat(
                 ctx.mk(Inv(lefteq)),
                 ctx.mk(Concat(self.eq, righteq)),
             ))
-            .simpl(ctx);
+            .simpl(ctx),
+        );
 
         Face {
             start: self.start,
