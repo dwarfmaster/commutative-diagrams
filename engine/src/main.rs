@@ -65,7 +65,7 @@ fn test_ui() {
     gr.edges[0][3].1.hidden = true;
 
     // Run the ui
-    let vm = vm::VM::new(ctx, gr);
+    let vm = vm::VM::new(ctx, gr, Vec::new());
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
@@ -128,7 +128,7 @@ where
 {
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
-    let goal: vm::Graph = client
+    let (goal, sigma): (vm::Graph, _) = client
         .receive_msg(
             goal_req,
             parser::Parser::<vm::GraphParsed>::new(ctx.clone()),
@@ -142,7 +142,7 @@ where
 
     // Run the ui
     log::info!("Running the ui");
-    let vm = vm::VM::new(ctx, goal);
+    let vm = vm::VM::new(ctx, goal, sigma);
     App::new()
         .add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
         .add_plugin(EguiPlugin)
@@ -297,7 +297,7 @@ where
 {
     log::info!("Asking for goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
-    let goal: vm::Graph = client
+    let (goal, sigma): (vm::Graph, _) = client
         .receive_msg(
             goal_req,
             parser::Parser::<vm::GraphParsed>::new(ctx.clone()),
@@ -309,7 +309,7 @@ where
         .prepare(&mut ctx);
     log::info!("Goal received");
 
-    let mut vm = vm::VM::new(ctx, goal);
+    let mut vm = vm::VM::new(ctx, goal, sigma);
 
     log::info!("Asking for pair of morphisms to equate");
     let tosolve_req = client.send_msg("tosolve", ()).unwrap();

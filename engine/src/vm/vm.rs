@@ -1,6 +1,6 @@
 use crate::anyterm::AnyTerm;
 use crate::data::Context;
-use crate::substitution::Substitutable;
+use crate::substitution::{Substitutable, Substitution};
 use crate::vm::asm;
 use crate::vm::ast;
 use crate::vm::graph::{Graph, GraphId};
@@ -56,7 +56,7 @@ pub struct VM {
 }
 
 impl VM {
-    pub fn new(ctx: Context, gd: Graph) -> Self {
+    pub fn new(ctx: Context, gd: Graph, init_sigma: Substitution) -> Self {
         let mut res = Self {
             ctx,
             prev_code: String::new(),
@@ -76,7 +76,7 @@ impl VM {
             // The final substitution, given as a sequential substitution. Before sending
             // it to the proof assistant, all elements must be substituted with the tail
             // of the vector, using finalize_refinements
-            refinements: Vec::new(),
+            refinements: init_sigma,
         };
         res.renumber_edges();
         res.relabel();

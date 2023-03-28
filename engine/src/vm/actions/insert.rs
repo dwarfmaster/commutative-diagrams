@@ -67,7 +67,7 @@ mod tests {
             edges: Vec::new(),
             faces: Vec::new(),
         };
-        let mut vm = VM::new(ctx, gr);
+        let mut vm = VM::new(ctx, gr, Vec::new());
 
         let (m1_src, _, _) = vm.insert_mph(m1);
         assert_eq!(

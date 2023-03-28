@@ -229,7 +229,7 @@ mod tests {
             edges: vec![vec![(1, Default::default(), m)], vec![]],
             faces: vec![],
         };
-        let mut vm = VM::new(ctx, gr);
+        let mut vm = VM::new(ctx, gr, Vec::new());
         vm.split(0, 0);
 
         assert!(vm.graph.check(&vm.ctx), "Graph is not valid after split");
@@ -269,7 +269,7 @@ mod tests {
             edges: vec![vec![(1, Default::default(), m)], vec![]],
             faces: vec![],
         };
-        let mut vm = VM::new(ctx, gr);
+        let mut vm = VM::new(ctx, gr, Vec::new());
         vm.split_norm(0, 0);
 
         assert!(vm.graph.check(&vm.ctx), "Graph is not valid after split");

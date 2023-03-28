@@ -420,7 +420,7 @@ mod tests {
             edges: vec![vec![]],
             faces: vec![],
         };
-        let mut vm = VM::new(ctx, gr);
+        let mut vm = VM::new(ctx, gr, Vec::new());
 
         let descr = TermDescr::Ref(Annot {
             value: Id::Id(0),
@@ -463,7 +463,7 @@ mod tests {
             edges: vec![vec![], vec![]],
             faces: vec![],
         };
-        let mut vm = VM::new(ctx, gr);
+        let mut vm = VM::new(ctx, gr, Vec::new());
 
         let annot = |v: Id| -> Annot<Id> {
             Annot {

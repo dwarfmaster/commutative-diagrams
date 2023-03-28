@@ -1,10 +1,12 @@
 use crate::data::{ActualEquality, ActualMorphism, Context, Morphism, Object};
 use crate::graph::{Face, FaceParsed, Graph, GraphParsed};
 use crate::normalize;
+use crate::substitution::Substitution;
 use std::ops::Deref;
 
 impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
-    pub fn prepare(self, ctx: &mut Context) -> Graph<NL, EL, FL> {
+    pub fn prepare(self, ctx: &mut Context) -> (Graph<NL, EL, FL>, Substitution) {
+        let sigma = Vec::new();
         let nodes = self.nodes;
 
         // Normalize edges and remember identites
@@ -44,11 +46,14 @@ impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
                 .map(|v| v.1)
                 .collect();
         }
-        Graph {
-            nodes,
-            edges,
-            faces,
-        }
+        (
+            Graph {
+                nodes,
+                edges,
+                faces,
+            },
+            sigma,
+        )
     }
 }
 
