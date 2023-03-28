@@ -4,6 +4,7 @@ use crate::data::{ActualProofObject, Context, ProofObject};
 use crate::data::{Category, Equality, Functor, Morphism, Object};
 use core::ops::Deref;
 use serde::{Serialize, Serializer};
+use std::collections::HashSet;
 
 /// Represent an arbitrary term
 #[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -96,6 +97,22 @@ impl AnyTerm {
             },
             _ => None,
         }
+    }
+
+    fn compute_existentials(&self, ctx: &Context, set: &mut HashSet<u64>) {
+        if let Some(ex) = self.as_var() {
+            set.insert(ex);
+            return;
+        }
+        self.clone()
+            .subterms(ctx.clone())
+            .for_each(|sub| sub.compute_existentials(ctx, set));
+    }
+
+    pub fn existentials(&self, ctx: &Context) -> HashSet<u64> {
+        let mut set = HashSet::new();
+        self.compute_existentials(ctx, &mut set);
+        set
     }
 
     pub fn expect_cat(&self, _ctx: &Context) -> Category {
