@@ -1,3 +1,4 @@
+use crate::anyterm::AnyTerm;
 use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism, ActualObject};
 use crate::data::{ActualProofObject, Context};
 use pretty::RcDoc;
@@ -32,7 +33,7 @@ fn render(d: RcDoc<()>, width: usize) -> String {
 }
 
 impl ActualProofObject {
-    pub fn to_pretty(&self, ctx: &mut Context) -> RcDoc<()> {
+    pub fn to_pretty(&self, ctx: &Context) -> RcDoc<()> {
         use ActualProofObject::*;
         match self {
             Term(t) => match ctx.term(*t) {
@@ -52,39 +53,39 @@ impl ActualProofObject {
         }
     }
 
-    pub fn render(&self, ctx: &mut Context, width: usize) -> String {
+    pub fn render(&self, ctx: &Context, width: usize) -> String {
         render(self.to_pretty(ctx), width)
     }
 }
 
 impl ActualCategory {
-    pub fn to_pretty(&self, ctx: &mut Context) -> RcDoc<()> {
+    pub fn to_pretty(&self, ctx: &Context) -> RcDoc<()> {
         use ActualCategory::*;
         match self {
             Atomic(pobj) => pobj.pobj.to_pretty(ctx),
         }
     }
 
-    pub fn render(&self, ctx: &mut Context, width: usize) -> String {
+    pub fn render(&self, ctx: &Context, width: usize) -> String {
         render(self.to_pretty(ctx), width)
     }
 }
 
 impl ActualFunctor {
-    pub fn to_pretty(&self, ctx: &mut Context) -> RcDoc<()> {
+    pub fn to_pretty(&self, ctx: &Context) -> RcDoc<()> {
         use ActualFunctor::*;
         match self {
             Atomic(pobj) => pobj.pobj.to_pretty(ctx),
         }
     }
 
-    pub fn render(&self, ctx: &mut Context, width: usize) -> String {
+    pub fn render(&self, ctx: &Context, width: usize) -> String {
         render(self.to_pretty(ctx), width)
     }
 }
 
 impl ActualObject {
-    pub fn to_pretty(&self, ctx: &mut Context) -> RcDoc<()> {
+    pub fn to_pretty(&self, ctx: &Context) -> RcDoc<()> {
         use ActualObject::*;
         match self {
             Atomic(pobj) => pobj.pobj.to_pretty(ctx),
@@ -96,13 +97,13 @@ impl ActualObject {
         }
     }
 
-    pub fn render(&self, ctx: &mut Context, width: usize) -> String {
+    pub fn render(&self, ctx: &Context, width: usize) -> String {
         render(self.to_pretty(ctx), width)
     }
 }
 
 impl ActualMorphism {
-    pub fn to_pretty(&self, ctx: &mut Context) -> RcDoc<()> {
+    pub fn to_pretty(&self, ctx: &Context) -> RcDoc<()> {
         use ActualMorphism::*;
         match self {
             Atomic(pobj) => pobj.pobj.to_pretty(ctx),
@@ -123,13 +124,13 @@ impl ActualMorphism {
         }
     }
 
-    pub fn render(&self, ctx: &mut Context, width: usize) -> String {
+    pub fn render(&self, ctx: &Context, width: usize) -> String {
         render(self.to_pretty(ctx), width)
     }
 }
 
 impl ActualEquality {
-    pub fn to_pretty(&self, ctx: &mut Context) -> RcDoc<()> {
+    pub fn to_pretty(&self, ctx: &Context) -> RcDoc<()> {
         use ActualEquality::*;
         match self {
             Atomic(pobj) => pobj.pobj.to_pretty(ctx),
@@ -194,7 +195,30 @@ impl ActualEquality {
         }
     }
 
-    pub fn render(&self, ctx: &mut Context, width: usize) -> String {
+    pub fn render(&self, ctx: &Context, width: usize) -> String {
         render(self.to_pretty(ctx), width)
+    }
+}
+
+fn wrap<'a>(wrapper: &'static str, doc: RcDoc<'a, ()>) -> RcDoc<'a, ()> {
+    RcDoc::text(wrapper)
+        .append(RcDoc::text("<"))
+        .append(doc)
+        .append(RcDoc::text(">"))
+}
+
+impl AnyTerm {
+    pub fn render(&self, ctx: &Context, width: usize) -> String {
+        use AnyTerm::*;
+        let pretty = match self {
+            Cat(c) => wrap("cat", c.to_pretty(ctx)),
+            Funct(f) => wrap("funct", f.to_pretty(ctx)),
+            Obj(o) => wrap("obj", o.to_pretty(ctx)),
+            Mph(m) => wrap("mph", m.to_pretty(ctx)),
+            Eq(e) => wrap("eq", e.to_pretty(ctx)),
+            Pobj(obj) => wrap("pobj", obj.to_pretty(ctx)),
+            _ => RcDoc::text("internal"),
+        };
+        render(pretty, width)
     }
 }
