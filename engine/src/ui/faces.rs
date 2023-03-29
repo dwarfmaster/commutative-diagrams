@@ -5,7 +5,12 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
 
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.radio_value(&mut vm.selected_face, None, "No face");
-        for fce in 0..vm.graph.faces.len() {
+        for fce in vm
+            .face_goal_order
+            .iter()
+            .copied()
+            .chain(vm.face_hyps_order.iter().copied())
+        {
             if vm.graph.faces[fce].label.hidden {
                 continue;
             }

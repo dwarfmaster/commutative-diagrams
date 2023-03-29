@@ -7,6 +7,7 @@ mod identify;
 mod interpreter;
 mod layout;
 mod namer;
+mod order;
 mod parser;
 mod sides;
 mod status;

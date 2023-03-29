@@ -112,6 +112,7 @@ impl VM {
                     }
                 }
                 self.set_face_status(nfce);
+                self.order_new_face(nfce);
             }
             UpdateFace(fce, old, new) => {
                 assert_eq!(self.graph.faces[*fce].eq, *old);
@@ -194,6 +195,7 @@ impl VM {
                         self.set_name(GraphId::Face(parent), fce.label.name);
                         self.graph.faces[parent].label.children.pop();
                     }
+                    self.order_rm_face(self.graph.faces.len());
                 }
             }
             UpdateFace(fce, old, new) => {

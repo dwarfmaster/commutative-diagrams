@@ -51,6 +51,8 @@ pub struct VM {
     pub offset: Vec2,
     pub zoom: f32,
     pub selected_face: Option<usize>,
+    pub face_goal_order: Vec<usize>,
+    pub face_hyps_order: Vec<usize>,
     pub end_status: EndStatus,
     pub refinements: Vec<(u64, AnyTerm)>,
 }
@@ -72,6 +74,8 @@ impl VM {
             offset: Vec2::ZERO,
             zoom: 1.0,
             selected_face: None,
+            face_goal_order: Vec::new(),
+            face_hyps_order: Vec::new(),
             end_status: EndStatus::Running,
             // The final substitution, given as a sequential substitution. Before sending
             // it to the proof assistant, all elements must be substituted with the tail
@@ -82,6 +86,7 @@ impl VM {
         res.relabel();
         res.autoname();
         res.recompute_face_statuses();
+        res.init_face_order();
         res.layout();
         res
     }
