@@ -43,7 +43,7 @@ impl VM {
 
     // fce must be a face from a single morphism. Its equality is then inserted
     // in all equalities that have on side that go through this morphism. Then
-    // it hides the morphism and the face
+    // it hides the morphism and the face.
     fn extend_face_in_eqs(&mut self, fce: usize) {
         use ActualEquality::*;
         assert_eq!(
@@ -55,7 +55,7 @@ impl VM {
         let mph = self.graph.faces[fce].left[0];
 
         for face in 0..self.graph.faces.len() {
-            if face == fce {
+            if face == fce || self.graph.faces[face].label.hidden {
                 continue;
             }
             let mut changed = false;

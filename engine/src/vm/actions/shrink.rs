@@ -164,7 +164,7 @@ impl VM {
                 Default::default(),
             );
             if let Some(sigma) = sigma {
-                self.register_instruction(Ins::ExtendRefinements(sigma));
+                self.refine(sigma);
                 return true;
             } else {
                 return false;
@@ -245,7 +245,7 @@ impl VM {
             },
         );
         if let Some(sigma) = sigma {
-            self.register_instruction(Ins::ExtendRefinements(sigma));
+            self.refine(sigma);
         } else {
             return false;
         }

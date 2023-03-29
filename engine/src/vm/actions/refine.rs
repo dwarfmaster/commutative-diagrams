@@ -2,6 +2,7 @@ use crate::anyterm::IsTerm;
 use crate::data::ActualProofObject;
 use crate::data::{ActualEquality, Equality, EqualityData};
 use crate::graph::Face;
+use crate::substitution::{Substitutable, Substitution};
 use crate::unification::{unify, UnifOpts};
 use crate::vm::graph::{FaceLabel, FaceStatus};
 use crate::vm::{GraphId, VM};
@@ -10,6 +11,41 @@ use std::collections::HashSet;
 type Ins = crate::vm::asm::Instruction;
 
 impl VM {
+    // Substitute sigma in the graph, and add it to the refinements
+    pub fn refine(&mut self, sigma: Substitution) {
+        // Substitute nodes
+        for id in 0..self.graph.nodes.len() {
+            let nd = self.graph.nodes[id].0.clone();
+            let nsubst = nd.clone().subst(&self.ctx, &sigma);
+            if nsubst != nd {
+                self.register_instruction(Ins::UpdateNode(id, nd, nsubst));
+            }
+        }
+
+        // Substitute morphisms
+        for src in 0..self.graph.edges.len() {
+            for edge in 0..self.graph.edges[src].len() {
+                let mph = self.graph.edges[src][edge].2.clone();
+                let msubst = mph.clone().subst(&self.ctx, &sigma);
+                if msubst != mph {
+                    self.register_instruction(Ins::UpdateMorphism(src, edge, mph, msubst));
+                }
+            }
+        }
+
+        // Substitute faces
+        for id in 0..self.graph.faces.len() {
+            let fce = self.graph.faces[id].eq.clone();
+            let fsubst = fce.clone().subst(&self.ctx, &sigma).simpl(&self.ctx);
+            if fsubst != fce {
+                self.register_instruction(Ins::UpdateFace(id, fce, fsubst));
+            }
+        }
+
+        self.register_instruction(Ins::ExtendRefinements(sigma));
+        self.relabel();
+    }
+
     // Create a new face of sides left_path and right_path, with equality a new
     // hole, marking the face fce as hidden and refining its equality with
     // left_eq <> ex <> right_eq^-1
@@ -63,7 +99,7 @@ impl VM {
                 ..Default::default()
             },
         )?;
-        self.register_instruction(Ins::ExtendRefinements(sigma));
+        self.refine(sigma);
 
         // Add new face
         let face = Face {
