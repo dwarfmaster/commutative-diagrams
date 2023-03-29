@@ -138,6 +138,33 @@ impl VM {
     }
 
     pub fn identify_node(&mut self, descr: &TermDescr) -> Option<usize> {
+        // Shortcut for refs
+        if let TermDescr::Ref(id) = descr {
+            match &id.value {
+                Id::Name(name) => {
+                    let id = self.names.get(name)?;
+                    match id {
+                        GraphId::Node(nd) => {
+                            if self.graph.nodes[*nd].1.hidden {
+                                return None;
+                            } else {
+                                return Some(*nd);
+                            }
+                        }
+                        _ => return None,
+                    }
+                }
+                Id::Id(id) => {
+                    if *id < self.graph.nodes.len() && !self.graph.nodes[*id].1.hidden {
+                        return Some(*id);
+                    } else {
+                        return None;
+                    }
+                }
+            }
+        }
+
+        // Build termdescr and unify
         let obj = self.descr_as_object(descr)?;
         let obj = obj.term();
         for i in 0..self.graph.nodes.len() {
@@ -235,6 +262,34 @@ impl VM {
     }
 
     pub fn identify_edge(&mut self, descr: &TermDescr) -> Option<(usize, usize)> {
+        // Shortcut for refs
+        if let TermDescr::Ref(id) = descr {
+            match &id.value {
+                Id::Name(name) => {
+                    let id = self.names.get(name)?;
+                    match id {
+                        GraphId::Morphism(src, mph) => {
+                            if self.graph.edges[*src][*mph].1.hidden {
+                                return None;
+                            } else {
+                                return Some((*src, *mph));
+                            }
+                        }
+                        _ => return None,
+                    }
+                }
+                Id::Id(id) => {
+                    let (src, mph) = self.graph.edge_by_id(*id)?;
+                    if self.graph.edges[src][mph].1.hidden {
+                        return None;
+                    } else {
+                        return Some((src, mph));
+                    }
+                }
+            }
+        }
+
+        // Build termdescr and unify
         let mph = self.descr_as_morphism(descr)?;
         let mph = mph.term();
         for src in 0..self.graph.edges.len() {
@@ -371,6 +426,33 @@ impl VM {
     }
 
     pub fn identify_face(&mut self, descr: &TermDescr) -> Option<usize> {
+        // Shortcut for refs
+        if let TermDescr::Ref(id) = descr {
+            match &id.value {
+                Id::Name(name) => {
+                    let id = self.names.get(name)?;
+                    match id {
+                        GraphId::Face(fce) => {
+                            if self.graph.faces[*fce].label.hidden {
+                                return None;
+                            } else {
+                                return Some(*fce);
+                            }
+                        }
+                        _ => return None,
+                    }
+                }
+                Id::Id(id) => {
+                    if *id < self.graph.faces.len() && !self.graph.faces[*id].label.hidden {
+                        return Some(*id);
+                    } else {
+                        return None;
+                    }
+                }
+            }
+        }
+
+        // Build termdescr and unify
         let eq = self.descr_as_equality(descr)?;
         let eq = eq.term();
         for fce in 0..self.graph.faces.len() {
