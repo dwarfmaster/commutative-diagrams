@@ -407,15 +407,15 @@ where
 
 fn embed(normalize: bool, autosolve: Option<usize>, print: Option<String>) {
     simplelog::WriteLogger::init(
-        simplelog::LevelFilter::Debug,
+        simplelog::LevelFilter::max(),
         simplelog::ConfigBuilder::new()
-            .set_max_level(simplelog::LevelFilter::max())
             .add_filter_ignore("wgpu_hal".to_string())
             .add_filter_ignore("wgpu_core".to_string())
             .add_filter_ignore("objects".to_string())
             .add_filter_ignore("winit".to_string())
             .add_filter_ignore("gilrs".to_string())
             .add_filter_ignore("naga".to_string())
+            .add_filter_ignore("mio".to_string())
             .build(),
         File::create("diagrams-engine.log").unwrap(),
     )
