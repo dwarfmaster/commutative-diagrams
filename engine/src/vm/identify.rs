@@ -8,12 +8,10 @@ use crate::unification::{unify, UnifOpts, UnifState};
 use crate::vm::ast::{Annot, Id, TermDescr};
 use crate::vm::graph::GraphId;
 use crate::vm::VM;
-use std::collections::HashSet;
 
 impl VM {
     fn realize_descr_as_cat(
         &mut self,
-        exs: &mut HashSet<u64>,
         _unif: &mut UnifState,
         descr: &TermDescr,
     ) -> Option<Category> {
@@ -23,7 +21,6 @@ impl VM {
             Ref(_) => None, // Only nodes, edges and faces can have names
             Hole => {
                 let ex = self.ctx.new_existential();
-                exs.insert(ex);
                 Some(self.ctx.mk(Atomic(CategoryData {
                     pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
                 })))
@@ -31,17 +28,15 @@ impl VM {
         }
     }
 
-    pub fn descr_as_cat(&mut self, descr: &TermDescr) -> Option<(Category, HashSet<u64>)> {
-        let mut hash = HashSet::new();
+    pub fn descr_as_cat(&mut self, descr: &TermDescr) -> Option<Category> {
         let mut unif = UnifState::new();
-        let cat = self.realize_descr_as_cat(&mut hash, &mut unif, descr)?;
+        let cat = self.realize_descr_as_cat(&mut unif, descr)?;
         let sigma = unif.solve()?;
-        Some((cat.subst(&self.ctx, &sigma), hash))
+        Some(cat.subst(&self.ctx, &sigma))
     }
 
     fn realize_descr_as_functor(
         &mut self,
-        exs: &mut HashSet<u64>,
         _unif: &mut UnifState,
         descr: &TermDescr,
         src: Category,
@@ -53,7 +48,6 @@ impl VM {
             Ref(_) => None, // Only nodes, edges and faces can have names
             Hole => {
                 let ex = self.ctx.new_existential();
-                exs.insert(ex);
                 Some(self.ctx.mk(Atomic(FunctorData {
                     pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
                     src,
@@ -63,27 +57,28 @@ impl VM {
         }
     }
 
-    pub fn descr_as_functor(&mut self, descr: &TermDescr) -> Option<(Functor, HashSet<u64>)> {
-        let mut hash = HashSet::new();
+    pub fn descr_as_functor(&mut self, descr: &TermDescr) -> Option<Functor> {
         let mut unif = UnifState::new();
+
+        // src
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let src = self.ctx.mk(ActualCategory::Atomic(CategoryData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
         }));
+
+        // dst
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let dst = self.ctx.mk(ActualCategory::Atomic(CategoryData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
         }));
-        let funct = self.realize_descr_as_functor(&mut hash, &mut unif, descr, src, dst)?;
+
+        let funct = self.realize_descr_as_functor(&mut unif, descr, src, dst)?;
         let sigma = unif.solve()?;
-        Some((funct.subst(&self.ctx, &sigma), hash))
+        Some(funct.subst(&self.ctx, &sigma))
     }
 
     fn realize_descr_as_object(
         &mut self,
-        exs: &mut HashSet<u64>,
         unif: &mut UnifState,
         descr: &TermDescr,
         cat: Category,
@@ -120,7 +115,6 @@ impl VM {
             }
             Hole => {
                 let ex = self.ctx.new_existential();
-                exs.insert(ex);
                 Some(self.ctx.mk(Atomic(ObjectData {
                     pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
                     category: cat,
@@ -129,23 +123,27 @@ impl VM {
         }
     }
 
-    pub fn descr_as_object(&mut self, descr: &TermDescr) -> Option<(Object, HashSet<u64>)> {
-        let mut hash = HashSet::new();
+    pub fn descr_as_object(&mut self, descr: &TermDescr) -> Option<Object> {
         let mut unif = UnifState::new();
+
+        // cat
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let cat = self.ctx.mk(ActualCategory::Atomic(CategoryData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
         }));
-        let obj = self.realize_descr_as_object(&mut hash, &mut unif, descr, cat)?;
+
+        let obj = self.realize_descr_as_object(&mut unif, descr, cat)?;
         let sigma = unif.solve()?;
-        Some((obj.subst(&self.ctx, &sigma), hash))
+        Some(obj.subst(&self.ctx, &sigma))
     }
 
     pub fn identify_node(&mut self, descr: &TermDescr) -> Option<usize> {
-        let (obj, _) = self.descr_as_object(descr)?;
+        let obj = self.descr_as_object(descr)?;
         let obj = obj.term();
         for i in 0..self.graph.nodes.len() {
+            if self.graph.nodes[i].1.hidden {
+                continue;
+            }
             if match_term(&self.ctx, obj.clone(), self.graph.nodes[i].0.clone().term()) {
                 return Some(i);
             }
@@ -155,7 +153,6 @@ impl VM {
 
     fn realize_descr_as_morphism(
         &mut self,
-        exs: &mut HashSet<u64>,
         unif: &mut UnifState,
         descr: &TermDescr,
         src: Object,
@@ -199,7 +196,6 @@ impl VM {
             }
             Hole => {
                 let ex = self.ctx.new_existential();
-                exs.insert(ex);
                 Some(self.ctx.mk(Atomic(MorphismData {
                     pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
                     src,
@@ -210,36 +206,42 @@ impl VM {
         }
     }
 
-    pub fn descr_as_morphism(&mut self, descr: &TermDescr) -> Option<(Morphism, HashSet<u64>)> {
-        let mut hash = HashSet::new();
+    pub fn descr_as_morphism(&mut self, descr: &TermDescr) -> Option<Morphism> {
         let mut unif = UnifState::new();
+
+        // Cat
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let cat = self.ctx.mk(ActualCategory::Atomic(CategoryData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
         }));
+
+        // Src
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let src = self.ctx.mk(ActualObject::Atomic(ObjectData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat.clone(),
         }));
+
+        // Dst
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let dst = self.ctx.mk(ActualObject::Atomic(ObjectData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat,
         }));
-        let mph = self.realize_descr_as_morphism(&mut hash, &mut unif, descr, src, dst)?;
+
+        let mph = self.realize_descr_as_morphism(&mut unif, descr, src, dst)?;
         let sigma = unif.solve()?;
-        Some((mph.subst(&self.ctx, &sigma), hash))
+        Some(mph.subst(&self.ctx, &sigma))
     }
 
     pub fn identify_edge(&mut self, descr: &TermDescr) -> Option<(usize, usize)> {
-        let (mph, _) = self.descr_as_morphism(descr)?;
+        let mph = self.descr_as_morphism(descr)?;
         let mph = mph.term();
         for src in 0..self.graph.edges.len() {
             for m in 0..self.graph.edges[src].len() {
+                if self.graph.edges[src][m].1.hidden {
+                    continue;
+                }
                 if match_term(
                     &self.ctx,
                     mph.clone(),
@@ -254,7 +256,6 @@ impl VM {
 
     fn realize_descr_as_equality(
         &mut self,
-        exs: &mut HashSet<u64>,
         unif: &mut UnifState,
         descr: &TermDescr,
         left: Morphism,
@@ -311,7 +312,6 @@ impl VM {
             }
             Hole => {
                 let ex = self.ctx.new_existential();
-                exs.insert(ex);
                 Some(self.ctx.mk(Atomic(EqualityData {
                     pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
                     src,
@@ -324,51 +324,59 @@ impl VM {
         }
     }
 
-    pub fn descr_as_equality(&mut self, descr: &TermDescr) -> Option<(Equality, HashSet<u64>)> {
-        let mut hash = HashSet::new();
+    pub fn descr_as_equality(&mut self, descr: &TermDescr) -> Option<Equality> {
         let mut unif = UnifState::new();
+
+        // Cat
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let cat = self.ctx.mk(ActualCategory::Atomic(CategoryData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
         }));
+
+        // Src
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let src = self.ctx.mk(ActualObject::Atomic(ObjectData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat.clone(),
         }));
+
+        // Dst
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let dst = self.ctx.mk(ActualObject::Atomic(ObjectData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat.clone(),
         }));
+
+        // Left
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let left = self.ctx.mk(ActualMorphism::Atomic(MorphismData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat.clone(),
             src: src.clone(),
             dst: dst.clone(),
         }));
+
+        // Right
         let ex = self.ctx.new_existential();
-        hash.insert(ex);
         let right = self.ctx.mk(ActualMorphism::Atomic(MorphismData {
             pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
             category: cat,
             src,
             dst,
         }));
-        let eq = self.realize_descr_as_equality(&mut hash, &mut unif, descr, left, right)?;
+
+        let eq = self.realize_descr_as_equality(&mut unif, descr, left, right)?;
         let sigma = unif.solve()?;
-        Some((eq.subst(&self.ctx, &sigma), hash))
+        Some(eq.subst(&self.ctx, &sigma))
     }
 
     pub fn identify_face(&mut self, descr: &TermDescr) -> Option<usize> {
-        let (eq, _) = self.descr_as_equality(descr)?;
+        let eq = self.descr_as_equality(descr)?;
         let eq = eq.term();
         for fce in 0..self.graph.faces.len() {
+            if self.graph.faces[fce].label.hidden {
+                continue;
+            }
             if match_term(
                 &self.ctx,
                 eq.clone(),
@@ -421,7 +429,7 @@ mod tests {
             value: Id::Id(0),
             range: std::ops::Range { start: 0, end: 1 },
         });
-        let (obj, _) = vm.descr_as_object(&descr).unwrap();
+        let obj = vm.descr_as_object(&descr).unwrap();
         assert!(obj.check(&vm.ctx), "Realization is invalid");
     }
 

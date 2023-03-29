@@ -22,7 +22,7 @@ impl VM {
             InsertNode(node) => {
                 let node = self.descr_as_object(&node.value);
                 match node {
-                    Some((node, _)) => {
+                    Some(node) => {
                         self.insert_node(node);
                     }
                     None => {
@@ -34,7 +34,7 @@ impl VM {
             InsertMorphism(mph) => {
                 let mph = self.descr_as_morphism(&mph.value);
                 match mph {
-                    Some((mph, _)) => {
+                    Some(mph) => {
                         self.insert_mph(mph);
                     }
                     None => {
@@ -46,7 +46,7 @@ impl VM {
             InsertMorphismAt(node, mph) => {
                 let mph = self.descr_as_morphism(&mph.value);
                 match mph {
-                    Some((mph, _)) => {
+                    Some(mph) => {
                         self.insert_mph_at(node.value, mph);
                     }
                     None => {
