@@ -46,6 +46,14 @@ impl VM {
         }
     }
 
+    // Log current state of refinements
+    fn log_debug_refinements(&self, extend: bool) {
+        log::trace!("{} refinements:", if extend { "Extend" } else { "Retract" });
+        for (ex, tm) in &self.refinements {
+            log::trace!("  {} => {}", ex, tm.render(&self.ctx, 100));
+        }
+    }
+
     // Execute one instruction
     fn execute_instruction(&mut self, ins: &Instruction) {
         use Instruction::*;
@@ -111,7 +119,10 @@ impl VM {
                 self.set_face_status(*fce);
             }
             UpdateFaceLabel(fce, upd) => upd.apply(&mut self.graph.faces[*fce].label),
-            ExtendRefinements(sigma) => self.refinements.extend(sigma.iter().map(|p| p.clone())),
+            ExtendRefinements(sigma) => {
+                self.refinements.extend(sigma.iter().map(|p| p.clone()));
+                self.log_debug_refinements(true);
+            }
             RenameFace(fce, prev, new) => {
                 assert_eq!(&self.graph.faces[*fce].label.name, prev);
                 self.graph.faces[*fce].label.name = new.clone();
@@ -191,9 +202,11 @@ impl VM {
                 self.set_face_status(*fce);
             }
             UpdateFaceLabel(fce, upd) => upd.undo(&mut self.graph.faces[*fce].label),
-            ExtendRefinements(sigma) => self
-                .refinements
-                .truncate(self.refinements.len().saturating_sub(sigma.len())),
+            ExtendRefinements(sigma) => {
+                self.refinements
+                    .truncate(self.refinements.len().saturating_sub(sigma.len()));
+                self.log_debug_refinements(false);
+            }
             RenameFace(fce, prev, new) => {
                 assert_eq!(&self.graph.faces[*fce].label.name, new);
                 self.graph.faces[*fce].label.name = prev.clone();
