@@ -91,9 +91,8 @@ impl VM {
         res
     }
 
-    // Compile the code, but do not run it
-    pub fn recompile(&mut self) -> Option<ast::AST> {
-        let p = parser::Parser::new(self.run_until, &self.code[self.run_until..]);
+    pub fn recompile_to(&mut self, to: usize) -> Option<ast::AST> {
+        let p = parser::Parser::new(self.run_until, &self.code[self.run_until..to]);
         let r = p.parse();
         match r {
             Ok((_, ast)) => {
@@ -115,6 +114,24 @@ impl VM {
                 self.style_range(start..end, CodeStyle::Error);
                 None
             }
+        }
+    }
+
+    // Compile the code, but do not run it
+    pub fn recompile(&mut self) -> Option<ast::AST> {
+        self.recompile_to(self.code.len())
+    }
+
+    // Insert new code after the last executed instruction, parse it and run it
+    pub fn insert_and_run(&mut self, code: &str) {
+        if self.run_until == 0 {
+            self.code.insert_str(self.run_until, code);
+        } else {
+            self.code.insert_str(self.run_until, &format!("\n{}", code));
+        }
+        let end = self.run_until + code.len() + (if self.run_until == 0 { 0 } else { 1 });
+        if let Some(ast) = self.recompile_to(end) {
+            self.run(ast);
         }
     }
 
