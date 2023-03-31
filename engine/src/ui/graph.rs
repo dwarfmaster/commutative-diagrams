@@ -207,11 +207,11 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
                 let label = match closest_object {
                     GraphId::Node(n) => {
                         let node = &vm.graph.nodes[n].1;
-                        format!("node {}[{}] : {}", node.name, n, node.label)
+                        format!("node {}: {}", node.name, node.label)
                     }
                     GraphId::Morphism(src, dst) => {
                         let edge = &vm.graph.edges[src][dst].1;
-                        format!("morphism {}[{}] : {}", edge.name, edge.id, edge.label)
+                        format!("morphism {}: {}", edge.name, edge.label)
                     }
                     _ => panic!(),
                 };

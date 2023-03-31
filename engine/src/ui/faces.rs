@@ -15,8 +15,8 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
                 continue;
             }
             let label = format!(
-                "{}[{}]: {}",
-                vm.graph.faces[fce].label.name, fce, &vm.graph.faces[fce].label.label
+                "{}: {}",
+                vm.graph.faces[fce].label.name, &vm.graph.faces[fce].label.label
             );
             match vm.graph.faces[fce].label.status {
                 FaceStatus::Goal => {
