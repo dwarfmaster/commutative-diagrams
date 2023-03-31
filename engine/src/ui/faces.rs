@@ -31,6 +31,9 @@ pub fn faces(ui: &mut egui::Ui, vm: &mut VM) {
             }
 
             let resp = ui.radio_value(&mut vm.selected_face, Some(fce), label);
+            if resp.double_clicked() {
+                vm.insert_and_run(&format!("solve {}", vm.graph.faces[fce].label.name));
+            }
             resp.context_menu(|ui| {
                 let mut empty = true;
                 if vm.graph.faces[fce].label.status == FaceStatus::Goal {
