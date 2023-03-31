@@ -18,7 +18,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     else ret ()
 
   type goal =
-    | GGraph of int * Gr.graph
+    | GGraph of string option * bool * int * Gr.graph
     | GPrint of string * Gr.graph
     | GNormalize of PA.t Data.morphism * PA.t Data.morphism
     | GSolve of int * Gr.graph * PA.t Data.morphism * PA.t Data.morphism
@@ -35,7 +35,12 @@ module Make(PA: Pa.ProofAssistant) = struct
   let start_remote (goal : goal) : remote m =
     let args =
       match goal with
-      | GGraph _ -> [ "embed" ]
+      | GGraph (file,_,_,_) -> List.concat [
+        [ "embed" ];
+        (match file with
+        | Some file -> [ "--state"; file ]
+        | None -> [ ]);
+      ]
       | GPrint (path,_) -> [ "embed"; "--print"; path ]
       | GNormalize _ -> [ "embed"; "--normalize" ]
       | GSolve (level,_,_,_) -> [ "embed"; Printf.sprintf "--autosolve=%d" level ]
@@ -126,7 +131,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   let handle_goal (goal: goal) (args : Msgpack.t list) : handler_ret m =
     let* _ = message "Sending goal" in
     match goal with
-    | GGraph (_,goal) ->
+    | GGraph (_,_,_,goal) ->
         let* goal_mp = Gr.Serde.pack goal in
         ret (HRet goal_mp)
     | GPrint (_,goal) ->
@@ -148,7 +153,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     | GNormalize _ -> ret (HError "Current goal is normalization")
     | GPrint _ -> ret (HError "Current goal is print")
     | GSolve _ -> ret (HError "Current goal is solve")
-    | GGraph (evar,_) -> begin
+    | GGraph (_,_,evar,_) -> begin
       let subst = ref None in
       let rec process_arguments lst =
         match lst with
@@ -296,7 +301,7 @@ module Make(PA: Pa.ProofAssistant) = struct
     | _ -> let* _ = fail "Ill formed rpc message" in assert false
 
   type action =
-    | Graph of PA.t Data.morphism * PA.t Data.morphism
+    | Graph of string option * bool * PA.t Data.morphism * PA.t Data.morphism
     | Normalize of PA.t Data.morphism * PA.t Data.morphism
     | Print of string
     | Solve of int * PA.t Data.morphism * PA.t Data.morphism
@@ -304,7 +309,7 @@ module Make(PA: Pa.ProofAssistant) = struct
   let run (act: action) : unit m =
     let* goal = 
       match act with
-      | Graph (left,right) -> 
+      | Graph (file,force,left,right) -> 
           let goal = Builder.empty () in
           let* goal = Builder.import_hyps goal in
           let* evar = St.newEvar () in
@@ -318,7 +323,7 @@ module Make(PA: Pa.ProofAssistant) = struct
             } in
           let goal = Builder.add_face (Data.AtomicEq hole) goal in
           let goal = Builder.build goal in
-          GGraph (evar,goal) |> ret
+          GGraph (file,force,evar,goal) |> ret
       | Normalize (left,right) ->
           ret (GNormalize (left,right))
       | Print path -> 

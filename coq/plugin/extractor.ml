@@ -52,19 +52,19 @@ let extract_hyps (goal : Proofview.Goal.t) : (Hott.t Data.morphism * Hott.t Data
   let* store = forM (extract_hyp env) context in
   Hott.parseEqGoal goal
 
-let server' (goal : Proofview.Goal.t) : unit m =
+let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit m =
   let* _ = St.registerEqPredicate Hott.eq in
   let* obj = extract_hyps goal in
   match obj with
   | None -> fail "Goal is not a face"
   | Some (side1,side2) ->
-      let* _ = Sv.run (Sv.Graph (side1, side2)) in
+      let* _ = Sv.run (Sv.Graph (file, force, side1, side2)) in
       ret ()
       (* let* eq = lift (Hott.realizeEq eq) in *)
       (* lift (Hott.M.lift (Refine.refine ~typecheck:false *)
       (*   (add_universes_constraints (Proofview.Goal.env goal) eq))) *)
-let server () : unit Proofview.tactic =
-  Proofview.Goal.enter_one (fun goal -> server' goal |> runWithGoal goal)
+let server file ~force : unit Proofview.tactic =
+  Proofview.Goal.enter_one (fun goal -> server' file force goal |> runWithGoal goal)
 
 let normalize' (goal : Proofview.Goal.t) : unit m =
   let* _ = St.registerEqPredicate Hott.eq in

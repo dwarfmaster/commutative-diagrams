@@ -16,7 +16,13 @@ TACTIC EXTEND diagram
   { Extractor.solve n }
 | [ "diagram" "solve" ] ->
   { Extractor.solve 5 }
+| [ "diagram" "server" string(file) ] ->
+  { Extractor.server (Some file) ~force:false }
 | [ "diagram" "server" ] ->
-  { Extractor.server () }
+  { Extractor.server None ~force:false }
+| [ "diagram" "force" string(file) ] ->
+  { Extractor.server (Some file) ~force:true }
+| [ "diagram" "force" ] ->
+  { Extractor.server None ~force:true }
 END
 
