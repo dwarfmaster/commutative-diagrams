@@ -19,6 +19,7 @@ use graph::Graph;
 use substitution::Substitutable;
 
 use std::fs::File;
+use std::io::{Read, Write};
 use std::vec::Vec;
 
 use clap::{Parser, Subcommand};
@@ -28,6 +29,11 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 
 type SolveGraph = Graph<(), (), ()>;
+
+#[derive(Resource)]
+struct AppConfig {
+    file: Option<String>,
+}
 
 fn test_ui() {
     // Build the graph
@@ -121,8 +127,46 @@ fn test_main() {
     }
 }
 
-fn goal_graph<In, Out>(mut ctx: data::Context, mut client: rpc::Client<In, Out>)
+// Return true if the code has succeeded, ie no ui should be started
+fn init_vm_code<In, Out>(client: &mut rpc::Client<In, Out>, vm: &mut vm::VM, path: &str) -> bool
 where
+    In: std::io::Read,
+    Out: std::io::Write,
+{
+    let file = File::open(path);
+    if file.is_err() {
+        return false;
+    }
+    let mut file = file.unwrap();
+
+    if file.read_to_string(&mut vm.code).is_err() {
+        return false;
+    }
+    let ast = vm.recompile();
+    if ast.is_none() {
+        return false;
+    }
+    let ast = ast.unwrap();
+
+    vm.run(ast);
+    match vm.end_status {
+        vm::EndStatus::Success => {
+            on_success(client, vm);
+            true
+        }
+        vm::EndStatus::Failure => {
+            on_failure(client);
+            true
+        }
+        _ => false,
+    }
+}
+
+fn goal_graph<In, Out>(
+    mut ctx: data::Context,
+    mut client: rpc::Client<In, Out>,
+    state: Option<String>,
+) where
     In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
     Out: std::io::Write + std::marker::Sync + std::marker::Send + 'static,
 {
@@ -140,23 +184,35 @@ where
         .prepare(&mut ctx);
     log::info!("Goal received");
 
-    // Run the ui
+    // Open the vm
+    let mut vm = vm::VM::new(ctx, goal, sigma);
+
+    // Open the file
+    if let Some(path) = &state {
+        log::info!("Reading code from file");
+        if init_vm_code(&mut client, &mut vm, path) {
+            log::info!("Ending without opening the ui");
+            return;
+        }
+    }
+
+    // Run the ui if necessary
     log::info!("Running the ui");
-    let vm = vm::VM::new(ctx, goal, sigma);
-    App::new()
-        .add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
         .add_plugin(EguiPlugin)
         .add_state(vm::EndStatus::Running)
         .insert_resource(vm)
         .insert_resource(client)
+        .insert_resource(AppConfig { file: state })
         .add_system_set(SystemSet::on_update(vm::EndStatus::Running).with_system(goal_ui_system))
         .add_system_set(
             SystemSet::on_enter(vm::EndStatus::Success).with_system(success_system::<In, Out>),
         )
         .add_system_set(
             SystemSet::on_enter(vm::EndStatus::Failure).with_system(failure_system::<In, Out>),
-        )
-        .run();
+        );
+    app.run();
 }
 
 fn goal_ui_system(
@@ -179,10 +235,19 @@ fn goal_ui_system(
     }
 }
 
-fn failure_system<In, Out>(mut exit: EventWriter<AppExit>, mut client: ResMut<rpc::Client<In, Out>>)
+fn save_code_on_exit(path: &str, vm: &vm::VM) {
+    let path = std::path::Path::new(path);
+    let prefix = path.parent().unwrap();
+    std::fs::create_dir_all(prefix).unwrap();
+    let mut file = File::create(path).unwrap();
+    file.write_all(&vm.code[0..vm.run_until].as_bytes())
+        .unwrap();
+}
+
+fn on_failure<In, Out>(client: &mut rpc::Client<In, Out>)
 where
-    In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
-    Out: std::io::Write + std::marker::Sync + std::marker::Send + 'static,
+    In: std::io::Read,
+    Out: std::io::Write,
 {
     log::info!("Entering failed state");
 
@@ -194,21 +259,30 @@ where
             log::warn!("Couldn't parse failed answer: {:#?}", err);
             panic!()
         });
-
-    // Exit the app
-    exit.send(AppExit)
 }
 
-fn success_system<In, Out>(
+fn failure_system<In, Out>(
     mut exit: EventWriter<AppExit>,
     mut client: ResMut<rpc::Client<In, Out>>,
-    vm: ResMut<vm::VM>,
+    vm: Res<vm::VM>,
+    cfg: Res<AppConfig>,
 ) where
     In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
     Out: std::io::Write + std::marker::Sync + std::marker::Send + 'static,
 {
+    on_failure(client.as_mut());
+    if let Some(path) = &cfg.file {
+        save_code_on_exit(path, vm.as_ref());
+    }
+    exit.send(AppExit)
+}
+
+fn on_success<In, Out>(client: &mut rpc::Client<In, Out>, vm: &mut vm::VM)
+where
+    In: std::io::Read,
+    Out: std::io::Write,
+{
     log::info!("Entering success state");
-    let client = client.as_mut();
 
     // Result is a vector of existentials and their instantiation
     let result = vm.finalize_refinements();
@@ -221,7 +295,21 @@ fn success_system<In, Out>(
             panic!()
         });
     log::info!("Acknowledgement of refinements received");
+}
 
+fn success_system<In, Out>(
+    mut exit: EventWriter<AppExit>,
+    mut client: ResMut<rpc::Client<In, Out>>,
+    mut vm: ResMut<vm::VM>,
+    cfg: Res<AppConfig>,
+) where
+    In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
+    Out: std::io::Write + std::marker::Sync + std::marker::Send + 'static,
+{
+    on_success(client.as_mut(), vm.as_mut());
+    if let Some(path) = &cfg.file {
+        save_code_on_exit(path, vm.as_ref());
+    }
     exit.send(AppExit)
 }
 
@@ -405,7 +493,7 @@ where
     log::info!("Solving finished")
 }
 
-fn embed(normalize: bool, autosolve: Option<usize>, print: Option<String>) {
+fn embed(normalize: bool, autosolve: Option<usize>, print: Option<String>, state: Option<String>) {
     simplelog::WriteLogger::init(
         simplelog::LevelFilter::max(),
         simplelog::ConfigBuilder::new()
@@ -449,7 +537,7 @@ fn embed(normalize: bool, autosolve: Option<usize>, print: Option<String>) {
     } else if print.is_some() {
         goal_print(ctx, client, print.unwrap())
     } else {
-        goal_graph(ctx, client)
+        goal_graph(ctx, client, state)
     }
 }
 
@@ -470,6 +558,8 @@ enum Commands {
         autosolve: Option<usize>,
         #[arg(long)]
         print: Option<String>,
+        #[arg(long)]
+        state: Option<String>,
     },
 }
 
@@ -483,6 +573,7 @@ fn main() {
             normalize,
             autosolve,
             print,
-        } => embed(normalize, autosolve, print),
+            state,
+        } => embed(normalize, autosolve, print, state),
     }
 }
