@@ -22,14 +22,27 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
     // and print information in a tooltip
     let mut closest_distance = f32::INFINITY;
     let mut closest_object = GraphId::Node(0);
-    let hover_pos = response.hover_pos();
+    let pointer_pos = if let Some(hover) = response.hover_pos() {
+        Some(hover)
+    } else {
+        response.interact_pointer_pos()
+    };
 
     if response.clicked() {
+        vm.focused_object = None;
+        response.request_focus();
+    }
+    if response.middle_clicked() {
+        vm.focused_object = None;
         response.request_focus();
     }
     if response.dragged() {
+        vm.focused_object = None;
         vm.offset += response.drag_delta();
         response.request_focus();
+    }
+    if response.lost_focus() {
+        vm.focused_object = None;
     }
     if response.has_focus() {
         // zoom
@@ -104,7 +117,7 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
             );
 
             // Compute distance to hover_pos
-            if let Some(hpos) = hover_pos {
+            if let Some(hpos) = pointer_pos {
                 let dist = pos.distance(hpos);
                 if dist < closest_distance {
                     closest_distance = dist;
@@ -142,7 +155,7 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
                     fg_stroke.color,
                 );
                 // If the label is hovered, change style
-                if let Some(hpos) = hover_pos {
+                if let Some(hpos) = pointer_pos {
                     if lbl_rect.contains(hpos) {
                         closest_distance = 0.0;
                         closest_object = GraphId::Morphism(src, mph);
@@ -167,7 +180,7 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
                     // Compute distance
                     // Since it is expensive we first check if hover_pos is in
                     // the bounding rect of the curve.
-                    if let Some(hpos) = hover_pos {
+                    if let Some(hpos) = pointer_pos {
                         if curve.visual_bounding_rect().expand(10.0).contains(hpos) {
                             let mut dist = f32::INFINITY;
                             curve.for_each_flattened_with_t(1.0, &mut |p: Pos2, _: f32| {
@@ -201,8 +214,8 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
             }
         }
 
-        // Paint tooltip
-        if hover_pos.is_some() && closest_distance < 20.0 * vm.zoom {
+        // Paint tooltip on hover
+        if response.hover_pos().is_some() && closest_distance < 20.0 * vm.zoom {
             egui::show_tooltip_at_pointer(ui.ctx(), egui::Id::new("id tooltip"), |ui| {
                 let label = match closest_object {
                     GraphId::Node(n) => {
@@ -218,6 +231,30 @@ pub fn graph_widget(ui: &mut egui::Ui, vm: &mut VM) -> egui::Response {
                 ui.label(label)
             });
         }
+
+        // Right-click
+        response.clone().context_menu(|ui| {
+            if vm.focused_object.is_none() {
+                if closest_distance < 20.0 * vm.zoom {
+                    vm.focused_object = Some(closest_object);
+                } else {
+                    ui.close_menu();
+                }
+            }
+            match vm.focused_object {
+                Some(GraphId::Morphism(src, dst)) => {
+                    if ui.button("Split").clicked() {
+                        vm.insert_and_run(&format!("split {}", vm.graph.edges[src][dst].1.name));
+                        vm.focused_object = None;
+                        ui.close_menu();
+                    }
+                }
+                _ => {
+                    vm.focused_object = None;
+                    ui.close_menu();
+                }
+            }
+        });
     }
 
     response
