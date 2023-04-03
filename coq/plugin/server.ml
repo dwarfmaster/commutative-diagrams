@@ -336,10 +336,9 @@ let run (act: action) : unit m =
     | Msgpack.Eof ->
         (* Failed to finish *)
         finish := true;
-        let err = In_channel.input_line rm.stderr in
-        let* _ = match err with
-        | Some err -> warning err
-        | None -> ret () in
+        let lines = Seq.unfold (fun () -> In_channel.input_line rm.stderr
+                                       |> Option.map (fun x -> (x,()))) () in
+        let* _ = Seq.fold_left (fun m line -> m >>= (fun () -> warning line)) (ret ()) lines in
         fail "Connection interrupted"
     | Msgpack.Error err ->
         let* _ = warning err in
