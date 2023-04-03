@@ -1,4 +1,4 @@
-use crate::data::{ActualEquality, Morphism};
+use crate::data::{ActualEquality, ActualMorphism, Morphism};
 use crate::graph::Face;
 use crate::normalize;
 use crate::vm::asm;
@@ -133,19 +133,55 @@ impl VM {
                         Some(Box::new(std::iter::once(*nxt)))
                     }
                 };
+
+            let nxt_mph = |src: &mut usize, mph: usize| -> Option<Morphism> {
+                let prev = *src;
+                *src = self.graph.edges[*src][mph].0;
+                Some(self.graph.edges[prev][mph].2.clone())
+            };
             let start = self.graph.faces[face].start;
+
             let left = self.graph.faces[face]
                 .left
                 .iter()
                 .scan(start, replace)
                 .flatten()
                 .collect::<Vec<_>>();
+            let left_mph = left
+                .iter()
+                .copied()
+                .scan(start, nxt_mph)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .reduce(|mph2, mph1| self.ctx.mk(ActualMorphism::Comp(mph1, mph2)))
+                .unwrap_or(
+                    self.ctx
+                        .mk(ActualMorphism::Identity(self.graph.nodes[start].0.clone())),
+                );
+            let (_, left_mph_eq) = normalize::morphism(&mut self.ctx, left_mph);
+            let lefteq = self.ctx.mk(Concat(lefteq, self.ctx.mk(Inv(left_mph_eq))));
+
             let right = self.graph.faces[face]
                 .right
                 .iter()
                 .scan(start, replace)
                 .flatten()
                 .collect::<Vec<_>>();
+            let right_mph = right
+                .iter()
+                .copied()
+                .scan(start, nxt_mph)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .reduce(|mph2, mph1| self.ctx.mk(ActualMorphism::Comp(mph1, mph2)))
+                .unwrap_or(
+                    self.ctx
+                        .mk(ActualMorphism::Identity(self.graph.nodes[start].0.clone())),
+                );
+            let (_, right_mph_eq) = normalize::morphism(&mut self.ctx, right_mph);
+            let righteq = self.ctx.mk(Concat(righteq, self.ctx.mk(Inv(right_mph_eq))));
 
             self.conjugate_face(face, lefteq, righteq, left, right);
         }
