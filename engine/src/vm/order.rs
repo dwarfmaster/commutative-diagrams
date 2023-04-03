@@ -100,8 +100,8 @@ impl VM {
         log::debug!("Removing face {}", fce);
         let pos = self.locate_face_order(fce);
         match pos {
-            Ok(pos) => self.face_hyps_order.remove(pos),
-            Err(pos) => self.face_goal_order.remove(pos),
+            Ok(pos) => self.face_goal_order.remove(pos),
+            Err(pos) => self.face_hyps_order.remove(pos),
         };
     }
 }
