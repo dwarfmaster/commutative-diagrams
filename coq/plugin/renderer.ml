@@ -1,6 +1,5 @@
 
-module St = Hyps.Make(Hott.M)
-open St.Combinators
+open Hyps.Combinators
 open Data
 
 let (++) = Pp.(++)
@@ -64,7 +63,7 @@ let rec mphList sigma env ms =
 (*  \____|_|  \__,_| .__/|_| |_|\_/ |_/___| *)
 (*                 |_|                      *)
 
-module ElemMap = Map.Make(Data.EqElem(Hott))
+module ElemMap = Map.Make(Data.EqElem)
 type eNums = int ElemMap.t
 
 let allElems mphs : eNums =
@@ -102,8 +101,10 @@ let mph_graphviz sigma env nums m =
   ++ (if isIso m  then Pp.str ",color=\"red\"" else Pp.str "")
   ++ Pp.str "];"
 
-let to_graphviz sigma env =
-  let* mphs = St.getMorphisms () in
+let to_graphviz () =
+  let* env = env () in
+  let* sigma = evars () in
+  let* mphs = Hyps.getMorphisms () in
   let nums = allElems mphs in
   ret (Pp.str "digraph {"
     ++ ElemMap.fold (fun e _ pp -> pp ++ elem_graphviz sigma env nums e) nums (Pp.str "")

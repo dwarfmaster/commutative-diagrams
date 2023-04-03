@@ -8,19 +8,13 @@ let (++) = Pp.(++)
 (*   |_|\___/| .__/      |_|\___| \_/ \___|_| *)
 (*           |_| *)
 (* Top-level *)
-module St = Hyps.Make(Hott.M)
-module M = Map.Make(Data.EqMph(Hott))
-module Sv = Server.Make(Hott)
-type 'a m = ('a,Hott.t) St.t
-open St.Combinators
-let (let$) = Proofview.tclBIND
-let evars () = lift (Hott.M.lift Proofview.tclEVARMAP)
-let env () = lift (Hott.M.env ())
-let fail msg = lift (Hott.M.lift (Tacticals.tclFAIL 0 (Pp.str msg)))
-let print str = Feedback.msg_info (Pp.str str)
+module M = Map.Make(Data.EqMph)
+module Sv = Server
+type 'a m = 'a Hyps.t
+open Hyps.Combinators
 let runWithGoal goal act =
   let env = Proofview.Goal.env goal in
-  Hott.M.run env (run act)
+  run env act
 
 let extract_hyp (env : Environ.env) (dec : EConstr.named_declaration) : unit m =
   let* sigma = evars () in
@@ -42,10 +36,10 @@ let rec forM (pred : 'a -> unit m) : 'a list -> unit m =
     | [ ] -> ret ()
     | x :: xs -> let* _ = pred x in forM pred xs
 
-let add_universes_constraints (env : Environ.env) (c : Hott.t) (sigma : Evd.evar_map) : Evd.evar_map * Hott.t =
+let add_universes_constraints (env : Environ.env) (c : EConstr.t) (sigma : Evd.evar_map) : Evd.evar_map * EConstr.t =
   Typing.solve_evars env sigma c
 
-let extract_hyps (goal : Proofview.Goal.t) : (Hott.t Data.morphism * Hott.t Data.morphism) option m =
+let extract_hyps (goal : Proofview.Goal.t) : (Data.morphism * Data.morphism) option m =
   let env = Proofview.Goal.env goal in
   let context = Proofview.Goal.hyps goal in
   let goal = Proofview.Goal.concl goal in
@@ -53,7 +47,6 @@ let extract_hyps (goal : Proofview.Goal.t) : (Hott.t Data.morphism * Hott.t Data
   Hott.parseEqGoal goal
 
 let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit m =
-  let* _ = St.registerEqPredicate Hott.eq in
   let* obj = extract_hyps goal in
   match obj with
   | None -> fail "Goal is not a face"
@@ -67,7 +60,6 @@ let server file ~force : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> server' file force goal |> runWithGoal goal)
 
 let normalize' (goal : Proofview.Goal.t) : unit m =
-  let* _ = St.registerEqPredicate Hott.eq in
   let* obj = extract_hyps goal in
   match obj with
   | None -> fail "Goal is not a face"
@@ -78,7 +70,6 @@ let normalize (_ : unit) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> normalize' goal |> runWithGoal goal)
 
 let extract' (path : string) (goal : Proofview.Goal.t) : unit m =
-  let* _ = St.registerEqPredicate Hott.eq in
   let* _ = extract_hyps goal in
   let* _ = Sv.run (Sv.Print path) in
   ret ()
@@ -86,7 +77,6 @@ let extract (path : string) : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> extract' path goal |> runWithGoal goal)
 
 let solve' (level : int) (goal: Proofview.Goal.t) : unit m =
-  let* _ = St.registerEqPredicate Hott.eq in
   let* obj = extract_hyps goal in
   match obj with
   | None -> fail "Goal is not a face"

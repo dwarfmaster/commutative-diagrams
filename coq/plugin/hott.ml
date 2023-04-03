@@ -1,34 +1,14 @@
 
-type t = EConstr.t
+type ec = EConstr.t
+type 'a m = 'a Hyps.t
 
-module M = struct
-  (* A reader monad over Proofview.tactic giving access to the goal environment *)
-  type 'a m = { runEnv : Environ.env -> 'a Proofview.tactic }
-  let bind a f =
-    { runEnv = fun env -> let a = a.runEnv env in Proofview.tclBIND a (fun x -> (f x).runEnv env) }
-  let return x =
-    { runEnv = fun env -> Proofview.tclUNIT x }
+open Hyps.Combinators
 
-  let env () = { runEnv = fun env -> Proofview.tclUNIT env }
-  let lift a = { runEnv = fun env -> a }
-  let run env a = a.runEnv env
-end
-let lift_tactic = M.lift
-
-module St = Hyps.Make(M)
-open St.Combinators
-type 'a m = ('a,EConstr.t) St.t
-let liftP a = lift (M.lift a)
-let none () = ret None
-let some x = ret (Some x)
-let env () = lift (M.env ())
-let evars () = liftP Proofview.tclEVARMAP
-
-let getType (e : EConstr.t) : EConstr.t m =
+let getType (e : ec) : ec m =
   let* env = env () in 
   let* sigma = evars () in 
   let (sigma,tp) = Typing.type_of env sigma e in 
-  let* _ = liftP (Proofview.Unsafe.tclEVARS sigma) in 
+  let* _ = lift (Proofview.Unsafe.tclEVARS sigma) in 
   ret tp
 
 let isProj sigma indPred name t =
@@ -60,8 +40,8 @@ let isInd sigma pred t =
 (*                   |___/                   *)
 (* Categories *)
 
-let registerAtomCat (cat : EConstr.t) =
-  let* cat = St.registerCategory ~cat in 
+let registerAtomCat (cat : ec) =
+  let* cat = Hyps.registerCategory ~cat in 
   ret (Data.AtomicCategory cat)
 
 let parseCategoryType (cat : EConstr.t) : bool m =
@@ -85,10 +65,10 @@ let parseCategory (cat : EConstr.t) (tp : EConstr.t) =
 (* Functors *)
 
 let registerAtomFunct funct src dst =
-  let* funct = St.registerFunctor ~funct ~src ~dst in 
+  let* funct = Hyps.registerFunctor ~funct ~src ~dst in 
   ret (Data.AtomicFunctor funct)
 
-let parseFunctorType (funct : t) : (t*t) option m =
+let parseFunctorType (funct : ec) : (ec*ec) option m =
   let* env = env () in
   let* sigma = evars () in 
   match EConstr.kind sigma funct with
@@ -96,7 +76,7 @@ let parseFunctorType (funct : t) : (t*t) option m =
       some (src,dst)
   | _ -> none ()
 
-let parseFunctorTerm (funct : t) src dst =
+let parseFunctorTerm (funct : ec) src dst =
   registerAtomFunct funct src dst
 
 let parseFunctor (funct : EConstr.t) (tp : EConstr.t) =
@@ -118,10 +98,10 @@ let parseFunctor (funct : EConstr.t) (tp : EConstr.t) =
 (* Elems *)
 
 let registerAtomElem elem cat =
-  let* elem = St.registerElem ~elem ~cat in 
+  let* elem = Hyps.registerElem ~elem ~cat in 
   ret (Data.AtomicElem elem)
 
-let parseElemType (obj : t) : t option m =
+let parseElemType (obj : ec) : ec option m =
   let* env = env () in
   let* sigma = evars () in
   match EConstr.kind sigma obj with
@@ -169,10 +149,10 @@ let parseElem (elem : EConstr.t) (tp : EConstr.t) =
 (* Morphisms *)
 
 let registerAtomMorphism mph cat src dst =
-  let* mph = St.registerMorphism ~mph ~cat ~src ~dst in 
+  let* mph = Hyps.registerMorphism ~mph ~cat ~src ~dst in 
   ret (Data.AtomicMorphism mph)
 
-let parseMorphismType (mph : t) : (t * t * t) option m =
+let parseMorphismType (mph : ec) : (ec * ec * ec) option m =
   let* sigma = evars () in
   match EConstr.kind sigma mph with
   | App (p, [| src; dst |]) ->
@@ -249,10 +229,10 @@ let parseMorphism mph tp =
 (* Equalities *)
 
 let registerAtomEq eq right left cat src dst =
-  let* eq = St.registerEq ~eq ~right ~left ~cat ~src ~dst in 
+  let* eq = Hyps.registerEq ~eq ~right ~left ~cat ~src ~dst in 
   ret (Data.AtomicEq eq)
 
-let parseEqType (eq : t) : (t * t * t * t * t) option m =
+let parseEqType (eq : ec) : (ec * ec * ec * ec * ec) option m =
   let* sigma = evars () in
   match EConstr.kind sigma eq with
   | App (eq, [| tp; left; right |]) ->
@@ -334,17 +314,17 @@ let parseProperties hyp prop =
         match mph with
         | AtomicMorphism dt -> ret dt
         | _ ->
-            let* mphAtom = St.registerMorphism ~mph:mphEC ~cat ~src ~dst in
-            let* tp = liftP (Env.app (Env.mk_mphT ()) [| catEC; srcEC; dstEC |]) in
-            let* eq = liftP (Env.app (Env.mk_refl ()) [| tp; mphEC |]) in
+            let* mphAtom = Hyps.registerMorphism ~mph:mphEC ~cat ~src ~dst in
+            let* tp = lift (Env.app (Env.mk_mphT ()) [| catEC; srcEC; dstEC |]) in
+            let* eq = lift (Env.app (Env.mk_refl ()) [| tp; mphEC |]) in
             let* _ = registerAtomEq eq (AtomicMorphism mphAtom) mph cat src dst in
             ret mphAtom
       in begin match parsePropType sigma prop with
       | Epi -> mphData.epi <- Some hyp; ret ()
       | Mono -> mphData.mono <- Some hyp; ret ()
       | Iso ->
-          let* inv = liftP (Env.app (Env.mk_inv_mph ()) [| catEC; srcEC; dstEC; mphEC; hyp |]) in
-          let* inv = St.registerMorphism ~mph:inv ~cat ~src:dst ~dst:src in
+          let* inv = lift (Env.app (Env.mk_inv_mph ()) [| catEC; srcEC; dstEC; mphEC; hyp |]) in
+          let* inv = Hyps.registerMorphism ~mph:inv ~cat ~src:dst ~dst:src in
           let iso = 
             { Data.iso_obj = hyp
             ; Data.iso_mph = mphData
@@ -364,23 +344,21 @@ let parseProperties hyp prop =
 (*                                                  *)
 (* Realization *)
 
-let (let$) = M.bind
-let pret = M.return
-let app f args = M.lift (Env.app f args)
+let app f args = lift (Env.app f args)
 
 (* Create a new evar of type tp *)
 let realizeEvar tp =
-  let$ sigma = M.lift Proofview.tclEVARMAP in
-  let$ env = M.env () in
+  let* sigma = evars () in
+  let* env = env () in
   let (sigma,evar) = Evarutil.new_evar env sigma tp in
-  let$ _ = M.lift (Proofview.Unsafe.tclEVARS sigma) in
-  pret evar
+  let* _ = lift (Proofview.Unsafe.tclEVARS sigma) in
+  ret evar
 
-let rec realizeAtomic a : EConstr.t M.m =
+let rec realizeAtomic a : EConstr.t m =
   let open Data in
   match a with
-  | Ctx (_,h) -> pret h
-  | Evar (_,Some e) -> pret e
+  | Ctx (_,h) -> ret h
+  | Evar (_,Some e) -> ret e
   | Evar _ -> assert false (* Should never happen *)
   | Cat c -> realizeCategory c
   | Funct f -> realizeFunctor f
@@ -389,14 +367,14 @@ let rec realizeAtomic a : EConstr.t M.m =
   | Eq e -> realizeEq e
   | Composed (_,ec,args) ->
       let rec mapM f = function
-        | [] -> pret []
+        | [] -> ret []
         | x :: t ->
-            let$ x = f x in
-            let$ t = mapM f t in
-            pret (x :: t) in
-      let$ args = mapM realizeAtomic args in
+            let* x = f x in
+            let* t = mapM f t in
+            ret (x :: t) in
+      let* args = mapM realizeAtomic args in
       let args = Array.of_list args in
-      pret (EConstr.mkApp (ec,args))
+      ret (EConstr.mkApp (ec,args))
 
 and realizeCategory cat =
   let open Data in
@@ -413,10 +391,10 @@ and realizeElem elem =
   match elem with
   | AtomicElem elem -> realizeAtomic elem.elem_atom
   | FObj (funct,elem) ->
-      let$ src = realizeCategory (funct_src funct) in
-      let$ dst = realizeCategory (funct_dst funct) in
-      let$ funct = realizeFunctor funct in 
-      let$ elem = realizeElem elem in
+      let* src = realizeCategory (funct_src funct) in
+      let* dst = realizeCategory (funct_dst funct) in
+      let* funct = realizeFunctor funct in 
+      let* elem = realizeElem elem in
       app 
         (Env.mk_funct_obj ())
         [| src; dst; funct; elem |]
@@ -426,173 +404,173 @@ and realizeMorphism mph =
   match mph with
   | AtomicMorphism mph -> realizeAtomic mph.mph_atom
   | Identity elem ->
-      let$ cat = realizeCategory (elem_cat elem) in
-      let$ elem = realizeElem elem in 
+      let* cat = realizeCategory (elem_cat elem) in
+      let* elem = realizeElem elem in 
       app (Env.mk_id ()) [| cat; elem |]
   | Comp (m1,m2) ->
-      let$ cat = realizeCategory (morphism_cat m1) in 
-      let$ src = realizeElem (morphism_src m1) in
-      let$ mid = realizeElem (morphism_dst m1) in
-      let$ dst = realizeElem (morphism_dst m2) in
-      let$ m1  = realizeMorphism m1 in 
-      let$ m2  = realizeMorphism m2 in
+      let* cat = realizeCategory (morphism_cat m1) in 
+      let* src = realizeElem (morphism_src m1) in
+      let* mid = realizeElem (morphism_dst m1) in
+      let* dst = realizeElem (morphism_dst m2) in
+      let* m1  = realizeMorphism m1 in 
+      let* m2  = realizeMorphism m2 in
       app (Env.mk_comp ()) [| cat; src; mid; dst; m1; m2 |]
   | Inv (AtomicMorphism m) ->
       begin match m.iso with
       | Some iso ->
-          let$ cat = realizeCategory m.mph_cat_ in 
-          let$ src = realizeElem m.mph_src_ in 
-          let$ dst = realizeElem m.mph_dst_ in 
-          let$ mph = realizeAtomic m.mph_atom in
+          let* cat = realizeCategory m.mph_cat_ in 
+          let* src = realizeElem m.mph_src_ in 
+          let* dst = realizeElem m.mph_dst_ in 
+          let* mph = realizeAtomic m.mph_atom in
           app (Env.mk_inv ()) [| cat; src; dst; mph; iso.iso_obj |]
       | None -> assert false (* Shouldn't happen *)
       end
   | Inv _ -> assert false (* Not supported yet *)
   | FMph (funct,mph) ->
-      let$ cat_src = realizeCategory (funct_src funct) in 
-      let$ cat_dst = realizeCategory (funct_dst funct) in 
-      let$ funct   = realizeFunctor funct in 
-      let$ src     = realizeElem (morphism_src mph) in 
-      let$ dst     = realizeElem (morphism_dst mph) in 
-      let$ mph     = realizeMorphism mph in
+      let* cat_src = realizeCategory (funct_src funct) in 
+      let* cat_dst = realizeCategory (funct_dst funct) in 
+      let* funct   = realizeFunctor funct in 
+      let* src     = realizeElem (morphism_src mph) in 
+      let* dst     = realizeElem (morphism_dst mph) in 
+      let* mph     = realizeMorphism mph in
       app (Env.mk_funct_mph ()) [| cat_src; cat_dst; funct; src; dst; mph |]
 
 
 and mphT m =
   let open Data in
-  let$ cat = realizeCategory (morphism_cat m) in 
-  let$ src = realizeElem (morphism_src m) in 
-  let$ dst = realizeElem (morphism_dst m) in 
+  let* cat = realizeCategory (morphism_cat m) in 
+  let* src = realizeElem (morphism_src m) in 
+  let* dst = realizeElem (morphism_dst m) in 
   app (Env.mk_mphT ()) [| cat; src; dst |]
 
 and realizeEq eq =
   let open Data in
   match eq with
   | Refl m ->
-      let$ tp  = mphT m in
-      let$ m   = realizeMorphism m in
+      let* tp  = mphT m in
+      let* m   = realizeMorphism m in
       app (Env.mk_refl ()) [| tp; m |]
   | Concat (p1,p2) ->
-      let$ tp  = mphT (eq_right p1) in
-      let$ left = realizeMorphism (eq_left p1) in 
-      let$ mid = realizeMorphism (eq_right p1) in 
-      let$ right = realizeMorphism (eq_right p2) in
-      let$ p1 = realizeEq p1 in 
-      let$ p2 = realizeEq p2 in
+      let* tp  = mphT (eq_right p1) in
+      let* left = realizeMorphism (eq_left p1) in 
+      let* mid = realizeMorphism (eq_right p1) in 
+      let* right = realizeMorphism (eq_right p2) in
+      let* p1 = realizeEq p1 in 
+      let* p2 = realizeEq p2 in
       app (Env.mk_concat ()) [| tp; left; mid; right; p1; p2 |]
   | InvEq p ->
-      let$ tp = mphT (eq_right p) in
-      let$ left = realizeMorphism (eq_left p) in 
-      let$ right = realizeMorphism (eq_right p) in
-      let$ p = realizeEq p in
+      let* tp = mphT (eq_right p) in
+      let* left = realizeMorphism (eq_left p) in 
+      let* right = realizeMorphism (eq_right p) in
+      let* p = realizeEq p in
       app (Env.mk_inv ()) [| tp; left; right; p |]
   | Compose (p1,p2) ->
-      let$ cat = realizeCategory (eq_cat p1) in
-      let$ src = realizeElem (eq_src p1) in 
-      let$ mid = realizeElem (eq_dst p1) in 
-      let$ dst = realizeElem (eq_dst p2) in
-      let$ m1l = realizeMorphism (eq_left p1) in 
-      let$ m1r = realizeMorphism (eq_right p1) in
-      let$ m2l = realizeMorphism (eq_left p2) in 
-      let$ m2r = realizeMorphism (eq_right p2) in
-      let$ p1  = realizeEq p1 in 
-      let$ p2  = realizeEq p2 in
+      let* cat = realizeCategory (eq_cat p1) in
+      let* src = realizeElem (eq_src p1) in 
+      let* mid = realizeElem (eq_dst p1) in 
+      let* dst = realizeElem (eq_dst p2) in
+      let* m1l = realizeMorphism (eq_left p1) in 
+      let* m1r = realizeMorphism (eq_right p1) in
+      let* m2l = realizeMorphism (eq_left p2) in 
+      let* m2r = realizeMorphism (eq_right p2) in
+      let* p1  = realizeEq p1 in 
+      let* p2  = realizeEq p2 in
       app 
         (Env.mk_compose_eq ())
         [| cat; src; mid; dst; m1l; m1r; m2l; m2r; p1; p2 |]
   | Assoc (m1,m2,m3) ->
-      let$ cat = realizeCategory (morphism_cat m1) in
-      let$ src = realizeElem (morphism_src m1) in 
-      let$ mid1 = realizeElem (morphism_dst m1) in 
-      let$ mid2 = realizeElem (morphism_dst m2) in 
-      let$ dst = realizeElem (morphism_dst m3) in
-      let$ m1 = realizeMorphism m1 in
-      let$ m2 = realizeMorphism m2 in
-      let$ m3 = realizeMorphism m3 in
+      let* cat = realizeCategory (morphism_cat m1) in
+      let* src = realizeElem (morphism_src m1) in 
+      let* mid1 = realizeElem (morphism_dst m1) in 
+      let* mid2 = realizeElem (morphism_dst m2) in 
+      let* dst = realizeElem (morphism_dst m3) in
+      let* m1 = realizeMorphism m1 in
+      let* m2 = realizeMorphism m2 in
+      let* m3 = realizeMorphism m3 in
       app (Env.mk_assoc ()) [| cat; src; mid1; mid2; dst; m1; m2; m3 |]
   | LeftId m ->
-      let$ cat = realizeCategory (morphism_cat m) in 
-      let$ src = realizeElem (morphism_src m) in 
-      let$ dst = realizeElem (morphism_dst m) in 
-      let$ m = realizeMorphism m in 
+      let* cat = realizeCategory (morphism_cat m) in 
+      let* src = realizeElem (morphism_src m) in 
+      let* dst = realizeElem (morphism_dst m) in 
+      let* m = realizeMorphism m in 
       app (Env.mk_left_id ()) [| cat; src; dst; m |]
   | RightId m ->
-      let$ cat = realizeCategory (morphism_cat m) in 
-      let$ src = realizeElem (morphism_src m) in 
-      let$ dst = realizeElem (morphism_dst m) in 
-      let$ m = realizeMorphism m in 
+      let* cat = realizeCategory (morphism_cat m) in 
+      let* src = realizeElem (morphism_src m) in 
+      let* dst = realizeElem (morphism_dst m) in 
+      let* m = realizeMorphism m in 
       app (Env.mk_right_id ()) [| cat; src; dst; m |]
   | RAp (p,m) ->
-      let$ cat = realizeCategory (eq_cat p) in 
-      let$ src = realizeElem (eq_src p) in 
-      let$ mid = realizeElem (eq_dst p) in 
-      let$ dst = realizeElem (morphism_dst m) in 
-      let$ left = realizeMorphism (eq_left p) in 
-      let$ right = realizeMorphism (eq_right p) in 
-      let$ m = realizeMorphism m in 
-      let$ p = realizeEq p in
+      let* cat = realizeCategory (eq_cat p) in 
+      let* src = realizeElem (eq_src p) in 
+      let* mid = realizeElem (eq_dst p) in 
+      let* dst = realizeElem (morphism_dst m) in 
+      let* left = realizeMorphism (eq_left p) in 
+      let* right = realizeMorphism (eq_right p) in 
+      let* m = realizeMorphism m in 
+      let* p = realizeEq p in
       app (Env.mk_rap ()) [| cat; src; mid; dst; left; right; m; p |]
   | LAp (m,p) ->
-      let$ cat = realizeCategory (eq_cat p) in 
-      let$ src = realizeElem (morphism_src m) in 
-      let$ mid = realizeElem (eq_src p) in 
-      let$ dst = realizeElem (eq_dst p) in 
-      let$ left = realizeMorphism (eq_left p) in 
-      let$ right = realizeMorphism (eq_right p) in 
-      let$ m = realizeMorphism m in 
-      let$ p = realizeEq p in
+      let* cat = realizeCategory (eq_cat p) in 
+      let* src = realizeElem (morphism_src m) in 
+      let* mid = realizeElem (eq_src p) in 
+      let* dst = realizeElem (eq_dst p) in 
+      let* left = realizeMorphism (eq_left p) in 
+      let* right = realizeMorphism (eq_right p) in 
+      let* m = realizeMorphism m in 
+      let* p = realizeEq p in
       app (Env.mk_lap ()) [| cat; src; mid; dst; m; left; right; p |]
   | RInv iso ->
       let m = iso.iso_mph in 
-      let$ cat = realizeCategory m.mph_cat_ in 
-      let$ src = realizeElem m.mph_src_ in 
-      let$ dst = realizeElem m.mph_dst_ in 
-      let$ m = realizeAtomic m.mph_atom in
+      let* cat = realizeCategory m.mph_cat_ in 
+      let* src = realizeElem m.mph_src_ in 
+      let* dst = realizeElem m.mph_dst_ in 
+      let* m = realizeAtomic m.mph_atom in
       app (Env.mk_right_inv ()) [| cat; src; dst; m; iso.iso_obj |]
   | LInv iso ->
       let m = iso.iso_mph in 
-      let$ cat = realizeCategory m.mph_cat_ in 
-      let$ src = realizeElem m.mph_src_ in 
-      let$ dst = realizeElem m.mph_dst_ in 
-      let$ m = realizeAtomic m.mph_atom in
+      let* cat = realizeCategory m.mph_cat_ in 
+      let* src = realizeElem m.mph_src_ in 
+      let* dst = realizeElem m.mph_dst_ in 
+      let* m = realizeAtomic m.mph_atom in
       app (Env.mk_left_inv ()) [| cat; src; dst; m; iso.iso_obj |]
   | Mono (ec,m1,m2,p) ->
-      let$ src = realizeElem (eq_src p) in
-      let$ m1  = realizeMorphism m1 in 
-      let$ m2  = realizeMorphism m2 in 
-      let$ p   = realizeEq p in
-      pret (EConstr.mkApp (ec, [| src; m1; m2; p |]))
+      let* src = realizeElem (eq_src p) in
+      let* m1  = realizeMorphism m1 in 
+      let* m2  = realizeMorphism m2 in 
+      let* p   = realizeEq p in
+      ret (EConstr.mkApp (ec, [| src; m1; m2; p |]))
   | Epi (ec,m1,m2,p) ->
-      let$ dst = realizeElem (eq_dst p) in
-      let$ m1  = realizeMorphism m1 in 
-      let$ m2  = realizeMorphism m2 in 
-      let$ p   = realizeEq p in
-      pret (EConstr.mkApp (ec, [| dst; m1; m2; p |]))
+      let* dst = realizeElem (eq_dst p) in
+      let* m1  = realizeMorphism m1 in 
+      let* m2  = realizeMorphism m2 in 
+      let* p   = realizeEq p in
+      ret (EConstr.mkApp (ec, [| dst; m1; m2; p |]))
   | FId (f,e) ->
-      let$ c = realizeCategory (funct_src f) in 
-      let$ d = realizeCategory (funct_dst f) in
-      let$ f = realizeFunctor f in
-      let$ e = realizeElem e in
+      let* c = realizeCategory (funct_src f) in 
+      let* d = realizeCategory (funct_dst f) in
+      let* f = realizeFunctor f in
+      let* e = realizeElem e in
       app (Env.mk_funct_id ()) [| c; d; f; e |]
   | FComp (f,m1,m2) ->
-      let$ c = realizeCategory (funct_src f) in 
-      let$ d = realizeCategory (funct_dst f) in
-      let$ f = realizeFunctor f in
-      let$ x = realizeElem (morphism_src m1) in 
-      let$ y = realizeElem (morphism_dst m1) in 
-      let$ z = realizeElem (morphism_dst m2) in
-      let$ m1 = realizeMorphism m1 in
-      let$ m2 = realizeMorphism m2 in
+      let* c = realizeCategory (funct_src f) in 
+      let* d = realizeCategory (funct_dst f) in
+      let* f = realizeFunctor f in
+      let* x = realizeElem (morphism_src m1) in 
+      let* y = realizeElem (morphism_dst m1) in 
+      let* z = realizeElem (morphism_dst m2) in
+      let* m1 = realizeMorphism m1 in
+      let* m2 = realizeMorphism m2 in
       app (Env.mk_funct_comp ()) [| c; d; f; x; y; z; m1; m2 |]
   | FCtx (f,e) ->
-      let$ c = realizeCategory (funct_src f) in 
-      let$ d = realizeCategory (funct_dst f) in
-      let$ f = realizeFunctor f in
-      let$ x = realizeElem (eq_src e) in
-      let$ y = realizeElem (eq_dst e) in
-      let$ m1 = realizeMorphism (eq_left e) in
-      let$ m2 = realizeMorphism (eq_right e) in
-      let$ e = realizeEq e in
+      let* c = realizeCategory (funct_src f) in 
+      let* d = realizeCategory (funct_dst f) in
+      let* f = realizeFunctor f in
+      let* x = realizeElem (eq_src e) in
+      let* y = realizeElem (eq_dst e) in
+      let* m1 = realizeMorphism (eq_left e) in
+      let* m2 = realizeMorphism (eq_right e) in
+      let* e = realizeEq e in
       app (Env.mk_funct_ctx ()) [| c; d; f; x; y; m1; m2; e |]
   | AtomicEq eq -> realizeAtomic eq.eq_atom
 
@@ -604,55 +582,30 @@ and realizeEq eq =
 (*   | || |_| | |_) |  __/ |  _ <  __/ (_| | | *)
 (*   |_| \__, | .__/ \___| |_| \_\___|\__,_|_| *)
 (*       |___/|_|                              *)
-let realizeCatType _ = M.lift (Env.mk_cat ())
+let realizeCatType _ = lift (Env.mk_cat ())
 let realizeFunctType data =
   let open Data in
-  let$ src = realizeCategory data.funct_src_ in
-  let$ dst = realizeCategory data.funct_dst_ in
-  M.lift (Env.app (Env.mk_funct_obj ()) [| src; dst |])
+  let* src = realizeCategory data.funct_src_ in
+  let* dst = realizeCategory data.funct_dst_ in
+  lift (Env.app (Env.mk_funct_obj ()) [| src; dst |])
 let realizeElemType data =
   let open Data in
-  let$ cat = realizeCategory data.elem_cat_ in
-  M.lift (Env.app (Env.mk_object ()) [| cat |])
+  let* cat = realizeCategory data.elem_cat_ in
+  lift (Env.app (Env.mk_object ()) [| cat |])
 let realizeMphType data =
   let open Data in
-  let$ cat = realizeCategory data.mph_cat_ in
-  let$ src = realizeElem data.mph_src_ in
-  let$ dst = realizeElem data.mph_dst_ in
-  M.lift (Env.app (Env.mk_mphT ()) [| cat; src; dst |])
+  let* cat = realizeCategory data.mph_cat_ in
+  let* src = realizeElem data.mph_src_ in
+  let* dst = realizeElem data.mph_dst_ in
+  lift (Env.app (Env.mk_mphT ()) [| cat; src; dst |])
 let realizeEqType data =
   let open Data in
-  let$ cat = realizeCategory data.eq_cat_ in
-  let$ src = realizeElem data.eq_src_ in
-  let$ dst = realizeElem data.eq_dst_ in
-  let$ left = realizeMorphism data.eq_left_ in
-  let$ right = realizeMorphism data.eq_right_ in
-  let$ mphT = M.lift (Env.app (Env.mk_mphT ()) [| cat; src; dst |]) in
-  M.lift (Env.app (Env.mk_eq ()) [| mphT; left; right |])
+  let* cat = realizeCategory data.eq_cat_ in
+  let* src = realizeElem data.eq_src_ in
+  let* dst = realizeElem data.eq_dst_ in
+  let* left = realizeMorphism data.eq_left_ in
+  let* right = realizeMorphism data.eq_right_ in
+  let* mphT = lift (Env.app (Env.mk_mphT ()) [| cat; src; dst |]) in
+  lift (Env.app (Env.mk_eq ()) [| mphT; left; right |])
 
 
-(*  _   _ _   _ _      *)
-(* | | | | |_(_) |___  *)
-(* | | | | __| | / __| *)
-(* | |_| | |_| | \__ \ *)
-(*  \___/ \__|_|_|___/ *)
-(*                     *)
-(* Utils *)
-let eq e1 e2 = 
-  let$ env = M.env () in 
-  let$ sigma = M.lift Proofview.tclEVARMAP in
-  pret (Reductionops.check_conv env sigma e1 e2)
-let print ec =
-  let$ ev = M.env () in
-  let$ sigma = M.lift Proofview.tclEVARMAP in
-  let pp = Printer.pr_econstr_env ev sigma ec in
-  M.return (Pp.string_of_ppcmds pp)
-let fail msg = msg
-  |> Pp.str
-  |> Tacticals.tclFAIL 0
-  |> M.lift
-let message msg = Feedback.msg_info (Pp.str msg); M.return ()
-let warning msg = Feedback.msg_warning (Pp.str msg); M.return ()
-let env = M.env
-let to_econstr x = x
-let from_econstr x = x
