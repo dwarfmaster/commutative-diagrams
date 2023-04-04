@@ -15,10 +15,21 @@ val realizeMphType : Data.morphismData -> EConstr.t Hyps.t
 val realizeEqType : Data.eqData -> EConstr.t Hyps.t
 
 (* Parsing *)
-val parseCategory : EConstr.t -> EConstr.t -> Data.category option Hyps.t
-val parseFunctor : EConstr.t -> EConstr.t -> Data.funct option Hyps.t
-val parseElem : EConstr.t -> EConstr.t -> Data.elem option Hyps.t
-val parseMorphism : EConstr.t -> EConstr.t -> Data.morphism option Hyps.t
-val parseEq : EConstr.t -> EConstr.t -> Data.eq option Hyps.t
-val parseEqGoal : EConstr.t -> (Data.morphism * Data.morphism) option Hyps.t
-val parseProperties : EConstr.t -> EConstr.t -> unit Hyps.t
+type parsedType =
+  | CategoryT
+  | FunctorT of Data.category * Data.category
+  | ElemT of Data.category
+  | MorphismT of Data.category * Data.elem * Data.elem
+  | EqT of Data.category * Data.elem * Data.elem * Data.morphism * Data.morphism
+type parsed =
+  | Category of Data.category
+  | Functor of Data.funct
+  | Elem of Data.elem
+  | Morphism of Data.morphism
+  | Equality of Data.eq
+  | Prod of Names.Name.t * parsedType * parsed
+  | Exists of Names.Name.t * parsedType * parsed
+(* Even when it returns none, it may have changed the context (for example if it
+   parsed a property *)
+val parse : EConstr.t -> EConstr.t -> parsed option Hyps.t
+val parseType : EConstr.t -> parsedType option Hyps.t

@@ -263,21 +263,6 @@ let parseEq eq tp =
       some @<< parseEqTerm eq right left cat src dst
   | _ -> none ()
 
-let parseEqGoal goal =
-  let* env = env () in
-  let* sigma = evars () in
-  let goal = Reductionops.nf_all env sigma goal in
-  let* goal = parseEqType goal in 
-  match goal with
-  | Some (right,left,cat,src,dst) ->
-      let* cat = parseCategoryTerm cat in 
-      let* src = parseElemTerm src cat in 
-      let* dst = parseElemTerm dst cat in 
-      let* right = parseMorphismTerm right cat src dst in
-      let* left = parseMorphismTerm left cat src dst in
-      some (left,right)
-  | _ -> none ()
-
 
 
 (*  ___                       _   _         *)
@@ -335,6 +320,88 @@ let parseProperties hyp prop =
       | Nothing -> ret ()
       end
   | _ -> ret ()
+
+
+(*    _   ___ ___  *)
+(*   /_\ | _ \_ _| *)
+(*  / _ \|  _/| |  *)
+(* /_/ \_\_| |___| *)
+(*                 *)
+(* API *)
+
+type parsedType =
+  | CategoryT
+  | FunctorT of Data.category * Data.category
+  | ElemT of Data.category
+  | MorphismT of Data.category * Data.elem * Data.elem
+  | EqT of Data.category * Data.elem * Data.elem * Data.morphism * Data.morphism
+type parsed =
+  | Category of Data.category
+  | Functor of Data.funct
+  | Elem of Data.elem
+  | Morphism of Data.morphism
+  | Equality of Data.eq
+  | Prod of Names.Name.t * parsedType * parsed
+  | Exists of Names.Name.t * parsedType * parsed
+
+let parse term tp =
+  let* () = parseProperties term tp in
+  let* is_cat = parseCategory term tp in
+  match is_cat with
+  | Some c -> some (Category c)
+  | None ->
+      let* is_funct = parseFunctor term tp in
+      match is_funct with
+      | Some f -> some (Functor f)
+      | None ->
+          let* is_elem = parseElem term tp in
+          match is_elem with
+          | Some e -> some (Elem e)
+          | None ->
+              let* is_mph = parseMorphism term tp in
+              match is_mph with
+              | Some m -> some (Morphism m)
+              | None ->
+                  let* is_eq = parseEq term tp in
+                  match is_eq with
+                  | Some e -> some (Equality e)
+                  | None -> none ()
+and parseType tp =
+  let* is_cat = parseCategoryType tp in
+  if is_cat then some CategoryT
+  else
+    let* is_funct = parseFunctorType tp in
+    match is_funct with
+    | Some (src,dst) ->
+        let* src = parseCategoryTerm src in
+        let* dst = parseCategoryTerm dst in
+        some (FunctorT (src,dst))
+    | None ->
+        let* is_elem = parseElemType tp in
+        match is_elem with
+        | Some cat ->
+            let* cat = parseCategoryTerm cat in
+            some (ElemT cat)
+        | None ->
+            let* is_mph = parseMorphismType tp in
+            match is_mph with
+            | Some (cat,src,dst) ->
+                let* cat = parseCategoryTerm cat in
+                let* src = parseElemTerm src cat in
+                let* dst = parseElemTerm dst cat in
+                some (MorphismT (cat,src,dst))
+            | None ->
+                let* is_eq = parseEqType tp in
+                match is_eq with
+                | Some (right,left,cat,src,dst) ->
+                    let* cat = parseCategoryTerm cat in
+                    let* src = parseElemTerm src cat in
+                    let* dst = parseElemTerm dst cat in
+                    let* left = parseMorphismTerm left cat src dst in
+                    let* right = parseMorphismTerm right cat src dst in
+                    some (EqT (cat,src,dst,left,right))
+                | None ->
+                    none ()
 
 (*  ____            _ _          _   _              *)
 (* |  _ \ ___  __ _| (_)______ _| |_(_) ___  _ __   *)

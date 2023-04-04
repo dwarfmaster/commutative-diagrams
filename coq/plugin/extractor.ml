@@ -21,12 +21,7 @@ let extract_hyp (env : Environ.env) (dec : EConstr.named_declaration) : unit m =
   let name,tp = match dec with
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
     | Context.Named.Declaration.LocalDef (name,_,tp) -> (name.binder_name, tp) in
-  let* _ = Hott.parseCategory   (EConstr.mkVar name) tp in
-  let* _ = Hott.parseFunctor    (EConstr.mkVar name) tp in
-  let* _ = Hott.parseElem       (EConstr.mkVar name) tp in
-  let* _ = Hott.parseMorphism   (EConstr.mkVar name) tp in
-  let* _ = Hott.parseEq         (EConstr.mkVar name) tp in
-  let* _ = Hott.parseProperties (EConstr.mkVar name) tp in
+  let* _ = Hott.parse (EConstr.mkVar name) tp in
   ret ()
 
 let name : string -> Names.Name.t = fun s -> Names.Name.mk_name (Names.Id.of_string s)
@@ -44,7 +39,10 @@ let extract_hyps (goal : Proofview.Goal.t) : (Data.morphism * Data.morphism) opt
   let context = Proofview.Goal.hyps goal in
   let goal = Proofview.Goal.concl goal in
   let* store = forM (extract_hyp env) context in
-  Hott.parseEqGoal goal
+  let* tp = Hott.parseType goal in
+  match tp with
+  | Some (EqT (_,_,_,left,right)) -> some (left,right)
+  | _ -> none ()
 
 let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit m =
   let* obj = extract_hyps goal in
