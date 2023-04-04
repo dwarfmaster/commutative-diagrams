@@ -10,6 +10,14 @@ use crate::vm::graph::{FaceLabel, FaceStatus};
 use crate::vm::{GraphId, VM};
 use std::collections::HashSet;
 
+// TODO Fix when one of the sides is not normalised
+// Ie: shrink_prefix and shrink_suffix normalize the sides of the equality when
+// constructing. This fails when the realized morphism of the side of the face
+// is not normalized (for example because it includes an edge which is a
+// composition). In order to fix this, either the normalization should be done
+// twice, once with the desired target, or I could finish the refactoring with
+// the new equality type.
+
 type Ins = crate::vm::asm::Instruction;
 
 impl VM {
