@@ -33,6 +33,30 @@ let isInd sigma pred t =
 (* Parsing *)
 
 
+type parsedType =
+  | CategoryT
+  | FunctorT of Data.category * Data.category
+  | ElemT of Data.category
+  | MorphismT of Data.category * Data.elem * Data.elem
+  | EqT of Data.category * Data.elem * Data.elem * Data.morphism * Data.morphism
+type parsed =
+  | Category of Data.category
+  | Functor of Data.funct
+  | Elem of Data.elem
+  | Morphism of Data.morphism
+  | Equality of Data.eq
+  | Prod of Names.Name.t * parsedType * parsed
+  | Exists of Names.Name.t * parsedType * parsed
+
+(* Internal helpers *)
+exception AtomElem
+exception AtomMph
+type propType = Mono
+              | Epi
+              | Iso
+              | Nothing
+
+
 (*   ___      _                    _         *)
 (*  / __|__ _| |_ ___ __ _ ___ _ _(_)___ ___ *)
 (* | (__/ _` |  _/ -_) _` / _ \ '_| / -_|_-< *)
@@ -40,19 +64,19 @@ let isInd sigma pred t =
 (*                   |___/                   *)
 (* Categories *)
 
-let registerAtomCat (cat : ec) =
+let rec registerAtomCat (cat : ec) =
   let* cat = Hyps.registerCategory ~cat in 
   ret (Data.AtomicCategory cat)
 
-let parseCategoryType (cat : EConstr.t) : bool m =
+and parseCategoryType (cat : EConstr.t) : bool m =
   let* env = env () in
   let* sigma = evars () in
   ret (isInd sigma Env.is_cat cat)
 
-let parseCategoryTerm (cat : EConstr.t) =
+and parseCategoryTerm (cat : EConstr.t) =
   registerAtomCat cat
 
-let parseCategory (cat : EConstr.t) (tp : EConstr.t) = 
+and parseCategory (cat : EConstr.t) (tp : EConstr.t) = 
   let* is = parseCategoryType tp in
   if is then some @<< parseCategoryTerm cat else none ()
 
@@ -64,11 +88,11 @@ let parseCategory (cat : EConstr.t) (tp : EConstr.t) =
 (*                                  *)
 (* Functors *)
 
-let registerAtomFunct funct src dst =
+and registerAtomFunct funct src dst =
   let* funct = Hyps.registerFunctor ~funct ~src ~dst in 
   ret (Data.AtomicFunctor funct)
 
-let parseFunctorType (funct : ec) : (ec*ec) option m =
+and parseFunctorType (funct : ec) : (ec*ec) option m =
   let* env = env () in
   let* sigma = evars () in 
   match EConstr.kind sigma funct with
@@ -76,10 +100,10 @@ let parseFunctorType (funct : ec) : (ec*ec) option m =
       some (src,dst)
   | _ -> none ()
 
-let parseFunctorTerm (funct : ec) src dst =
+and parseFunctorTerm (funct : ec) src dst =
   registerAtomFunct funct src dst
 
-let parseFunctor (funct : EConstr.t) (tp : EConstr.t) =
+and parseFunctor (funct : EConstr.t) (tp : EConstr.t) =
   let* is = parseFunctorType tp in 
   match is with 
   | Some (src,dst) ->
@@ -97,19 +121,18 @@ let parseFunctor (funct : EConstr.t) (tp : EConstr.t) =
 (*                      *)
 (* Elems *)
 
-let registerAtomElem elem cat =
+and registerAtomElem elem cat =
   let* elem = Hyps.registerElem ~elem ~cat in 
   ret (Data.AtomicElem elem)
 
-let parseElemType (obj : ec) : ec option m =
+and parseElemType (obj : ec) : ec option m =
   let* env = env () in
   let* sigma = evars () in
   match EConstr.kind sigma obj with
   | Proj (p,obj) when Env.is_projection p Env.is_cat "object" -> some obj
   | _ -> none ()
 
-exception AtomElem
-let rec parseElemTerm (elem : EConstr.t) cat =
+and parseElemTerm (elem : EConstr.t) cat =
   let* env = env () in 
   let* sigma = evars () in 
   try match EConstr.kind sigma elem with
@@ -131,7 +154,7 @@ let rec parseElemTerm (elem : EConstr.t) cat =
   | _ -> raise AtomElem
   with AtomElem -> registerAtomElem elem cat
 
-let parseElem (elem : EConstr.t) (tp : EConstr.t) =
+and parseElem (elem : EConstr.t) (tp : EConstr.t) =
   let* is = parseElemType tp in 
   match is with
   | Some cat ->
@@ -148,11 +171,11 @@ let parseElem (elem : EConstr.t) (tp : EConstr.t) =
 (*                |_|                       *)
 (* Morphisms *)
 
-let registerAtomMorphism mph cat src dst =
+and registerAtomMorphism mph cat src dst =
   let* mph = Hyps.registerMorphism ~mph ~cat ~src ~dst in 
   ret (Data.AtomicMorphism mph)
 
-let parseMorphismType (mph : ec) : (ec * ec * ec) option m =
+and parseMorphismType (mph : ec) : (ec * ec * ec) option m =
   let* sigma = evars () in
   match EConstr.kind sigma mph with
   | App (p, [| src; dst |]) ->
@@ -163,8 +186,7 @@ let parseMorphismType (mph : ec) : (ec * ec * ec) option m =
     end
   | _ -> none ()
 
-exception AtomMph
-let rec parseMorphismTerm mph cat src dst =
+and parseMorphismTerm mph cat src dst =
   let* sigma = evars () in
   try match EConstr.kind sigma mph with
   | App (cmp, [| _; int; _; mid; msi |]) ->
@@ -209,7 +231,7 @@ let rec parseMorphismTerm mph cat src dst =
   | _ -> raise AtomMph
   with AtomMph -> registerAtomMorphism mph cat src dst
 
-let parseMorphism mph tp =
+and parseMorphism mph tp =
   let* tp = parseMorphismType tp in 
   match tp with
   | None -> none ()
@@ -228,11 +250,11 @@ let parseMorphism mph tp =
 (*        |_|                            *)
 (* Equalities *)
 
-let registerAtomEq eq right left cat src dst =
+and registerAtomEq eq right left cat src dst =
   let* eq = Hyps.registerEq ~eq ~right ~left ~cat ~src ~dst in 
   ret (Data.AtomicEq eq)
 
-let parseEqType (eq : ec) : (ec * ec * ec * ec * ec) option m =
+and parseEqType (eq : ec) : (ec * ec * ec * ec * ec) option m =
   let* sigma = evars () in
   match EConstr.kind sigma eq with
   | App (eq, [| tp; left; right |]) ->
@@ -248,10 +270,10 @@ let parseEqType (eq : ec) : (ec * ec * ec * ec * ec) option m =
   | _ -> none ()
 
 (* No need to parse the concrete eq terms *)
-let parseEqTerm eq right left cat src dst =
+and parseEqTerm eq right left cat src dst =
   registerAtomEq eq right left cat src dst
 
-let parseEq eq tp =
+and parseEq eq tp =
   let* tp = parseEqType tp in 
   match tp with
   | Some (right,left,cat,src,dst) ->
@@ -272,12 +294,8 @@ let parseEq eq tp =
 (*             |_|                          *)
 (* Properties *)
 
-type propType = Mono
-              | Epi
-              | Iso
-              | Nothing
 
-let parsePropType sigma (prop : EConstr.t) =
+and parsePropType sigma (prop : EConstr.t) =
   match EConstr.kind sigma prop with
   | Const (prop,_) ->
       if Env.is_epi prop then Epi
@@ -287,7 +305,7 @@ let parsePropType sigma (prop : EConstr.t) =
       if Env.is_iso prop then Iso else Nothing
   | _ -> Nothing
 
-let parseProperties hyp prop =
+and parseProperties hyp prop =
   let* sigma = evars () in 
   match EConstr.kind sigma prop with
   | App (prop, [| catEC; srcEC; dstEC; mphEC |]) when parsePropType sigma prop <> Nothing ->
@@ -329,22 +347,7 @@ let parseProperties hyp prop =
 (*                 *)
 (* API *)
 
-type parsedType =
-  | CategoryT
-  | FunctorT of Data.category * Data.category
-  | ElemT of Data.category
-  | MorphismT of Data.category * Data.elem * Data.elem
-  | EqT of Data.category * Data.elem * Data.elem * Data.morphism * Data.morphism
-type parsed =
-  | Category of Data.category
-  | Functor of Data.funct
-  | Elem of Data.elem
-  | Morphism of Data.morphism
-  | Equality of Data.eq
-  | Prod of Names.Name.t * parsedType * parsed
-  | Exists of Names.Name.t * parsedType * parsed
-
-let parse term tp =
+and parse term tp =
   let* () = parseProperties term tp in
   let* is_cat = parseCategory term tp in
   match is_cat with
