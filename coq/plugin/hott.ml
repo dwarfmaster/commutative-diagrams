@@ -17,6 +17,13 @@ let isInd sigma pred t =
   | Ind (ind,_) -> pred ind 
   | _ -> false
 
+let rec mapM f = function
+  | [] -> ret []
+  | x :: t ->
+      let* x = f x in
+      let* t = mapM f t in
+      ret (x :: t)
+
 (*  ____                _              *)
 (* |  _ \ __ _ _ __ ___(_)_ __   __ _  *)
 (* | |_) / _` | '__/ __| | '_ \ / _` | *)
@@ -24,7 +31,6 @@ let isInd sigma pred t =
 (* |_|   \__,_|_|  |___/_|_| |_|\__, | *)
 (*                              |___/  *)
 (* Parsing *)
-
 
 type parsedType =
   | CategoryT
@@ -54,6 +60,7 @@ type propType = Mono
    element cannot be prod or exits. The EConstr.t is the term of type. *)
 type pctx = (parsedType * EConstr.t * parsed) list
 
+(* TODO will break in case of coq evars in ctx *)
 let getType (ctx: pctx) (e : ec) : ec m =
   let* env = env () in
   let* sigma = evars () in
@@ -66,6 +73,16 @@ let getType (ctx: pctx) (e : ec) : ec m =
   let env = List.fold_left (fun env decl -> Environ.push_rel decl env) env ctx in
   Retyping.get_type_of env sigma e |> ret
 
+let parsedToAtom p =
+  match p with
+  | Category c -> Data.Cat c
+  | Functor f -> Data.Funct f
+  | Elem e -> Data.Elem e
+  | Morphism m -> Data.Mph m
+  | Equality eq -> Data.Eq eq
+  | Prod _ -> assert false
+  | Exists _ -> assert false
+
 (*    _  _             _        *)
 (*   /_\| |_ ___ _ __ (_)__ ___ *)
 (*  / _ \  _/ _ \ '  \| / _(_-< *)
@@ -73,16 +90,52 @@ let getType (ctx: pctx) (e : ec) : ec m =
 (*                              *)
 (* Atomics *)
 
-(* Parse atomic tries to progress the parsing, so it may fail *)
-let rec parseAtomic (ctx: pctx) (atom: EConstr.t) =
+(* Parse atomic. Tries to progress the parsing, so it may fail. This means it
+   will either terminate returning Ctx or Evar, or call itself recursively to
+   produce a non-0-arity Composed. *)
+let rec parseAtomic (ctx: pctx) (atom: EConstr.t) : Data.atomic option m =
   let* sigma = evars () in
   match EConstr.kind sigma atom with
-  | _ -> assert false
+  | Rel i ->
+      let (_,_,v) = List.nth ctx i in
+      some (parsedToAtom v)
+  | App (f,args) ->
+      let parseArg arg = parseAtomicWithTp ctx arg @<< getType ctx arg in
+      let args = Array.to_list args in
+      let* rargs = mapM parseArg args in
+      let* id = Hyps.registerFun ~fn:f in
+      some (Data.Composed (id, f, rargs))
+  | _ -> none ()
 
 (* First try to parse it as a known objects, and fall backs to parseAtomic. If parseAtomic fails,
    the atom is registered as a 0-arity function symbol *)
 and parseAtomicWithTp (ctx: pctx) (atom: EConstr.t) (tp: EConstr.t) =
-  assert false
+  let* is_cat = parseCategory ctx atom tp in
+  match is_cat with
+  | Some cat -> ret (Data.Cat cat)
+  | None ->
+      let* is_funct = parseFunctor ctx atom tp in
+      match is_funct with
+      | Some funct -> ret (Data.Funct funct)
+      | None ->
+          let* is_elem = parseElem ctx atom tp in
+          match is_elem with
+          | Some elem -> ret (Data.Elem elem)
+          | None ->
+              let* is_mph = parseMorphism ctx atom tp in
+              match is_mph with
+              | Some mph -> ret (Data.Mph mph)
+              | None ->
+                  let* is_eq = parseEq ctx atom tp in
+                  match is_eq with
+                  | Some eq -> ret (Data.Eq eq)
+                  | None ->
+                      let* is_atom = parseAtomic ctx atom in
+                      match is_atom with
+                      | Some atom -> ret atom
+                      | None ->
+                          let* id = Hyps.registerFun ~fn:atom in
+                          ret (Data.Composed (id, atom, []))
 
 (*   ___      _                    _         *)
 (*  / __|__ _| |_ ___ __ _ ___ _ _(_)___ ___ *)
@@ -91,9 +144,15 @@ and parseAtomicWithTp (ctx: pctx) (atom: EConstr.t) (tp: EConstr.t) =
 (*                   |___/                   *)
 (* Categories *)
 
-and registerAtomCat (cat : ec) =
-  let* cat = Hyps.registerCategory ~cat in 
-  ret (Data.AtomicCategory cat)
+and registerAtomCat ctx (cat : ec) =
+  let* struct_atom = parseAtomic ctx cat in
+  let* data = match struct_atom with
+  | Some atom ->
+      ret Data.({
+        cat_atom = atom;
+      })
+  | None -> Hyps.registerCategory ~cat in 
+  ret (Data.AtomicCategory data)
 
 and parseCategoryType (ctx: pctx) (cat : EConstr.t) : bool m =
   let* env = env () in
@@ -101,7 +160,7 @@ and parseCategoryType (ctx: pctx) (cat : EConstr.t) : bool m =
   ret (isInd sigma Env.is_cat cat)
 
 and parseCategoryTerm (ctx: pctx) (cat : EConstr.t) =
-  registerAtomCat cat
+  registerAtomCat ctx cat
 
 and parseCategory (ctx: pctx) (cat : EConstr.t) (tp : EConstr.t) = 
   let* is = parseCategoryType ctx tp in
@@ -115,9 +174,17 @@ and parseCategory (ctx: pctx) (cat : EConstr.t) (tp : EConstr.t) =
 (*                                  *)
 (* Functors *)
 
-and registerAtomFunct funct src dst =
-  let* funct = Hyps.registerFunctor ~funct ~src ~dst in 
-  ret (Data.AtomicFunctor funct)
+and registerAtomFunct ctx funct src dst =
+  let* struct_atom = parseAtomic ctx funct in
+  let* data = match struct_atom with
+  | Some atom ->
+      ret Data.({
+        funct_atom = atom;
+        funct_src_ = src;
+        funct_dst_ = dst;
+      })
+  | None -> Hyps.registerFunctor ~funct ~src ~dst in 
+  ret (Data.AtomicFunctor data)
 
 and parseFunctorType (ctx: pctx) (funct : ec) : (ec*ec) option m =
   let* env = env () in
@@ -128,7 +195,7 @@ and parseFunctorType (ctx: pctx) (funct : ec) : (ec*ec) option m =
   | _ -> none ()
 
 and parseFunctorTerm (ctx: pctx) (funct : ec) src dst =
-  registerAtomFunct funct src dst
+  registerAtomFunct ctx funct src dst
 
 and parseFunctor (ctx: pctx) (funct : EConstr.t) (tp : EConstr.t) =
   let* is = parseFunctorType ctx tp in 
@@ -148,9 +215,16 @@ and parseFunctor (ctx: pctx) (funct : EConstr.t) (tp : EConstr.t) =
 (*                      *)
 (* Elems *)
 
-and registerAtomElem elem cat =
-  let* elem = Hyps.registerElem ~elem ~cat in 
-  ret (Data.AtomicElem elem)
+and registerAtomElem ctx elem cat =
+  let* struct_atom = parseAtomic ctx elem in
+  let* data = match struct_atom with
+  | Some atom ->
+      ret Data.({
+        elem_atom = atom;
+        elem_cat_ = cat;
+      })
+  | None -> Hyps.registerElem ~elem ~cat in 
+  ret (Data.AtomicElem data)
 
 and parseElemType (ctx: pctx) (obj : ec) : ec option m =
   let* env = env () in
@@ -179,13 +253,13 @@ and parseElemTerm (ctx: pctx) (elem : EConstr.t) cat =
       | _ -> raise AtomElem
       end
   | _ -> raise AtomElem
-  with AtomElem -> registerAtomElem elem cat
+  with AtomElem -> registerAtomElem ctx elem cat
 
 and parseElem (ctx: pctx) (elem : EConstr.t) (tp : EConstr.t) =
   let* is = parseElemType ctx tp in 
   match is with
   | Some cat ->
-      let* cat = registerAtomCat cat in 
+      let* cat = registerAtomCat ctx cat in 
       some @<< parseElemTerm ctx elem cat
   | None -> none ()
 
@@ -198,9 +272,21 @@ and parseElem (ctx: pctx) (elem : EConstr.t) (tp : EConstr.t) =
 (*                |_|                       *)
 (* Morphisms *)
 
-and registerAtomMorphism mph cat src dst =
-  let* mph = Hyps.registerMorphism ~mph ~cat ~src ~dst in 
-  ret (Data.AtomicMorphism mph)
+and registerAtomMorphism ctx mph cat src dst =
+  let* struct_atom = parseAtomic ctx mph in
+  let* data = match struct_atom with
+  | Some atom ->
+      ret Data.({
+        mph_atom = atom;
+        mph_cat_ = cat;
+        mph_src_ = src;
+        mph_dst_ = dst;
+        mono = None;
+        epi = None;
+        iso = None;
+      })
+  | None -> Hyps.registerMorphism ~mph ~cat ~src ~dst in 
+  ret (Data.AtomicMorphism data)
 
 and parseMorphismType (ctx: pctx) (mph : ec) : (ec * ec * ec) option m =
   let* sigma = evars () in
@@ -256,7 +342,7 @@ and parseMorphismTerm (ctx: pctx) mph cat src dst =
       | _ -> raise AtomMph
       end
   | _ -> raise AtomMph
-  with AtomMph -> registerAtomMorphism mph cat src dst
+  with AtomMph -> registerAtomMorphism ctx mph cat src dst
 
 and parseMorphism (ctx: pctx) mph tp =
   let* tp = parseMorphismType ctx tp in 
@@ -277,9 +363,20 @@ and parseMorphism (ctx: pctx) mph tp =
 (*        |_|                            *)
 (* Equalities *)
 
-and registerAtomEq eq right left cat src dst =
-  let* eq = Hyps.registerEq ~eq ~right ~left ~cat ~src ~dst in 
-  ret (Data.AtomicEq eq)
+and registerAtomEq ctx eq right left cat src dst =
+  let* struct_atom = parseAtomic ctx eq in
+  let* data = match struct_atom with
+  | Some atom ->
+      ret Data.({
+        eq_atom = atom;
+        eq_cat_ = cat;
+        eq_src_ = src;
+        eq_dst_ = dst;
+        eq_right_ = right;
+        eq_left_ = left;
+      })
+  | None -> Hyps.registerEq ~eq ~right ~left ~cat ~src ~dst in 
+  ret (Data.AtomicEq data)
 
 and parseEqType (ctx: pctx) (eq : ec) : (ec * ec * ec * ec * ec) option m =
   let* sigma = evars () in
@@ -298,7 +395,7 @@ and parseEqType (ctx: pctx) (eq : ec) : (ec * ec * ec * ec * ec) option m =
 
 (* No need to parse the concrete eq terms *)
 and parseEqTerm (ctx: pctx) eq right left cat src dst =
-  registerAtomEq eq right left cat src dst
+  registerAtomEq ctx eq right left cat src dst
 
 and parseEq (ctx: pctx) eq tp =
   let* tp = parseEqType ctx tp in 
@@ -348,7 +445,7 @@ and parseProperties hyp prop =
             let* mphAtom = Hyps.registerMorphism ~mph:mphEC ~cat ~src ~dst in
             let* tp = lift (Env.app (Env.mk_mphT ()) [| catEC; srcEC; dstEC |]) in
             let* eq = lift (Env.app (Env.mk_refl ()) [| tp; mphEC |]) in
-            let* _ = registerAtomEq eq (AtomicMorphism mphAtom) mph cat src dst in
+            let* _ = registerAtomEq ctx eq (AtomicMorphism mphAtom) mph cat src dst in
             ret mphAtom
       in begin match parsePropType sigma prop with
       | Epi -> mphData.epi <- Some hyp; ret ()
@@ -464,12 +561,6 @@ let rec realizeAtomic a : EConstr.t m =
   | Mph m -> realizeMorphism m
   | Eq e -> realizeEq e
   | Composed (_,ec,args) ->
-      let rec mapM f = function
-        | [] -> ret []
-        | x :: t ->
-            let* x = f x in
-            let* t = mapM f t in
-            ret (x :: t) in
       let* args = mapM realizeAtomic args in
       let args = Array.of_list args in
       ret (EConstr.mkApp (ec,args))
