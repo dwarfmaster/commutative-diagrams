@@ -4,13 +4,6 @@ type 'a m = 'a Hyps.t
 
 open Hyps.Combinators
 
-let getType (e : ec) : ec m =
-  let* env = env () in 
-  let* sigma = evars () in 
-  let (sigma,tp) = Typing.type_of env sigma e in 
-  let* _ = lift (Proofview.Unsafe.tclEVARS sigma) in 
-  ret tp
-
 let isProj sigma indPred name t =
   match EConstr.kind sigma t with
   | Proj (p,_) -> Env.is_projection p indPred name 
@@ -58,9 +51,20 @@ type propType = Mono
 
 (* A context to parse under binders. The type of the object is registered, along
    with a concrete element. Since we only support first order, the concrete
-   element cannot be prod or exits. *)
-type pctx = (parsedType * parsed) list
+   element cannot be prod or exits. The EConstr.t is the term of type. *)
+type pctx = (parsedType * EConstr.t * parsed) list
 
+let getType (ctx: pctx) (e : ec) : ec m =
+  let* env = env () in
+  let* sigma = evars () in
+  let name = Context.({
+    binder_name = Names.Name.Anonymous;
+    binder_relevance = Sorts.Irrelevant;
+  }) in
+  let ctx = List.rev_map (fun (_,tp,_) ->
+    Context.Rel.Declaration.LocalAssum (name,EConstr.to_constr sigma tp)) ctx in
+  let env = List.fold_left (fun env decl -> Environ.push_rel decl env) env ctx in
+  Retyping.get_type_of env sigma e |> ret
 
 (*    _  _             _        *)
 (*   /_\| |_ ___ _ __ (_)__ ___ *)
@@ -162,7 +166,7 @@ and parseElemTerm (ctx: pctx) (elem : EConstr.t) cat =
   | App (fobj, [| elem |]) ->
       begin match EConstr.kind sigma fobj with
       | Proj (fobj,funct) when Env.is_projection fobj Env.is_functor "object_of" ->
-          let* tp = parseFunctorType ctx @<< getType funct in
+          let* tp = parseFunctorType ctx @<< getType ctx funct in
           begin match tp with
           | None -> assert false (* Shouldn't happen *)
           | Some (src,dst) ->
@@ -224,7 +228,7 @@ and parseMorphismTerm (ctx: pctx) mph cat src dst =
   | App (funct, [| src; dst; mph |]) ->
       begin match EConstr.kind sigma funct with
       | Proj (mof,funct) when Env.is_projection mof Env.is_functor "morphism_of" ->
-          let* tp = parseFunctorType ctx @<< getType funct in 
+          let* tp = parseFunctorType ctx @<< getType ctx funct in
           begin match tp with
           | None -> assert false (* Shouldn't happen *)
           | Some (src_cat,_) ->
