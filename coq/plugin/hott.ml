@@ -56,6 +56,29 @@ type propType = Mono
               | Iso
               | Nothing
 
+(* A context to parse under binders. The type of the object is registered, along
+   with a concrete element. Since we only support first order, the concrete
+   element cannot be prod or exits. *)
+type pctx = (parsedType * parsed) list
+
+
+(*    _  _             _        *)
+(*   /_\| |_ ___ _ __ (_)__ ___ *)
+(*  / _ \  _/ _ \ '  \| / _(_-< *)
+(* /_/ \_\__\___/_|_|_|_\__/__/ *)
+(*                              *)
+(* Atomics *)
+
+(* Parse atomic tries to progress the parsing, so it may fail *)
+let rec parseAtomic (ctx: pctx) (atom: EConstr.t) =
+  let* sigma = evars () in
+  match EConstr.kind sigma atom with
+  | _ -> assert false
+
+(* First try to parse it as a known objects, and fall backs to parseAtomic. If parseAtomic fails,
+   the atom is registered as a 0-arity function symbol *)
+and parseAtomicWithTp (ctx: pctx) (atom: EConstr.t) (tp: EConstr.t) =
+  assert false
 
 (*   ___      _                    _         *)
 (*  / __|__ _| |_ ___ __ _ ___ _ _(_)___ ___ *)
@@ -64,21 +87,21 @@ type propType = Mono
 (*                   |___/                   *)
 (* Categories *)
 
-let rec registerAtomCat (cat : ec) =
+and registerAtomCat (cat : ec) =
   let* cat = Hyps.registerCategory ~cat in 
   ret (Data.AtomicCategory cat)
 
-and parseCategoryType (cat : EConstr.t) : bool m =
+and parseCategoryType (ctx: pctx) (cat : EConstr.t) : bool m =
   let* env = env () in
   let* sigma = evars () in
   ret (isInd sigma Env.is_cat cat)
 
-and parseCategoryTerm (cat : EConstr.t) =
+and parseCategoryTerm (ctx: pctx) (cat : EConstr.t) =
   registerAtomCat cat
 
-and parseCategory (cat : EConstr.t) (tp : EConstr.t) = 
-  let* is = parseCategoryType tp in
-  if is then some @<< parseCategoryTerm cat else none ()
+and parseCategory (ctx: pctx) (cat : EConstr.t) (tp : EConstr.t) = 
+  let* is = parseCategoryType ctx tp in
+  if is then some @<< parseCategoryTerm ctx cat else none ()
 
 
 (*  ___             _               *)
@@ -92,7 +115,7 @@ and registerAtomFunct funct src dst =
   let* funct = Hyps.registerFunctor ~funct ~src ~dst in 
   ret (Data.AtomicFunctor funct)
 
-and parseFunctorType (funct : ec) : (ec*ec) option m =
+and parseFunctorType (ctx: pctx) (funct : ec) : (ec*ec) option m =
   let* env = env () in
   let* sigma = evars () in 
   match EConstr.kind sigma funct with
@@ -100,16 +123,16 @@ and parseFunctorType (funct : ec) : (ec*ec) option m =
       some (src,dst)
   | _ -> none ()
 
-and parseFunctorTerm (funct : ec) src dst =
+and parseFunctorTerm (ctx: pctx) (funct : ec) src dst =
   registerAtomFunct funct src dst
 
-and parseFunctor (funct : EConstr.t) (tp : EConstr.t) =
-  let* is = parseFunctorType tp in 
+and parseFunctor (ctx: pctx) (funct : EConstr.t) (tp : EConstr.t) =
+  let* is = parseFunctorType ctx tp in 
   match is with 
   | Some (src,dst) ->
-      let* src = parseCategoryTerm src in 
-      let* dst = parseCategoryTerm dst in 
-      some @<< parseFunctorTerm funct src dst
+      let* src = parseCategoryTerm ctx src in 
+      let* dst = parseCategoryTerm ctx dst in 
+      some @<< parseFunctorTerm ctx funct src dst
   | None -> none ()
 
 
@@ -125,28 +148,28 @@ and registerAtomElem elem cat =
   let* elem = Hyps.registerElem ~elem ~cat in 
   ret (Data.AtomicElem elem)
 
-and parseElemType (obj : ec) : ec option m =
+and parseElemType (ctx: pctx) (obj : ec) : ec option m =
   let* env = env () in
   let* sigma = evars () in
   match EConstr.kind sigma obj with
   | Proj (p,obj) when Env.is_projection p Env.is_cat "object" -> some obj
   | _ -> none ()
 
-and parseElemTerm (elem : EConstr.t) cat =
+and parseElemTerm (ctx: pctx) (elem : EConstr.t) cat =
   let* env = env () in 
   let* sigma = evars () in 
   try match EConstr.kind sigma elem with
   | App (fobj, [| elem |]) ->
       begin match EConstr.kind sigma fobj with
       | Proj (fobj,funct) when Env.is_projection fobj Env.is_functor "object_of" ->
-          let* tp = parseFunctorType @<< getType funct in
+          let* tp = parseFunctorType ctx @<< getType funct in
           begin match tp with
           | None -> assert false (* Shouldn't happen *)
           | Some (src,dst) ->
-              let* src = parseCategoryTerm src in
-              let* dst = parseCategoryTerm dst in 
-              let* funct = parseFunctorTerm funct src dst in
-              let* elem = parseElemTerm elem src in
+              let* src = parseCategoryTerm ctx src in
+              let* dst = parseCategoryTerm ctx dst in 
+              let* funct = parseFunctorTerm ctx funct src dst in
+              let* elem = parseElemTerm ctx elem src in
               ret (Data.FObj (funct,elem))
           end
       | _ -> raise AtomElem
@@ -154,12 +177,12 @@ and parseElemTerm (elem : EConstr.t) cat =
   | _ -> raise AtomElem
   with AtomElem -> registerAtomElem elem cat
 
-and parseElem (elem : EConstr.t) (tp : EConstr.t) =
-  let* is = parseElemType tp in 
+and parseElem (ctx: pctx) (elem : EConstr.t) (tp : EConstr.t) =
+  let* is = parseElemType ctx tp in 
   match is with
   | Some cat ->
       let* cat = registerAtomCat cat in 
-      some @<< registerAtomElem elem cat
+      some @<< parseElemTerm ctx elem cat
   | None -> none ()
 
 
@@ -175,7 +198,7 @@ and registerAtomMorphism mph cat src dst =
   let* mph = Hyps.registerMorphism ~mph ~cat ~src ~dst in 
   ret (Data.AtomicMorphism mph)
 
-and parseMorphismType (mph : ec) : (ec * ec * ec) option m =
+and parseMorphismType (ctx: pctx) (mph : ec) : (ec * ec * ec) option m =
   let* sigma = evars () in
   match EConstr.kind sigma mph with
   | App (p, [| src; dst |]) ->
@@ -186,30 +209,30 @@ and parseMorphismType (mph : ec) : (ec * ec * ec) option m =
     end
   | _ -> none ()
 
-and parseMorphismTerm mph cat src dst =
+and parseMorphismTerm (ctx: pctx) mph cat src dst =
   let* sigma = evars () in
   try match EConstr.kind sigma mph with
   | App (cmp, [| _; int; _; mid; msi |]) ->
     begin match EConstr.kind sigma cmp with
       | Proj (cmp,_) when Env.is_projection cmp Env.is_cat "compose" ->
-          let* int = parseElemTerm int cat in
-          let* msi = parseMorphismTerm msi cat src int in
-          let* mid = parseMorphismTerm mid cat int dst in
+          let* int = parseElemTerm ctx int cat in
+          let* msi = parseMorphismTerm ctx msi cat src int in
+          let* mid = parseMorphismTerm ctx mid cat int dst in
           ret (Data.Comp (msi,mid))
       | _ -> raise AtomMph
     end
   | App (funct, [| src; dst; mph |]) ->
       begin match EConstr.kind sigma funct with
       | Proj (mof,funct) when Env.is_projection mof Env.is_functor "morphism_of" ->
-          let* tp = parseFunctorType @<< getType funct in 
+          let* tp = parseFunctorType ctx @<< getType funct in 
           begin match tp with
           | None -> assert false (* Shouldn't happen *)
           | Some (src_cat,_) ->
-              let* src_cat = parseCategoryTerm src_cat in 
-              let* src = parseElemTerm src src_cat in 
-              let* dst = parseElemTerm dst src_cat in 
-              let* funct = parseFunctorTerm funct src_cat cat in
-              let* mph = parseMorphismTerm mph cat src dst in 
+              let* src_cat = parseCategoryTerm ctx src_cat in 
+              let* src = parseElemTerm ctx src src_cat in 
+              let* dst = parseElemTerm ctx dst src_cat in 
+              let* funct = parseFunctorTerm ctx funct src_cat cat in
+              let* mph = parseMorphismTerm ctx mph cat src dst in 
               ret (Data.FMph (funct,mph))
           end
       | _ -> raise AtomMph 
@@ -217,29 +240,29 @@ and parseMorphismTerm mph cat src dst =
   | App (id, [| _; elem |]) ->
       begin match EConstr.kind sigma id with
       | Const (name,_) when Env.is_id name ->
-          let* elem = parseElemTerm elem cat in 
+          let* elem = parseElemTerm ctx elem cat in 
           ret (Data.Identity elem)
       | _ -> raise AtomMph
       end 
   | App (id, [| elem |]) ->
       begin match EConstr.kind sigma id with
       | Proj (id,_) when Env.is_projection id Env.is_cat "identity" ->
-          let* elem = parseElemTerm elem cat in 
+          let* elem = parseElemTerm ctx elem cat in 
           ret (Data.Identity elem)
       | _ -> raise AtomMph
       end
   | _ -> raise AtomMph
   with AtomMph -> registerAtomMorphism mph cat src dst
 
-and parseMorphism mph tp =
-  let* tp = parseMorphismType tp in 
+and parseMorphism (ctx: pctx) mph tp =
+  let* tp = parseMorphismType ctx tp in 
   match tp with
   | None -> none ()
   | Some (cat,src,dst) ->
-      let* cat = parseCategoryTerm cat in 
-      let* src = parseElemTerm src cat in 
-      let* dst = parseElemTerm dst cat in 
-      some @<< parseMorphismTerm mph cat src dst
+      let* cat = parseCategoryTerm ctx cat in 
+      let* src = parseElemTerm ctx src cat in 
+      let* dst = parseElemTerm ctx dst cat in 
+      some @<< parseMorphismTerm ctx mph cat src dst
 
 
 
@@ -254,13 +277,13 @@ and registerAtomEq eq right left cat src dst =
   let* eq = Hyps.registerEq ~eq ~right ~left ~cat ~src ~dst in 
   ret (Data.AtomicEq eq)
 
-and parseEqType (eq : ec) : (ec * ec * ec * ec * ec) option m =
+and parseEqType (ctx: pctx) (eq : ec) : (ec * ec * ec * ec * ec) option m =
   let* sigma = evars () in
   match EConstr.kind sigma eq with
   | App (eq, [| tp; left; right |]) ->
     begin match EConstr.kind sigma eq with
       | Ind (eq,_) when Env.is_eq eq ->
-          let* tp = parseMorphismType tp in 
+          let* tp = parseMorphismType ctx tp in 
           begin match tp with
           | Some (cat,src,dst) -> some (right,left,cat,src,dst)
           | None -> none ()
@@ -270,19 +293,19 @@ and parseEqType (eq : ec) : (ec * ec * ec * ec * ec) option m =
   | _ -> none ()
 
 (* No need to parse the concrete eq terms *)
-and parseEqTerm eq right left cat src dst =
+and parseEqTerm (ctx: pctx) eq right left cat src dst =
   registerAtomEq eq right left cat src dst
 
-and parseEq eq tp =
-  let* tp = parseEqType tp in 
+and parseEq (ctx: pctx) eq tp =
+  let* tp = parseEqType ctx tp in 
   match tp with
   | Some (right,left,cat,src,dst) ->
-      let* cat = parseCategoryTerm cat in 
-      let* src = parseElemTerm src cat in 
-      let* dst = parseElemTerm dst cat in 
-      let* right = parseMorphismTerm right cat src dst in
-      let* left = parseMorphismTerm left cat src dst in
-      some @<< parseEqTerm eq right left cat src dst
+      let* cat = parseCategoryTerm ctx cat in 
+      let* src = parseElemTerm ctx src cat in 
+      let* dst = parseElemTerm ctx dst cat in 
+      let* right = parseMorphismTerm ctx right cat src dst in
+      let* left = parseMorphismTerm ctx left cat src dst in
+      some @<< parseEqTerm ctx eq right left cat src dst
   | _ -> none ()
 
 
@@ -306,13 +329,14 @@ and parsePropType sigma (prop : EConstr.t) =
   | _ -> Nothing
 
 and parseProperties hyp prop =
+  let ctx = [] in
   let* sigma = evars () in 
   match EConstr.kind sigma prop with
   | App (prop, [| catEC; srcEC; dstEC; mphEC |]) when parsePropType sigma prop <> Nothing ->
-      let* cat = parseCategoryTerm catEC in
-      let* src = parseElemTerm srcEC cat in
-      let* dst = parseElemTerm dstEC cat in
-      let* mph = parseMorphismTerm mphEC cat src dst in
+      let* cat = parseCategoryTerm ctx catEC in
+      let* src = parseElemTerm ctx srcEC cat in
+      let* dst = parseElemTerm ctx dstEC cat in
+      let* mph = parseMorphismTerm ctx mphEC cat src dst in
       let* mphData =
         match mph with
         | AtomicMorphism dt -> ret dt
@@ -349,59 +373,59 @@ and parseProperties hyp prop =
 
 and parse term tp =
   let* () = parseProperties term tp in
-  let* is_cat = parseCategory term tp in
+  let* is_cat = parseCategory [] term tp in
   match is_cat with
   | Some c -> some (Category c)
   | None ->
-      let* is_funct = parseFunctor term tp in
+      let* is_funct = parseFunctor [] term tp in
       match is_funct with
       | Some f -> some (Functor f)
       | None ->
-          let* is_elem = parseElem term tp in
+          let* is_elem = parseElem [] term tp in
           match is_elem with
           | Some e -> some (Elem e)
           | None ->
-              let* is_mph = parseMorphism term tp in
+              let* is_mph = parseMorphism [] term tp in
               match is_mph with
               | Some m -> some (Morphism m)
               | None ->
-                  let* is_eq = parseEq term tp in
+                  let* is_eq = parseEq [] term tp in
                   match is_eq with
                   | Some e -> some (Equality e)
                   | None -> none ()
 and parseType tp =
-  let* is_cat = parseCategoryType tp in
+  let* is_cat = parseCategoryType [] tp in
   if is_cat then some CategoryT
   else
-    let* is_funct = parseFunctorType tp in
+    let* is_funct = parseFunctorType [] tp in
     match is_funct with
     | Some (src,dst) ->
-        let* src = parseCategoryTerm src in
-        let* dst = parseCategoryTerm dst in
+        let* src = parseCategoryTerm [] src in
+        let* dst = parseCategoryTerm [] dst in
         some (FunctorT (src,dst))
     | None ->
-        let* is_elem = parseElemType tp in
+        let* is_elem = parseElemType [] tp in
         match is_elem with
         | Some cat ->
-            let* cat = parseCategoryTerm cat in
+            let* cat = parseCategoryTerm [] cat in
             some (ElemT cat)
         | None ->
-            let* is_mph = parseMorphismType tp in
+            let* is_mph = parseMorphismType [] tp in
             match is_mph with
             | Some (cat,src,dst) ->
-                let* cat = parseCategoryTerm cat in
-                let* src = parseElemTerm src cat in
-                let* dst = parseElemTerm dst cat in
+                let* cat = parseCategoryTerm [] cat in
+                let* src = parseElemTerm [] src cat in
+                let* dst = parseElemTerm [] dst cat in
                 some (MorphismT (cat,src,dst))
             | None ->
-                let* is_eq = parseEqType tp in
+                let* is_eq = parseEqType [] tp in
                 match is_eq with
                 | Some (right,left,cat,src,dst) ->
-                    let* cat = parseCategoryTerm cat in
-                    let* src = parseElemTerm src cat in
-                    let* dst = parseElemTerm dst cat in
-                    let* left = parseMorphismTerm left cat src dst in
-                    let* right = parseMorphismTerm right cat src dst in
+                    let* cat = parseCategoryTerm [] cat in
+                    let* src = parseElemTerm [] src cat in
+                    let* dst = parseElemTerm [] dst cat in
+                    let* left = parseMorphismTerm [] left cat src dst in
+                    let* right = parseMorphismTerm [] right cat src dst in
                     some (EqT (cat,src,dst,left,right))
                 | None ->
                     none ()
