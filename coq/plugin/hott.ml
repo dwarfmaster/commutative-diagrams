@@ -45,9 +45,9 @@ type parsed =
   | Morphism of Data.morphism
   | Equality of Data.eq
 type lemma =
-  | Prod of Names.Name.t * parsedType * lemma
-  | Exists of Names.Name.t * parsedType * lemma
-  | Result of parsedType
+  | Prod of Names.Name.t * parsed * lemma
+  | Exists of Names.Name.t * parsed * lemma
+  | Result of parsed
 
 (* Internal helpers *)
 exception AtomElem
@@ -466,18 +466,26 @@ and parseProperties hyp prop =
 
 
 
-(*  ____                _            _        *)
-(* |  _ \ _ __ ___   __| |_   _  ___| |_ ___  *)
-(* | |_) | '__/ _ \ / _` | | | |/ __| __/ __| *)
-(* |  __/| | | (_) | (_| | |_| | (__| |_\__ \ *)
-(* |_|   |_|  \___/ \__,_|\__,_|\___|\__|___/ *)
-(*                                            *)
+(*  ___             _         _       *)
+(* | _ \_ _ ___  __| |_  _ __| |_ ___ *)
+(* |  _/ '_/ _ \/ _` | || / _|  _(_-< *)
+(* |_| |_| \___/\__,_|\_,_\__|\__/__/ *)
+(*                                    *)
 (* Products *)
 
-and realizeParsedTypeAsExistential tp =
-  let* ex = Hyps.newEvar () in
-  let atom = Data.Evar (ex, None) in
-  ret (match tp with
+and reifyLemma lemma =
+  let open Data in
+  match lemma with
+  | Composed (id,ec,args) -> Composed (id,ec,List.rev args)
+  | _ -> lemma
+and applyLemma lemma arg =
+  let open Data in
+  match lemma with
+  | Composed (id,ec,args) -> Composed (id,ec,arg::args)
+  | _ -> assert false
+
+and realizeParsedType atom tp =
+  match tp with
   | CategoryT ->
       Category Data.(AtomicCategory {
         cat_atom = atom;
@@ -511,9 +519,14 @@ and realizeParsedTypeAsExistential tp =
         eq_dst_ = dst;
         eq_left_ = left;
         eq_right_ = right;
-      }))
+      })
 
-and parseProductType ctx prod =
+and realizeParsedTypeAsExistential tp =
+  let* ex = Hyps.newEvar () in
+  let atom = Data.Evar (ex, None) in
+  ret (realizeParsedType atom tp)
+
+and parseProductType ctx lemma prod =
   let* sigma = evars () in
   match EConstr.kind sigma prod with
   | Prod (name,arg,body) ->
@@ -522,9 +535,10 @@ and parseProductType ctx prod =
       | Some argT ->
           let* argV = realizeParsedTypeAsExistential argT in
           let ctx = (argT,arg,argV) :: ctx in
-          let* body = parseLemmaCtx ctx body in
+          let lemma = applyLemma lemma (parsedToAtom argV) in
+          let* body = parseLemmaCtx ctx lemma body in
           begin match body with
-          | Some body -> some (name.binder_name,argT,body)
+          | Some body -> some (name.binder_name,argV,body)
           | None -> none ()
           end
       | None -> none ()
@@ -596,19 +610,25 @@ and parseTypeCtx ctx tp =
                     some (EqT (cat,src,dst,left,right))
                 | None ->
                     none ()
-and parseLemmaCtx ctx tp =
-  let* is_prod = parseProductType ctx tp in
+and parseLemmaCtx ctx lemma tp =
+  let* is_prod = parseProductType ctx lemma tp in
   match is_prod with
   | Some (name, arg, body) -> some (Prod (name, arg, body))
   | None ->
       let* is_result = parseTypeCtx ctx tp in
       match is_result with
-      | Some tp -> some (Result tp)
+      | Some tp ->
+          let lemma = reifyLemma lemma in
+          let res = realizeParsedType lemma tp in
+          some (Result res)
       | None -> none ()
 
 let parse term tp = parseCtx [] term tp
 let parseType tp = parseTypeCtx [] tp
-let parseLemma tp = parseLemmaCtx [] tp
+let parseLemma lemma tp = 
+  let* id = Hyps.registerFun ~fn:lemma in
+  let atom = Data.Composed (id,lemma,[]) in
+  parseLemmaCtx [] atom tp
 
 (*  ____            _ _          _   _              *)
 (* |  _ \ ___  __ _| (_)______ _| |_(_) ___  _ __   *)
