@@ -108,15 +108,15 @@ let handle_hyps (args : Msgpack.t list) : handler_ret m =
   let* elems = Hyps.getElems () in
   let* rt =
     serialize_obj_on rt elems
-      (fun elem -> prepare_atom elem.Data.elem_atom) Hyps.elemFromIndex in
+      (fun (elem,_) -> prepare_atom elem.Data.elem_atom) Hyps.elemFromIndex in
   let* mphs = Hyps.getMorphisms () in
   let* rt =
     serialize_obj_on rt mphs
-      (fun mph -> prepare_atom mph.Data.mph_atom) Hyps.mphFromIndex in
+      (fun (mph,_) -> prepare_atom mph.Data.mph_atom) Hyps.mphFromIndex in
   let* eqs = Hyps.getEqs () in
   let* rt =
     serialize_obj_on rt eqs
-      (fun eq -> prepare_atom eq.Data.eq_atom) Hyps.eqFromIndex in
+      (fun (eq,_) -> prepare_atom eq.Data.eq_atom) Hyps.eqFromIndex in
   ret (HRet (Msgpack.Array rt))
 
 let handle_goal (goal: goal) (args : Msgpack.t list) : handler_ret m =

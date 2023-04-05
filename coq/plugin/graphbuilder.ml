@@ -75,17 +75,17 @@ let import_hyps (builder: t) =
   let open Hyps.Combinators in
   let* builder =
     Array.fold_left
-      (fun bld elm -> add_node (AtomicElem elm) bld |> snd)
+      (fun bld (elm,mask) -> if mask then bld else add_node (AtomicElem elm) bld |> snd)
       builder
       <$> Hyps.getElems () in
   let* builder =
     Array.fold_left
-      (fun bld mph -> add_edge (AtomicMorphism mph) bld)
+      (fun bld (mph,mask) -> if mask then bld else add_edge (AtomicMorphism mph) bld)
       builder
       <$> Hyps.getMorphisms () in
   let* builder =
     Array.fold_left
-      (fun bld eq -> add_face (AtomicEq eq) bld)
+      (fun bld (eq,mask) -> if mask then bld else add_face (AtomicEq eq) bld)
       builder
       <$> Hyps.getEqs () in
   ret builder

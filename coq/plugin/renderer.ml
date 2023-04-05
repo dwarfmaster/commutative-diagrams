@@ -69,7 +69,7 @@ type eNums = int ElemMap.t
 let allElems mphs : eNums =
   let nums, _ =
     Array.fold_left 
-      (fun (st,i) mph ->
+      (fun (st,i) (mph,_) ->
         (ElemMap.add mph.mph_src_ i
           (ElemMap.add mph.mph_dst_ (i+1) st),
           i+2))
@@ -108,5 +108,5 @@ let to_graphviz () =
   let nums = allElems mphs in
   ret (Pp.str "digraph {"
     ++ ElemMap.fold (fun e _ pp -> pp ++ elem_graphviz sigma env nums e) nums (Pp.str "")
-    ++ Array.fold_left (fun pp m -> pp ++ mph_graphviz  sigma env nums (AtomicMorphism m)) (Pp.str "") mphs
+    ++ Array.fold_left (fun pp (m,_) -> pp ++ mph_graphviz  sigma env nums (AtomicMorphism m)) (Pp.str "") mphs
     ++ Pp.str "}")

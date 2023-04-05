@@ -1,15 +1,17 @@
 
 open Data
 
+(* Masked elements are not included in the goal graph sent to the engine *)
 module IntMap = Map.Make(struct type t = int let compare = compare end)
 type store =
   { categories : categoryData array
   ; functors   : functData array 
-  ; elems      : elemData array 
-  ; morphisms  : morphismData array 
-  ; faces      : eqData array
+  ; elems      : (elemData*bool) array 
+  ; morphisms  : (morphismData*bool) array 
+  ; faces      : (eqData*bool) array
   ; funs       : EConstr.t array
   ; evars      : EConstr.t option IntMap.t
+  ; mask       : bool
   }
 let emptyStore : store =
   { categories = [| |]
@@ -19,6 +21,7 @@ let emptyStore : store =
   ; faces      = [| |]
   ; funs       = [| |]
   ; evars      = IntMap.empty
+  ; mask       = false
   }
 
 type 'a t = 
@@ -108,10 +111,12 @@ let getAtom id =
   match id mod 8 with
   | 0 -> get (fun st -> Some st.categories.(id/8).cat_atom)
   | 1 -> get (fun st -> Some st.functors.(id/8).funct_atom)
-  | 2 -> get (fun st -> Some st.elems.(id/8).elem_atom)
-  | 3 -> get (fun st -> Some st.morphisms.(id/8).mph_atom)
-  | 4 -> get (fun st -> Some st.faces.(id/8).eq_atom)
+  | 2 -> get (fun st -> Some (fst st.elems.(id/8)).elem_atom)
+  | 3 -> get (fun st -> Some (fst st.morphisms.(id/8)).mph_atom)
+  | 4 -> get (fun st -> Some (fst st.faces.(id/8)).eq_atom)
   | _ -> ret None
+
+let setMask b = set (fun (st : store) -> { st with mask = b })
 
 let catToIndex = toId 0
 let catFromIndex = fromId 0
@@ -152,56 +157,68 @@ let elemToIndex = toId 2
 let elemFromIndex = fromId 2
 let getElems () = get (fun st -> st.elems)
 let getElem i = match elemToIndex i with
-| Some i -> get (fun st -> st.elems.(i))
+| Some i -> get (fun st -> fst st.elems.(i))
+| None -> assert false
+let getElemMask i = match elemToIndex i with
+| Some i -> get (fun st -> snd st.elems.(i))
 | None -> assert false
 let registerElem ~elem ~cat =
-  let* id = arr_find_optM (fun e -> mkPred e.elem_atom elem) @<< getElems () in 
+  let* id = arr_find_optM (fun e -> mkPred (fst e).elem_atom elem) @<< getElems () in 
   match id with
-  | Some (_,elem) -> ret elem 
+  | Some (_,(elem,_)) -> ret elem 
   | None ->
       let* nid = elemFromIndex <$> (Array.length <$> getElems ()) in 
       let* _ = set (fun st ->
         { st with elems = push_back st.elems 
-          { elem_atom = Ctx (nid,elem)
-          ; elem_cat_ = cat }}) in 
+          ( { elem_atom = Ctx (nid,elem)
+            ; elem_cat_ = cat }
+          , st.mask) }) in 
       getElem nid
 
 let mphToIndex = toId 3
 let mphFromIndex = fromId 3
 let getMorphisms () = get (fun st -> st.morphisms)
 let getMorphism i = match mphToIndex i with
-| Some i -> get (fun st -> st.morphisms.(i))
+| Some i -> get (fun st -> fst st.morphisms.(i))
+| None -> assert false
+let getMorphismMask i = match mphToIndex i with
+| Some i -> get (fun st -> snd st.morphisms.(i))
 | None -> assert false
 let registerMorphism ~mph ~cat ~src ~dst =
-  let* id = arr_find_optM (fun m -> mkPred m.mph_atom mph) @<< getMorphisms () in 
+  let* id = arr_find_optM (fun m -> mkPred (fst m).mph_atom mph) @<< getMorphisms () in 
   match id with 
-  | Some (_,mph) -> ret mph
+  | Some (_,(mph,_)) -> ret mph
   | None ->
       let* nid = mphFromIndex <$> (Array.length <$> getMorphisms ()) in 
       let* _ = set (fun st ->
         { st with morphisms = push_back st.morphisms 
-          { mph_atom = Ctx (nid,mph)
-          ; mph_cat_ = cat; mph_src_ = src; mph_dst_ = dst
-          ; mono = None; epi = None; iso = None }}) in
+          ( { mph_atom = Ctx (nid,mph)
+            ; mph_cat_ = cat; mph_src_ = src; mph_dst_ = dst
+            ; mono = None; epi = None; iso = None }
+          , st.mask )}) in
       getMorphism nid
 
 let eqToIndex = toId 4
 let eqFromIndex = fromId 4
 let getEqs () = get (fun st -> st.faces)
 let getEq i = match eqToIndex i with
-| Some i -> get (fun st -> st.faces.(i))
+| Some i -> get (fun st -> fst st.faces.(i))
+| None -> assert false
+let getEqMask i = match eqToIndex i with
+| Some i -> get (fun st -> snd st.faces.(i))
 | None -> assert false
 let registerEq ~eq ~right ~left ~cat ~src ~dst =
-  let* id = arr_find_optM (fun e -> mkPred e.eq_atom eq) @<< getEqs () in
+  let* id = arr_find_optM (fun e -> mkPred (fst e).eq_atom eq) @<< getEqs () in
   match id with 
-  | Some (_,eq) -> ret eq 
+  | Some (_,(eq,_)) -> ret eq 
   | None -> 
       let* nid = eqFromIndex <$> (Array.length <$> getEqs ()) in 
       let* _ = set (fun st ->
         { st with faces = push_back st.faces 
-          { eq_atom = Ctx (nid,eq)
-          ; eq_left_ = left; eq_right_ = right 
-          ; eq_cat_ = cat; eq_src_ = src; eq_dst_ = dst }}) in
+          ( { eq_atom = Ctx (nid,eq)
+            ; eq_left_ = left; eq_right_ = right 
+            ; eq_cat_ = cat; eq_src_ = src; eq_dst_ = dst }
+          , st.mask )}) in
       getEq nid
 
 let funToIndex = toId 5

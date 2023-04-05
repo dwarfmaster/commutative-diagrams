@@ -28,6 +28,7 @@ end
 
 (* State operations *)
 val getAtom : int -> Data.atomic option t
+val setMask : bool -> unit t
 
 val catToIndex : int -> int option
 val catFromIndex : int -> int
@@ -47,16 +48,18 @@ val registerFunctor : funct:EConstr.t
 
 val elemToIndex : int -> int option
 val elemFromIndex : int -> int
-val getElems : unit -> Data.elemData array t 
+val getElems : unit -> (Data.elemData*bool) array t 
 val getElem : int -> Data.elemData t 
+val getElemMask : int -> bool t
 val registerElem : elem:EConstr.t
                 -> cat:Data.category
                 -> Data.elemData t
 
 val mphToIndex : int -> int option
 val mphFromIndex : int -> int
-val getMorphisms : unit -> Data.morphismData array t
+val getMorphisms : unit -> (Data.morphismData*bool) array t
 val getMorphism : int -> Data.morphismData t
+val getMorphismMask : int -> bool t
 val registerMorphism : mph:EConstr.t
                     -> cat:Data.category 
                     -> src:Data.elem
@@ -65,8 +68,9 @@ val registerMorphism : mph:EConstr.t
 
 val eqToIndex : int -> int option
 val eqFromIndex : int -> int
-val getEqs : unit -> Data.eqData array t 
+val getEqs : unit -> (Data.eqData*bool) array t 
 val getEq : int -> Data.eqData t 
+val getEqMask : int -> bool t
 val registerEq : eq:EConstr.t
               -> right:Data.morphism
               -> left:Data.morphism
