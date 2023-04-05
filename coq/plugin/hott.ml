@@ -44,8 +44,10 @@ type parsed =
   | Elem of Data.elem
   | Morphism of Data.morphism
   | Equality of Data.eq
-  | Prod of Names.Name.t * parsedType * parsed
-  | Exists of Names.Name.t * parsedType * parsed
+type lemma =
+  | Prod of Names.Name.t * parsedType * lemma
+  | Exists of Names.Name.t * parsedType * lemma
+  | Result of parsedType
 
 (* Internal helpers *)
 exception AtomElem
@@ -80,8 +82,6 @@ let parsedToAtom p =
   | Elem e -> Data.Elem e
   | Morphism m -> Data.Mph m
   | Equality eq -> Data.Eq eq
-  | Prod _ -> assert false
-  | Exists _ -> assert false
 
 (*    _  _             _        *)
 (*   /_\| |_ ___ _ __ (_)__ ___ *)
@@ -97,7 +97,7 @@ let rec parseAtomic (ctx: pctx) (atom: EConstr.t) : Data.atomic option m =
   let* sigma = evars () in
   match EConstr.kind sigma atom with
   | Rel i ->
-      let (_,_,v) = List.nth ctx i in
+      let (_,_,v) = List.nth ctx (i-1) in
       some (parsedToAtom v)
   | App (f,args) ->
       let parseArg arg = parseAtomicWithTp ctx arg @<< getType ctx arg in
@@ -465,6 +465,72 @@ and parseProperties hyp prop =
   | _ -> ret ()
 
 
+
+(*  ____                _            _        *)
+(* |  _ \ _ __ ___   __| |_   _  ___| |_ ___  *)
+(* | |_) | '__/ _ \ / _` | | | |/ __| __/ __| *)
+(* |  __/| | | (_) | (_| | |_| | (__| |_\__ \ *)
+(* |_|   |_|  \___/ \__,_|\__,_|\___|\__|___/ *)
+(*                                            *)
+(* Products *)
+
+and realizeParsedTypeAsExistential tp =
+  let* ex = Hyps.newEvar () in
+  let atom = Data.Evar (ex, None) in
+  ret (match tp with
+  | CategoryT ->
+      Category Data.(AtomicCategory {
+        cat_atom = atom;
+      })
+  | FunctorT (src,dst) ->
+      Functor Data.(AtomicFunctor {
+        funct_atom = atom;
+        funct_src_ = src;
+        funct_dst_ = dst;
+      })
+  | ElemT cat ->
+      Elem Data.(AtomicElem {
+        elem_atom = atom;
+        elem_cat_ = cat;
+      })
+  | MorphismT (cat,src,dst) ->
+      Morphism Data.(AtomicMorphism {
+        mph_atom = atom;
+        mph_cat_ = cat;
+        mph_src_ = src;
+        mph_dst_ = dst;
+        mono = None;
+        epi = None;
+        iso = None;
+      })
+  | EqT (cat,src,dst,left,right) ->
+      Equality Data.(AtomicEq {
+        eq_atom = atom;
+        eq_cat_ = cat;
+        eq_src_ = src;
+        eq_dst_ = dst;
+        eq_left_ = left;
+        eq_right_ = right;
+      }))
+
+and parseProductType ctx prod =
+  let* sigma = evars () in
+  match EConstr.kind sigma prod with
+  | Prod (name,arg,body) ->
+      let* argT = parseTypeCtx ctx arg in
+      begin match argT with
+      | Some argT ->
+          let* argV = realizeParsedTypeAsExistential argT in
+          let ctx = (argT,arg,argV) :: ctx in
+          let* body = parseLemmaCtx ctx body in
+          begin match body with
+          | Some body -> some (name.binder_name,argT,body)
+          | None -> none ()
+          end
+      | None -> none ()
+      end
+  | _ -> none ()
+
 (*    _   ___ ___  *)
 (*   /_\ | _ \_ _| *)
 (*  / _ \|  _/| |  *)
@@ -472,64 +538,77 @@ and parseProperties hyp prop =
 (*                 *)
 (* API *)
 
-and parse term tp =
+and parseCtx ctx term tp =
   let* () = parseProperties term tp in
-  let* is_cat = parseCategory [] term tp in
+  let* is_cat = parseCategory ctx term tp in
   match is_cat with
   | Some c -> some (Category c)
   | None ->
-      let* is_funct = parseFunctor [] term tp in
+      let* is_funct = parseFunctor ctx term tp in
       match is_funct with
       | Some f -> some (Functor f)
       | None ->
-          let* is_elem = parseElem [] term tp in
+          let* is_elem = parseElem ctx term tp in
           match is_elem with
           | Some e -> some (Elem e)
           | None ->
-              let* is_mph = parseMorphism [] term tp in
+              let* is_mph = parseMorphism ctx term tp in
               match is_mph with
               | Some m -> some (Morphism m)
               | None ->
-                  let* is_eq = parseEq [] term tp in
+                  let* is_eq = parseEq ctx term tp in
                   match is_eq with
                   | Some e -> some (Equality e)
                   | None -> none ()
-and parseType tp =
-  let* is_cat = parseCategoryType [] tp in
+and parseTypeCtx ctx tp =
+  let* is_cat = parseCategoryType ctx tp in
   if is_cat then some CategoryT
   else
-    let* is_funct = parseFunctorType [] tp in
+    let* is_funct = parseFunctorType ctx tp in
     match is_funct with
     | Some (src,dst) ->
-        let* src = parseCategoryTerm [] src in
-        let* dst = parseCategoryTerm [] dst in
+        let* src = parseCategoryTerm ctx src in
+        let* dst = parseCategoryTerm ctx dst in
         some (FunctorT (src,dst))
     | None ->
-        let* is_elem = parseElemType [] tp in
+        let* is_elem = parseElemType ctx tp in
         match is_elem with
         | Some cat ->
-            let* cat = parseCategoryTerm [] cat in
+            let* cat = parseCategoryTerm ctx cat in
             some (ElemT cat)
         | None ->
-            let* is_mph = parseMorphismType [] tp in
+            let* is_mph = parseMorphismType ctx tp in
             match is_mph with
             | Some (cat,src,dst) ->
-                let* cat = parseCategoryTerm [] cat in
-                let* src = parseElemTerm [] src cat in
-                let* dst = parseElemTerm [] dst cat in
+                let* cat = parseCategoryTerm ctx cat in
+                let* src = parseElemTerm ctx src cat in
+                let* dst = parseElemTerm ctx dst cat in
                 some (MorphismT (cat,src,dst))
             | None ->
-                let* is_eq = parseEqType [] tp in
+                let* is_eq = parseEqType ctx tp in
                 match is_eq with
                 | Some (right,left,cat,src,dst) ->
-                    let* cat = parseCategoryTerm [] cat in
-                    let* src = parseElemTerm [] src cat in
-                    let* dst = parseElemTerm [] dst cat in
-                    let* left = parseMorphismTerm [] left cat src dst in
-                    let* right = parseMorphismTerm [] right cat src dst in
+                    let* cat = parseCategoryTerm ctx cat in
+                    let* src = parseElemTerm ctx src cat in
+                    let* dst = parseElemTerm ctx dst cat in
+                    let* left = parseMorphismTerm ctx left cat src dst in
+                    let* right = parseMorphismTerm ctx right cat src dst in
                     some (EqT (cat,src,dst,left,right))
                 | None ->
                     none ()
+and parseLemmaCtx ctx tp =
+  let* is_prod = parseProductType ctx tp in
+  match is_prod with
+  | Some (name, arg, body) -> some (Prod (name, arg, body))
+  | None ->
+      let* is_result = parseTypeCtx ctx tp in
+      match is_result with
+      | Some tp -> some (Result tp)
+      | None -> none ()
+
+let parse term tp = parseCtx [] term tp
+let parseType tp = parseTypeCtx [] tp
+let parseLemma tp = parseLemmaCtx [] tp
 
 (*  ____            _ _          _   _              *)
 (* |  _ \ ___  __ _| (_)______ _| |_(_) ___  _ __   *)

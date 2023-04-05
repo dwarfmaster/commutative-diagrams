@@ -27,9 +27,12 @@ type parsed =
   | Elem of Data.elem
   | Morphism of Data.morphism
   | Equality of Data.eq
-  | Prod of Names.Name.t * parsedType * parsed
-  | Exists of Names.Name.t * parsedType * parsed
+type lemma =
+  | Prod of Names.Name.t * parsedType * lemma
+  | Exists of Names.Name.t * parsedType * lemma
+  | Result of parsedType
 (* Even when it returns none, it may have changed the context (for example if it
    parsed a property *)
 val parse : EConstr.t -> EConstr.t -> parsed option Hyps.t
 val parseType : EConstr.t -> parsedType option Hyps.t
+val parseLemma : EConstr.t -> lemma option Hyps.t
