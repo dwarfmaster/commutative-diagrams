@@ -80,9 +80,10 @@ let set (f : store -> store) : unit t = { runState = fun env st -> (ret ()).runS
 
 let push_back (arr : 'a array) (x : 'a) : 'a array = Array.append arr [| x |]
 let eqPred x y =
-  let* env = env () in
-  let* sigma = lift Proofview.tclEVARMAP in
-  ret (Reductionops.check_conv env sigma x y)
+  let* sigma = evars () in
+  ret (EConstr.eq_constr sigma x y)
+  (* TODO Reductionops.check_conv fails under quantifiers for some reason *)
+  (* ret (Reductionops.check_conv env sigma x y) *)
 
 let rec arr_find_optM' (id : int) (pred : 'a -> bool t) (arr : 'a array) : (int*'a) option t =
   if id >= Array.length arr
@@ -117,6 +118,7 @@ let getAtom id =
   | _ -> ret None
 
 let setMask b = set (fun (st : store) -> { st with mask = b })
+let withEnv env act = { runState = fun _ st -> act.runState env st }
 
 let catToIndex = toId 0
 let catFromIndex = fromId 0

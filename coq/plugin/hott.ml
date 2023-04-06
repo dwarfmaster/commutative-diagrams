@@ -62,8 +62,7 @@ type propType = Mono
    element cannot be prod or exits. The EConstr.t is the term of type. *)
 type pctx = (parsedType * EConstr.t * parsed) list
 
-(* TODO will break in case of coq evars in ctx *)
-let getType (ctx: pctx) (e : ec) : ec m =
+let localEnv (ctx: pctx) : Environ.env m =
   let* env = env () in
   let* sigma = evars () in
   let name = Context.({
@@ -72,8 +71,17 @@ let getType (ctx: pctx) (e : ec) : ec m =
   }) in
   let ctx = List.rev_map (fun (_,tp,_) ->
     Context.Rel.Declaration.LocalAssum (name,EConstr.to_constr sigma tp)) ctx in
-  let env = List.fold_left (fun env decl -> Environ.push_rel decl env) env ctx in
+  List.fold_left (fun env decl -> Environ.push_rel decl env) env ctx |> ret
+
+(* TODO will break in case of coq evars in ctx *)
+let getType (ctx: pctx) (e : ec) : ec m =
+  let* env = localEnv ctx in
+  let* sigma = evars () in
   Retyping.get_type_of env sigma e |> ret
+
+let withLocal (ctx: pctx) (act : 'a m) : 'a m =
+  let* env = localEnv ctx in
+  Hyps.withEnv env act
 
 let parsedToAtom p =
   match p with
@@ -103,7 +111,7 @@ let rec parseAtomic (ctx: pctx) (atom: EConstr.t) : Data.atomic option m =
       let parseArg arg = parseAtomicWithTp ctx arg @<< getType ctx arg in
       let args = Array.to_list args in
       let* rargs = mapM parseArg args in
-      let* id = Hyps.registerFun ~fn:f in
+      let* id = Hyps.registerFun ~fn:f |> withLocal ctx in
       some (Data.Composed (id, f, rargs))
   | _ -> none ()
 
@@ -134,7 +142,7 @@ and parseAtomicWithTp (ctx: pctx) (atom: EConstr.t) (tp: EConstr.t) =
                       match is_atom with
                       | Some atom -> ret atom
                       | None ->
-                          let* id = Hyps.registerFun ~fn:atom in
+                          let* id = Hyps.registerFun ~fn:atom |> withLocal ctx in
                           ret (Data.Composed (id, atom, []))
 
 (*   ___      _                    _         *)
@@ -151,7 +159,7 @@ and registerAtomCat ctx (cat : ec) =
       ret Data.({
         cat_atom = atom;
       })
-  | None -> Hyps.registerCategory ~cat in 
+  | None -> Hyps.registerCategory ~cat |> withLocal ctx in 
   ret (Data.AtomicCategory data)
 
 and parseCategoryType (ctx: pctx) (cat : EConstr.t) : bool m =
@@ -183,7 +191,7 @@ and registerAtomFunct ctx funct src dst =
         funct_src_ = src;
         funct_dst_ = dst;
       })
-  | None -> Hyps.registerFunctor ~funct ~src ~dst in 
+  | None -> Hyps.registerFunctor ~funct ~src ~dst |> withLocal ctx in 
   ret (Data.AtomicFunctor data)
 
 and parseFunctorType (ctx: pctx) (funct : ec) : (ec*ec) option m =
@@ -223,7 +231,7 @@ and registerAtomElem ctx elem cat =
         elem_atom = atom;
         elem_cat_ = cat;
       })
-  | None -> Hyps.registerElem ~elem ~cat in 
+  | None -> Hyps.registerElem ~elem ~cat |> withLocal ctx in 
   ret (Data.AtomicElem data)
 
 and parseElemType (ctx: pctx) (obj : ec) : ec option m =
@@ -285,7 +293,7 @@ and registerAtomMorphism ctx mph cat src dst =
         epi = None;
         iso = None;
       })
-  | None -> Hyps.registerMorphism ~mph ~cat ~src ~dst in 
+  | None -> Hyps.registerMorphism ~mph ~cat ~src ~dst |> withLocal ctx in 
   ret (Data.AtomicMorphism data)
 
 and parseMorphismType (ctx: pctx) (mph : ec) : (ec * ec * ec) option m =
@@ -375,7 +383,7 @@ and registerAtomEq ctx eq right left cat src dst =
         eq_right_ = right;
         eq_left_ = left;
       })
-  | None -> Hyps.registerEq ~eq ~right ~left ~cat ~src ~dst in 
+  | None -> Hyps.registerEq ~eq ~right ~left ~cat ~src ~dst |> withLocal ctx in 
   ret (Data.AtomicEq data)
 
 and parseEqType (ctx: pctx) (eq : ec) : (ec * ec * ec * ec * ec) option m =
