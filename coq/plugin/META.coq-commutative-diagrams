@@ -1,4 +1,4 @@
-package "diagrams" (
+package "plugin" (
   directory       = "."
   version         = "dev"
   description     = "A plugin to work with commutative diagrams"
@@ -6,6 +6,6 @@ package "diagrams" (
   archive(byte)   = "diagrams_plugin.cma"
   archive(native) = "diagrams_plugin.cmxa"
   plugin(byte)    = "diagrams_plugin.cma"
-  plugin(native)  = "diagrams_plugin.cmxa"
+  plugin(native)  = "diagrams_plugin.cmxs"
 )
 directory = "."

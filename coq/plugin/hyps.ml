@@ -58,7 +58,7 @@ module Combinators = struct
     let pp = Printer.pr_econstr_env env sigma ec in
     ret (Pp.string_of_ppcmds pp)
   let fail msg =
-    msg |> Pp.str |> Tacticals.tclFAIL 0 |> lift
+    msg |> Pp.str |> Tacticals.tclFAIL |> lift
   let message msg =
     Feedback.msg_info (Pp.str msg); ret ()
   let warning msg =

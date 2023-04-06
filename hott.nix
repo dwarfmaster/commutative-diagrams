@@ -8,7 +8,7 @@ in mkCoqDerivation {
   owner = "HoTT";
   inherit version;
   defaultVersion = lib.switch coq.coq-version [
-    { case = oneOf [ "8.10" "8.11" "8.12" "8.13" "8.13.1" "8.14" "8.15" ];
+    { case = oneOf [ "8.10" "8.11" "8.12" "8.13" "8.13.1" "8.14" "8.15" "8.16" "8.17" ];
       out = coq.coq-version; }
     { case = oneOf [ "8.13.2" ]; out = "8.13.1"; }
     { case = oneOf [ "8.14.1" ]; out = "8.14"; }
@@ -21,6 +21,8 @@ in mkCoqDerivation {
   release."8.13.1".sha256 = "1n0n6rqkw5g4dl26s1sd7g5jgq8gnr9n1xs125pzqjx843c0zri1";
   release."8.14"  .sha256 = "1bdy6864lg8wpzc2d67k1dxjr0q66zdl4gkhfil37ccqk7df8igf";
   release."8.15"  .sha256 = "1n4zah2687l80v3sv47b5k08sdglcfkwnfqg97vkkbk7jm2s5xr5";
+  release."8.16"  .sha256 = "0xpw6ii4km3c0iv02jl6rm2yhdvkba52d124dzk4xyahhv7iphf5";
+  release."8.17"  .sha256 = "0pvaikisfknf7p4vm3swg0dwprqjk0k998idw1k34lzx6akx8d0s";
 
   meta = {
     description = "A formalisation of Homotopy Type Theory in Coq";

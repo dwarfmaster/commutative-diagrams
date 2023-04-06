@@ -1,4 +1,4 @@
-DECLARE PLUGIN "diagrams_plugin"
+DECLARE PLUGIN "coq-commutative-diagrams.plugin"
 
 {
 

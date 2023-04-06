@@ -2,7 +2,7 @@
 From HoTT Require Import Basics.
 From HoTT Require Import Categories.
 From HoTT Require Import Categories.Category.Morphisms.
-Declare ML Module "diagrams_plugin".
+Declare ML Module "coq-commutative-diagrams.plugin".
 Local Open Scope morphism.
 
 Definition mphT (C : PreCategory) (a b : C) := @morphism C a b.

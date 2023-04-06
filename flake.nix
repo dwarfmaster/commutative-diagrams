@@ -16,16 +16,16 @@
     };
     ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_14;
     coq = pkgs.coq.override {
-      version = "8.15";
-      coq-version = "8.15";
+      version = "8.16";
+      coq-version = "8.16";
       customOCamlPackages = ocamlPackages;
     };
     coqPackages = pkgs.mkCoqPackages coq;
     hott = coqPackages.callPackage ./hott.nix {};
 
     pkg = ocamlPackages.callPackage ./coq {
-      coq_8_15 = coq;
-      coq-hott_8_15 = hott;
+      coq_8_16 = coq;
+      coq-hott_8_16 = hott;
     };
 
     shell-coq = pkgs.mkShell {
