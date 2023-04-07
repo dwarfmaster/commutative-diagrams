@@ -118,6 +118,10 @@ and cmp_atomic (a1 : atomic) (a2 : atomic) : int =
   | Elem e1, Elem e2 -> cmp_elem e1 e2
   | Mph m1, Mph m2 ->  cmp_morphism m1 m2
   | Eq eq1, Eq eq2 -> cmp_eq eq1 eq2
+  | Composed (i1,_,args1), Composed (i2,_,args2) ->
+      if i1 = i2
+      then List.compare cmp_atomic args1 args2
+      else i2 - i1
   | _, _ -> atomic_constructor_id a2 - atomic_constructor_id a1
 
 
