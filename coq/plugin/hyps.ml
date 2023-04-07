@@ -250,7 +250,9 @@ let getEvar i = get (fun st -> match IntMap.find_opt i st.evars with
 let newEvar () =
   let* empty = get (fun st -> IntMap.is_empty st.evars) in
   if empty
-  then ret 0
+  then 
+    let* _ = set (fun st -> { st with evars = IntMap.add 0 None st.evars }) in
+    ret 0
   else
     let* nid = get (fun st -> fst (IntMap.find_last (fun _ -> true) st.evars) + 1) in
     let* _ = set (fun st -> { st with evars = IntMap.add nid None st.evars }) in
