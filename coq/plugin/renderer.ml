@@ -48,7 +48,9 @@ and mph sigma env m =
       Pp.str "(" ++ funct sigma env f ++ Pp.str " _1 " ++ mph sigma env m ++ Pp.str ")"
 
 and eq = fun sigma env eq ->
-  Pp.str "{{eq}}"
+  Pp.(mph sigma env (Data.eq_left eq) 
+    ++ str " == " 
+    ++ mph sigma env (Data.eq_right eq))
 
 let rec mphList sigma env ms =
   match ms with
