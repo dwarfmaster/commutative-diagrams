@@ -8,17 +8,19 @@ let rec ppe = fun sigma env atom ->
   | Ctx (i,c) -> Pp.(Printer.pr_econstr_env env sigma c ++ str ":" ++ int i)
   | Evar (i,Some e) -> Pp.(str "?" ++ int i ++ str ":<" ++ Printer.pr_econstr_env env sigma e ++ str ">")
   | Evar (i,None) -> Pp.(str "?" ++ int i)
+  | Fn (i, FnConst cst) -> Pp.(Printer.pr_econstr_env env sigma cst ++ str "<" ++ int i ++ str ">")
+  | Fn (i, FnProj name) -> Pp.(str "{" ++ Names.Projection.print name
+                             ++ str "}<" ++ int i ++ str ">")
   | Cat c -> cat sigma env c
   | Funct f -> funct sigma env f
   | Elem e -> elem sigma env e
   | Mph m -> mph sigma env m
   | Eq e -> eq sigma env e
-  | Composed (id,f,args) ->
+  | Composed (f,args) ->
       let rec pargs = function
         | [] -> Pp.str ""
         | x :: t -> Pp.(ppe sigma env x ++ str "," ++ pargs t)
-      in Pp.(Printer.pr_econstr_env env sigma f ++ str "<" ++ int id
-           ++ str ">(" ++ pargs args ++ str ")")
+      in Pp.(ppe sigma env f ++ str "(" ++ pargs args ++ str ")")
 
 and cat sigma env cat =
   match cat with

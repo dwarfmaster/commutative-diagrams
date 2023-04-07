@@ -9,7 +9,7 @@ type store =
   ; elems      : (elemData*bool) array 
   ; morphisms  : (morphismData*bool) array 
   ; faces      : (eqData*bool) array
-  ; funs       : EConstr.t array
+  ; funs       : Data.fn array
   ; evars      : EConstr.t option IntMap.t
   ; mask       : bool
   }
@@ -230,7 +230,13 @@ let getFun i = match  funToIndex i with
 | Some i -> get (fun st -> st.funs.(i))
 | None -> assert false
 let registerFun ~fn =
-  let* id = arr_find_optM (fun (f:'t) -> eqPred f fn) @<< getFuns () in
+  let eqFn fn1 fn2 =
+    let open Data in
+    match fn1, fn2 with
+    | FnConst cst1, FnConst cst2 -> eqPred cst1 cst2
+    | FnProj p1, FnProj p2 -> Names.Projection.SyntacticOrd.equal p1 p2 |> ret
+    | _ -> ret false in
+  let* id = arr_find_optM (eqFn fn) @<< getFuns () in
   match id with
   | Some (id,_) -> ret id
   | None ->

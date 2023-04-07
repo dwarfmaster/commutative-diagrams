@@ -37,10 +37,16 @@ let rec pack_atom atom =
   | Elem e -> cons "object" <$> pack_elem e
   | Mph m -> cons "morphism" <$> pack_mph m
   | Eq e -> cons "equality" <$> pack_eq e
-  | Composed (id,t,args) ->
-      let* name = print t in
+  | Fn (i,FnConst cst) ->
+      let* name = print cst in
+      Pk.Array [Pk.Integer (1+i); Pk.String name; Pk.Nil ] |> cons "composed" |> ret
+  | Fn (i,FnProj prj) ->
+      let name = Names.Projection.print prj |> Pp.string_of_ppcmds in
+      Pk.Array [Pk.Integer (1+i); Pk.String name; Pk.Nil ] |> cons "composed" |> ret
+  | Composed (f,args) ->
+      let* f = pack_atom f in
       let* args = mapM pack_atom args in
-      cons "composed" (Pk.Array [Pk.Integer id; Pk.String name; Pk.Array args]) |> ret
+      Pk.Array [Pk.Integer 0; Pk.String "app"; Pk.Array args] |> cons "composed" |> ret
 and pack_cat cat =
   match cat with
   | AtomicCategory data -> 
@@ -223,10 +229,9 @@ let rec unpack_atom mp =
       | Some eq -> some (Eq eq)
       | _ -> none ()
   end
-  | Pk.Map [ (Pk.String "composed", Pk.Array [Pk.Integer id; Pk.String _; Pk.Nil]) ] ->
-      let* ec = Hyps.getFun id in
-      some (Composed (id, ec, []))
-  | Pk.Map [ (Pk.String "composed", Pk.Array [Pk.Integer id; Pk.String _; Pk.Array subs]) ] ->
+  | Pk.Map [ (Pk.String "composed", Pk.Array [Pk.Integer 0; Pk.String _; Pk.Nil]) ] ->
+      assert false
+  | Pk.Map [ (Pk.String "composed", Pk.Array [Pk.Integer 0; Pk.String _; Pk.Array subs]) ] ->
       let rec foldOptions = function
         | [] -> Some []
         | None :: _ -> None
@@ -235,12 +240,16 @@ let rec unpack_atom mp =
           | Some t -> Some (x :: t)
           | None -> None
         end in
-      let* ec = Hyps.getFun id in
       let* subs = foldOptions <$> mapM unpack_atom subs in
       begin match subs with
-      | Some subs -> some (Composed (id, ec, subs))
+      | Some (f :: args) -> some (Composed (f, args))
       | _ -> none ()
       end
+  | Pk.Map [ (Pk.String "composed", Pk.Array [Pk.Integer id; Pk.String _; Pk.Nil]) ]
+  | Pk.Map [ (Pk.String "composed", Pk.Array [Pk.Integer id; Pk.String _; Pk.Array []]) ] ->
+      let id = id - 1 in
+      let* fn = Hyps.getFun id in
+      some (Fn (id,fn))
   | _ -> none ()
 and unpack_cat mp =
   match mp with

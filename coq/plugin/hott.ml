@@ -111,8 +111,15 @@ let rec parseAtomic (ctx: pctx) (atom: EConstr.t) : Data.atomic option m =
       let parseArg arg = parseAtomicWithTp ctx arg @<< getType ctx arg in
       let args = Array.to_list args in
       let* rargs = mapM parseArg args in
-      let* id = Hyps.registerFun ~fn:f |> withLocal ctx in
-      some (Data.Composed (id, f, rargs))
+      let* f = parseArg f in
+      some (match f with
+      | Data.Composed (f, largs) ->
+          Data.Composed (f, List.append largs rargs)
+      | _ -> Data.Composed (f, rargs))
+  | Proj (proj,arg) ->
+      let* id = Hyps.registerFun ~fn:(Data.FnProj proj) in
+      let* arg = parseAtomicWithTp ctx arg @<< getType ctx arg in
+      some (Data.Composed (Data.Fn (id, Data.FnProj proj), [ arg ]))
   | _ -> none ()
 
 (* First try to parse it as a known objects, and fall backs to parseAtomic. If parseAtomic fails,
@@ -142,8 +149,8 @@ and parseAtomicWithTp (ctx: pctx) (atom: EConstr.t) (tp: EConstr.t) =
                       match is_atom with
                       | Some atom -> ret atom
                       | None ->
-                          let* id = Hyps.registerFun ~fn:atom |> withLocal ctx in
-                          ret (Data.Composed (id, atom, []))
+                          let* id = Hyps.registerFun ~fn:(Data.FnConst atom) |> withLocal ctx in
+                          ret (Data.Fn (id, Data.FnConst atom))
 
 (*   ___      _                    _         *)
 (*  / __|__ _| |_ ___ __ _ ___ _ _(_)___ ___ *)
@@ -484,12 +491,12 @@ and parseProperties hyp prop =
 and reifyLemma lemma =
   let open Data in
   match lemma with
-  | Composed (id,ec,args) -> Composed (id,ec,List.rev args)
+  | Composed (f,args) -> Composed (f,List.rev args)
   | _ -> lemma
 and applyLemma lemma arg =
   let open Data in
   match lemma with
-  | Composed (id,ec,args) -> Composed (id,ec,arg::args)
+  | Composed (f,args) -> Composed (f,arg::args)
   | _ -> assert false
 
 and realizeParsedType atom tp =
@@ -634,8 +641,8 @@ and parseLemmaCtx ctx lemma tp =
 let parse term tp = parseCtx [] term tp
 let parseType tp = parseTypeCtx [] tp
 let parseLemma lemma tp = 
-  let* id = Hyps.registerFun ~fn:lemma in
-  let atom = Data.Composed (id,lemma,[]) in
+  let* id = Hyps.registerFun ~fn:(Data.FnConst lemma) in
+  let atom = Data.Composed (Data.Fn (id,Data.FnConst lemma),[]) in
   parseLemmaCtx [] atom tp
 
 (*  ____            _ _          _   _              *)
@@ -667,10 +674,20 @@ let rec realizeAtomic a : EConstr.t m =
   | Elem e -> realizeElem e
   | Mph m -> realizeMorphism m
   | Eq e -> realizeEq e
-  | Composed (_,ec,args) ->
+  | Fn (_, Data.FnConst cst) -> ret cst
+  (* Projections must always be directly applied *)
+  | Fn (_, Data.FnProj _) -> assert false
+  | Composed (Data.Fn (_, Data.FnProj proj), arg::args) ->
       let* args = mapM realizeAtomic args in
-      let args = Array.of_list args in
-      ret (EConstr.mkApp (ec,args))
+      let* ind = realizeAtomic arg in
+      let f = EConstr.mkProj (proj, ind) in
+      if args = []
+      then ret f
+      else EConstr.mkApp (f, Array.of_list args) |> ret
+  | Composed (f, args) ->
+      let* args = mapM realizeAtomic args in
+      let* f = realizeAtomic f in
+      EConstr.mkApp (f, Array.of_list args) |> ret
 
 and realizeCategory cat =
   let open Data in

@@ -13,16 +13,20 @@ let cmp3 i1 i2 i3 =
 (*       |___/|_|               *)
 (* Types *)
 
-type atomic =
+type fn =
+  | FnConst of EConstr.t
+  | FnProj of Names.Projection.t
+and atomic =
   (* The id is a common id shared by all types of objects *)
   | Ctx of int * EConstr.t
   | Evar of int * EConstr.t option
+  | Fn of int * fn
   | Cat of category
   | Funct of funct
   | Elem of elem
   | Mph of morphism
   | Eq of eq
-  | Composed of int * EConstr.t * atomic list
+  | Composed of atomic * atomic list
 and categoryData =
   { cat_atom : atomic
   }
@@ -103,25 +107,25 @@ let rec atomic_constructor_id (a: atomic) : int =
   match a with
   | Ctx _ -> 0
   | Evar _ -> 1
-  | Cat _ -> 2
-  | Funct _ -> 3
-  | Elem _ -> 4
-  | Mph _ -> 5
-  | Eq _ -> 6
-  | Composed _ -> 7
+  | Fn _ -> 2
+  | Cat _ -> 3
+  | Funct _ -> 4
+  | Elem _ -> 5
+  | Mph _ -> 6
+  | Eq _ -> 7
+  | Composed _ -> 8
 and cmp_atomic (a1 : atomic) (a2 : atomic) : int =
   match a1, a2 with
   | Ctx (i1,_), Ctx (i2,_) -> i2 - i1
   | Evar (i1,_), Evar (i2,_) -> i2 - i1
+  | Fn (i1,_), Fn (i2,_) -> i2 - i1
   | Cat c1, Cat c2 -> cmp_category c1 c2
   | Funct f1, Funct f2 -> cmp_funct f1 f2
   | Elem e1, Elem e2 -> cmp_elem e1 e2
   | Mph m1, Mph m2 ->  cmp_morphism m1 m2
   | Eq eq1, Eq eq2 -> cmp_eq eq1 eq2
-  | Composed (i1,_,args1), Composed (i2,_,args2) ->
-      if i1 = i2
-      then List.compare cmp_atomic args1 args2
-      else i2 - i1
+  | Composed (f1,args1), Composed (f2,args2) ->
+      cmp2 (cmp_atomic f1 f2) (List.compare cmp_atomic args1 args2)
   | _, _ -> atomic_constructor_id a2 - atomic_constructor_id a1
 
 

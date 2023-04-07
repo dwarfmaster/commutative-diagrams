@@ -84,9 +84,9 @@ val registerEq : eq:EConstr.t
    atomic Composed *)
 val funToIndex : int -> int option
 val funFromIndex : int -> int
-val getFuns : unit -> EConstr.t array t
-val getFun : int -> EConstr.t t
-val registerFun : fn:EConstr.t -> int t
+val getFuns : unit -> Data.fn array t
+val getFun : int -> Data.fn t
+val registerFun : fn:Data.fn -> int t
 
 (* Evars are an array of either uninstantiate evars (meaning not yet realized
    as evars in Coq, just abstract unique numbers), or linked to a coq Evar.t.

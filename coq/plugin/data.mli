@@ -1,13 +1,17 @@
 
-type atomic =
+type fn =
+  | FnConst of EConstr.t
+  | FnProj of Names.Projection.t
+and atomic =
   | Ctx of int * EConstr.t (* A constant in the context or an hypothesis *)
   | Evar of int * EConstr.t option (* An evar. It may be backed by a coq evar (and will be at realization time) *)
+  | Fn of int * fn (* An arbitrary coq term *)
   | Cat of category
   | Funct of funct
   | Elem of elem
   | Mph of morphism
   | Eq of eq
-  | Composed of int * EConstr.t * atomic list
+  | Composed of atomic * atomic list (* An application of the first atomic *)
 and categoryData =
   { cat_atom : atomic
   }
