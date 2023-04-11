@@ -144,8 +144,6 @@ let rec parseAtomic (ctx: pctx) (atom: EConstr.t) : Data.atomic option m =
       Data.Fn (id, fn) |> some
   | Proj (proj,arg) ->
       let* id = Hyps.registerFun ~fn:(Data.FnProj proj) in
-      Feedback.msg_info Pp.(str "Registering proj " ++ Names.Projection.print proj
-                          ++ str " with id " ++ int id);
       let* arg = parseAtomicWithTp ctx arg @<< getType ctx arg in
       begin match arg with
       | Some arg -> some (Data.Composed (Data.Fn (id, Data.FnProj proj), [ arg ]))
