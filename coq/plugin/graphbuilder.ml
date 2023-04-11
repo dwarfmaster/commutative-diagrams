@@ -34,6 +34,13 @@ module Registerer(Ord : Map.OrderedType) = struct
     match get x reg with
     | Some i -> i, reg
     | None -> insert x reg
+
+  let debug_print (fmt: Ord.t -> Pp.t) (reg: t) : Pp.t =
+    let rec pv = function
+      | [] -> Pp.str ""
+      | [x] -> fmt x
+      | x :: xs -> Pp.(fmt x ++ str "::" ++ pv xs) in
+    pv reg.values
 end
 
 module RElem = Registerer(Data.EqElem)
@@ -44,6 +51,14 @@ type t =
   ; mphs : RMph.t
   ; eqs : REq.t
   }
+
+let debug_print (env: Environ.env) (sigma: Evd.evar_map) (bld: t) : Pp.t =
+  let elems = RElem.debug_print (Renderer.elem sigma env) bld.elems in
+  let mphs = RMph.debug_print (Renderer.mph sigma env) bld.mphs in
+  let eqs = REq.debug_print (Renderer.eq sigma env) bld.eqs in
+  Pp.(str "elems: " ++ elems ++ str "," ++ cut ()
+    ++ str "mphs: " ++ mphs ++ str "," ++ cut ()
+    ++ str "eqs: " ++ eqs)
 
 let empty () =
   { elems = RElem.empty ()
