@@ -1,6 +1,9 @@
 
 type fn =
-  | FnConst of EConstr.t
+  | FnConst of Names.Constant.t
+  | FnVar of Names.Id.t
+  | FnInd of Names.inductive
+  | FnConstr of Names.constructor
   | FnProj of Names.Projection.t
 and atomic =
   | Ctx of int * EConstr.t (* A constant in the context or an hypothesis *)

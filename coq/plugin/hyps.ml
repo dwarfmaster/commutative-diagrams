@@ -232,10 +232,14 @@ let getFun i = match  funToIndex i with
 let registerFun ~fn =
   let eqFn fn1 fn2 =
     let open Data in
-    match fn1, fn2 with
-    | FnConst cst1, FnConst cst2 -> eqPred cst1 cst2
-    | FnProj p1, FnProj p2 -> Names.Projection.SyntacticOrd.equal p1 p2 |> ret
-    | _ -> ret false in
+    begin match fn1, fn2 with
+    | FnConst cst1, FnConst cst2 -> Names.Constant.CanOrd.equal cst1 cst2
+    | FnVar id1, FnVar id2 -> Names.Id.equal id1 id2
+    | FnInd (ind1,id1), FnInd (ind2,id2) -> Names.MutInd.CanOrd.equal ind1 ind2 && id1 = id2
+    | FnConstr ((ind1,id1),c1), FnConstr ((ind2,id2),c2) ->
+        Names.MutInd.CanOrd.equal ind1 ind2 && id1 = id2 && c1 = c2
+    | FnProj p1, FnProj p2 -> Names.Projection.CanOrd.equal p1 p2
+    | _ -> false end |> ret in
   let* id = arr_find_optM (eqFn fn) @<< getFuns () in
   match id with
   | Some (id,_) -> funFromIndex id |> ret

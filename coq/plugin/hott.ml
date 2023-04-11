@@ -91,6 +91,14 @@ let parsedToAtom p =
   | Morphism m -> Data.Mph m
   | Equality eq -> Data.Eq eq
 
+let rec concatOpt : 'a option list -> 'a list option = function
+  | [] -> Some []
+  | None :: _ -> None
+  | Some x :: xs ->
+      match concatOpt xs with
+      | Some xs -> Some (x :: xs)
+      | None -> None
+
 (*    _  _             _        *)
 (*   /_\| |_ ___ _ __ (_)__ ___ *)
 (*  / _ \  _/ _ \ '  \| / _(_-< *)
@@ -110,16 +118,39 @@ let rec parseAtomic (ctx: pctx) (atom: EConstr.t) : Data.atomic option m =
   | App (f,args) ->
       let parseArg arg = parseAtomicWithTp ctx arg @<< getType ctx arg in
       let args = Array.to_list args in
-      let* rargs = mapM parseArg args in
+      let* rargs = concatOpt <$> mapM parseArg args in
       let* f = parseArg f in
-      some (match f with
-      | Data.Composed (f, largs) ->
-          Data.Composed (f, List.append largs rargs)
-      | _ -> Data.Composed (f, rargs))
+      begin match f, rargs with
+      | Some (Data.Composed (f, largs)), Some rargs ->
+          Data.Composed (f, List.append largs rargs) |> some
+      | Some f, Some rargs -> Data.Composed (f, rargs) |> some
+      | _ -> none ()
+      end
+  | Const (cst,_) ->
+      let fn = Data.FnConst cst in
+      let* id = Hyps.registerFun ~fn in
+      Data.Fn (id, fn) |> some
+  | Var var ->
+      let fn = Data.FnVar var in
+      let* id = Hyps.registerFun ~fn in
+      Data.Fn (id, fn) |> some
+  | Ind (ind,_) ->
+      let fn = Data.FnInd ind in
+      let* id = Hyps.registerFun ~fn in
+      Data.Fn (id, fn) |> some
+  | Construct (cstr,_) ->
+      let fn = Data.FnConstr cstr in
+      let* id = Hyps.registerFun ~fn in
+      Data.Fn (id, fn) |> some
   | Proj (proj,arg) ->
       let* id = Hyps.registerFun ~fn:(Data.FnProj proj) in
+      Feedback.msg_info Pp.(str "Registering proj " ++ Names.Projection.print proj
+                          ++ str " with id " ++ int id);
       let* arg = parseAtomicWithTp ctx arg @<< getType ctx arg in
-      some (Data.Composed (Data.Fn (id, Data.FnProj proj), [ arg ]))
+      begin match arg with
+      | Some arg -> some (Data.Composed (Data.Fn (id, Data.FnProj proj), [ arg ]))
+      | None -> none ()
+      end
   | _ -> none ()
 
 (* First try to parse it as a known objects, and fall backs to parseAtomic. If parseAtomic fails,
@@ -127,30 +158,28 @@ let rec parseAtomic (ctx: pctx) (atom: EConstr.t) : Data.atomic option m =
 and parseAtomicWithTp (ctx: pctx) (atom: EConstr.t) (tp: EConstr.t) =
   let* is_cat = parseCategory ctx atom tp in
   match is_cat with
-  | Some cat -> ret (Data.Cat cat)
+  | Some cat -> some (Data.Cat cat)
   | None ->
       let* is_funct = parseFunctor ctx atom tp in
       match is_funct with
-      | Some funct -> ret (Data.Funct funct)
+      | Some funct -> some (Data.Funct funct)
       | None ->
           let* is_elem = parseElem ctx atom tp in
           match is_elem with
-          | Some elem -> ret (Data.Elem elem)
+          | Some elem -> some (Data.Elem elem)
           | None ->
               let* is_mph = parseMorphism ctx atom tp in
               match is_mph with
-              | Some mph -> ret (Data.Mph mph)
+              | Some mph -> some (Data.Mph mph)
               | None ->
                   let* is_eq = parseEq ctx atom tp in
                   match is_eq with
-                  | Some eq -> ret (Data.Eq eq)
+                  | Some eq -> some (Data.Eq eq)
                   | None ->
                       let* is_atom = parseAtomic ctx atom in
                       match is_atom with
-                      | Some atom -> ret atom
-                      | None ->
-                          let* id = Hyps.registerFun ~fn:(Data.FnConst atom) |> withLocal ctx in
-                          ret (Data.Fn (id, Data.FnConst atom))
+                      | Some atom -> some atom
+                      | None -> none ()
 
 (*   ___      _                    _         *)
 (*  / __|__ _| |_ ___ __ _ ___ _ _(_)___ ___ *)
@@ -646,8 +675,8 @@ and parseLemmaCtx ctx lemma tp =
 let parse term tp = parseCtx [] term tp
 let parseType tp = parseTypeCtx [] tp
 let parseLemma lemma tp = 
-  let* id = Hyps.registerFun ~fn:(Data.FnConst lemma) in
-  let atom = Data.Composed (Data.Fn (id,Data.FnConst lemma),[]) in
+  let* id = Hyps.registerFun ~fn:lemma in
+  let atom = Data.Composed (Data.Fn (id,lemma),[]) in
   parseLemmaCtx [] atom tp
 
 (*  ____            _ _          _   _              *)
@@ -679,7 +708,10 @@ let rec realizeAtomic a : EConstr.t m =
   | Elem e -> realizeElem e
   | Mph m -> realizeMorphism m
   | Eq e -> realizeEq e
-  | Fn (_, Data.FnConst cst) -> ret cst
+  | Fn (_, Data.FnConst cst) -> Env.build_const cst |> lift
+  | Fn (_, Data.FnVar var) -> EConstr.mkVar var |> ret
+  | Fn (_, Data.FnInd ind) -> Env.build_ind ind |> lift
+  | Fn (_, Data.FnConstr cstr) -> Env.build_constr cstr |> lift
   (* Projections must always be directly applied *)
   | Fn (_, Data.FnProj _) -> assert false
   | Composed (Data.Fn (_, Data.FnProj proj), arg::args) ->

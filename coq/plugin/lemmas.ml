@@ -7,19 +7,19 @@ type lemmaTerm =
 
 type lemma =
   { name: string
-  ; term: lemmaTerm
   ; graph: Graph.graph
   }
 
-let mkName tm =
-  match tm with
-  | ConstLemma cst -> cst |> Names.Constant.canonical |> Names.KerName.to_string
+let mkName ltm =
+  match ltm with
+  | ConstLemma cst -> 
+      cst |> Names.Constant.canonical |> Names.KerName.to_string
   | VarLemma id -> Names.Id.to_string id
 
-let mkTerm name =
-  match name with
-  | ConstLemma cst -> EConstr.mkConstU (cst, EConstr.EInstance.empty)
-  | VarLemma id -> EConstr.mkVar id
+let mkTerm ltm =
+  match ltm with
+  | ConstLemma cst -> Data.FnConst cst |> ret
+  | VarLemma id -> Data.FnVar id |> ret
 
 let buildParsed bld tp =
   let open Hott in
@@ -43,13 +43,13 @@ let rec buildLemma bld lemma =
       buildParsed bld tp
 
 let extractFromType (id: lemmaTerm) (tp: EConstr.t) : lemma option Hyps.t =
-  let* res = Hott.parseLemma (mkTerm id) tp in
+  let* term = mkTerm id in
+  let* res = Hott.parseLemma term tp in
   match res with
   | Some lemma ->
       let bld = buildLemma (Graphbuilder.empty ()) lemma in
       let name = mkName id in
       some { name = name
-           ; term = id
            ; graph = Graphbuilder.build bld
            }
   | None -> none ()

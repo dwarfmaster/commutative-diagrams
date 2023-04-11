@@ -8,9 +8,19 @@ let rec ppe = fun sigma env atom ->
   | Ctx (i,c) -> Pp.(Printer.pr_econstr_env env sigma c ++ str ":" ++ int i)
   | Evar (i,Some e) -> Pp.(str "?" ++ int i ++ str ":<" ++ Printer.pr_econstr_env env sigma e ++ str ">")
   | Evar (i,None) -> Pp.(str "?" ++ int i)
-  | Fn (i, FnConst cst) -> Pp.(Printer.pr_econstr_env env sigma cst ++ str "<" ++ int i ++ str ">")
-  | Fn (i, FnProj name) -> Pp.(str "{" ++ Names.Projection.print name
-                             ++ str "}<" ++ int i ++ str ">")
+  | Fn (i, FnConst cst) -> Pp.(str "[cst:" ++ Names.Constant.print cst 
+                             ++ str "]<" ++ int i ++ str ">")
+  | Fn (i, FnVar var) -> Pp.(str "[var:" ++ Names.Id.print var
+                           ++ str "]<" ++ int i ++ str ">")
+  | Fn (i, FnInd ind) -> Pp.(str "[ind:" ++ Names.MutInd.print (fst ind)
+                           ++ str ":" ++ int (snd ind)
+                           ++ str "]<" ++ int i ++ str ">")
+  | Fn (i, FnConstr cstr) -> Pp.(str "[cstr:" ++ Names.MutInd.print (cstr |> fst |> fst)
+                               ++ str ":" ++ int (cstr |> fst |> snd)
+                               ++ str ":" ++ int (snd cstr)
+                               ++ str "]<" ++ int i ++ str ">")
+  | Fn (i, FnProj name) -> Pp.(str "[proj:" ++ Names.Projection.print name
+                             ++ str "]<" ++ int i ++ str ">")
   | Cat c -> cat sigma env c
   | Funct f -> funct sigma env f
   | Elem e -> elem sigma env e
@@ -19,6 +29,7 @@ let rec ppe = fun sigma env atom ->
   | Composed (f,args) ->
       let rec pargs = function
         | [] -> Pp.str ""
+        | [x] -> ppe sigma env x
         | x :: t -> Pp.(ppe sigma env x ++ str "," ++ pargs t)
       in Pp.(ppe sigma env f ++ str "(" ++ pargs args ++ str ")")
 
@@ -35,7 +46,9 @@ and funct sigma env funct =
 and elem sigma env e =
   match e with
   | AtomicElem e ->
-      ppe sigma env e.elem_atom
+      Pp.(str "(" ++ 
+          ppe sigma env e.elem_atom
+          ++ str " : " ++ cat sigma env e.elem_cat_ ++ str ")")
   | FObj (f,e) ->
       Pp.str "(" ++ funct sigma env f ++ Pp.str " _0 " ++ elem sigma env e ++ Pp.str ")"
 

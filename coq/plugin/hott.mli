@@ -35,4 +35,4 @@ type lemma =
    parsed a property *)
 val parse : EConstr.t -> EConstr.t -> parsed option Hyps.t
 val parseType : EConstr.t -> parsedType option Hyps.t
-val parseLemma : EConstr.t -> EConstr.t -> lemma option Hyps.t
+val parseLemma : Data.fn -> EConstr.t -> lemma option Hyps.t

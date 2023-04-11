@@ -14,7 +14,10 @@ let cmp3 i1 i2 i3 =
 (* Types *)
 
 type fn =
-  | FnConst of EConstr.t
+  | FnConst of Names.Constant.t
+  | FnVar of Names.Id.t
+  | FnInd of Names.inductive
+  | FnConstr of Names.constructor
   | FnProj of Names.Projection.t
 and atomic =
   (* The id is a common id shared by all types of objects *)

@@ -28,6 +28,20 @@ let rec mapM f = function
 (*   ___) |  __/ |  | | (_| | | \__ \ (_| | |_| | (_) | | | | *)
 (*  |____/ \___|_|  |_|\__,_|_|_|___/\__,_|\__|_|\___/|_| |_| *)
 (*                                                            *)
+
+let printFn fn =
+  let open Data in
+  begin match fn with
+  | FnConst cst -> Names.Constant.print cst
+  | FnVar var -> Names.Id.print var
+  | FnInd ind -> Pp.(Names.MutInd.print (fst ind) ++ str ":" ++ int (snd ind))
+  | FnConstr cstr ->
+      Pp.(Names.MutInd.print (cstr |> fst |> fst)
+        ++ str ":" ++ int (cstr |> fst |> snd)
+        ++ str ":" ++ int (snd cstr))
+  | FnProj proj -> Names.Projection.print proj
+  end |> Pp.string_of_ppcmds
+
 let rec pack_atom atom =
   match atom with
   | Ctx (i,_) -> cons "term" (Pk.Integer i) |> ret
@@ -37,11 +51,8 @@ let rec pack_atom atom =
   | Elem e -> cons "object" <$> pack_elem e
   | Mph m -> cons "morphism" <$> pack_mph m
   | Eq e -> cons "equality" <$> pack_eq e
-  | Fn (i,FnConst cst) ->
-      let* name = print cst in
-      Pk.Array [Pk.Integer (1+i); Pk.String name; Pk.Nil ] |> cons "composed" |> ret
-  | Fn (i,FnProj prj) ->
-      let name = Names.Projection.print prj |> Pp.string_of_ppcmds in
+  | Fn (i,fn) ->
+      let name = printFn fn in
       Pk.Array [Pk.Integer (1+i); Pk.String name; Pk.Nil ] |> cons "composed" |> ret
   | Composed (f,args) ->
       let* f = pack_atom f in
