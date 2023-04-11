@@ -24,20 +24,23 @@ let mkTerm ltm =
 let buildParsed bld tp =
   let open Hott in
   match tp with
-  | Category _ -> bld
-  | Functor _ -> bld
-  | Elem e -> Graphbuilder.add_node e bld |> snd
-  | Morphism m -> Graphbuilder.add_edge m bld
-  | Equality eq -> Graphbuilder.add_face eq bld
+  | Category _ -> ret bld
+  | Functor _ -> ret bld
+  | Elem e -> Graphbuilder.add_node e bld |> snd |> ret
+  | Morphism m -> Graphbuilder.add_edge m bld |> ret
+  | Equality eq ->
+      let* sigma = evars () in
+      let* env = env () in
+      Graphbuilder.add_face eq bld |> ret
 
 let rec buildLemma bld lemma =
   let open Hott in
   match lemma with
   | Prod (_,tp,lemma) ->
-      let bld = buildParsed bld tp in
+      let* bld = buildParsed bld tp in
       buildLemma bld lemma
   | Exists (_,tp,lemma) ->
-      let bld = buildParsed bld tp in
+      let* bld = buildParsed bld tp in
       buildLemma bld lemma
   | Result tp ->
       buildParsed bld tp
@@ -47,16 +50,22 @@ let extractFromType (id: lemmaTerm) (tp: EConstr.t) : lemma option Hyps.t =
   let* res = Hott.parseLemma term tp in
   match res with
   | Some lemma ->
-      let bld = buildLemma (Graphbuilder.empty ()) lemma in
       let name = mkName id in
+      let* bld = buildLemma (Graphbuilder.empty ()) lemma in
+      let* env = env () in
+      let* sigma = evars () in
       some { name = name
            ; graph = Graphbuilder.build bld
            }
   | None -> none ()
 
 let extractConstant name decl : lemma option Hyps.t =
-  extractFromType (ConstLemma name)
-    (EConstr.of_constr (Declarations.(decl.const_type)))
+  extractFromType
+    (ConstLemma name)
+    (EConstr.of_constr Declarations.(decl.const_type))
+
+let extractFromVar name tp =
+  extractFromType (VarLemma name) tp
 
 let extractAllConstants () : lemma list Hyps.t =
   let* env = env () in
