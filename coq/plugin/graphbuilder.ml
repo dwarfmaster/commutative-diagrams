@@ -81,6 +81,10 @@ let add_face (eq: Data.eq) (builder: t) =
         let builder = add_edge m1 builder in
         add_comp m2 builder
     | _ -> add_edge mph builder in
+  (* Necessary because they may be different from the src/dst of left and right
+     due to conversion *)
+  let (_, builder) = add_node (Data.eq_src eq) builder in
+  let (_, builder) = add_node (Data.eq_dst eq) builder in
   let builder = add_comp (Data.eq_left eq) builder in
   let builder = add_comp (Data.eq_right eq) builder in
   let _, neqs = REq.may_insert eq builder.eqs in
@@ -117,19 +121,40 @@ let rec build_path (mphs : (int * Data.morphism) list array) (src: int) (mph : D
       let dst,id = find_in_list mphs.(src) m1 0 in
       let path = build_path mphs dst m2 in
       id :: path
-  | _ -> let _,id = find_in_list mphs.(src) mph 0 in [ id ]
-let build_face (builder : t) mphs eq : Graph.faces =
-  let src_id = RElem.find (Data.eq_src eq) builder.elems in
-  let dst_id = RElem.find (Data.eq_dst eq) builder.elems in
-  let left = build_path mphs src_id (Data.eq_left eq) in
-  let right = build_path mphs src_id (Data.eq_right eq) in
-  let open Graph in
-  { face_src = src_id
-  ; face_dst = dst_id
-  ; face_left = left
-  ; face_right = right
-  ; face_eq = eq
-  }
+  | _ ->
+      let _,id = find_in_list mphs.(src) mph 0 in [ id ]
+let build_face (builder : t) mphs eq : Graph.faces option =
+  if (Data.cmp_elem 
+       (Data.morphism_src (Data.eq_right eq))
+       (Data.morphism_src (Data.eq_left eq)) != 0)
+     || (Data.cmp_elem
+          (Data.eq_src eq)
+          (Data.morphism_src (Data.eq_right eq)) = 0)
+     || (Data.cmp_elem 
+          (Data.eq_src eq) 
+          (Data.morphism_src (Data.eq_left eq)) = 0)
+     || (Data.cmp_elem 
+          (Data.morphism_dst (Data.eq_right eq))
+          (Data.morphism_dst (Data.eq_left eq)) != 0)
+     || (Data.cmp_elem
+          (Data.eq_dst eq)
+          (Data.morphism_dst (Data.eq_right eq)) = 0)
+     || (Data.cmp_elem 
+          (Data.eq_dst eq) 
+          (Data.morphism_dst (Data.eq_left eq)) = 0)
+  then None
+  else
+    let src_id = RElem.find (Data.eq_src eq) builder.elems in
+    let dst_id = RElem.find (Data.eq_dst eq) builder.elems in
+    let left = build_path mphs src_id (Data.eq_left eq) in
+    let right = build_path mphs src_id (Data.eq_right eq) in
+    let open Graph in
+    Some { face_src = src_id
+         ; face_dst = dst_id
+         ; face_left = left
+         ; face_right = right
+         ; face_eq = eq
+         }
 
 let build (builder: t) =
   let nodes = RElem.to_array builder.elems in
@@ -140,7 +165,7 @@ let build (builder: t) =
       let dst_id = RElem.find (Data.morphism_dst mph) builder.elems in
       mphs.(src_id) <- (dst_id,mph) :: mphs.(src_id))
     builder.mphs.values;
-  let faces = List.map (build_face builder mphs) builder.eqs.values in
+  let faces = List.filter_map (build_face builder mphs) builder.eqs.values in
   let open Graph in
   { gr_nodes = nodes
   ; gr_edges = mphs
