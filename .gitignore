@@ -17,3 +17,11 @@ coq/**/*.cmo
 coq/**/*.cmx
 coq/**/*.cmxa
 coq/**/*.cmxs
+coq/theories/*.log
+coq/theories/*.json
+coq/theories/*.vo
+coq/theories/*.vok
+coq/theories/*.vos
+coq/theories/*.png
+coq/theories/*.dot
+coq/theories/*.svg
