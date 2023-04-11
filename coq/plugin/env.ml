@@ -65,6 +65,13 @@ let mk_constr : Names.constructor array -> EConstr.t Proofview.tactic =
 let mk_const : Names.Constant.t array -> EConstr.t Proofview.tactic =
   fun consts -> fresh_global (Names.GlobRef.ConstRef consts.(0))
 
+let build_const : Names.Constant.t -> EConstr.t Proofview.tactic =
+  fun const -> Names.GlobRef.ConstRef const |> fresh_global
+let build_constr : Names.constructor -> EConstr.t Proofview.tactic =
+  fun constr -> Names.GlobRef.ConstructRef constr |> fresh_global
+let build_ind : Names.inductive -> EConstr.t Proofview.tactic =
+  fun ind -> Names.GlobRef.IndRef ind |> fresh_global
+
 let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool =
   fun proj indP lbl ->
   let r = Names.Projection.repr proj in

@@ -41,5 +41,8 @@ val mk_left_inv : unit -> EConstr.t Proofview.tactic
 val mk_object : unit -> EConstr.t Proofview.tactic
 
 val is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool
+val build_const : Names.Constant.t -> EConstr.t Proofview.tactic
+val build_constr : Names.constructor -> EConstr.t Proofview.tactic
+val build_ind : Names.inductive -> EConstr.t Proofview.tactic
 
 val whd : EConstr.t -> EConstr.t Proofview.tactic
