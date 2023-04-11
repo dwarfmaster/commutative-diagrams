@@ -161,13 +161,14 @@ and parseAtomicWithTp (ctx: pctx) (atom: EConstr.t) (tp: EConstr.t) =
 
 and registerAtomCat ctx (cat : ec) =
   let* struct_atom = parseAtomic ctx cat in
-  let* data = match struct_atom with
+  let mkAtom data = Data.AtomicCategory data in
+  match struct_atom with
+  | Some (Data.Cat c) -> ret c
   | Some atom ->
-      ret Data.({
+      Data.({
         cat_atom = atom;
-      })
-  | None -> Hyps.registerCategory ~cat |> withLocal ctx in 
-  ret (Data.AtomicCategory data)
+      }) |> mkAtom |> ret
+  | None -> mkAtom <$> (Hyps.registerCategory ~cat |> withLocal ctx)
 
 and parseCategoryType (ctx: pctx) (cat : EConstr.t) : bool m =
   let* env = env () in
@@ -191,15 +192,16 @@ and parseCategory (ctx: pctx) (cat : EConstr.t) (tp : EConstr.t) =
 
 and registerAtomFunct ctx funct src dst =
   let* struct_atom = parseAtomic ctx funct in
-  let* data = match struct_atom with
+  let mkAtom data = Data.AtomicFunctor data in
+  match struct_atom with
+  | Some (Data.Funct f) -> ret f
   | Some atom ->
-      ret Data.({
+      Data.({
         funct_atom = atom;
         funct_src_ = src;
         funct_dst_ = dst;
-      })
-  | None -> Hyps.registerFunctor ~funct ~src ~dst |> withLocal ctx in 
-  ret (Data.AtomicFunctor data)
+      }) |> mkAtom |> ret
+  | None -> mkAtom <$> (Hyps.registerFunctor ~funct ~src ~dst |> withLocal ctx)
 
 and parseFunctorType (ctx: pctx) (funct : ec) : (ec*ec) option m =
   let* env = env () in
@@ -232,14 +234,15 @@ and parseFunctor (ctx: pctx) (funct : EConstr.t) (tp : EConstr.t) =
 
 and registerAtomElem ctx elem cat =
   let* struct_atom = parseAtomic ctx elem in
-  let* data = match struct_atom with
+  let mkAtom data = Data.AtomicElem data in
+  match struct_atom with
+  | Some (Data.Elem e) -> ret e
   | Some atom ->
-      ret Data.({
+      Data.({
         elem_atom = atom;
         elem_cat_ = cat;
-      })
-  | None -> Hyps.registerElem ~elem ~cat |> withLocal ctx in 
-  ret (Data.AtomicElem data)
+      }) |> mkAtom |> ret 
+  | None -> mkAtom <$> (Hyps.registerElem ~elem ~cat |> withLocal ctx)
 
 and parseElemType (ctx: pctx) (obj : ec) : ec option m =
   let* env = env () in
@@ -289,9 +292,11 @@ and parseElem (ctx: pctx) (elem : EConstr.t) (tp : EConstr.t) =
 
 and registerAtomMorphism ctx mph cat src dst =
   let* struct_atom = parseAtomic ctx mph in
-  let* data = match struct_atom with
+  let mkAtom data = Data.AtomicMorphism data in
+  match struct_atom with
+  | Some (Data.Mph m) -> ret m
   | Some atom ->
-      ret Data.({
+      Data.({
         mph_atom = atom;
         mph_cat_ = cat;
         mph_src_ = src;
@@ -299,9 +304,8 @@ and registerAtomMorphism ctx mph cat src dst =
         mono = None;
         epi = None;
         iso = None;
-      })
-  | None -> Hyps.registerMorphism ~mph ~cat ~src ~dst |> withLocal ctx in 
-  ret (Data.AtomicMorphism data)
+      }) |> mkAtom |> ret
+  | None -> mkAtom <$> (Hyps.registerMorphism ~mph ~cat ~src ~dst |> withLocal ctx)
 
 and parseMorphismType (ctx: pctx) (mph : ec) : (ec * ec * ec) option m =
   let* sigma = evars () in
@@ -380,18 +384,19 @@ and parseMorphism (ctx: pctx) mph tp =
 
 and registerAtomEq ctx eq right left cat src dst =
   let* struct_atom = parseAtomic ctx eq in
-  let* data = match struct_atom with
+  let mkAtom data = Data.AtomicEq data in
+  match struct_atom with
+  | Some (Data.Eq p) -> ret p
   | Some atom ->
-      ret Data.({
+      Data.({
         eq_atom = atom;
         eq_cat_ = cat;
         eq_src_ = src;
         eq_dst_ = dst;
         eq_right_ = right;
         eq_left_ = left;
-      })
-  | None -> Hyps.registerEq ~eq ~right ~left ~cat ~src ~dst |> withLocal ctx in 
-  ret (Data.AtomicEq data)
+      }) |> mkAtom |> ret
+  | None -> mkAtom <$> (Hyps.registerEq ~eq ~right ~left ~cat ~src ~dst |> withLocal ctx)
 
 and parseEqType (ctx: pctx) (eq : ec) : (ec * ec * ec * ec * ec) option m =
   let* sigma = evars () in
