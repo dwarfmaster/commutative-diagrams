@@ -16,39 +16,52 @@ let runWithGoal goal act =
   let env = Proofview.Goal.env goal in
   run env act
 
-let extract_hyp (env : Environ.env) (dec : EConstr.named_declaration) : unit m =
+let extract_hyp (env : Environ.env) (dec : EConstr.named_declaration) : Lemmas.lemma option m =
   let* sigma = evars () in
   let name,tp = match dec with
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
     | Context.Named.Declaration.LocalDef (name,_,tp) -> (name.binder_name, tp) in
-  let* _ = Hott.parse (EConstr.mkVar name) tp in
-  ret ()
+  let* is_hyp = Hott.parse (EConstr.mkVar name) tp in
+  none ()
+  (* match is_hyp with *)
+  (* | Some _ -> none () *)
+  (* | None -> Lemmas.extractFromType (Lemmas.VarLemma name) tp *)
 
 let name : string -> Names.Name.t = fun s -> Names.Name.mk_name (Names.Id.of_string s)
 
-let rec forM (pred : 'a -> unit m) : 'a list -> unit m =
-  function
-    | [ ] -> ret ()
-    | x :: xs -> let* _ = pred x in forM pred xs
+let scanM (pred : 'a -> 'b option m) (l : 'a list) : 'b list m =
+  let rec with_acc acc lst =
+    match lst with
+    | [] -> ret acc
+    | x :: xs ->
+        let* r = pred x in
+        match r with
+        | None -> with_acc acc xs
+        | Some y -> with_acc (y :: acc) xs in
+  let* r = with_acc [] l in
+  ret (List.rev r)
 
 let add_universes_constraints (env : Environ.env) (c : EConstr.t) (sigma : Evd.evar_map) : Evd.evar_map * EConstr.t =
   Typing.solve_evars env sigma c
 
-let extract_hyps (goal : Proofview.Goal.t) : (Data.morphism * Data.morphism) option m =
+let extract_hyps (goal : Proofview.Goal.t) 
+               : (Lemmas.lemma list * Data.morphism * Data.morphism) option m =
   let env = Proofview.Goal.env goal in
   let context = Proofview.Goal.hyps goal in
   let goal = Proofview.Goal.concl goal in
-  let* store = forM (extract_hyp env) context in
+  let* lemmas = scanM (extract_hyp env) context in
   let* tp = Hott.parseType goal in
   match tp with
-  | Some (EqT (_,_,_,left,right)) -> some (left,right)
+  | Some (EqT (_,_,_,left,right)) -> some (lemmas,left,right)
   | _ -> none ()
 
 let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit m =
   let* obj = extract_hyps goal in
   match obj with
   | None -> fail "Goal is not a face"
-  | Some (side1,side2) ->
+  | Some (lemmas,side1,side2) ->
+      let* globalLemmas = Lemmas.extractAllConstants () in
+      let _(*lemmas*) = List.append lemmas globalLemmas in
       let* _ = Sv.run (Sv.Graph (file, force, side1, side2)) in
       ret ()
       (* let* eq = lift (Hott.realizeEq eq) in *)
@@ -61,7 +74,7 @@ let normalize' (goal : Proofview.Goal.t) : unit m =
   let* obj = extract_hyps goal in
   match obj with
   | None -> fail "Goal is not a face"
-  | Some (side1,side2) ->
+  | Some (_,side1,side2) ->
       let* _ = Sv.run (Sv.Normalize (side1, side2)) in
       ret ()
 let normalize (_ : unit) : unit Proofview.tactic =
@@ -78,7 +91,7 @@ let solve' (level : int) (goal: Proofview.Goal.t) : unit m =
   let* obj = extract_hyps goal in
   match obj with
   | None -> fail "Goal is not a face"
-  | Some (side1,side2) ->
+  | Some (_,side1,side2) ->
       let* _ = Sv.run (Sv.Solve (level,side1,side2)) in
       ret ()
 let solve (level : int) : unit Proofview.tactic =
