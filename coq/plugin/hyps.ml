@@ -238,7 +238,7 @@ let registerFun ~fn =
     | _ -> ret false in
   let* id = arr_find_optM (eqFn fn) @<< getFuns () in
   match id with
-  | Some (id,_) -> ret id
+  | Some (id,_) -> funFromIndex id |> ret
   | None ->
       let* nid = funFromIndex <$> (Array.length <$> getFuns ()) in
       let* _ = set (fun st ->
