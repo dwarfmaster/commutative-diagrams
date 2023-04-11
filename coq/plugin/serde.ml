@@ -53,7 +53,7 @@ let rec pack_atom atom =
   | Eq e -> cons "equality" <$> pack_eq e
   | Fn (i,fn) ->
       let name = printFn fn in
-      Pk.Array [Pk.Integer (1+i); Pk.String name; Pk.Nil ] |> cons "composed" |> ret
+      Pk.Array [Pk.Integer (1+i); Pk.String name; Pk.Array [] ] |> cons "composed" |> ret
   | Composed (f,args) ->
       let* f = pack_atom f in
       let* args = mapM pack_atom args in
