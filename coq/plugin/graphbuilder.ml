@@ -129,19 +129,19 @@ let build_face (builder : t) mphs eq : Graph.faces option =
        (Data.morphism_src (Data.eq_left eq)) != 0)
      || (Data.cmp_elem
           (Data.eq_src eq)
-          (Data.morphism_src (Data.eq_right eq)) = 0)
+          (Data.morphism_src (Data.eq_right eq)) != 0)
      || (Data.cmp_elem 
           (Data.eq_src eq) 
-          (Data.morphism_src (Data.eq_left eq)) = 0)
+          (Data.morphism_src (Data.eq_left eq)) != 0)
      || (Data.cmp_elem 
           (Data.morphism_dst (Data.eq_right eq))
           (Data.morphism_dst (Data.eq_left eq)) != 0)
      || (Data.cmp_elem
           (Data.eq_dst eq)
-          (Data.morphism_dst (Data.eq_right eq)) = 0)
+          (Data.morphism_dst (Data.eq_right eq)) != 0)
      || (Data.cmp_elem 
           (Data.eq_dst eq) 
-          (Data.morphism_dst (Data.eq_left eq)) = 0)
+          (Data.morphism_dst (Data.eq_left eq)) != 0)
   then None
   else
     let src_id = RElem.find (Data.eq_src eq) builder.elems in
