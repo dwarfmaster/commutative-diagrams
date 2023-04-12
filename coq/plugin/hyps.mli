@@ -20,7 +20,7 @@ module Combinators : sig
   val none    : unit -> 'a option t
   val some    : 'a -> 'a option t
   val print   : EConstr.t -> string t
-  val fail    : string -> unit t
+  val fail    : string -> 'a t
   val message : string -> unit t
   val warning : string -> unit t
 end

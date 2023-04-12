@@ -49,7 +49,7 @@ let is_none opt : bool =
   | None -> false
 
 let invalid_message (_ : unit) : 'a m =
-  let* _ = fail "Incoming message ill formed" in assert false
+  fail "Incoming message ill formed"
 
 type [@warning "-37"] handler_ret =
   | HError of string
@@ -156,12 +156,10 @@ let handle_refine (goal: goal) (args : Msgpack.t list) : handler_ret m =
             match eq with
             | Some eq -> subst := Some eq; ret true
             | None ->
-                let* _ = fail "Couldn't parse refinement" in
-                ret false
+                fail "Couldn't parse refinement"
           end else ret r
       | _ :: _ ->
-          let* _ = fail "Refinement is not a pair of an evar and a value" in
-          ret false
+          fail "Refinement is not a pair of an evar and a value"
       in
     let* res = process_arguments args in
     if res then begin
@@ -191,9 +189,9 @@ let handle_norm (goal: goal) (args: Msgpack.t list) : handler_ret m =
         let* eq2 = Serde.Eq.unpack eq2_pk in
         match mph1,eq1,mph2,eq2 with
         | Some mph1, Some eq1, Some mph2, Some eq2 -> ret (mph1,eq1,mph2,eq2)
-        | _ -> let* _ = fail "Expected a morphism and an equality from engine" in assert false
+        | _ -> fail "Expected a morphism and an equality from engine"
       end
-      | _ -> let* _ = fail "Expected 2 arguments from engine" in assert false in
+      | _ -> fail "Expected 2 arguments from engine" in
     let* evar = Hyps.newEvar () in
     let hole = let open Data in
       { eq_atom = Evar (evar,None)
@@ -276,7 +274,7 @@ let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) m =
     let* params = match params with
       | Msgpack.Array params -> ret params
       | Msgpack.Nil -> ret []
-      | _ -> let* _ = fail "Params is not a vector" in assert false in
+      | _ -> fail "Params is not a vector" in
     match mtd with
     | "goal" -> run_handler rm msgid params (handle_goal rm.goal)
     | "hyps" -> run_handler rm msgid params handle_hyps
@@ -287,9 +285,9 @@ let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) m =
     | "tosolve" -> run_handler rm msgid params (handle_tosolve rm.goal)
     | "unsolvable" -> run_handler rm msgid params handle_unsolvable
     | "solved" -> run_handler rm msgid params handle_solved
-    | _ -> let* _ = fail "Unknown method" in assert false
+    | _ -> fail "Unknown method"
   end
-  | _ -> let* _ = fail "Ill formed rpc message" in assert false
+  | _ -> fail "Ill formed rpc message"
 
 type action =
   | Graph of string option * bool * Data.morphism * Data.morphism
@@ -316,7 +314,7 @@ let run (act: action) : unit m =
         let goal = Graphbuilder.build goal in
         begin match goal with
         | Some goal -> GGraph (file,force,evar,goal) |> ret
-        | None -> let* _ = fail "Couldn't build goal graph" in (* Unreachable *) assert false
+        | None -> fail "Couldn't build goal graph"
         end
     | Normalize (left,right) ->
         ret (GNormalize (left,right))
@@ -345,8 +343,7 @@ let run (act: action) : unit m =
         fail "Connection interrupted"
     | Msgpack.Error err ->
         let* _ = warning err in
-        let* _ = fail "Error in engine" in
-        ret ()
+        fail "Error in engine"
     | Msgpack.Msg msg -> 
         let* (f,fl) = handle_message rm msg in
         finish := f;
