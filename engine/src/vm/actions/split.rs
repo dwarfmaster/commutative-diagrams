@@ -1,8 +1,8 @@
 use crate::data::{ActualEquality, ActualMorphism, Morphism};
-use crate::graph::Face;
+use crate::graph::{Face, GraphId};
 use crate::normalize;
 use crate::vm::asm;
-use crate::vm::{GraphId, VM};
+use crate::vm::VM;
 use std::ops::Deref;
 
 type Ins = asm::Instruction;

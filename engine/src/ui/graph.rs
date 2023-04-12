@@ -1,4 +1,5 @@
-use crate::vm::{GraphId, VM};
+use crate::graph::GraphId;
+use crate::vm::VM;
 use egui::{Pos2, Vec2};
 use std::ops::Add;
 

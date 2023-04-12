@@ -2,12 +2,12 @@ use crate::anyterm::IsTerm;
 use crate::data::ActualProofObject;
 use crate::data::{ActualEquality, Equality, EqualityData};
 use crate::data::{ActualMorphism, Morphism};
-use crate::graph::Face;
+use crate::graph::{Face, GraphId};
 use crate::normalize;
 use crate::unification::{unify, UnifOpts};
 use crate::vm::graph::LabelSource;
 use crate::vm::graph::{FaceLabel, FaceStatus};
-use crate::vm::{GraphId, VM};
+use crate::vm::VM;
 use std::collections::HashSet;
 
 // TODO Fix when one of the sides is not normalised

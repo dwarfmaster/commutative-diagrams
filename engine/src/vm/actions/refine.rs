@@ -1,11 +1,11 @@
 use crate::anyterm::IsTerm;
 use crate::data::ActualProofObject;
 use crate::data::{ActualEquality, Equality, EqualityData};
-use crate::graph::Face;
+use crate::graph::{Face, GraphId};
 use crate::substitution::{Substitutable, Substitution};
 use crate::unification::{unify, UnifOpts};
 use crate::vm::graph::{FaceLabel, FaceStatus};
-use crate::vm::{GraphId, VM};
+use crate::vm::VM;
 use std::collections::HashSet;
 
 type Ins = crate::vm::asm::Instruction;

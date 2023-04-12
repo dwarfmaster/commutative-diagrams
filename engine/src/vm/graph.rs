@@ -1,12 +1,5 @@
 use crate::graph;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GraphId {
-    Node(usize),
-    Morphism(usize, usize),
-    Face(usize),
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LabelSource {
     Manual,

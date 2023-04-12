@@ -1,9 +1,10 @@
 use crate::anyterm::AnyTerm;
 use crate::data::Context;
+use crate::graph::GraphId;
 use crate::substitution::{Substitutable, Substitution};
 use crate::vm::asm;
 use crate::vm::ast;
-use crate::vm::graph::{Graph, GraphId};
+use crate::vm::graph::Graph;
 use crate::vm::interpreter;
 use crate::vm::parser;
 use bevy::ecs::system::Resource;

@@ -1,5 +1,6 @@
+use crate::graph::GraphId;
 use crate::vm::asm::Instruction;
-use crate::vm::{GraphId, VM};
+use crate::vm::VM;
 
 pub struct InterpreterStatus {
     should_relayout: bool,

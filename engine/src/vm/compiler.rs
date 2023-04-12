@@ -1,6 +1,6 @@
+use crate::graph::GraphId;
 use crate::vm::ast;
 use crate::vm::ast::Action;
-use crate::vm::graph::GraphId;
 use crate::vm::vm;
 use crate::vm::{CodeStyle, EndStatus, VM};
 

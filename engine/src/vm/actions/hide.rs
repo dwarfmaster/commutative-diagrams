@@ -1,5 +1,5 @@
+use crate::graph::GraphId;
 use crate::vm::asm;
-use crate::vm::graph::GraphId;
 use crate::vm::graph::{EdgeLabel, FaceLabel, NodeLabel};
 use crate::vm::VM;
 

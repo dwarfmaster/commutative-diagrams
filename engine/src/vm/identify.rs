@@ -3,10 +3,10 @@ use crate::data::{ActualCategory, ActualEquality, ActualFunctor, ActualMorphism,
 use crate::data::{ActualProofObject, Context};
 use crate::data::{Category, Equality, Functor, Morphism, Object};
 use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData};
+use crate::graph::GraphId;
 use crate::substitution::Substitutable;
 use crate::unification::{unify, UnifOpts, UnifState};
 use crate::vm::ast::{Annot, Id, TermDescr};
-use crate::vm::graph::GraphId;
 use crate::vm::VM;
 
 impl VM {

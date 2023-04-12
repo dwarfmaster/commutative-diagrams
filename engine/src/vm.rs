@@ -15,5 +15,5 @@ mod style;
 mod vm;
 
 pub use compiler::ExecutionResult;
-pub use graph::{EdgeLabel, FaceLabel, FaceStatus, Graph, GraphId, GraphParsed, NodeLabel};
+pub use graph::{EdgeLabel, FaceLabel, FaceStatus, Graph, GraphParsed, NodeLabel};
 pub use vm::{CodeStyle, EndStatus, VM};

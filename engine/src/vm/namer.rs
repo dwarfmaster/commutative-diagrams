@@ -1,5 +1,5 @@
 use crate::data::{ActualEquality, ActualProofObject};
-use crate::vm::graph::GraphId;
+use crate::graph::GraphId;
 use crate::vm::vm::VM;
 use nom::branch::alt;
 use nom::bytes::complete::tag;

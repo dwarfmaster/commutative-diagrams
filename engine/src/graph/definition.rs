@@ -28,6 +28,13 @@ pub struct GraphImpl<EqType, NodeLabel, EdgeLabel, FaceLabel> {
 pub type GraphParsed<NL, EL, FL> = GraphImpl<Equality, NL, EL, FL>;
 pub type Graph<NL, EL, FL> = GraphImpl<Equality, NL, EL, FL>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GraphId {
+    Node(usize),
+    Morphism(usize, usize),
+    Face(usize),
+}
+
 impl<FL> Face<FL> {
     fn check_path<NL, EL>(
         path: &[usize],
