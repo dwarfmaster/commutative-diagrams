@@ -28,7 +28,7 @@ end
 
 (* State operations *)
 val getAtom : int -> Data.atomic option t
-val setMask : bool -> unit t
+val withMask : bool -> 'a t -> 'a t
 val withEnv : Environ.env -> 'a t -> 'a t
 
 val catToIndex : int -> int option

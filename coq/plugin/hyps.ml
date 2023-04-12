@@ -11,7 +11,6 @@ type store =
   ; faces      : (eqData*bool) array
   ; funs       : Data.fn array
   ; evars      : EConstr.t option IntMap.t
-  ; mask       : bool
   }
 let emptyStore : store =
   { categories = [| |]
@@ -21,11 +20,10 @@ let emptyStore : store =
   ; faces      = [| |]
   ; funs       = [| |]
   ; evars      = IntMap.empty
-  ; mask       = false
   }
 
 type 'a t = 
-  { runState : Environ.env -> store -> ('a * store) Proofview.tactic }
+  { runState : Environ.env -> bool -> store -> ('a * store) Proofview.tactic }
 
 
 (*  __  __                       _  *)
@@ -38,18 +36,23 @@ type 'a t =
 module Combinators = struct
   let m_ret = Proofview.tclUNIT
   let m_bind = Proofview.tclBIND
-  let ret x = { runState = fun _ st -> m_ret (x,st) }
-  let bind a f = { runState = fun env st -> m_bind (a.runState env st) (fun (a,st) -> (f a).runState env st) }
+  let ret x = { runState = fun _ _ st -> m_ret (x,st) }
+  let bind a f = 
+    { runState = fun env mask st -> 
+        m_bind 
+          (a.runState env mask st) 
+          (fun (a,st) -> (f a).runState env mask st) }
   let (let*) = bind
   let (>>=)  = bind
   let (@<<) f a = bind a f
   let (<$>) f a = bind a (fun x -> ret (f x))
 
-  let run env m = m_bind (m.runState env emptyStore) (fun (x,_) -> m_ret x) 
-  let lift (x : 'a Proofview.tactic) : 'a t = { runState = fun _ st -> m_bind x (fun x -> m_ret (x,st)) }
+  let run env m = m_bind (m.runState env false emptyStore) (fun (x,_) -> m_ret x) 
+  let lift (x : 'a Proofview.tactic) : 'a t = { runState = fun _ _ st -> m_bind x (fun x -> m_ret (x,st)) }
 
-  let env () = { runState = fun env st -> m_ret (env,st) }
+  let env () = { runState = fun env _ st -> m_ret (env,st) }
   let evars () = lift Proofview.tclEVARMAP
+  let masked () = { runState = fun _ mask st -> m_ret (mask,st) }
   let none () = ret None
   let some x = ret (Some x)
   let print ec =
@@ -67,8 +70,10 @@ end
 open Combinators
 
 
-let get (f : store -> 'a) : 'a t = { runState = fun env st -> (ret (f st)).runState env st }
-let set (f : store -> store) : unit t = { runState = fun env st -> (ret ()).runState env (f st) }
+let get (f : store -> 'a) : 'a t = 
+  { runState = fun env mask st -> (ret (f st)).runState env mask st }
+let set (f : store -> store) : unit t = 
+  { runState = fun env mask st -> (ret ()).runState env mask (f st) }
 
 (*  ____  _        _        *)
 (* / ___|| |_ __ _| |_ ___  *)
@@ -117,8 +122,8 @@ let getAtom id =
   | 4 -> get (fun st -> Some (fst st.faces.(id/8)).eq_atom)
   | _ -> ret None
 
-let setMask b = set (fun (st : store) -> { st with mask = b })
-let withEnv env act = { runState = fun _ st -> act.runState env st }
+let withMask mask act = { runState = fun env _ st -> act.runState env mask st }
+let withEnv env act = { runState = fun _ mask st -> act.runState env mask st }
 
 let catToIndex = toId 0
 let catFromIndex = fromId 0
@@ -170,11 +175,12 @@ let registerElem ~elem ~cat =
   | Some (_,(elem,_)) -> ret elem 
   | None ->
       let* nid = elemFromIndex <$> (Array.length <$> getElems ()) in 
+      let* mask = masked () in
       let* _ = set (fun st ->
         { st with elems = push_back st.elems 
           ( { elem_atom = Ctx (nid,elem)
             ; elem_cat_ = cat }
-          , st.mask) }) in 
+          , mask) }) in 
       getElem nid
 
 let mphToIndex = toId 3
@@ -192,12 +198,13 @@ let registerMorphism ~mph ~cat ~src ~dst =
   | Some (_,(mph,_)) -> ret mph
   | None ->
       let* nid = mphFromIndex <$> (Array.length <$> getMorphisms ()) in 
+      let* mask = masked () in
       let* _ = set (fun st ->
         { st with morphisms = push_back st.morphisms 
           ( { mph_atom = Ctx (nid,mph)
             ; mph_cat_ = cat; mph_src_ = src; mph_dst_ = dst
             ; mono = None; epi = None; iso = None }
-          , st.mask )}) in
+          , mask )}) in
       getMorphism nid
 
 let eqToIndex = toId 4
@@ -215,12 +222,13 @@ let registerEq ~eq ~right ~left ~cat ~src ~dst =
   | Some (_,(eq,_)) -> ret eq 
   | None -> 
       let* nid = eqFromIndex <$> (Array.length <$> getEqs ()) in 
+      let* mask = masked () in
       let* _ = set (fun st ->
         { st with faces = push_back st.faces 
           ( { eq_atom = Ctx (nid,eq)
             ; eq_left_ = left; eq_right_ = right 
             ; eq_cat_ = cat; eq_src_ = src; eq_dst_ = dst }
-          , st.mask )}) in
+          , mask )}) in
       getEq nid
 
 let funToIndex = toId 5
