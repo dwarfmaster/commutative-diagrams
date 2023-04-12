@@ -172,7 +172,17 @@ let getElemMask i = match elemToIndex i with
 let registerElem ~elem ~cat =
   let* id = arr_find_optM (fun e -> mkPred (fst e).elem_atom elem) @<< getElems () in 
   match id with
-  | Some (_,(elem,_)) -> ret elem 
+  | Some (id,(elem,mask)) ->
+      let* actual_mask = masked () in
+      if (not actual_mask) && mask
+      then
+        let* _ = set (fun st -> 
+          let elems = st.elems in
+          elems.(id) <- (elem,false);
+          { st with elems = elems }) in
+        ret elem
+      else
+        ret elem 
   | None ->
       let* nid = elemFromIndex <$> (Array.length <$> getElems ()) in 
       let* mask = masked () in
@@ -195,7 +205,17 @@ let getMorphismMask i = match mphToIndex i with
 let registerMorphism ~mph ~cat ~src ~dst =
   let* id = arr_find_optM (fun m -> mkPred (fst m).mph_atom mph) @<< getMorphisms () in 
   match id with 
-  | Some (_,(mph,_)) -> ret mph
+  | Some (id,(mph,mask)) ->
+      let* actual_mask = masked () in
+      if (not actual_mask) && mask
+      then
+        let* _ = set (fun st -> 
+          let mphs = st.morphisms in
+          mphs.(id) <- (mph,false);
+          { st with morphisms = mphs }) in
+        ret mph
+      else
+        ret mph 
   | None ->
       let* nid = mphFromIndex <$> (Array.length <$> getMorphisms ()) in 
       let* mask = masked () in
@@ -219,7 +239,17 @@ let getEqMask i = match eqToIndex i with
 let registerEq ~eq ~right ~left ~cat ~src ~dst =
   let* id = arr_find_optM (fun e -> mkPred (fst e).eq_atom eq) @<< getEqs () in
   match id with 
-  | Some (_,(eq,_)) -> ret eq 
+  | Some (id,(eq,mask)) ->
+      let* actual_mask = masked () in
+      if (not actual_mask) && mask
+      then
+        let* _ = set (fun st -> 
+          let eqs = st.faces in
+          eqs.(id) <- (eq,false);
+          { st with faces = eqs }) in
+        ret eq
+      else
+        ret eq 
   | None -> 
       let* nid = eqFromIndex <$> (Array.length <$> getEqs ()) in 
       let* mask = masked () in
