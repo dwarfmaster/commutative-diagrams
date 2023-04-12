@@ -61,8 +61,8 @@ let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit
   | None -> fail "Goal is not a face"
   | Some (lemmas,side1,side2) ->
       let* globalLemmas = Lemmas.extractAllConstants () |> Hyps.withMask true in
-      let _(*lemmas*) = List.append lemmas globalLemmas in
-      let* _ = Sv.run (Sv.Graph (file, force, side1, side2)) in
+      let lemmas = List.append lemmas globalLemmas in
+      let* _ = Sv.run (Sv.Graph (file, force, side1, side2, lemmas)) in
       ret ()
       (* let* eq = lift (Hott.realizeEq eq) in *)
       (* lift (Hott.M.lift (Refine.refine ~typecheck:false *)

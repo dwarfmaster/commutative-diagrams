@@ -8,8 +8,16 @@ let rec whileM (cond : unit -> bool m) (body : unit -> unit m) : unit m =
     let* _ = body () in whileM cond body
   else ret ()
 
+let rec forM (lst: 'a list) (f : 'a -> 'b m) : 'b list m =
+  match lst with
+  | [] -> ret []
+  | x :: xs ->
+      let* x = f x in
+      let* xs = forM xs f in
+      ret (x :: xs)
+
 type goal =
-  | GGraph of string option * bool * int * Graph.graph
+  | GGraph of string option * bool * int * Graph.graph * Lemmas.lemma list
   | GPrint of string * Graph.graph
   | GNormalize of Data.morphism * Data.morphism
   | GSolve of int * Graph.graph * Data.morphism * Data.morphism
@@ -26,7 +34,7 @@ let engine_path = "/home/luc/repos/coq-commutative-diagrams/engine/target/debug/
 let start_remote (goal : goal) : remote m =
   let args =
     match goal with
-    | GGraph (file,_,_,_) -> List.concat [
+    | GGraph (file,_,_,_,_) -> List.concat [
       [ "embed" ];
       (match file with
       | Some file -> [ "--state"; file ]
@@ -122,7 +130,7 @@ let handle_hyps (args : Msgpack.t list) : handler_ret m =
 let handle_goal (goal: goal) (args : Msgpack.t list) : handler_ret m =
   let* _ = message "Sending goal" in
   match goal with
-  | GGraph (_,_,_,goal) ->
+  | GGraph (_,_,_,goal,_) ->
       let* goal_mp = Graph.Serde.pack goal in
       ret (HRet goal_mp)
   | GPrint (_,goal) ->
@@ -136,6 +144,19 @@ let handle_goal (goal: goal) (args : Msgpack.t list) : handler_ret m =
       let* goal_mp = Graph.Serde.pack goal in
       ret (HRet goal_mp)
 
+let handle_lemmas (goal: goal) (args : Msgpack.t list) : handler_ret m =
+  match goal with
+  | GGraph (_,_,_,_,lemmas) ->
+      let open Lemmas in
+      let* lemmas_mp = 
+        (fun arr -> Msgpack.Array arr) <$>
+          (forM lemmas
+            (fun lemma -> 
+              let* graph = Graph.Serde.pack lemma.graph in
+              Msgpack.Array [ Msgpack.String lemma.name; graph ] |> ret)) in
+      ret (HRet lemmas_mp)
+  | _ -> ret (HError "Lemmas only available on graph goal")
+
 let add_universes_constraints (env : Environ.env) (c : EConstr.t) (sigma : Evd.evar_map) : Evd.evar_map * EConstr.t =
   Typing.solve_evars env sigma c
 
@@ -144,7 +165,7 @@ let handle_refine (goal: goal) (args : Msgpack.t list) : handler_ret m =
   | GNormalize _ -> ret (HError "Current goal is normalization")
   | GPrint _ -> ret (HError "Current goal is print")
   | GSolve _ -> ret (HError "Current goal is solve")
-  | GGraph (_,_,evar,_) -> begin
+  | GGraph (_,_,evar,_,_) -> begin
     let subst = ref None in
     let rec process_arguments lst =
       match lst with
@@ -278,6 +299,7 @@ let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) m =
     match mtd with
     | "goal" -> run_handler rm msgid params (handle_goal rm.goal)
     | "hyps" -> run_handler rm msgid params handle_hyps
+    | "lemmas" -> run_handler rm msgid params (handle_lemmas rm.goal)
     | "refine" -> run_handler rm msgid params (handle_refine rm.goal)
     | "failed" -> run_handler rm msgid params handle_failed
     | "normalized" -> run_handler rm msgid params (handle_norm rm.goal)
@@ -290,7 +312,7 @@ let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) m =
   | _ -> fail "Ill formed rpc message"
 
 type action =
-  | Graph of string option * bool * Data.morphism * Data.morphism
+  | Graph of string option * bool * Data.morphism * Data.morphism * Lemmas.lemma list
   | Normalize of Data.morphism * Data.morphism
   | Print of string
   | Solve of int * Data.morphism * Data.morphism
@@ -298,7 +320,7 @@ type action =
 let run (act: action) : unit m =
   let* goal = 
     match act with
-    | Graph (file,force,left,right) -> 
+    | Graph (file,force,left,right,lemmas) -> 
         let goal = Graphbuilder.empty () in
         let* goal = Graphbuilder.import_hyps goal in
         let* evar = Hyps.newEvar () in
@@ -313,7 +335,7 @@ let run (act: action) : unit m =
         let goal = Graphbuilder.add_face ~important:true (Data.AtomicEq hole) goal in
         let goal = Graphbuilder.build goal in
         begin match goal with
-        | Some goal -> GGraph (file,force,evar,goal) |> ret
+        | Some goal -> GGraph (file,force,evar,goal,lemmas) |> ret
         | None -> fail "Couldn't build goal graph"
         end
     | Normalize (left,right) ->
