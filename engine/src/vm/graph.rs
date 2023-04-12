@@ -100,3 +100,4 @@ impl FaceLabel {
 
 pub type GraphParsed = graph::GraphParsed<NodeLabel, EdgeLabel, FaceLabel>;
 pub type Graph = graph::Graph<NodeLabel, EdgeLabel, FaceLabel>;
+pub type Lemma = crate::lemmas::Lemma<NodeLabel, EdgeLabel, FaceLabel>;

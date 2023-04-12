@@ -72,7 +72,7 @@ fn test_ui() {
     gr.edges[0][3].1.hidden = true;
 
     // Run the ui
-    let vm = vm::VM::new(ctx, gr, Vec::new());
+    let vm = vm::VM::new(ctx, gr, Vec::new(), Vec::new());
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
@@ -201,11 +201,13 @@ fn goal_graph<In, Out>(
             log::warn!("Couldn't parse lemmas answer: {:#?}", err);
             panic!()
         });
-    lemmas.iter().for_each(|(name,_)| log::trace!("Received lemma: {}", name));
+    lemmas
+        .iter()
+        .for_each(|(name, _)| log::trace!("Received lemma: {}", name));
     log::info!("{} lemmas received", lemmas.len());
 
     // Open the vm
-    let mut vm = vm::VM::new(ctx, goal, sigma);
+    let mut vm = vm::VM::new(ctx, goal, sigma, lemmas);
 
     // Open the file
     if let Some(path) = &state {
@@ -417,7 +419,7 @@ where
         .prepare(&mut ctx);
     log::info!("Goal received");
 
-    let mut vm = vm::VM::new(ctx, goal, sigma);
+    let mut vm = vm::VM::new(ctx, goal, sigma, Vec::new());
 
     log::info!("Asking for pair of morphisms to equate");
     let tosolve_req = client.send_msg("tosolve", ()).unwrap();

@@ -4,7 +4,7 @@ use crate::graph::GraphId;
 use crate::substitution::{Substitutable, Substitution};
 use crate::vm::asm;
 use crate::vm::ast;
-use crate::vm::graph::Graph;
+use crate::vm::graph::{Graph, Lemma};
 use crate::vm::interpreter;
 use crate::vm::parser;
 use bevy::ecs::system::Resource;
@@ -57,10 +57,20 @@ pub struct VM {
     pub face_hyps_order: Vec<usize>,
     pub end_status: EndStatus,
     pub refinements: Vec<(u64, AnyTerm)>,
+    pub lemmas: Vec<Lemma>,
 }
 
 impl VM {
-    pub fn new(ctx: Context, gd: Graph, init_sigma: Substitution) -> Self {
+    pub fn new(
+        ctx: Context,
+        gd: Graph,
+        init_sigma: Substitution,
+        lemmas: Vec<(String, Graph)>,
+    ) -> Self {
+        let lemmas = lemmas
+            .into_iter()
+            .map(|(name, graph)| crate::lemmas::Lemma::new(name, graph))
+            .collect();
         let mut res = Self {
             ctx,
             prev_code: String::new(),
@@ -84,6 +94,7 @@ impl VM {
             // it to the proof assistant, all elements must be substituted with the tail
             // of the vector, using finalize_refinements
             refinements: init_sigma,
+            lemmas,
         };
         res.renumber_edges();
         res.relabel();
