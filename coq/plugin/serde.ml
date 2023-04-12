@@ -57,7 +57,7 @@ let rec pack_atom atom =
   | Composed (f,args) ->
       let* f = pack_atom f in
       let* args = mapM pack_atom args in
-      Pk.Array [Pk.Integer 0; Pk.String "app"; Pk.Array args] |> cons "composed" |> ret
+      Pk.Array [Pk.Integer 0; Pk.String "app"; Pk.Array (f :: args)] |> cons "composed" |> ret
 and pack_cat cat =
   match cat with
   | AtomicCategory data -> 
