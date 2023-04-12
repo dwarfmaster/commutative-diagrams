@@ -191,6 +191,8 @@ and registerAtomCat ctx (cat : ec) =
   let mkAtom data = Data.AtomicCategory data in
   match struct_atom with
   | Some (Data.Cat c) -> ret c
+  | Some (Data.Fn (_,Data.FnVar v)) ->
+      mkAtom <$> (Hyps.registerCategory ~cat:(EConstr.mkVar v) |> withLocal ctx)
   | Some atom ->
       Data.({
         cat_atom = atom;
@@ -222,6 +224,8 @@ and registerAtomFunct ctx funct src dst =
   let mkAtom data = Data.AtomicFunctor data in
   match struct_atom with
   | Some (Data.Funct f) -> ret f
+  | Some (Data.Fn (_,Data.FnVar v)) ->
+      mkAtom <$> (Hyps.registerFunctor ~funct:(EConstr.mkVar v) ~src ~dst |> withLocal ctx)
   | Some atom ->
       Data.({
         funct_atom = atom;
@@ -264,6 +268,8 @@ and registerAtomElem ctx elem cat =
   let mkAtom data = Data.AtomicElem data in
   match struct_atom with
   | Some (Data.Elem e) -> ret e
+  | Some (Data.Fn (_,Data.FnVar v)) ->
+      mkAtom <$> (Hyps.registerElem ~elem:(EConstr.mkVar v) ~cat |> withLocal ctx)
   | Some atom ->
       Data.({
         elem_atom = atom;
@@ -322,6 +328,8 @@ and registerAtomMorphism ctx mph cat src dst =
   let mkAtom data = Data.AtomicMorphism data in
   match struct_atom with
   | Some (Data.Mph m) -> ret m
+  | Some (Data.Fn (_,Data.FnVar v)) ->
+      mkAtom <$> (Hyps.registerMorphism ~mph:(EConstr.mkVar v) ~cat ~src ~dst |> withLocal ctx)
   | Some atom ->
       Data.({
         mph_atom = atom;
@@ -414,6 +422,9 @@ and registerAtomEq ctx eq right left cat src dst =
   let mkAtom data = Data.AtomicEq data in
   match struct_atom with
   | Some (Data.Eq p) -> ret p
+  | Some (Data.Fn (_,Data.FnVar v)) ->
+      mkAtom <$> (Hyps.registerEq ~eq:(EConstr.mkVar v) ~right ~left ~cat ~src ~dst
+                 |> withLocal ctx)
   | Some atom ->
       Data.({
         eq_atom = atom;
