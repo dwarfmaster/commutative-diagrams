@@ -27,6 +27,11 @@ where
 {
     pub data: T,
 }
+#[derive(Clone)]
+pub struct ParserPair<T: Clone, U: Clone> {
+    pub left: T,
+    pub right: U,
+}
 
 impl<T> Parser<T> {
     pub fn new(ctx: Context) -> Self {
@@ -38,6 +43,10 @@ impl<T> Parser<T> {
     pub fn new_vec(ctx: Context) -> ParserVec<Parser<T>> {
         ParserVec::<Parser<T>>::new(Parser::<T>::new(ctx))
     }
+    pub fn new_pair<U>(ctx: Context) -> ParserPair<Parser<T>, Parser<U>> {
+        ParserPair::new(Parser::<T>::new(ctx.clone()), Parser::<U>::new(ctx))
+    }
+
     pub fn to<U>(&self) -> Parser<U> {
         Parser {
             ctx: self.ctx.clone(),
@@ -46,6 +55,9 @@ impl<T> Parser<T> {
     }
     pub fn to_vec<U>(&self) -> ParserVec<Parser<U>> {
         ParserVec::<Parser<U>>::new(self.to::<U>())
+    }
+    pub fn to_pair<U, V>(&self) -> ParserPair<Parser<U>, Parser<V>> {
+        ParserPair::new(self.to::<U>().clone(), self.to::<V>())
     }
 }
 
@@ -61,6 +73,12 @@ where
 {
     pub fn new(data: T) -> Self {
         ParserVec { data }
+    }
+}
+
+impl<T: Clone, U: Clone> ParserPair<T, U> {
+    pub fn new(left: T, right: U) -> Self {
+        ParserPair { left, right }
     }
 }
 
@@ -923,5 +941,51 @@ where
         D: Deserializer<'a>,
     {
         d.deserialize_seq(self)
+    }
+}
+
+//  ____       _
+// |  _ \ __ _(_)_ __
+// | |_) / _` | | '__|
+// |  __/ (_| | | |
+// |_|   \__,_|_|_|
+//
+// Pair
+impl<'a, T, U> Visitor<'a> for ParserPair<T, U>
+where
+    T: DeserializeSeed<'a> + Clone,
+    U: DeserializeSeed<'a> + Clone,
+{
+    type Value = (T::Value, U::Value);
+    fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "a pair")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'a>,
+    {
+        let x1 = seq.next_element_seed(self.left.clone())?;
+        let x2 = seq.next_element_seed(self.right.clone())?;
+        match (x1, x2) {
+            (Some(x1), Some(x2)) => Ok((x1, x2)),
+            (None, _) => Err(Error::invalid_length(0, &self)),
+            (_, None) => Err(Error::invalid_length(0, &self)),
+        }
+    }
+}
+
+impl<'a, T, U> DeserializeSeed<'a> for ParserPair<T, U>
+where
+    T: DeserializeSeed<'a> + Clone,
+    U: DeserializeSeed<'a> + Clone,
+{
+    type Value = (T::Value, U::Value);
+
+    fn deserialize<D>(self, d: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
+        d.deserialize_tuple(2, self)
     }
 }
