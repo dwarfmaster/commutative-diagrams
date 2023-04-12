@@ -171,6 +171,7 @@ fn goal_graph<In, Out>(
     In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
     Out: std::io::Write + std::marker::Sync + std::marker::Send + 'static,
 {
+    // Getting the goal
     log::info!("Asking for graph goal");
     let goal_req = client.send_msg("goal", ()).unwrap();
     let (goal, sigma): (vm::Graph, _) = client
@@ -184,6 +185,24 @@ fn goal_graph<In, Out>(
         })
         .prepare(&mut ctx);
     log::info!("Goal received");
+
+    // Getting the lemmas
+    log::info!("Asking for lemmas");
+    let lemmas_req = client.send_msg("lemmas", ()).unwrap();
+    let lemmas: Vec<(String, vm::Graph)> = client
+        .receive_msg(
+            lemmas_req,
+            parser::ParserVec::new(parser::ParserPair::new(
+                core::marker::PhantomData::<String>::default(),
+                parser::Parser::<vm::Graph>::new(ctx.clone()),
+            )),
+        )
+        .unwrap_or_else(|err| {
+            log::warn!("Couldn't parse lemmas answer: {:#?}", err);
+            panic!()
+        });
+    lemmas.iter().for_each(|(name,_)| log::trace!("Received lemma: {}", name));
+    log::info!("{} lemmas received", lemmas.len());
 
     // Open the vm
     let mut vm = vm::VM::new(ctx, goal, sigma);
