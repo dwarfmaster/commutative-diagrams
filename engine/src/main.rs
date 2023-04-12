@@ -250,6 +250,8 @@ fn goal_ui_system(
         ui.add(ui::graph(&mut vm.as_mut()))
     });
 
+    ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut());
+
     match vm.end_status {
         vm::EndStatus::Success => state.set(vm::EndStatus::Success).unwrap(),
         vm::EndStatus::Failure => state.set(vm::EndStatus::Failure).unwrap(),
