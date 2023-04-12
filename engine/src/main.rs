@@ -3,6 +3,7 @@ pub mod autofill;
 pub mod data;
 pub mod dsl;
 pub mod graph;
+pub mod lemmas;
 pub mod normalize;
 pub mod parser;
 pub mod pretty;
