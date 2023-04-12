@@ -55,7 +55,7 @@ let extractFromType (id: lemmaTerm) (tp: EConstr.t) : lemma option Hyps.t =
       let* env = env () in
       let* sigma = evars () in
       some { name = name
-           ; graph = Graphbuilder.build bld
+           ; graph = Graphbuilder.build_unsafe bld
            }
   | None -> none ()
 

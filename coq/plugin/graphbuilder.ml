@@ -45,7 +45,11 @@ end
 
 module RElem = Registerer(Data.EqElem)
 module RMph = Registerer(Data.EqMph)
-module REq = Registerer(Data.EqEq)
+module EqWithBool = struct
+  type t = Data.eq * bool
+  let compare (eq1,_) (eq2,_) = Data.EqEq.compare eq1 eq2
+end
+module REq = Registerer(EqWithBool)
 type t =
   { elems : RElem.t
   ; mphs : RMph.t
@@ -55,7 +59,7 @@ type t =
 let debug_print (env: Environ.env) (sigma: Evd.evar_map) (bld: t) : Pp.t =
   let elems = RElem.debug_print (Renderer.elem sigma env) bld.elems in
   let mphs = RMph.debug_print (Renderer.mph sigma env) bld.mphs in
-  let eqs = REq.debug_print (Renderer.eq sigma env) bld.eqs in
+  let eqs = REq.debug_print (fun (eq,_) -> Renderer.eq sigma env eq) bld.eqs in
   Pp.(str "elems: " ++ elems ++ str "," ++ cut ()
     ++ str "mphs: " ++ mphs ++ str "," ++ cut ()
     ++ str "eqs: " ++ eqs)
@@ -74,7 +78,7 @@ let add_edge (mph: Data.morphism) (builder: t) =
   let _, builder = add_node (Data.morphism_dst mph) builder in
   let _, nmphs = RMph.may_insert mph builder.mphs in
   { builder with mphs = nmphs }
-let add_face (eq: Data.eq) (builder: t) =
+let add_face ?(important = false) (eq: Data.eq) (builder: t) =
   let rec add_comp mph builder =
     match mph with
     | Data.Comp (m1, m2) ->
@@ -87,7 +91,7 @@ let add_face (eq: Data.eq) (builder: t) =
   let (_, builder) = add_node (Data.eq_dst eq) builder in
   let builder = add_comp (Data.eq_left eq) builder in
   let builder = add_comp (Data.eq_right eq) builder in
-  let _, neqs = REq.may_insert eq builder.eqs in
+  let _, neqs = REq.may_insert (eq,important) builder.eqs in
   { builder with eqs = neqs }
 
 let import_hyps (builder: t) =
@@ -123,7 +127,8 @@ let rec build_path (mphs : (int * Data.morphism) list array) (src: int) (mph : D
       id :: path
   | _ ->
       let _,id = find_in_list mphs.(src) mph 0 in [ id ]
-let build_face (builder : t) mphs eq : Graph.faces option =
+exception InvalidImportant
+let build_face (builder : t) mphs (eq,important) : Graph.faces option =
   if (Data.cmp_elem 
        (Data.morphism_src (Data.eq_right eq))
        (Data.morphism_src (Data.eq_left eq)) != 0)
@@ -142,7 +147,7 @@ let build_face (builder : t) mphs eq : Graph.faces option =
      || (Data.cmp_elem 
           (Data.eq_dst eq) 
           (Data.morphism_dst (Data.eq_left eq)) != 0)
-  then None
+  then (if important then raise InvalidImportant else None)
   else
     let src_id = RElem.find (Data.eq_src eq) builder.elems in
     let dst_id = RElem.find (Data.eq_dst eq) builder.elems in
@@ -165,9 +170,16 @@ let build (builder: t) =
       let dst_id = RElem.find (Data.morphism_dst mph) builder.elems in
       mphs.(src_id) <- (dst_id,mph) :: mphs.(src_id))
     builder.mphs.values;
-  let faces = List.filter_map (build_face builder mphs) builder.eqs.values in
-  let open Graph in
-  { gr_nodes = nodes
-  ; gr_edges = mphs
-  ; gr_faces = faces
-  }
+  try
+    let faces = List.filter_map (build_face builder mphs) builder.eqs.values in
+    let open Graph in
+    Some { gr_nodes = nodes
+         ; gr_edges = mphs
+         ; gr_faces = faces
+         }
+  with
+    _ -> None
+let build_unsafe (builder : t) =
+  match build builder with
+  | Some gr -> gr
+  | None -> assert false

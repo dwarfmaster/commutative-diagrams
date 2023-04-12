@@ -312,19 +312,22 @@ let run (act: action) : unit m =
           ; eq_src_ = morphism_src right
           ; eq_dst_ = morphism_dst right
           } in
-        let goal = Graphbuilder.add_face (Data.AtomicEq hole) goal in
+        let goal = Graphbuilder.add_face ~important:true (Data.AtomicEq hole) goal in
         let goal = Graphbuilder.build goal in
-        GGraph (file,force,evar,goal) |> ret
+        begin match goal with
+        | Some goal -> GGraph (file,force,evar,goal) |> ret
+        | None -> let* _ = fail "Couldn't build goal graph" in (* Unreachable *) assert false
+        end
     | Normalize (left,right) ->
         ret (GNormalize (left,right))
     | Print path -> 
         let goal = Graphbuilder.empty () in
         let* goal = Graphbuilder.import_hyps goal in
-        ret (GPrint (path, Graphbuilder.build goal))
+        ret (GPrint (path, Graphbuilder.build_unsafe goal))
     | Solve (level,left,right) ->
         let goal = Graphbuilder.empty () in
         let* goal = Graphbuilder.import_hyps goal in
-        let goal = Graphbuilder.build goal in
+        let goal = Graphbuilder.build_unsafe goal in
         ret (GSolve (level, goal, left, right))
     in
   let* rm = start_remote goal in
