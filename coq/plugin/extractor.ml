@@ -22,10 +22,14 @@ let extract_hyp (env : Environ.env) (dec : EConstr.named_declaration) : Lemmas.l
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
     | Context.Named.Declaration.LocalDef (name,_,tp) -> (name.binder_name, tp) in
   let* is_hyp = Hott.parse (EConstr.mkVar name) tp in
-  none ()
-  (* match is_hyp with *)
-  (* | Some _ -> none () *)
-  (* | None -> Lemmas.extractFromType (Lemmas.VarLemma name) tp *)
+  match is_hyp with
+  | Some _ -> none ()
+  | None -> 
+      let* _ = Hyps.setMask true in
+      (* let* lem = Lemmas.extractFromVar name tp in *)
+      let* _ = Hyps.setMask false in
+      (* ret lem *)
+      none ()
 
 let name : string -> Names.Name.t = fun s -> Names.Name.mk_name (Names.Id.of_string s)
 
@@ -60,7 +64,9 @@ let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit
   match obj with
   | None -> fail "Goal is not a face"
   | Some (lemmas,side1,side2) ->
+      let* _ = Hyps.setMask true in
       let* globalLemmas = Lemmas.extractAllConstants () in
+      let* _ = Hyps.setMask false in
       let _(*lemmas*) = List.append lemmas globalLemmas in
       let* _ = Sv.run (Sv.Graph (file, force, side1, side2)) in
       ret ()
