@@ -54,9 +54,13 @@ let extractFromType (id: lemmaTerm) (tp: EConstr.t) : lemma option Hyps.t =
       let* bld = buildLemma (Graphbuilder.empty ()) lemma in
       let* env = env () in
       let* sigma = evars () in
-      some { name = name
-           ; graph = Graphbuilder.build_unsafe bld
-           }
+      let graph = Graphbuilder.build_unsafe bld in
+      if List.length graph.gr_faces = 0
+      then none ()
+      else
+        some { name = name
+             ; graph = Graphbuilder.build_unsafe bld
+             }
   | None -> none ()
 
 let extractConstant name decl : lemma option Hyps.t =
