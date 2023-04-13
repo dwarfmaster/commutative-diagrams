@@ -1,7 +1,7 @@
 // Render to graphviz using unique identifiers as labels, export to json, read
 // json, and use it to layout the graph
 
-use crate::vm::VM;
+use crate::vm::{Graph, VM};
 use egui::Pos2;
 
 use itertools::Itertools;
@@ -9,9 +9,7 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 impl VM {
-    pub fn layout(&mut self) {
-        let graph = &mut self.graph;
-
+    pub fn layout(graph: &mut Graph) {
         // Spawn the  graphviz process
         log::trace!("Spawning graphviz");
         let mut graphviz = Command::new("dot")

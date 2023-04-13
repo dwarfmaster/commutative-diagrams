@@ -104,8 +104,15 @@ impl VM {
         res.autoname();
         res.recompute_face_statuses();
         res.init_face_order();
-        res.layout();
+        VM::layout(&mut res.graph);
+        res.prepare_lemmas();
         res
+    }
+
+    fn prepare_lemmas(&mut self) {
+        self.lemmas.iter_mut().for_each(|lemma| {
+            VM::layout(&mut lemma.pattern);
+        });
     }
 
     pub fn recompile_to(&mut self, to: usize) -> Option<ast::AST> {

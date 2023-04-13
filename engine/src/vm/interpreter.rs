@@ -40,7 +40,7 @@ impl VM {
     // and prepare the vm for display
     pub fn finalize_execution(&mut self) {
         if self.eval_status.should_relayout {
-            self.layout()
+            VM::layout(&mut self.graph);
         }
         if let Some(face) = self.selected_face {
             self.show_face(face)
