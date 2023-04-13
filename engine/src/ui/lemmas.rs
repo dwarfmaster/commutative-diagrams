@@ -20,15 +20,22 @@ pub fn lemmas_window(ctx: &egui::Context, vm: &mut VM) {
                         style.visuals.extreme_bg_color
                     };
                     ui.style_mut().visuals.extreme_bg_color = bg;
-                    ui.style_mut().visuals.widgets.noninteractive.bg_stroke.color = bg;
+                    ui.style_mut()
+                        .visuals
+                        .widgets
+                        .noninteractive
+                        .bg_stroke
+                        .color = bg;
                     pair = !pair;
 
-                    let _resp = ui.add(
-                        egui::TextEdit::singleline(&mut lemma.name)
-                            .interactive(false)
-                            .font(egui::TextStyle::Monospace)
-                            .desired_width(f32::INFINITY),
-                    ).on_hover_text(&lemma.name);
+                    let _resp = ui
+                        .add(
+                            egui::TextEdit::singleline(&mut lemma.name)
+                                .interactive(false)
+                                .font(egui::TextStyle::Monospace)
+                                .desired_width(f32::INFINITY),
+                        )
+                        .on_hover_text(&lemma.name);
                 }
             });
         });
