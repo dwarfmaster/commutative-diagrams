@@ -13,8 +13,12 @@ pub fn lemmas_window(ctx: &egui::Context, vm: &mut VM) {
                 ui.style_mut().visuals.widgets.noninteractive.rounding.se = 0.0;
                 ui.style_mut().spacing.item_spacing = Vec2::ZERO;
 
-                for lemma in &mut vm.lemmas {
-                    let bg = if pair {
+                for lem in 0..vm.lemmas.len() {
+                    let lemma = &mut vm.lemmas[lem];
+
+                    let bg = if vm.selected_lemma == Some(lem) {
+                        style.visuals.widgets.active.bg_fill
+                    } else if pair {
                         style.visuals.widgets.noninteractive.bg_fill
                     } else {
                         style.visuals.extreme_bg_color
@@ -28,14 +32,18 @@ pub fn lemmas_window(ctx: &egui::Context, vm: &mut VM) {
                         .color = bg;
                     pair = !pair;
 
-                    let _resp = ui
+                    let resp = ui
                         .add(
                             egui::TextEdit::singleline(&mut lemma.name)
                                 .interactive(false)
                                 .font(egui::TextStyle::Monospace)
                                 .desired_width(f32::INFINITY),
                         )
+                        .interact(egui::Sense::click())
                         .on_hover_text(&lemma.name);
+                    if resp.clicked() {
+                        vm.selected_lemma = Some(lem);
+                    }
                 }
             });
         });

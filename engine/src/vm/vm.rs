@@ -60,6 +60,7 @@ pub struct VM {
     pub end_status: EndStatus,
     pub refinements: Vec<(u64, AnyTerm)>,
     pub lemmas: Vec<Lemma>,
+    pub selected_lemma: Option<usize>,
 }
 
 impl VM {
@@ -98,6 +99,7 @@ impl VM {
             // of the vector, using finalize_refinements
             refinements: init_sigma,
             lemmas,
+            selected_lemma: None,
         };
         res.relabel();
         res.autoname();
