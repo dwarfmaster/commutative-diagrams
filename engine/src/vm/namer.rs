@@ -1,5 +1,6 @@
-use crate::data::{ActualEquality, ActualProofObject};
+use crate::data::{ActualEquality, ActualProofObject, Context};
 use crate::graph::GraphId;
+use crate::vm::graph::Graph;
 use crate::vm::vm::VM;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -8,6 +9,7 @@ use nom::combinator::{eof, value};
 use nom::multi::many0_count;
 use nom::sequence::delimited;
 use nom::IResult;
+use std::collections::HashMap;
 use std::ops::Deref;
 
 type Ins = crate::vm::asm::Instruction;
@@ -70,20 +72,19 @@ impl VM {
         true
     }
 
-    pub fn autoname_node(&mut self, nd: usize) {
-        assert!(self.graph.nodes[nd].1.name.is_empty());
-        let lbl = &self.graph.nodes[nd].1.label;
-        if is_valid_name(lbl) && self.names.get(lbl).is_none() {
-            self.set_name(GraphId::Node(nd), lbl.clone());
-            return;
+    pub fn name_compute_node(
+        ctx: &mut Context,
+        graph: &Graph,
+        names: &HashMap<String, GraphId>,
+        nd: usize,
+    ) -> String {
+        let lbl = &graph.nodes[nd].1.label;
+        if is_valid_name(lbl) && names.get(lbl).is_none() {
+            return lbl.clone();
         }
 
         // Try to name it from the category
-        let cat_name = self.graph.nodes[nd]
-            .0
-            .cat(&self.ctx)
-            .render(&mut self.ctx, 100)
-            .to_lowercase();
+        let cat_name = graph.nodes[nd].0.cat(ctx).render(ctx, 100).to_lowercase();
         let base_name = if is_valid_name(&cat_name) {
             cat_name
         } else {
@@ -91,41 +92,92 @@ impl VM {
         };
         let mut name = base_name.clone();
         let mut count = 0;
-        while self.names.get(&name).is_some() {
+        while names.get(&name).is_some() {
             name = format!("{}_{}", base_name, count);
             count += 1;
         }
-        self.set_name(GraphId::Node(nd), name);
+        return name;
     }
 
-    pub fn autoname_morphism(&mut self, src: usize, mph: usize) {
-        assert!(self.graph.edges[src][mph].1.name.is_empty());
-        let lbl = &self.graph.edges[src][mph].1.label;
-        if is_valid_name(lbl) && self.names.get(lbl).is_none() {
-            self.set_name(GraphId::Morphism(src, mph), lbl.clone());
-            return;
+    pub fn autoname_node(&mut self, nd: usize) {
+        assert!(self.graph.nodes[nd].1.name.is_empty());
+        let name = VM::name_compute_node(&mut self.ctx, &self.graph, &self.names, nd);
+        self.set_name(GraphId::Node(nd), name.clone());
+    }
+
+    pub fn name_compute_morphism(
+        _ctx: &mut Context,
+        graph: &Graph,
+        names: &HashMap<String, GraphId>,
+        src: usize,
+        mph: usize,
+    ) -> String {
+        let lbl = &graph.edges[src][mph].1.label;
+        if is_valid_name(lbl) && names.get(lbl).is_none() {
+            return lbl.clone();
         }
 
         // Try to use src and dst to name it
-        let src_name = if is_valid_name(&self.graph.nodes[src].1.label) {
-            self.graph.nodes[src].1.label.clone()
+        let src_name = if is_valid_name(&graph.nodes[src].1.label) {
+            graph.nodes[src].1.label.clone()
         } else {
             "".to_string()
         };
-        let dst = self.graph.edges[src][mph].0;
-        let dst_name = if is_valid_name(&self.graph.nodes[dst].1.label) {
-            self.graph.nodes[dst].1.label.clone()
+        let dst = graph.edges[src][mph].0;
+        let dst_name = if is_valid_name(&graph.nodes[dst].1.label) {
+            graph.nodes[dst].1.label.clone()
         } else {
             "".to_string()
         };
         let base_name = format!("m{}{}", src_name, dst_name);
         let mut name = base_name.clone();
         let mut count = 0;
-        while self.names.get(&name).is_some() {
+        while names.get(&name).is_some() {
             name = format!("{}_{}", base_name, count);
             count += 1;
         }
+        return name;
+    }
+
+    pub fn autoname_morphism(&mut self, src: usize, mph: usize) {
+        assert!(self.graph.edges[src][mph].1.name.is_empty());
+        let name = VM::name_compute_morphism(&mut self.ctx, &self.graph, &self.names, src, mph);
         self.set_name(GraphId::Morphism(src, mph), name);
+    }
+
+    pub fn name_compute_face(
+        _ctx: &mut Context,
+        graph: &Graph,
+        names: &HashMap<String, GraphId>,
+        base: &str,
+        fce: usize,
+    ) -> String {
+        let lbl = &graph.faces[fce].label.label;
+        if is_valid_name(lbl) && names.get(lbl).is_none() {
+            return lbl.clone();
+        }
+
+        // If it is only an atomic name it Goal{count}
+        if let ActualEquality::Atomic(data) = graph.faces[fce].eq.deref() {
+            if let ActualProofObject::Existential(_) = data.pobj.deref() {
+                let mut name = format!("{}0", base);
+                let mut count = 0;
+                while names.get(&name).is_some() {
+                    count += 1;
+                    name = format!("{}{}", base, count);
+                }
+                return name;
+            }
+        }
+
+        // Otherwise, use an arbitrary name
+        let mut name = "p0".to_string();
+        let mut count = 0;
+        while names.get(&name).is_some() {
+            count += 1;
+            name = format!("p{}", count);
+        }
+        return name;
     }
 
     pub fn autoname_face(&mut self, fce: usize) {
@@ -142,33 +194,7 @@ impl VM {
             }
         }
 
-        let lbl = &self.graph.faces[fce].label.label;
-        if is_valid_name(lbl) && self.names.get(lbl).is_none() {
-            self.set_name(GraphId::Face(fce), lbl.clone());
-            return;
-        }
-
-        // If it is only an atomic name it Goal{count}
-        if let ActualEquality::Atomic(data) = self.graph.faces[fce].eq.deref() {
-            if let ActualProofObject::Existential(_) = data.pobj.deref() {
-                let mut name = "Goal0".to_string();
-                let mut count = 0;
-                while self.names.get(&name).is_some() {
-                    count += 1;
-                    name = format!("Goal{}", count);
-                }
-                self.set_name(GraphId::Face(fce), name);
-                return;
-            }
-        }
-
-        // Otherwise, use an arbitrary name
-        let mut name = "p0".to_string();
-        let mut count = 0;
-        while self.names.get(&name).is_some() {
-            count += 1;
-            name = format!("p{}", count);
-        }
+        let name = VM::name_compute_face(&mut self.ctx, &self.graph, &self.names, "Goal", fce);
         self.set_name(GraphId::Face(fce), name);
     }
 

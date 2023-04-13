@@ -111,6 +111,8 @@ impl VM {
     fn prepare_lemmas(&mut self) {
         self.lemmas.iter_mut().for_each(|lemma| {
             VM::layout(&mut lemma.pattern);
+            lemma.relabel(&self.ctx);
+            lemma.name(&mut self.ctx);
         });
     }
 
