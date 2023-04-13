@@ -61,6 +61,7 @@ pub struct VM {
     pub refinements: Vec<(u64, AnyTerm)>,
     pub lemmas: Vec<Lemma>,
     pub selected_lemma: Option<usize>,
+    pub lemma_window_open: bool,
 }
 
 impl VM {
@@ -100,6 +101,7 @@ impl VM {
             refinements: init_sigma,
             lemmas,
             selected_lemma: None,
+            lemma_window_open: false,
         };
         res.relabel();
         res.autoname();
