@@ -109,7 +109,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                         setup_pos(p),
                         egui::Align2::CENTER_CENTER,
                         label,
-                        egui::FontId::proportional(14.0 * zoom),
+                        egui::FontId::proportional(14.0),
                         stroke.color,
                     );
 
