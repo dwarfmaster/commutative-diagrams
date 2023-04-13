@@ -1,7 +1,19 @@
+use crate::ui::graph_lemma;
 use crate::vm::VM;
 use egui::Vec2;
 
 pub fn lemmas_window(ctx: &egui::Context, vm: &mut VM) {
+    if let Some(lem) = vm.selected_lemma {
+        let mut open = true;
+        egui::Window::new(vm.lemmas[lem].name.clone())
+            .id(egui::Id::new("Lemma graph"))
+            .open(&mut open)
+            .show(ctx, |ui| ui.add(graph_lemma(&mut vm.lemmas[lem])));
+        if !open {
+            vm.selected_lemma = None;
+        }
+    }
+
     egui::Window::new("Lemmas").show(ctx, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.vertical(|ui| {

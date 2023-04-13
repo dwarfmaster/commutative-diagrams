@@ -11,6 +11,7 @@ pub struct LemmaState {
     pub zoom: f32,
     pub offset: Vec2,
     pub focused: Option<GraphId>,
+    pub hovered: Option<GraphId>,
     pub selected: bool,
     pub names: HashMap<String, GraphId>,
 }
@@ -21,6 +22,7 @@ impl Default for LemmaState {
             zoom: 1.0,
             offset: Vec2::ZERO,
             focused: None,
+            hovered: None,
             selected: false,
             names: HashMap::new(),
         }
