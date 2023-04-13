@@ -99,7 +99,6 @@ impl VM {
             refinements: init_sigma,
             lemmas,
         };
-        res.renumber_edges();
         res.relabel();
         res.autoname();
         res.recompute_face_statuses();
@@ -156,16 +155,6 @@ impl VM {
         let end = self.run_until + code.len() + (if self.run_until == 0 { 0 } else { 1 });
         if let Some(ast) = self.recompile_to(end) {
             self.run(ast);
-        }
-    }
-
-    fn renumber_edges(&mut self) {
-        let mut count = 0;
-        for src in 0..self.graph.edges.len() {
-            for mph in 0..self.graph.edges[src].len() {
-                self.graph.edges[src][mph].1.id = count;
-                count += 1;
-            }
         }
     }
 
