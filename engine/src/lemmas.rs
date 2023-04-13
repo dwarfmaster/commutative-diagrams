@@ -4,15 +4,14 @@ use crate::data::{ActualFunctor, Functor};
 use crate::data::{ActualMorphism, Morphism};
 use crate::data::{ActualObject, Object};
 use crate::data::{ActualProofObject, ProofObject};
-use crate::graph::{Graph, GraphId};
-use std::collections::HashMap;
+use crate::graph::Graph;
 use std::ops::Deref;
 
-pub struct Lemma<NL, EL, FL> {
+pub struct Lemma<GR, NL, EL, FL> {
     pub name: String,
     pub pattern: Graph<NL, EL, FL>,
     pub existentials: Vec<u64>,
-    pub names: HashMap<String, GraphId>,
+    pub graphical_state: GR,
 }
 
 fn extract_atomic_exs(exs: &mut Vec<u64>, po: &ProofObject) {
@@ -131,14 +130,14 @@ fn extract_existentials<NL, EL, FL>(gr: &Graph<NL, EL, FL>) -> Vec<u64> {
     exs
 }
 
-impl<NL, EL, FL> Lemma<NL, EL, FL> {
+impl<GR: Default, NL, EL, FL> Lemma<GR, NL, EL, FL> {
     pub fn new(name: String, pattern: Graph<NL, EL, FL>) -> Self {
         let exs = extract_existentials(&pattern);
         Self {
             name,
             pattern,
             existentials: exs,
-            names: HashMap::new(),
+            graphical_state: Default::default(),
         }
     }
 }

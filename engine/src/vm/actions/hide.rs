@@ -112,6 +112,5 @@ impl VM {
                 hidden_upd(&self.graph.faces[f].label, false),
             )),
         }
-        self.layout()
     }
 }

@@ -6,6 +6,7 @@ mod graph;
 mod identify;
 mod interpreter;
 mod layout;
+mod lemmas;
 mod namer;
 mod order;
 mod parser;
@@ -15,5 +16,6 @@ mod style;
 mod vm;
 
 pub use compiler::ExecutionResult;
-pub use graph::{EdgeLabel, FaceLabel, FaceStatus, Graph, GraphParsed, Lemma, NodeLabel};
+pub use graph::{EdgeLabel, FaceLabel, FaceStatus, Graph, GraphParsed, NodeLabel};
+pub use lemmas::{Lemma, LemmaState};
 pub use vm::{CodeStyle, EndStatus, VM};
