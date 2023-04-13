@@ -242,6 +242,8 @@ fn goal_ui_system(
     mut vm: ResMut<vm::VM>,
     mut state: ResMut<State<vm::EndStatus>>,
 ) {
+    ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut());
+
     egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| ui::code(ui, vm.as_mut()));
     egui::SidePanel::right("Faces")
         .show(egui_context.ctx_mut(), |ui| ui::faces(ui, &mut vm.as_mut()));
@@ -249,8 +251,6 @@ fn goal_ui_system(
     egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
         ui.add(ui::graph_vm(&mut vm.as_mut()))
     });
-
-    ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut());
 
     match vm.end_status {
         vm::EndStatus::Success => state.set(vm::EndStatus::Success).unwrap(),
