@@ -275,6 +275,7 @@ impl VM {
                 parent: Some(fce),
                 children: Vec::new(),
                 status: FaceStatus::Goal,
+                folded: self.graph.faces[fce].label.folded,
             },
         };
         self.register_instruction(Ins::InsertFace(new_face));

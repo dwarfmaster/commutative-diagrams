@@ -1,6 +1,7 @@
+use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
+use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
-use crate::ui::graph::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
-use crate::vm::VM;
+use crate::vm::{FaceStatus, VM};
 use egui::{Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
 
@@ -84,6 +85,73 @@ impl UiGraph for VM {
         }
     }
 
+    fn faces<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
+    where
+        F: FnMut(GraphId, FaceContent<'a>, bool, FaceStyle),
+    {
+        let len = self.face_goal_order.len() + self.face_hyps_order.len();
+        for id in 0..len {
+            let fce = if id >= self.face_goal_order.len() {
+                self.face_hyps_order[id - self.face_goal_order.len()]
+            } else {
+                self.face_goal_order[id]
+            };
+
+            if self.graph.faces[fce].label.hidden {
+                continue;
+            }
+            let id = GraphId::Face(fce);
+
+            let content = FaceContent {
+                name: &self.graph.faces[fce].label.name,
+                content: &self.graph.faces[fce].label.label,
+            };
+
+            let folded = self.graph.faces[fce].label.folded;
+
+            let stroke = style.noninteractive().bg_stroke;
+            let border = match self.graph.faces[fce].label.status {
+                FaceStatus::Goal => Stroke {
+                    color: egui::Color32::GOLD,
+                    ..stroke
+                },
+                FaceStatus::Refined => Stroke {
+                    color: egui::Color32::GREEN,
+                    ..stroke
+                },
+                FaceStatus::Hypothesis => {
+                    if self.selected_face == Some(fce) {
+                        style.noninteractive().fg_stroke
+                    } else {
+                        stroke
+                    }
+                }
+            };
+            let (fill, text, sep) = if self.selected_face == Some(fce) {
+                (
+                    style.visuals.widgets.active.bg_fill,
+                    style.visuals.widgets.active.fg_stroke.color,
+                    style.noninteractive().fg_stroke,
+                )
+            } else {
+                (
+                    style.visuals.noninteractive().bg_fill,
+                    style.noninteractive().fg_stroke.color,
+                    style.noninteractive().bg_stroke,
+                )
+            };
+            let style = FaceStyle {
+                border,
+                fill,
+                sep,
+                text,
+            };
+
+            // Do the drawing
+            f(id, content, folded, style);
+        }
+    }
+
     fn zoom<'a>(&'a mut self) -> &'a mut f32 {
         &mut self.zoom
     }
@@ -96,7 +164,12 @@ impl UiGraph for VM {
         &mut self.focused_object
     }
 
+    fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
+        &mut self.graph.faces[fce].label.folded
+    }
+
     fn action(&mut self, act: Action, ui: &mut Ui) {
+        self.hovered_object = None;
         match act {
             Action::Hover(id) => {
                 self.hovered_object = Some(id);
@@ -111,12 +184,27 @@ impl UiGraph for VM {
                             let edge = &self.graph.edges[src][dst].1;
                             format!("morphism {}: {}", edge.name, edge.label)
                         }
-                        _ => panic!(),
+                        GraphId::Face(fce) => {
+                            let face = &self.graph.faces[fce].label;
+                            format!("face {}", face.name)
+                        }
                     };
                     ui.label(label)
                 });
             }
-            _ => self.hovered_object = None,
+            Action::Click(GraphId::Face(fce)) => {
+                if self.selected_face != Some(fce) {
+                    if let Some(prev) = self.selected_face {
+                        self.unshow_face(prev);
+                    }
+                    self.selected_face = Some(fce);
+                    self.show_face(fce);
+                }
+            }
+            Action::DoubleClick(GraphId::Face(fce)) => {
+                self.insert_and_run(&format!("solve {}", self.graph.faces[fce].label.name))
+            }
+            _ => (),
         }
     }
 
@@ -129,6 +217,43 @@ impl UiGraph for VM {
                     return false;
                 }
                 true
+            }
+            GraphId::Face(fce) => {
+                if self.graph.faces[fce].label.status == FaceStatus::Goal {
+                    if ui.button("Solve").clicked() {
+                        self.insert_and_run(&format!("solve {}", self.graph.faces[fce].label.name));
+                        ui.close_menu();
+                        return false;
+                    }
+                    if ui.button("Shrink").clicked() {
+                        self.insert_and_run(&format!(
+                            "shrink {}",
+                            self.graph.faces[fce].label.name
+                        ));
+                        ui.close_menu();
+                        return false;
+                    }
+                    if ui.button("Pull").clicked() {
+                        self.insert_and_run(&format!(
+                            "pull {}, *",
+                            self.graph.faces[fce].label.name
+                        ));
+                        ui.close_menu();
+                        return false;
+                    }
+                    if ui.button("Push").clicked() {
+                        self.insert_and_run(&format!(
+                            "push {}, *",
+                            self.graph.faces[fce].label.name
+                        ));
+                        ui.close_menu();
+                        return false;
+                    }
+                    true
+                } else {
+                    ui.close_menu();
+                    false
+                }
             }
             _ => {
                 ui.close_menu();

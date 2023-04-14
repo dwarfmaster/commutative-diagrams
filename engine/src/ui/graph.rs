@@ -1,3 +1,4 @@
+mod faces;
 mod graph;
 mod lemma;
 mod vm;

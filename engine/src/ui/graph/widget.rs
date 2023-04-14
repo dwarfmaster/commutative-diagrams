@@ -1,7 +1,14 @@
+use super::faces::faces_in_rect;
+use super::graph::{Action, ArrowStyle, Drawable, Modifier, UiGraph};
 use crate::graph::GraphId;
-use crate::ui::graph::graph::{Action, ArrowStyle, Drawable, Modifier, UiGraph};
-use egui::{Pos2, Vec2};
+use egui::{Pos2, Rect, Vec2};
 use std::ops::Add;
+
+// Keep max
+fn set_width_right(mut r: Rect, w: f32) -> Rect {
+    r.set_left(r.right() - w);
+    r
+}
 
 fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
     // We fill all the available space
@@ -158,6 +165,20 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                 }
             }
         });
+
+        // Faces
+        let faces_rect = set_width_right(rect.shrink(10.0), 210.0_f32.min(rect.width() / 2.0));
+        painter.rect(faces_rect, 3.0, visuals.bg_fill, visuals.bg_stroke);
+        let faces_rect = faces_rect.shrink(5.0);
+        faces_in_rect(
+            ui,
+            painter.with_clip_rect(faces_rect),
+            faces_rect,
+            gr,
+            pointer_pos,
+            &mut closest_object,
+            &mut closest_distance,
+        );
 
         // Notify graph of actions
         if closest_distance < 20.0 * zoom {

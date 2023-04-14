@@ -116,6 +116,7 @@ impl VM {
                 label_source: self.graph.faces[fce].label.label_source,
                 hidden: false,
                 status: FaceStatus::Goal,
+                folded: self.graph.faces[fce].label.folded,
             },
         };
         assert!(face.check(&self.ctx, &self.graph));

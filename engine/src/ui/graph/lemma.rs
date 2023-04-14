@@ -1,5 +1,6 @@
+use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
+use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
-use crate::ui::graph::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use crate::vm::Lemma;
 use egui::{Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
@@ -79,6 +80,30 @@ impl UiGraph for Lemma {
         }
     }
 
+    fn faces<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
+    where
+        F: FnMut(GraphId, FaceContent<'a>, bool, FaceStyle),
+    {
+        for fce in 0..self.pattern.faces.len() {
+            // There won't be any hidden
+            let id = GraphId::Face(fce);
+            let content = FaceContent {
+                name: &self.pattern.faces[fce].label.name,
+                content: &self.pattern.faces[fce].label.label,
+            };
+            let folded = self.pattern.faces[fce].label.folded;
+
+            let style = FaceStyle {
+                border: style.noninteractive().bg_stroke,
+                sep: style.noninteractive().bg_stroke,
+                fill: style.noninteractive().bg_fill,
+                text: style.noninteractive().fg_stroke.color,
+            };
+
+            f(id, content, folded, style);
+        }
+    }
+
     fn zoom<'a>(&'a mut self) -> &'a mut f32 {
         &mut self.graphical_state.zoom
     }
@@ -102,5 +127,9 @@ impl UiGraph for Lemma {
     fn context_menu(&mut self, _on: GraphId, ui: &mut Ui) -> bool {
         ui.close_menu();
         false
+    }
+
+    fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
+        &mut self.pattern.faces[fce].label.folded
     }
 }
