@@ -249,11 +249,21 @@ impl UiGraph for VM {
                         ui.close_menu();
                         return false;
                     }
-                    true
-                } else {
-                    ui.close_menu();
-                    false
                 }
+                if self.graph.faces[fce].label.folded {
+                    if ui.button("Show term").clicked() {
+                        self.graph.faces[fce].label.folded = false;
+                        ui.close_menu();
+                        return false;
+                    }
+                } else {
+                    if ui.button("Hide term").clicked() {
+                        self.graph.faces[fce].label.folded = true;
+                        ui.close_menu();
+                        return false;
+                    }
+                }
+                true
             }
             _ => {
                 ui.close_menu();

@@ -124,9 +124,26 @@ impl UiGraph for Lemma {
     }
 
     // No menu
-    fn context_menu(&mut self, _on: GraphId, ui: &mut Ui) -> bool {
-        ui.close_menu();
-        false
+    fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool {
+        if let GraphId::Face(fce) = on {
+            if self.pattern.faces[fce].label.folded {
+                if ui.button("Show term").clicked() {
+                    self.pattern.faces[fce].label.folded = false;
+                    ui.close_menu();
+                    return false;
+                }
+            } else {
+                if ui.button("Hide term").clicked() {
+                    self.pattern.faces[fce].label.folded = true;
+                    ui.close_menu();
+                    return false;
+                }
+            }
+            true
+        } else {
+            ui.close_menu();
+            false
+        }
     }
 
     fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
