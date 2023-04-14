@@ -249,6 +249,7 @@ fn goal_ui_system(
         .show(egui_context.ctx_mut(), |ui| ui::faces(ui, &mut vm.as_mut()));
 
     egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
+        ui::toolbar(ui, &mut vm.as_mut());
         ui.add(ui::graph_vm(&mut vm.as_mut()))
     });
 
