@@ -90,9 +90,6 @@ pub fn code(ui: &mut egui::Ui, vm: &mut vm::VM) {
                 log::debug!("Recompiling");
                 vm.recompile();
             }
-            if ui.add(egui::Button::new("Lemmas")).clicked() {
-                vm.lemma_window_open = true;
-            }
         });
     });
 }
