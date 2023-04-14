@@ -161,10 +161,10 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
 
         // Notify graph of actions
         if closest_distance < 20.0 * zoom {
-            if response.clicked() {
-                gr.action(Action::Click(closest_object), ui);
-            } else if response.double_clicked() {
+            if response.double_clicked() {
                 gr.action(Action::DoubleClick(closest_object), ui);
+            } else if response.clicked() {
+                gr.action(Action::Click(closest_object), ui);
             } else if response.hovered() {
                 gr.action(Action::Hover(closest_object), ui);
             } else {
