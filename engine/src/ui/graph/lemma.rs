@@ -93,11 +93,20 @@ impl UiGraph for Lemma {
             };
             let folded = self.pattern.faces[fce].label.folded;
 
-            let style = FaceStyle {
-                border: style.noninteractive().bg_stroke,
-                sep: style.noninteractive().bg_stroke,
-                fill: style.noninteractive().bg_fill,
-                text: style.noninteractive().fg_stroke.color,
+            let style = if self.graphical_state.selected_face == Some(fce) {
+                FaceStyle {
+                    border: style.noninteractive().fg_stroke,
+                    sep: style.noninteractive().fg_stroke,
+                    fill: style.visuals.widgets.active.bg_fill,
+                    text: style.visuals.widgets.active.fg_stroke.color,
+                }
+            } else {
+                FaceStyle {
+                    border: style.noninteractive().bg_stroke,
+                    sep: style.noninteractive().bg_stroke,
+                    fill: style.noninteractive().bg_fill,
+                    text: style.noninteractive().fg_stroke.color,
+                }
             };
 
             f(id, content, folded, style);
@@ -117,9 +126,19 @@ impl UiGraph for Lemma {
     }
 
     fn action(&mut self, act: Action, _ui: &mut Ui) {
+        self.graphical_state.hovered = None;
         match act {
             Action::Hover(id) => self.graphical_state.hovered = Some(id),
-            _ => self.graphical_state.hovered = None,
+            Action::Click(GraphId::Face(fce)) => {
+                if self.graphical_state.selected_face != Some(fce) {
+                    if let Some(prev) = self.graphical_state.selected_face {
+                        self.unshow_face(prev)
+                    }
+                    self.graphical_state.selected_face = Some(fce);
+                    self.show_face(fce);
+                }
+            }
+            _ => (),
         }
     }
 

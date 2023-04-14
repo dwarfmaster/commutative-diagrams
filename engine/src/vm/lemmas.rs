@@ -12,6 +12,7 @@ pub struct LemmaState {
     pub offset: Vec2,
     pub focused: Option<GraphId>,
     pub hovered: Option<GraphId>,
+    pub selected_face: Option<usize>,
     pub selected: bool,
     pub names: HashMap<String, GraphId>,
 }
@@ -23,6 +24,7 @@ impl Default for LemmaState {
             offset: Vec2::ZERO,
             focused: None,
             hovered: None,
+            selected_face: None,
             selected: false,
             names: HashMap::new(),
         }
@@ -67,5 +69,13 @@ impl Lemma {
             self.pattern.faces[fce].label.name =
                 VM::name_compute_face(ctx, &self.pattern, &self.graphical_state.names, "Lem", fce);
         }
+    }
+
+    pub fn show_face(&mut self, fce: usize) {
+        VM::show_face_impl(&mut self.pattern, fce);
+    }
+
+    pub fn unshow_face(&mut self, fce: usize) {
+        VM::unshow_face_impl(&mut self.pattern, fce);
     }
 }

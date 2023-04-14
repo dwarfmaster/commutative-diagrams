@@ -1,6 +1,6 @@
 use crate::data::Morphism;
 use crate::vm::graph::EdgeLabel;
-use crate::vm::VM;
+use crate::vm::{Graph, VM};
 
 fn on_path<F>(
     edges: &mut Vec<Vec<(usize, EdgeLabel, Morphism)>>,
@@ -18,41 +18,49 @@ fn on_path<F>(
 }
 
 impl VM {
-    pub fn show_face(&mut self, fce: usize) {
+    pub fn show_face_impl(graph: &mut Graph, fce: usize) {
         on_path(
-            &mut self.graph.edges,
-            self.graph.faces[fce].start,
-            &self.graph.faces[fce].left,
+            &mut graph.edges,
+            graph.faces[fce].start,
+            &graph.faces[fce].left,
             |lbl| {
                 lbl.style.left = true;
             },
         );
         on_path(
-            &mut self.graph.edges,
-            self.graph.faces[fce].start,
-            &self.graph.faces[fce].right,
+            &mut graph.edges,
+            graph.faces[fce].start,
+            &graph.faces[fce].right,
             |lbl| {
                 lbl.style.right = true;
             },
         );
     }
 
-    pub fn unshow_face(&mut self, fce: usize) {
+    pub fn show_face(&mut self, fce: usize) {
+        VM::show_face_impl(&mut self.graph, fce);
+    }
+
+    pub fn unshow_face_impl(graph: &mut Graph, fce: usize) {
         on_path(
-            &mut self.graph.edges,
-            self.graph.faces[fce].start,
-            &self.graph.faces[fce].left,
+            &mut graph.edges,
+            graph.faces[fce].start,
+            &graph.faces[fce].left,
             |lbl| {
                 lbl.style.left = false;
             },
         );
         on_path(
-            &mut self.graph.edges,
-            self.graph.faces[fce].start,
-            &self.graph.faces[fce].right,
+            &mut graph.edges,
+            graph.faces[fce].start,
+            &graph.faces[fce].right,
             |lbl| {
                 lbl.style.right = false;
             },
         );
+    }
+
+    pub fn unshow_face(&mut self, fce: usize) {
+        VM::unshow_face_impl(&mut self.graph, fce);
     }
 }
