@@ -28,9 +28,6 @@ type remote =
   ; goal: goal
   }
 
-(* TODO find a better way to discover it, instead of hardcoding the path *)
-let engine_path = "/home/luc/repos/coq-commutative-diagrams/engine/target/debug/commutative-diagrams-engine"
-
 let start_remote (goal : goal) : remote m =
   let args =
     match goal with
@@ -45,6 +42,7 @@ let start_remote (goal : goal) : remote m =
     | GSolve (level,_,_,_) -> [ "embed"; Printf.sprintf "--autosolve=%d" level ]
     in
   let (stdout,stdin,stderr) =
+    let engine_path = Sys.getenv "COMDIAG_ENGINE" in
     Unix.open_process_args_full
       engine_path
       (Array.of_list ("commutative-diagrams-engine" :: args))
