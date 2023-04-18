@@ -1,48 +1,24 @@
-# Commutative Diagrams
+# Commutative Diagrams Interface
 
-This is a coq plugin that tries to automate the *left to the reader* part of
-diagrammatic proofs. It is capable of reasoning up to associativity, unitality,
-inverse of isomorphisms, and can handle monomorphisms and epimorphisms.
+This is a coq plugin that allows a user to do the diagrammatic reasonnings
+parts of categoretical proofs in a graphical manner. When the goal is an
+equality between morphisms, the tactic `diagram server` open an interface
+displaying the goal as a graph, allowing to manipulate it from the interface.
 
-For now it only works with the *HoTT* category library, but could easily be
-ported to any category library in Coq.
+## How to run
 
-# Installation
+For now it isn't packaged. If you want to build it yourself, the supported way
+is to use [nix
+flakes](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-flake.html).
+Once you have nix installed with flakes enabled, you can simply run `nix
+develop .` in the repo to get into a shell with all the tooling installed
+(included the supported coq version and the corresponding ocaml version). From
+there you can build the interface by running `cargo build` in the `engine`
+directory, and the plugin by running `dune build` in the `coq` directory.
 
-A `flake.nix` file is provided for nix users. The plugin is also available on
-opam as `coq-commutative-diagrams`.
+If you try to run the coq files, be aware the plugin finds the engine by
+looking into the `COMDIAG_ENGINE` environment variable, which should be an
+absolute path to the built engine. If built with cargo as described above, you
+will find the executable at the path
+`engine/target/debug/commutative-diagrams-engine` from the root of the repo.
 
-# Usage
-
-`CommutativeDiagrams.Loader` must be imported. It then exposes 3 main tactis:
-
-- `diagram print "name"` will create a file name `name` in the current
-  directory containing a graphviz representation of the hypothesis. In other
-  words this generates a drawing of the diagram implicitely present in the
-  hypotheses.
-- `diagram solve [n]` will solve the current goal if it is an equality between
-  morphisms that can be deduced from simple diagrammatic manipulation of the
-  equalities in the context. Since this is in general undecidable, we use some
-  heuristic. You can increase the integer argument if you believe it should be
-  able to solve your goal. The integer should be greater than the longest chain
-  of morphisms in the reasonning for the equality.
-- `diagram norm` will normalise a goal that consists of an equality of
-  morphisms. That is to say it will remove identities, compositions of inverses,
-  and rewrite associativity to the right. For now, to use it, you need to type
-  `unshelve (diagram norm); reify`, but hopefully this will be fixed.
-
-# Features/TODO-list
-
-- [X] Composition
-- [X] Associativity
-- [X] Unitality
-- [X] Monomorphisms
-- [X] Epimorphisms
-- [X] Isomorphisms
-- [ ] Compostion under inverses
-- [ ] Functors
-- [ ] Natural transformations
-- [ ] Equality of objects
-- [ ] Products and coproducts of categories
-- [ ] Monoidal categories
-- [ ] Dual categories
