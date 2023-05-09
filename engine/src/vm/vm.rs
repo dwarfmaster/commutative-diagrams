@@ -37,11 +37,13 @@ pub enum CodeStyle {
 
 pub trait Interactive {
     fn compile(self) -> String;
+    fn terminate(self);
 }
 impl Interactive for () {
     fn compile(self) -> String {
         "".to_string()
     }
+    fn terminate(self) {}
 }
 
 #[derive(Resource)]

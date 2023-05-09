@@ -209,9 +209,21 @@ impl<I: Interactive + Sync + Send> VM<I> {
         result
     }
 
+    fn clear_interactive(&mut self) {
+        if let Some(act) = self.current_action.take() {
+            act.terminate();
+            // Undo partial execution of the action
+            let last_act = self.ast.last().map(|act| act.asm.end).unwrap_or(0);
+            while self.instructions.len() > last_act {
+                self.pop_instruction();
+            }
+        }
+    }
+
     pub fn run(&mut self, ast: ast::AST) {
         use ExecutionResult::*;
         self.initialize_execution();
+        self.clear_interactive();
         for a in ast {
             match self.execute(a) {
                 Success => self.end_status = EndStatus::Success,
@@ -261,6 +273,7 @@ impl<I: Interactive + Sync + Send> VM<I> {
         // Undo all these actions and remove them from the ast
         let tail = self.ast.split_off(first_modified);
         self.initialize_execution();
+        self.clear_interactive();
         for act in tail.iter().rev() {
             for _ in act.asm.clone() {
                 self.pop_instruction();
