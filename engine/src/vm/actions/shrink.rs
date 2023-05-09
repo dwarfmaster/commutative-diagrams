@@ -7,7 +7,7 @@ use crate::normalize;
 use crate::unification::{unify, UnifOpts};
 use crate::vm::graph::LabelSource;
 use crate::vm::graph::{FaceLabel, FaceStatus};
-use crate::vm::VM;
+use crate::vm::{Interactive, VM};
 use std::collections::HashSet;
 
 // TODO Fix when one of the sides is not normalised
@@ -20,7 +20,7 @@ use std::collections::HashSet;
 
 type Ins = crate::vm::asm::Instruction;
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     // Given an equality between left and right, and a morphism common with the
     // same destination as the source of the equality, we construct an equaltiy
     // between common > left(eq) and common > right(eq) normalised.

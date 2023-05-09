@@ -7,9 +7,9 @@ use crate::graph::GraphId;
 use crate::substitution::Substitutable;
 use crate::unification::{unify, UnifOpts, UnifState};
 use crate::vm::ast::{Annot, Id, TermDescr};
-use crate::vm::VM;
+use crate::vm::{Interactive, VM};
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     fn realize_descr_as_cat(
         &mut self,
         _unif: &mut UnifState,
@@ -505,7 +505,7 @@ mod tests {
             edges: vec![vec![]],
             faces: vec![],
         };
-        let mut vm = VM::new(ctx, gr, Vec::new(), Vec::new());
+        let mut vm = VM::<()>::new(ctx, gr, Vec::new(), Vec::new());
 
         let descr = TermDescr::Ref(Annot {
             value: Id::Id(0),
@@ -545,7 +545,7 @@ mod tests {
             edges: vec![vec![], vec![]],
             faces: vec![],
         };
-        let mut vm = VM::new(ctx, gr, Vec::new(), Vec::new());
+        let mut vm = VM::<()>::new(ctx, gr, Vec::new(), Vec::new());
 
         let annot = |v: Id| -> Annot<Id> {
             Annot {

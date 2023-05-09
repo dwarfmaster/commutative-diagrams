@@ -1,4 +1,4 @@
-use crate::vm::VM;
+use crate::ui::VM;
 use egui::menu;
 
 pub fn toolbar(ui: &mut egui::Ui, vm: &mut VM) {

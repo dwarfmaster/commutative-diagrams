@@ -35,12 +35,29 @@ pub enum CodeStyle {
     None,
 }
 
+pub trait Interactive {
+    fn compile(self) -> String;
+}
+impl Interactive for () {
+    fn compile(self) -> String {
+        "".to_string()
+    }
+}
+
 #[derive(Resource)]
-pub struct VM {
+pub struct VM<I: Interactive + Sync + Send> {
     pub ctx: Context,
     pub prev_code: String,
     pub code: String,
     pub ast: Vec<Action>,
+    // Used to handle partial action execution. Indeed, some actions executions
+    // are interactive, and as such can be in a state of being partially
+    // executed in the interface. If any other action is run, this one must be
+    // rolled back. The interaction may emit instructions. On successfull
+    // application, it becomes an action and it is assumed the instructions
+    // emitted interactively have the same resulting effect as if it was
+    // executed at once.
+    pub current_action: Option<I>,
     pub instructions: Vec<asm::Instruction>,
     pub run_until: usize, // In bytes
     pub eval_status: interpreter::InterpreterStatus,
@@ -64,7 +81,7 @@ pub struct VM {
     pub lemma_window_open: bool,
 }
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     pub fn new(
         ctx: Context,
         gd: Graph,
@@ -80,6 +97,7 @@ impl VM {
             prev_code: String::new(),
             code: String::new(),
             ast: Vec::new(),
+            current_action: None,
             instructions: Vec::new(),
             eval_status: interpreter::InterpreterStatus::new(),
             names: HashMap::new(),
@@ -107,14 +125,14 @@ impl VM {
         res.autoname();
         res.recompute_face_statuses();
         res.init_face_order();
-        VM::layout(&mut res.graph);
+        Self::layout(&mut res.graph);
         res.prepare_lemmas();
         res
     }
 
     fn prepare_lemmas(&mut self) {
         self.lemmas.iter_mut().for_each(|lemma| {
-            VM::layout(&mut lemma.pattern);
+            Self::layout(&mut lemma.pattern);
             lemma.relabel(&self.ctx);
             lemma.name(&mut self.ctx);
         });

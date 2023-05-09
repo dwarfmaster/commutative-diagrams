@@ -1,7 +1,7 @@
 use crate::graph::GraphId;
 use crate::vm::asm;
 use crate::vm::graph::{EdgeLabel, FaceLabel, NodeLabel};
-use crate::vm::VM;
+use crate::vm::{Interactive, VM};
 
 type Ins = asm::Instruction;
 
@@ -39,7 +39,7 @@ fn hidden_upd<T: HasHidden + Clone>(val: &T, new: bool) -> asm::Updater<T> {
     }
 }
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     fn hide_node(&mut self, id: usize) {
         if self.graph.nodes[id].1.hidden {
             return;

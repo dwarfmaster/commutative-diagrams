@@ -1,7 +1,7 @@
 use crate::data::{ActualEquality, ActualProofObject, Context};
 use crate::graph::GraphId;
 use crate::vm::graph::Graph;
-use crate::vm::vm::VM;
+use crate::vm::vm::{Interactive, VM};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, alphanumeric1};
@@ -26,7 +26,7 @@ fn is_valid_name(name: &String) -> bool {
     valid_name(name).is_ok()
 }
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     // Set name without any checks, assuming the previous name is empty
     pub fn set_name(&mut self, id: GraphId, name: String) {
         use GraphId::*;
@@ -101,7 +101,7 @@ impl VM {
 
     pub fn autoname_node(&mut self, nd: usize) {
         assert!(self.graph.nodes[nd].1.name.is_empty());
-        let name = VM::name_compute_node(&mut self.ctx, &self.graph, &self.names, nd);
+        let name = Self::name_compute_node(&mut self.ctx, &self.graph, &self.names, nd);
         self.set_name(GraphId::Node(nd), name.clone());
     }
 
@@ -141,7 +141,7 @@ impl VM {
 
     pub fn autoname_morphism(&mut self, src: usize, mph: usize) {
         assert!(self.graph.edges[src][mph].1.name.is_empty());
-        let name = VM::name_compute_morphism(&mut self.ctx, &self.graph, &self.names, src, mph);
+        let name = Self::name_compute_morphism(&mut self.ctx, &self.graph, &self.names, src, mph);
         self.set_name(GraphId::Morphism(src, mph), name);
     }
 
@@ -194,7 +194,7 @@ impl VM {
             }
         }
 
-        let name = VM::name_compute_face(&mut self.ctx, &self.graph, &self.names, "Goal", fce);
+        let name = Self::name_compute_face(&mut self.ctx, &self.graph, &self.names, "Goal", fce);
         self.set_name(GraphId::Face(fce), name);
     }
 

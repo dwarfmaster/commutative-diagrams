@@ -1,11 +1,11 @@
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
-use crate::vm::{FaceStatus, VM};
+use crate::vm::{FaceStatus, Interactive, VM};
 use egui::{Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
 
-impl UiGraph for VM {
+impl<I: Interactive + Sync + Send> UiGraph for VM<I> {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
         F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId),

@@ -18,4 +18,4 @@ mod vm;
 pub use compiler::ExecutionResult;
 pub use graph::{EdgeLabel, FaceLabel, FaceStatus, Graph, GraphParsed, NodeLabel};
 pub use lemmas::{Lemma, LemmaState};
-pub use vm::{CodeStyle, EndStatus, VM};
+pub use vm::{CodeStyle, EndStatus, Interactive, VM};

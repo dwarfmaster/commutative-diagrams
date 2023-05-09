@@ -1,7 +1,7 @@
 use crate::autofill::solve;
-use crate::vm::VM;
+use crate::vm::{Interactive, VM};
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     // Returns true if it succeeded in solving the face
     pub fn solve_face(&mut self, fce: usize, max_size: usize) -> bool {
         let mut mask = vec![true; self.graph.faces.len()];

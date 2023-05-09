@@ -4,7 +4,8 @@ mod lemma;
 mod vm;
 mod widget;
 
-use crate::vm::{Lemma, VM};
+use crate::ui::VM;
+use crate::vm::Lemma;
 
 pub fn graph_vm<'a>(vm: &'a mut VM) -> impl egui::Widget + 'a {
     widget::graph(vm)

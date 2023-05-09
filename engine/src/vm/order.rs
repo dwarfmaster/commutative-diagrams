@@ -1,5 +1,5 @@
 use crate::vm::FaceStatus;
-use crate::vm::VM;
+use crate::vm::{Interactive, VM};
 use std::cmp::Ordering;
 
 fn cmp_status(st1: FaceStatus, st2: FaceStatus) -> Ordering {
@@ -12,7 +12,7 @@ fn cmp_status(st1: FaceStatus, st2: FaceStatus) -> Ordering {
     }
 }
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     pub fn init_face_order(&mut self) {
         let mut faces_ids = (0..self.graph.faces.len()).collect::<Vec<_>>();
         faces_ids.sort_by(|id1, id2| {

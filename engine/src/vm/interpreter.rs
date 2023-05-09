@@ -1,6 +1,6 @@
 use crate::graph::GraphId;
 use crate::vm::asm::Instruction;
-use crate::vm::VM;
+use crate::vm::{Interactive, VM};
 
 pub struct InterpreterStatus {
     should_relayout: bool,
@@ -14,7 +14,7 @@ impl InterpreterStatus {
     }
 }
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     // Execute the instruction and register it in the vm
     pub fn register_instruction(&mut self, ins: Instruction) {
         self.execute_instruction(&ins);
@@ -40,7 +40,7 @@ impl VM {
     // and prepare the vm for display
     pub fn finalize_execution(&mut self) {
         if self.eval_status.should_relayout {
-            VM::layout(&mut self.graph);
+            Self::layout(&mut self.graph);
         }
         if let Some(face) = self.selected_face {
             self.show_face(face)

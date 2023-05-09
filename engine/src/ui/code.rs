@@ -1,7 +1,8 @@
+use crate::ui::VM;
 use crate::vm;
 use itertools::Itertools;
 
-pub fn code(ui: &mut egui::Ui, vm: &mut vm::VM) {
+pub fn code(ui: &mut egui::Ui, vm: &mut VM) {
     let format_none = egui::TextFormat {
         font_id: egui::FontId::monospace(14.0),
         color: ui.style().noninteractive().fg_stroke.color,

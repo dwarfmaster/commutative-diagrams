@@ -2,7 +2,7 @@ use crate::graph::GraphId;
 use crate::vm::ast;
 use crate::vm::ast::Action;
 use crate::vm::vm;
-use crate::vm::{CodeStyle, EndStatus, VM};
+use crate::vm::{CodeStyle, EndStatus, Interactive, VM};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ExecutionResult {
@@ -12,7 +12,7 @@ pub enum ExecutionResult {
     Unfinished,
 }
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     fn execute(&mut self, act: ast::Annot<ast::Action>) -> ExecutionResult {
         use Action::*;
         use ExecutionResult::*;

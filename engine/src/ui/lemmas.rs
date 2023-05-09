@@ -1,5 +1,4 @@
-use crate::ui::graph_lemma;
-use crate::vm::VM;
+use crate::ui::{graph_lemma, VM};
 use egui::Vec2;
 
 pub fn lemmas_window(ctx: &egui::Context, vm: &mut VM) {

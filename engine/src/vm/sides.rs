@@ -1,6 +1,6 @@
 use crate::data::Morphism;
 use crate::vm::graph::EdgeLabel;
-use crate::vm::{Graph, VM};
+use crate::vm::{Graph, Interactive, VM};
 
 fn on_path<F>(
     edges: &mut Vec<Vec<(usize, EdgeLabel, Morphism)>>,
@@ -17,7 +17,7 @@ fn on_path<F>(
     }
 }
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     pub fn show_face_impl(graph: &mut Graph, fce: usize) {
         on_path(
             &mut graph.edges,
@@ -38,7 +38,7 @@ impl VM {
     }
 
     pub fn show_face(&mut self, fce: usize) {
-        VM::show_face_impl(&mut self.graph, fce);
+        Self::show_face_impl(&mut self.graph, fce);
     }
 
     pub fn unshow_face_impl(graph: &mut Graph, fce: usize) {
@@ -61,6 +61,6 @@ impl VM {
     }
 
     pub fn unshow_face(&mut self, fce: usize) {
-        VM::unshow_face_impl(&mut self.graph, fce);
+        Self::unshow_face_impl(&mut self.graph, fce);
     }
 }

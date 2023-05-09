@@ -1,6 +1,6 @@
 use crate::vm::asm;
 use crate::vm::graph::{EdgeLabel, FaceLabel, LabelSource, NodeLabel};
-use crate::vm::VM;
+use crate::vm::{Interactive, VM};
 use hashconsing::HConsed;
 
 type Ins = asm::Instruction;
@@ -59,7 +59,7 @@ fn label_upd<Label: HasLabel>(uid: u64, label: &Label, text: String) -> asm::Upd
     }
 }
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     pub fn relabel(&mut self) {
         for id in 0..self.graph.nodes.len() {
             let (nd, lbl) = &self.graph.nodes[id];

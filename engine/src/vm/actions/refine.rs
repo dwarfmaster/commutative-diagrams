@@ -5,12 +5,12 @@ use crate::graph::{Face, GraphId};
 use crate::substitution::{Substitutable, Substitution};
 use crate::unification::{unify, UnifOpts};
 use crate::vm::graph::{FaceLabel, FaceStatus};
-use crate::vm::VM;
+use crate::vm::{Interactive, VM};
 use std::collections::HashSet;
 
 type Ins = crate::vm::asm::Instruction;
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     // Substitute sigma in the graph, and add it to the refinements
     pub fn refine(&mut self, sigma: Substitution) {
         // Substitute nodes

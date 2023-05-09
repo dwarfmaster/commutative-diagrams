@@ -1,14 +1,14 @@
 // Render to graphviz using unique identifiers as labels, export to json, read
 // json, and use it to layout the graph
 
-use crate::vm::{Graph, VM};
+use crate::vm::{Graph, Interactive, VM};
 use egui::Pos2;
 
 use itertools::Itertools;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     pub fn layout(graph: &mut Graph) {
         // Spawn the  graphviz process
         log::trace!("Spawning graphviz");

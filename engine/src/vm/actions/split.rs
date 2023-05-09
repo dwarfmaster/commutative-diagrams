@@ -2,12 +2,12 @@ use crate::data::{ActualEquality, ActualMorphism, Morphism};
 use crate::graph::{Face, GraphId};
 use crate::normalize;
 use crate::vm::asm;
-use crate::vm::VM;
+use crate::vm::{Interactive, VM};
 use std::ops::Deref;
 
 type Ins = asm::Instruction;
 
-impl VM {
+impl<I: Interactive + Sync + Send> VM<I> {
     pub fn split(&mut self, src: usize, mph: usize) {
         if let Some(fce) = self.split_norm(src, mph) {
             self.extend_face_in_eqs(fce);
@@ -265,7 +265,7 @@ mod tests {
             edges: vec![vec![(1, Default::default(), m)], vec![]],
             faces: vec![],
         };
-        let mut vm = VM::new(ctx, gr, Vec::new(), Vec::new());
+        let mut vm = VM::<()>::new(ctx, gr, Vec::new(), Vec::new());
         vm.split(0, 0);
 
         assert!(vm.graph.check(&vm.ctx), "Graph is not valid after split");
@@ -305,7 +305,7 @@ mod tests {
             edges: vec![vec![(1, Default::default(), m)], vec![]],
             faces: vec![],
         };
-        let mut vm = VM::new(ctx, gr, Vec::new(), Vec::new());
+        let mut vm = VM::<()>::new(ctx, gr, Vec::new(), Vec::new());
         vm.split_norm(0, 0);
 
         assert!(vm.graph.check(&vm.ctx), "Graph is not valid after split");
