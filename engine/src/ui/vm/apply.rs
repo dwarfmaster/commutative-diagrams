@@ -1,8 +1,12 @@
+use crate::anyterm::IsTerm;
+use crate::data;
 use crate::graph::{Graph, GraphId};
+use crate::substitution::SubstitutableInPlace;
 use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
 use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
 use crate::ui::graph::widget;
 use crate::ui::VM;
+use crate::unification::unify;
 use crate::vm::{EdgeLabel, FaceLabel, NodeLabel};
 use egui::{Context, Stroke, Style, Ui, Vec2};
 use std::collections::HashMap;
@@ -27,6 +31,7 @@ pub struct LemmaApplicationState {
 
     // Action state
     selected: Option<AppId>,
+    error_msg: Option<String>,
 
     // Graphical state
     zoom: f32,
@@ -57,6 +62,7 @@ impl LemmaApplicationState {
             graph: vm.lemmas[lemma].pattern.clone(),
             direct_mapping: HashMap::new(),
             selected: None,
+            error_msg: None,
             reverse_mapping: HashMap::new(),
             zoom: 1.0,
             offset: Vec2::ZERO,
@@ -66,6 +72,23 @@ impl LemmaApplicationState {
     }
 
     pub fn display(&mut self, vm: &mut VM, ui: &Context) -> bool {
+        // Display error message in window
+        if let Some(errmsg) = &mut self.error_msg {
+            let mut open = true;
+            egui::Window::new("Error!")
+                .id(egui::Id::new("Apply Lemma Error"))
+                .open(&mut open)
+                .show(ui, |ui| {
+                    egui::TextEdit::multiline(errmsg)
+                        .interactive(false)
+                        .show(ui);
+                });
+            if !open {
+                self.error_msg = None;
+            }
+        }
+
+        // Display window with graph
         let mut open = true;
         let mut should_close = false;
         let mut state = DisplayState { apply: self, vm };
@@ -76,24 +99,25 @@ impl LemmaApplicationState {
         .id(egui::Id::new("Apply lemma"))
         .open(&mut open)
         .show(ui, |ui| {
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
-                ui.allocate_ui_with_layout(
-                    Vec2::new(100.0, 40.0),
-                    egui::Layout::right_to_left(egui::Align::Center),
-                    |ui| {
-                        if ui.button("Apply").clicked() {
-                            should_close = true;
-                            // TODO commit
-                        };
-                        if ui.button("Cancel").clicked() {
-                            should_close = true;
-                        }
-                    },
-                );
-                ui.add(widget::graph(&mut state))
+            ui.add_enabled_ui(state.apply.error_msg.is_none(), |ui| {
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
+                    ui.allocate_ui_with_layout(
+                        Vec2::new(100.0, 40.0),
+                        egui::Layout::right_to_left(egui::Align::Center),
+                        |ui| {
+                            if ui.button("Apply").clicked() {
+                                should_close = true;
+                                // TODO commit
+                            };
+                            if ui.button("Cancel").clicked() {
+                                should_close = true;
+                            }
+                        },
+                    );
+                    ui.add(widget::graph(&mut state))
+                })
             })
         });
-
         open && !should_close
     }
 
@@ -153,8 +177,102 @@ impl LemmaApplicationState {
         VM::unshow_face_impl(&mut self.graph, fce);
     }
 
+    fn relabel(&mut self, ctx: &data::Context) {
+        for nd in 0..self.graph.nodes.len() {
+            self.graph.nodes[nd].1.label = self.graph.nodes[nd].0.render(ctx, 100);
+        }
+        for src in 0..self.graph.nodes.len() {
+            for mph in 0..self.graph.edges[src].len() {
+                self.graph.edges[src][mph].1.label = self.graph.edges[src][mph].2.render(ctx, 100);
+            }
+        }
+        for fce in 0..self.graph.faces.len() {
+            self.graph.faces[fce].label.label = self.graph.faces[fce].eq.render(ctx, 100);
+        }
+    }
+
+    fn match_connect(&mut self, lem: GraphId, goal: GraphId) {
+        if self
+            .direct_mapping
+            .get(&lem)
+            .map(|v| v.contains(&goal))
+            .unwrap_or(false)
+        {
+            return;
+        }
+        self.direct_mapping.entry(lem).or_default().push(goal);
+        self.reverse_mapping.entry(goal).or_default().push(lem);
+    }
+
+    fn match_sides(&mut self, vm: &VM, lem: GraphId, goal: GraphId) {
+        // No unification is needed at that step
+        use GraphId::*;
+        match (lem, goal) {
+            (Node(_), Node(_)) => (),
+            (Morphism(lsrc, lmph), Morphism(gsrc, gmph)) => {
+                self.match_connect(Node(lsrc), Node(gsrc));
+                let ldst = self.graph.edges[lsrc][lmph].0;
+                let gdst = vm.graph.edges[gsrc][gmph].0;
+                self.match_connect(Node(ldst), Node(gdst));
+            }
+            (Face(lfce), Face(gfce)) => {
+                let gface = &vm.graph.faces[gfce];
+                // Connect source and destination
+                self.match_connect(Node(self.graph.faces[lfce].start), Node(gface.start));
+                self.match_connect(Node(self.graph.faces[lfce].end), Node(gface.end));
+                // Connect left side
+                let mut lsrc = self.graph.faces[lfce].start;
+                let mut gsrc = gface.start;
+                for nxt in 0..self.graph.faces[lfce].left.len().min(gface.left.len()) {
+                    self.match_connect(Node(lsrc), Node(gsrc));
+                    let lmph = self.graph.faces[lfce].left[nxt];
+                    let gmph = gface.left[nxt];
+                    self.match_connect(Morphism(lsrc, lmph), Morphism(gsrc, gmph));
+                    lsrc = self.graph.edges[lsrc][lmph].0;
+                    gsrc = vm.graph.edges[gsrc][gmph].0;
+                }
+                // Connect right side
+                let mut lsrc = self.graph.faces[lfce].start;
+                let mut gsrc = gface.start;
+                for nxt in 0..self.graph.faces[lfce].right.len().min(gface.right.len()) {
+                    self.match_connect(Node(lsrc), Node(gsrc));
+                    let lmph = self.graph.faces[lfce].right[nxt];
+                    let gmph = gface.right[nxt];
+                    self.match_connect(Morphism(lsrc, lmph), Morphism(gsrc, gmph));
+                    lsrc = self.graph.edges[lsrc][lmph].0;
+                    gsrc = vm.graph.edges[gsrc][gmph].0;
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
     fn do_match(&mut self, vm: &mut VM, lem: GraphId, goal: GraphId) {
-        // TODO
+        use GraphId::*;
+        let term1 = match lem {
+            Node(nd) => self.graph.nodes[nd].0.clone().term(),
+            Morphism(src, mph) => self.graph.edges[src][mph].2.clone().term(),
+            Face(fce) => self.graph.faces[fce].eq.clone().term(),
+        };
+        let term2 = match goal {
+            Node(nd) => vm.graph.nodes[nd].0.clone().term(),
+            Morphism(src, mph) => vm.graph.edges[src][mph].2.clone().term(),
+            Face(fce) => vm.graph.faces[fce].eq.clone().term(),
+        };
+        let sigma = unify(&vm.ctx, term1.clone(), term2.clone(), Default::default());
+        if let Some(sigma) = sigma {
+            self.graph.subst_in_place(&vm.ctx, &sigma);
+            self.relabel(&vm.ctx);
+            self.match_connect(lem, goal);
+            self.match_sides(vm, lem, goal);
+            vm.refine(sigma);
+        } else {
+            self.error_msg = Some(format!(
+                "Couldn't unify {} and {}",
+                term1.render(&vm.ctx, 100),
+                term2.render(&vm.ctx, 100)
+            ));
+        }
     }
 }
 

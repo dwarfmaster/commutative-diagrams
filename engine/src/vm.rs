@@ -15,6 +15,7 @@ mod status;
 mod style;
 mod vm;
 
+pub use asm::Instruction;
 pub use compiler::ExecutionResult;
 pub use graph::{EdgeLabel, FaceLabel, FaceStatus, Graph, GraphParsed, NodeLabel};
 pub use lemmas::{Lemma, LemmaState};
