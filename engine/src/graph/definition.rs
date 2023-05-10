@@ -28,7 +28,7 @@ pub struct GraphImpl<EqType, NodeLabel, EdgeLabel, FaceLabel> {
 pub type GraphParsed<NL, EL, FL> = GraphImpl<Equality, NL, EL, FL>;
 pub type Graph<NL, EL, FL> = GraphImpl<Equality, NL, EL, FL>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GraphId {
     Node(usize),
     Morphism(usize, usize),

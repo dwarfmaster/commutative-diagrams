@@ -61,6 +61,9 @@ pub struct VM<I: Interactive + Sync + Send> {
     // executed at once.
     pub current_action: Option<I>,
     pub instructions: Vec<asm::Instruction>,
+    // Tthe index past the last setup instruction (which should never be
+    // rolled back).
+    pub first_instruction: usize,
     pub run_until: usize, // In bytes
     pub eval_status: interpreter::InterpreterStatus,
     pub names: HashMap<String, GraphId>,
@@ -101,6 +104,7 @@ impl<I: Interactive + Sync + Send> VM<I> {
             ast: Vec::new(),
             current_action: None,
             instructions: Vec::new(),
+            first_instruction: 0,
             eval_status: interpreter::InterpreterStatus::new(),
             names: HashMap::new(),
             code_style: vec![(0, CodeStyle::None)],
@@ -129,6 +133,7 @@ impl<I: Interactive + Sync + Send> VM<I> {
         res.init_face_order();
         Self::layout(&mut res.graph);
         res.prepare_lemmas();
+        res.first_instruction = res.instructions.len();
         res
     }
 
@@ -182,6 +187,14 @@ impl<I: Interactive + Sync + Send> VM<I> {
         if let Some(ast) = self.recompile_to(end) {
             self.run(ast);
         }
+    }
+
+    // Start a new interactive action
+    pub fn start_interactive(&mut self, int: I) {
+        if self.current_action.is_some() {
+            self.stop_interactive();
+        }
+        self.current_action = Some(int);
     }
 
     // Build the refinements to send to the proof assistant

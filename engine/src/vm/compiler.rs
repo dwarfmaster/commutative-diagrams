@@ -213,11 +213,28 @@ impl<I: Interactive + Sync + Send> VM<I> {
         if let Some(act) = self.current_action.take() {
             act.terminate();
             // Undo partial execution of the action
-            let last_act = self.ast.last().map(|act| act.asm.end).unwrap_or(0);
+            let last_act = self
+                .ast
+                .last()
+                .map(|act| act.asm.end)
+                .unwrap_or(self.first_instruction);
             while self.instructions.len() > last_act {
                 self.pop_instruction();
             }
         }
+    }
+
+    // Cancel the current interactive action
+    pub fn stop_interactive(&mut self) {
+        self.initialize_execution();
+        self.clear_interactive();
+        self.finalize_execution();
+    }
+
+    // Commit the current interactive action
+    pub fn commit_interactive(&mut self) {
+        // TODO
+        todo!()
     }
 
     pub fn run(&mut self, ast: ast::AST) {

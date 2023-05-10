@@ -1,8 +1,8 @@
 mod faces;
-mod graph;
+pub mod graph;
 mod lemma;
 mod vm;
-mod widget;
+pub mod widget;
 
 use crate::ui::VM;
 use crate::vm::Lemma;

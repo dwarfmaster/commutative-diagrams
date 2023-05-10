@@ -1,14 +1,24 @@
+use crate::ui::vm::InteractiveAction;
 use crate::ui::{graph_lemma, VM};
 use egui::Vec2;
 
 pub fn lemmas_window(ctx: &egui::Context, vm: &mut VM) {
     if let Some(lem) = vm.selected_lemma {
         let mut open = true;
+        let mut should_close = false;
         egui::Window::new(vm.lemmas[lem].name.clone())
             .id(egui::Id::new("Lemma graph"))
             .open(&mut open)
-            .show(ctx, |ui| ui.add(graph_lemma(&mut vm.lemmas[lem])));
-        if !open {
+            .show(ctx, |ui| {
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
+                    if ui.button("Apply").clicked() {
+                        vm.start_interactive(InteractiveAction::apply(&vm, lem));
+                        should_close = true;
+                    }
+                    ui.add(graph_lemma(&mut vm.lemmas[lem]));
+                })
+            });
+        if !open || should_close {
             vm.selected_lemma = None;
         }
     }

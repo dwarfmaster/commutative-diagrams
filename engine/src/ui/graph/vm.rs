@@ -1,11 +1,12 @@
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
-use crate::vm::{FaceStatus, Interactive, VM};
+use crate::ui::vm::VM;
+use crate::vm::FaceStatus;
 use egui::{Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
 
-impl<I: Interactive + Sync + Send> UiGraph for VM<I> {
+impl UiGraph for VM {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
         F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId),
@@ -170,6 +171,15 @@ impl<I: Interactive + Sync + Send> UiGraph for VM<I> {
 
     fn action(&mut self, act: Action, ui: &mut Ui) {
         self.hovered_object = None;
+
+        if let Some(mut interactive) = self.current_action.take() {
+            let r = interactive.action(self, act, ui);
+            self.current_action = Some(interactive);
+            if !r {
+                return;
+            }
+        }
+
         match act {
             Action::Hover(id) => {
                 self.hovered_object = Some(id);
@@ -209,6 +219,13 @@ impl<I: Interactive + Sync + Send> UiGraph for VM<I> {
     }
 
     fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool {
+        if let Some(mut interactive) = self.current_action.take() {
+            let r = interactive.context_menu(self, on, ui);
+            self.current_action = Some(interactive);
+            if !r {
+                return false;
+            }
+        }
         match on {
             GraphId::Morphism(src, dst) => {
                 if ui.button("Split").clicked() {
