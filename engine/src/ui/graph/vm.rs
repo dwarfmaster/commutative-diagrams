@@ -21,13 +21,20 @@ impl UiGraph for VM {
 
             let drawable =
                 Drawable::Text(self.graph.nodes[nd].1.pos, &self.graph.nodes[nd].1.label);
-            let modifier = if self.hovered_object == Some(GraphId::Node(nd)) {
+            let mut modifier = if self.hovered_object == Some(GraphId::Node(nd)) {
                 Modifier::Highlight
             } else {
                 Modifier::None
             };
             let id = GraphId::Node(nd);
+
+            if let Some(interactive) = &self.current_action {
+                let md = interactive.modifier(self, GraphId::Node(nd));
+                crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
+            }
+
             f(drawable, stroke, modifier, id);
+            stroke.color = style.noninteractive().fg_stroke.color;
         }
 
         // Draw edges
@@ -37,12 +44,17 @@ impl UiGraph for VM {
                     continue;
                 }
 
-                let modifier = if self.hovered_object == Some(GraphId::Morphism(src, mph)) {
+                let mut modifier = if self.hovered_object == Some(GraphId::Morphism(src, mph)) {
                     Modifier::Highlight
                 } else {
                     Modifier::None
                 };
                 let id = GraphId::Morphism(src, mph);
+
+                if let Some(interactive) = &self.current_action {
+                    let md = interactive.modifier(self, id);
+                    crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
+                }
 
                 // Label
                 f(
@@ -76,7 +88,7 @@ impl UiGraph for VM {
                     } else if stl.right {
                         egui::Color32::GREEN
                     } else {
-                        style.noninteractive().fg_stroke.color
+                        stroke.color
                     };
 
                     f(drawable, stroke, modifier, id);
@@ -110,25 +122,36 @@ impl UiGraph for VM {
 
             let folded = self.graph.faces[fce].label.folded;
 
-            let stroke = style.noninteractive().bg_stroke;
-            let border = match self.graph.faces[fce].label.status {
-                FaceStatus::Goal => Stroke {
-                    color: egui::Color32::GOLD,
-                    ..stroke
-                },
-                FaceStatus::Refined => Stroke {
-                    color: egui::Color32::GREEN,
-                    ..stroke
-                },
+            let mut border_color = match self.graph.faces[fce].label.status {
+                FaceStatus::Goal => egui::Color32::GOLD,
+                FaceStatus::Refined => egui::Color32::GREEN,
                 FaceStatus::Hypothesis => {
                     if self.selected_face == Some(fce) {
-                        style.noninteractive().fg_stroke
+                        style.noninteractive().fg_stroke.color
                     } else {
-                        stroke
+                        style.noninteractive().bg_stroke.color
                     }
                 }
             };
-            let (fill, text, sep) = if self.selected_face == Some(fce) {
+            let mut md = if self.selected_face == Some(fce) {
+                Modifier::Highlight
+            } else {
+                Modifier::None
+            };
+            if let Some(interactive) = &self.current_action {
+                let modifier = interactive.modifier(&self, id);
+                crate::ui::vm::apply_modifier(modifier, &mut border_color, &mut md);
+            }
+
+            let border = Stroke {
+                color: border_color,
+                width: if md == Modifier::Highlight {
+                    style.noninteractive().fg_stroke.width
+                } else {
+                    style.noninteractive().bg_stroke.width
+                },
+            };
+            let (fill, text, sep) = if md == Modifier::Highlight {
                 (
                     style.visuals.widgets.active.bg_fill,
                     style.visuals.widgets.active.fg_stroke.color,

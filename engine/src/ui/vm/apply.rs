@@ -10,6 +10,12 @@ use std::sync::Arc;
 
 type Mod = crate::ui::vm::Modifier;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum AppId {
+    Lemma(GraphId),
+    Goal(GraphId),
+}
+
 #[derive(Clone, Debug)]
 pub struct LemmaApplicationState {
     lemma: usize,
@@ -18,12 +24,14 @@ pub struct LemmaApplicationState {
     direct_mapping: HashMap<GraphId, Vec<GraphId>>,
     reverse_mapping: HashMap<GraphId, Vec<GraphId>>,
 
+    // Action state
+    selected: Option<AppId>,
+
     // Graphical state
     zoom: f32,
     offset: Vec2,
     focused: Option<GraphId>,
     hovered: Option<GraphId>,
-    selected_face: Option<usize>,
 }
 
 impl LemmaApplicationState {
@@ -32,12 +40,12 @@ impl LemmaApplicationState {
             lemma,
             graph: vm.lemmas[lemma].pattern.clone(),
             direct_mapping: HashMap::new(),
+            selected: None,
             reverse_mapping: HashMap::new(),
             zoom: 1.0,
             offset: Vec2::ZERO,
             focused: None,
             hovered: None,
-            selected_face: None,
         }
     }
 
@@ -74,15 +82,35 @@ impl LemmaApplicationState {
         true
     }
 
-    pub fn action(&mut self, _vm: &mut VM, _act: Action, _ui: &mut Ui) -> bool {
-        // TODO
-        true
+    pub fn action(&mut self, vm: &mut VM, act: Action, _ui: &mut Ui) -> bool {
+        match act {
+            Action::Click(id) => {
+                if let Some(AppId::Lemma(GraphId::Face(prev))) = self.selected {
+                    self.unshow_face(prev);
+                }
+                vm.deselect_face();
+                self.selected = Some(AppId::Goal(id));
+                if let GraphId::Face(fce) = id {
+                    vm.select_face(fce);
+                }
+                false
+            }
+            _ => true,
+        }
     }
 
-    pub fn modifier(&mut self, _vm: &mut VM, on: GraphId) -> Mod {
+    pub fn modifier(&self, _vm: &VM, on: GraphId) -> Mod {
         Mod {
             active: self.reverse_mapping.contains_key(&on),
-            selected: false,
+            selected: self.selected == Some(AppId::Goal(on)),
+            candidate: false,
+        }
+    }
+
+    pub fn self_modifier(&self, on: GraphId) -> Mod {
+        Mod {
+            active: self.direct_mapping.contains_key(&on),
+            selected: self.selected == Some(AppId::Lemma(on)),
             candidate: false,
         }
     }
@@ -107,23 +135,29 @@ impl UiGraph for LemmaApplicationState {
         for nd in 0..self.graph.nodes.len() {
             let drawable =
                 Drawable::Text(self.graph.nodes[nd].1.pos, &self.graph.nodes[nd].1.label);
-            let modifier = if self.hovered == Some(GraphId::Node(nd)) {
+            let mut modifier = if self.hovered == Some(GraphId::Node(nd)) {
                 Modifier::Highlight
             } else {
                 Modifier::None
             };
+            let md = self.self_modifier(GraphId::Node(nd));
+            super::apply_modifier(md, &mut stroke.color, &mut modifier);
+
             f(drawable, stroke, modifier, GraphId::Node(nd));
+            stroke.color = style.noninteractive().fg_stroke.color;
         }
 
         // Draw edges
         for src in 0..self.graph.nodes.len() {
             for mph in 0..self.graph.edges[src].len() {
                 let id = GraphId::Morphism(src, mph);
-                let modifier = if self.hovered == Some(id) {
+                let mut modifier = if self.hovered == Some(id) {
                     Modifier::Highlight
                 } else {
                     Modifier::None
                 };
+                let md = self.self_modifier(id);
+                super::apply_modifier(md, &mut stroke.color, &mut modifier);
 
                 // label
                 f(
@@ -157,7 +191,7 @@ impl UiGraph for LemmaApplicationState {
                     } else if stl.right {
                         egui::Color32::GREEN
                     } else {
-                        style.noninteractive().fg_stroke.color
+                        stroke.color
                     };
 
                     f(drawable, stroke, modifier, id);
@@ -179,16 +213,21 @@ impl UiGraph for LemmaApplicationState {
             };
             let folded = self.graph.faces[fce].label.folded;
 
-            let style = if self.selected_face == Some(fce) {
+            let mut border = style.noninteractive().bg_stroke;
+            let mut modifier = Modifier::None;
+            let md = self.self_modifier(id);
+            super::apply_modifier(md, &mut border.color, &mut modifier);
+
+            let style = if modifier == Modifier::Highlight {
                 FaceStyle {
-                    border: style.noninteractive().fg_stroke,
+                    border,
                     sep: style.noninteractive().fg_stroke,
                     fill: style.visuals.widgets.active.bg_fill,
                     text: style.visuals.widgets.active.fg_stroke.color,
                 }
             } else {
                 FaceStyle {
-                    border: style.noninteractive().bg_stroke,
+                    border,
                     sep: style.noninteractive().bg_stroke,
                     fill: style.noninteractive().bg_fill,
                     text: style.noninteractive().fg_stroke.color,
@@ -219,13 +258,15 @@ impl UiGraph for LemmaApplicationState {
         self.hovered = None;
         match act {
             Action::Hover(id) => self.hovered = Some(id),
-            Action::Click(GraphId::Face(fce)) => {
-                if self.selected_face != Some(fce) {
-                    if let Some(prev) = self.selected_face {
+            Action::Click(id) => {
+                if self.selected != Some(AppId::Lemma(id)) {
+                    if let Some(AppId::Lemma(GraphId::Face(prev))) = self.selected {
                         self.unshow_face(prev)
                     }
-                    self.selected_face = Some(fce);
-                    self.show_face(fce);
+                    self.selected = Some(AppId::Lemma(id));
+                    if let GraphId::Face(fce) = id {
+                        self.show_face(fce);
+                    }
                 }
             }
             _ => (),

@@ -8,11 +8,24 @@ mod apply;
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Modifier {
     // Indicates the item is a part of the action
-    active: bool,
+    pub active: bool,
     // Indicates the item is selected
-    selected: bool,
+    pub selected: bool,
     // Indicates the item can be selected
-    candidate: bool,
+    pub candidate: bool,
+}
+
+type Md = crate::ui::graph::graph::Modifier;
+pub fn apply_modifier(md: Modifier, color: &mut egui::Color32, modifier: &mut Md) {
+    if md.selected {
+        *color = egui::Color32::from_rgb_additive(150, 0, 255);
+        *modifier = Md::Highlight;
+    } else if md.active {
+        *color = egui::Color32::from_rgb_additive(255, 165, 0);
+    }
+    if md.candidate {
+        *modifier = Md::Highlight;
+    }
 }
 
 pub enum InteractiveAction {
@@ -58,7 +71,7 @@ impl InteractiveAction {
         }
     }
 
-    pub fn modifier(&mut self, vm: &mut VM, on: GraphId) -> Modifier {
+    pub fn modifier(&self, vm: &VM, on: GraphId) -> Modifier {
         use InteractiveAction::*;
         match self {
             LemmaApplication(state) => state.modifier(vm, on),

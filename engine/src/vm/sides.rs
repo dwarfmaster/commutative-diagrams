@@ -63,4 +63,21 @@ impl<I: Interactive + Sync + Send> VM<I> {
     pub fn unshow_face(&mut self, fce: usize) {
         Self::unshow_face_impl(&mut self.graph, fce);
     }
+
+    pub fn deselect_face(&mut self) {
+        if let Some(fce) = self.selected_face.take() {
+            self.unshow_face(fce);
+        }
+    }
+
+    pub fn select_face(&mut self, fce: usize) {
+        if let Some(prev) = self.selected_face {
+            if prev == fce {
+                return;
+            }
+            self.unshow_face(prev);
+        }
+        self.show_face(fce);
+        self.selected_face = Some(fce);
+    }
 }
