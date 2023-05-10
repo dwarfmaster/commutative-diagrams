@@ -31,6 +31,12 @@ pub fn apply_modifier(md: Modifier, color: &mut egui::Color32, modifier: &mut Md
 pub enum InteractiveAction {
     LemmaApplication(apply::LemmaApplicationState),
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ContextMenuResult {
+    Added,
+    Closed,
+    Nothing,
+}
 
 impl vm::Interactive for InteractiveAction {
     fn compile(self) -> String {
@@ -57,7 +63,7 @@ impl InteractiveAction {
         }
     }
 
-    pub fn context_menu(&mut self, vm: &mut VM, on: GraphId, ui: &mut Ui) -> bool {
+    pub fn context_menu(&mut self, vm: &mut VM, on: GraphId, ui: &mut Ui) -> ContextMenuResult {
         use InteractiveAction::*;
         match self {
             LemmaApplication(state) => state.context_menu(vm, on, ui),

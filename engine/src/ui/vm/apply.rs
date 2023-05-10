@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 type Mod = crate::ui::vm::Modifier;
+type CMR = super::ContextMenuResult;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum AppId {
@@ -34,6 +35,21 @@ pub struct LemmaApplicationState {
     hovered: Option<GraphId>,
 }
 
+fn same_nature(id1: GraphId, id2: GraphId) -> bool {
+    use GraphId::*;
+    match (id1, id2) {
+        (Node(..), Node(..)) => true,
+        (Morphism(..), Morphism(..)) => true,
+        (Face(..), Face(..)) => true,
+        _ => false,
+    }
+}
+
+struct DisplayState<'a> {
+    apply: &'a mut LemmaApplicationState,
+    vm: &'a mut VM,
+}
+
 impl LemmaApplicationState {
     pub fn new(vm: &VM, lemma: usize) -> Self {
         Self {
@@ -52,34 +68,48 @@ impl LemmaApplicationState {
     pub fn display(&mut self, vm: &mut VM, ui: &Context) -> bool {
         let mut open = true;
         let mut should_close = false;
-        egui::Window::new(format!("Applying {}", vm.lemmas[self.lemma].name))
-            .id(egui::Id::new("Apply lemma"))
-            .open(&mut open)
-            .show(ui, |ui| {
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
-                    ui.allocate_ui_with_layout(
-                        Vec2::new(100.0, 40.0),
-                        egui::Layout::right_to_left(egui::Align::Center),
-                        |ui| {
-                            if ui.button("Apply").clicked() {
-                                should_close = true;
-                                // TODO commit
-                            };
-                            if ui.button("Cancel").clicked() {
-                                should_close = true;
-                            }
-                        },
-                    );
-                    ui.add(widget::graph(self))
-                })
-            });
+        let mut state = DisplayState { apply: self, vm };
+        egui::Window::new(format!(
+            "Applying {}",
+            state.vm.lemmas[state.apply.lemma].name
+        ))
+        .id(egui::Id::new("Apply lemma"))
+        .open(&mut open)
+        .show(ui, |ui| {
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
+                ui.allocate_ui_with_layout(
+                    Vec2::new(100.0, 40.0),
+                    egui::Layout::right_to_left(egui::Align::Center),
+                    |ui| {
+                        if ui.button("Apply").clicked() {
+                            should_close = true;
+                            // TODO commit
+                        };
+                        if ui.button("Cancel").clicked() {
+                            should_close = true;
+                        }
+                    },
+                );
+                ui.add(widget::graph(&mut state))
+            })
+        });
 
         open && !should_close
     }
 
-    pub fn context_menu(&mut self, _vm: &mut VM, _on: GraphId, _ui: &mut Ui) -> bool {
-        // No context menu
-        true
+    pub fn context_menu(&mut self, vm: &mut VM, on: GraphId, ui: &mut Ui) -> CMR {
+        if let Some(AppId::Lemma(id)) = &self.selected {
+            if same_nature(*id, on) {
+                if ui.button("Match").clicked() {
+                    self.do_match(vm, *id, on);
+                    ui.close_menu();
+                    return CMR::Closed;
+                } else {
+                    return CMR::Added;
+                }
+            }
+        }
+        CMR::Nothing
     }
 
     pub fn action(&mut self, vm: &mut VM, act: Action, _ui: &mut Ui) -> bool {
@@ -122,9 +152,13 @@ impl LemmaApplicationState {
     fn unshow_face(&mut self, fce: usize) {
         VM::unshow_face_impl(&mut self.graph, fce);
     }
+
+    fn do_match(&mut self, vm: &mut VM, lem: GraphId, goal: GraphId) {
+        // TODO
+    }
 }
 
-impl UiGraph for LemmaApplicationState {
+impl<'vm> UiGraph for DisplayState<'vm> {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
         F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId),
@@ -132,15 +166,17 @@ impl UiGraph for LemmaApplicationState {
         let mut stroke = style.noninteractive().fg_stroke;
 
         // Draw nodes
-        for nd in 0..self.graph.nodes.len() {
-            let drawable =
-                Drawable::Text(self.graph.nodes[nd].1.pos, &self.graph.nodes[nd].1.label);
-            let mut modifier = if self.hovered == Some(GraphId::Node(nd)) {
+        for nd in 0..self.apply.graph.nodes.len() {
+            let drawable = Drawable::Text(
+                self.apply.graph.nodes[nd].1.pos,
+                &self.apply.graph.nodes[nd].1.label,
+            );
+            let mut modifier = if self.apply.hovered == Some(GraphId::Node(nd)) {
                 Modifier::Highlight
             } else {
                 Modifier::None
             };
-            let md = self.self_modifier(GraphId::Node(nd));
+            let md = self.apply.self_modifier(GraphId::Node(nd));
             super::apply_modifier(md, &mut stroke.color, &mut modifier);
 
             f(drawable, stroke, modifier, GraphId::Node(nd));
@@ -148,22 +184,22 @@ impl UiGraph for LemmaApplicationState {
         }
 
         // Draw edges
-        for src in 0..self.graph.nodes.len() {
-            for mph in 0..self.graph.edges[src].len() {
+        for src in 0..self.apply.graph.nodes.len() {
+            for mph in 0..self.apply.graph.edges[src].len() {
                 let id = GraphId::Morphism(src, mph);
-                let mut modifier = if self.hovered == Some(id) {
+                let mut modifier = if self.apply.hovered == Some(id) {
                     Modifier::Highlight
                 } else {
                     Modifier::None
                 };
-                let md = self.self_modifier(id);
+                let md = self.apply.self_modifier(id);
                 super::apply_modifier(md, &mut stroke.color, &mut modifier);
 
                 // label
                 f(
                     Drawable::Text(
-                        self.graph.edges[src][mph].1.label_pos,
-                        &self.graph.edges[src][mph].1.label,
+                        self.apply.graph.edges[src][mph].1.label_pos,
+                        &self.apply.graph.edges[src][mph].1.label,
                     ),
                     stroke,
                     modifier,
@@ -171,19 +207,19 @@ impl UiGraph for LemmaApplicationState {
                 );
 
                 // Curve
-                for part in 0..self.graph.edges[src][mph].1.shape.len() {
-                    let arrow = if part == self.graph.edges[src][mph].1.shape.len() - 1 {
+                for part in 0..self.apply.graph.edges[src][mph].1.shape.len() {
+                    let arrow = if part == self.apply.graph.edges[src][mph].1.shape.len() - 1 {
                         ArrowStyle::Simple
                     } else {
                         ArrowStyle::None
                     };
                     let drawable = Drawable::Curve(
-                        self.graph.edges[src][mph].1.shape[part],
+                        self.apply.graph.edges[src][mph].1.shape[part],
                         CurveStyle::Simple,
                         arrow,
                     );
 
-                    let stl = self.graph.edges[src][mph].1.style;
+                    let stl = self.apply.graph.edges[src][mph].1.style;
                     stroke.color = if stl.left && stl.right {
                         egui::Color32::GOLD
                     } else if stl.left {
@@ -205,17 +241,17 @@ impl UiGraph for LemmaApplicationState {
     where
         F: FnMut(GraphId, FaceContent<'a>, bool, FaceStyle),
     {
-        for fce in 0..self.graph.faces.len() {
+        for fce in 0..self.apply.graph.faces.len() {
             let id = GraphId::Face(fce);
             let content = FaceContent {
-                name: &self.graph.faces[fce].label.name,
-                content: &self.graph.faces[fce].label.label,
+                name: &self.apply.graph.faces[fce].label.name,
+                content: &self.apply.graph.faces[fce].label.label,
             };
-            let folded = self.graph.faces[fce].label.folded;
+            let folded = self.apply.graph.faces[fce].label.folded;
 
             let mut border = style.noninteractive().bg_stroke;
             let mut modifier = Modifier::None;
-            let md = self.self_modifier(id);
+            let md = self.apply.self_modifier(id);
             super::apply_modifier(md, &mut border.color, &mut modifier);
 
             let style = if modifier == Modifier::Highlight {
@@ -239,33 +275,33 @@ impl UiGraph for LemmaApplicationState {
     }
 
     fn zoom<'a>(&'a mut self) -> &'a mut f32 {
-        &mut self.zoom
+        &mut self.apply.zoom
     }
 
     fn offset<'a>(&'a mut self) -> &'a mut Vec2 {
-        &mut self.offset
+        &mut self.apply.offset
     }
 
     fn focused<'a>(&'a mut self) -> &'a mut Option<GraphId> {
-        &mut self.focused
+        &mut self.apply.focused
     }
 
     fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
-        &mut self.graph.faces[fce].label.folded
+        &mut self.apply.graph.faces[fce].label.folded
     }
 
     fn action(&mut self, act: Action, _ui: &mut Ui) {
-        self.hovered = None;
+        self.apply.hovered = None;
         match act {
-            Action::Hover(id) => self.hovered = Some(id),
+            Action::Hover(id) => self.apply.hovered = Some(id),
             Action::Click(id) => {
-                if self.selected != Some(AppId::Lemma(id)) {
-                    if let Some(AppId::Lemma(GraphId::Face(prev))) = self.selected {
-                        self.unshow_face(prev)
+                if self.apply.selected != Some(AppId::Lemma(id)) {
+                    if let Some(AppId::Lemma(GraphId::Face(prev))) = self.apply.selected {
+                        self.apply.unshow_face(prev)
                     }
-                    self.selected = Some(AppId::Lemma(id));
+                    self.apply.selected = Some(AppId::Lemma(id));
                     if let GraphId::Face(fce) = id {
-                        self.show_face(fce);
+                        self.apply.show_face(fce);
                     }
                 }
             }
@@ -274,24 +310,39 @@ impl UiGraph for LemmaApplicationState {
     }
 
     fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool {
+        let mut r = CMR::Nothing;
+        if let Some(AppId::Goal(id)) = self.apply.selected {
+            if same_nature(id, on) {
+                if ui.button("Match").clicked() {
+                    self.apply.do_match(self.vm, on, id);
+                    ui.close_menu();
+                    return false;
+                } else {
+                    r = CMR::Added;
+                }
+            }
+        }
+
         if let GraphId::Face(fce) = on {
-            if self.graph.faces[fce].label.folded {
+            if self.apply.graph.faces[fce].label.folded {
                 if ui.button("Show term").clicked() {
-                    self.graph.faces[fce].label.folded = false;
+                    self.apply.graph.faces[fce].label.folded = false;
                     ui.close_menu();
                     return false;
                 }
             } else {
                 if ui.button("Hide term").clicked() {
-                    self.graph.faces[fce].label.folded = true;
+                    self.apply.graph.faces[fce].label.folded = true;
                     ui.close_menu();
                     return false;
                 }
             }
             true
-        } else {
+        } else if r == CMR::Nothing {
             ui.close_menu();
             false
+        } else {
+            true
         }
     }
 }

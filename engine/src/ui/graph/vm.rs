@@ -5,6 +5,7 @@ use crate::ui::vm::VM;
 use crate::vm::FaceStatus;
 use egui::{Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
+type CMR = crate::ui::vm::ContextMenuResult;
 
 impl UiGraph for VM {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
@@ -242,10 +243,11 @@ impl UiGraph for VM {
     }
 
     fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool {
+        let mut r = CMR::Nothing;
         if let Some(mut interactive) = self.current_action.take() {
-            let r = interactive.context_menu(self, on, ui);
+            r = interactive.context_menu(self, on, ui);
             self.current_action = Some(interactive);
-            if !r {
+            if r == CMR::Closed {
                 return false;
             }
         }
@@ -306,8 +308,12 @@ impl UiGraph for VM {
                 true
             }
             _ => {
-                ui.close_menu();
-                false
+                if r == CMR::Nothing {
+                    ui.close_menu();
+                    false
+                } else {
+                    true
+                }
             }
         }
     }
