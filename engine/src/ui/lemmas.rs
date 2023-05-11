@@ -12,7 +12,8 @@ pub fn lemmas_window(ctx: &egui::Context, vm: &mut VM) {
             .show(ctx, |ui| {
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
                     if ui.button("Apply").clicked() {
-                        vm.start_interactive(InteractiveAction::apply(&vm, lem));
+                        let apply = InteractiveAction::apply(vm, lem);
+                        vm.start_interactive(apply);
                         should_close = true;
                     }
                     ui.add(graph_lemma(&mut vm.lemmas[lem]));

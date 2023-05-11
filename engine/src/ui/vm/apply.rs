@@ -56,8 +56,14 @@ struct DisplayState<'a> {
 }
 
 impl LemmaApplicationState {
-    pub fn new(vm: &VM, lemma: usize) -> Self {
-        Self {
+    pub fn new(vm: &mut VM, lemma: usize) -> Self {
+        let mut sigma = Vec::new();
+        for ex in &vm.lemmas[lemma].existentials {
+            let nex = vm.ctx.new_existential();
+            let term = vm.ctx.mk(data::ActualProofObject::Existential(nex)).term();
+            sigma.push((*ex, term));
+        }
+        let mut r = Self {
             lemma,
             graph: vm.lemmas[lemma].pattern.clone(),
             direct_mapping: HashMap::new(),
@@ -68,7 +74,10 @@ impl LemmaApplicationState {
             offset: Vec2::ZERO,
             focused: None,
             hovered: None,
-        }
+        };
+        r.graph.subst_in_place(&vm.ctx, &sigma);
+        r.relabel(&vm.ctx);
+        r
     }
 
     pub fn display(&mut self, vm: &mut VM, ui: &Context) -> bool {
@@ -259,7 +268,15 @@ impl LemmaApplicationState {
             Morphism(src, mph) => vm.graph.edges[src][mph].2.clone().term(),
             Face(fce) => vm.graph.faces[fce].eq.clone().term(),
         };
-        let sigma = unify(&vm.ctx, term1.clone(), term2.clone(), Default::default());
+        let sigma = unify(
+            &vm.ctx,
+            term1.clone(),
+            term2.clone(),
+            crate::unification::UnifOpts {
+                debug: Some("lemma.dot".to_string()),
+                ..Default::default()
+            },
+        );
         if let Some(sigma) = sigma {
             self.graph.subst_in_place(&vm.ctx, &sigma);
             self.relabel(&vm.ctx);

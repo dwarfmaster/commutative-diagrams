@@ -51,7 +51,7 @@ impl vm::Interactive for InteractiveAction {
 pub type VM = vm::VM<InteractiveAction>;
 
 impl InteractiveAction {
-    pub fn apply(vm: &VM, lemma: usize) -> Self {
+    pub fn apply(vm: &mut VM, lemma: usize) -> Self {
         let state = apply::LemmaApplicationState::new(vm, lemma);
         InteractiveAction::LemmaApplication(state)
     }
