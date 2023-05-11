@@ -48,6 +48,10 @@ pub enum Instruction {
     RenameMorphism(usize, usize, String, String),
     InsertFace(Face<FaceLabel>), // Add a face
     UpdateFace(usize, Equality, Equality),
+    RelocateFaceSrc(usize, usize, usize),
+    RelocateFaceDst(usize, usize, usize),
+    RelocateFaceLeft(usize, Vec<usize>, Vec<usize>),
+    RelocateFaceRight(usize, Vec<usize>, Vec<usize>),
     UpdateFaceLabel(usize, Updater<FaceLabel>),
     RenameFace(usize, String, String),
     ExtendRefinements(Substitution),

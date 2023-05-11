@@ -120,6 +120,22 @@ impl<I: Interactive + Sync + Send> VM<I> {
                 self.graph.faces[*fce].eq = new.clone();
                 self.set_face_status(*fce);
             }
+            RelocateFaceSrc(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].start, *old);
+                self.graph.faces[*fce].start = *new;
+            }
+            RelocateFaceDst(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].end, *old);
+                self.graph.faces[*fce].end = *new;
+            }
+            RelocateFaceLeft(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].left, *old);
+                self.graph.faces[*fce].left = new.clone();
+            }
+            RelocateFaceRight(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].right, *old);
+                self.graph.faces[*fce].right = new.clone();
+            }
             UpdateFaceLabel(fce, upd) => upd.apply(&mut self.graph.faces[*fce].label),
             ExtendRefinements(sigma) => {
                 self.refinements.extend(sigma.iter().map(|p| p.clone()));
@@ -203,6 +219,22 @@ impl<I: Interactive + Sync + Send> VM<I> {
                 assert_eq!(self.graph.faces[*fce].eq, *new);
                 self.graph.faces[*fce].eq = old.clone();
                 self.set_face_status(*fce);
+            }
+            RelocateFaceSrc(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].start, *new);
+                self.graph.faces[*fce].start = *old;
+            }
+            RelocateFaceDst(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].end, *new);
+                self.graph.faces[*fce].end = *old;
+            }
+            RelocateFaceLeft(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].left, *new);
+                self.graph.faces[*fce].left = old.clone();
+            }
+            RelocateFaceRight(fce, old, new) => {
+                assert_eq!(self.graph.faces[*fce].right, *new);
+                self.graph.faces[*fce].right = old.clone();
             }
             UpdateFaceLabel(fce, upd) => upd.undo(&mut self.graph.faces[*fce].label),
             ExtendRefinements(sigma) => {
