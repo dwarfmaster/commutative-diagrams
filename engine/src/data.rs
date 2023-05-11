@@ -789,6 +789,10 @@ pub trait ContextMakable {
 }
 impl ContextMakable for ActualProofObject {
     fn make(self, ctx: &Context) -> HConsed<Self> {
+        match &self {
+            ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
+            _ => (),
+        }
         ctx.proof_factory.lock().unwrap().mk(self)
     }
     fn def(ctx: &Context) -> HConsed<Self> {
@@ -797,12 +801,6 @@ impl ContextMakable for ActualProofObject {
 }
 impl ContextMakable for ActualCategory {
     fn make(self, ctx: &Context) -> HConsed<Self> {
-        match &self {
-            Self::Atomic(data) => match data.pobj().deref() {
-                ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
-                _ => (),
-            },
-        }
         ctx.cat_factory.lock().unwrap().mk(self)
     }
     fn def(ctx: &Context) -> HConsed<Self> {
@@ -811,12 +809,6 @@ impl ContextMakable for ActualCategory {
 }
 impl ContextMakable for ActualFunctor {
     fn make(self, ctx: &Context) -> HConsed<Self> {
-        match &self {
-            Self::Atomic(data) => match data.pobj().deref() {
-                ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
-                _ => (),
-            },
-        }
         ctx.funct_factory.lock().unwrap().mk(self)
     }
     fn def(ctx: &Context) -> HConsed<Self> {
@@ -825,13 +817,6 @@ impl ContextMakable for ActualFunctor {
 }
 impl ContextMakable for ActualObject {
     fn make(self, ctx: &Context) -> HConsed<Self> {
-        match &self {
-            Self::Atomic(data) => match data.pobj().deref() {
-                ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
-                _ => (),
-            },
-            _ => (),
-        }
         ctx.obj_factory.lock().unwrap().mk(self)
     }
     fn def(ctx: &Context) -> HConsed<Self> {
@@ -840,13 +825,6 @@ impl ContextMakable for ActualObject {
 }
 impl ContextMakable for ActualMorphism {
     fn make(self, ctx: &Context) -> HConsed<Self> {
-        match &self {
-            Self::Atomic(data) => match data.pobj().deref() {
-                ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
-                _ => (),
-            },
-            _ => (),
-        }
         ctx.mph_factory.lock().unwrap().mk(self)
     }
     fn def(ctx: &Context) -> HConsed<Self> {
@@ -855,13 +833,6 @@ impl ContextMakable for ActualMorphism {
 }
 impl ContextMakable for ActualEquality {
     fn make(self, ctx: &Context) -> HConsed<Self> {
-        match &self {
-            Self::Atomic(data) => match data.pobj().deref() {
-                ActualProofObject::Existential(e) => ctx.update_max_ex(*e),
-                _ => (),
-            },
-            _ => (),
-        }
         ctx.eq_factory.lock().unwrap().mk(self)
     }
     fn def(ctx: &Context) -> HConsed<Self> {
