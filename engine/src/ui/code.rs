@@ -46,6 +46,12 @@ pub fn code(ui: &mut egui::Ui, vm: &mut VM) {
         let job = egui::text::LayoutJob {
             text: string.to_string(),
             sections,
+            wrap: egui::epaint::text::TextWrapping {
+                max_width: 300.0,
+                max_rows: 0,
+                break_anywhere: true,
+                overflow_character: Some('…'),
+            },
             ..Default::default()
         };
         ui.fonts().layout_job(job)
