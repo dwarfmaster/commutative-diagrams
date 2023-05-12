@@ -186,8 +186,47 @@ impl<I: Interactive + Sync + Send> VM<I> {
                 }
             }
             Lemma(lem, matching) => {
-                // TODO implement lemma application
-                todo!()
+                let lemma = self.find_lemma(&lem.value);
+                if let Some(lemma) = lemma {
+                    let matching = matching
+                        .iter()
+                        .map(|(lem, goal)| {
+                            let lemid = match &lem.value {
+                                ast::Id::Name(name) => {
+                                    self.lemmas[lemma].graphical_state.names.get(name)
+                                }
+                                ast::Id::Id(_) => None,
+                            };
+                            let goalid = match &goal.value {
+                                ast::Id::Name(name) => self.names.get(name),
+                                ast::Id::Id(_) => None,
+                            };
+                            match (lemid, goalid) {
+                                (Some(lem), Some(goal)) => Ok((lem.clone(), goal.clone())),
+                                (None, _) => {
+                                    Err(format!("Couldn't find {:#?} in lemma", lem.value))
+                                }
+                                _ => Err(format!("Couldn't find {:#?} in goal", goal.value)),
+                            }
+                        })
+                        .collect::<Result<Vec<_>, String>>();
+                    match matching {
+                        Ok(matching) => {
+                            if !self.apply_lemma(lemma, &matching[..]) {
+                                self.error_msg =
+                                    "Couldn't compute the lemma application".to_string();
+                                result = ExecutionError;
+                            }
+                        }
+                        Err(msg) => {
+                            self.error_msg = msg;
+                            result = ExecutionError;
+                        }
+                    }
+                } else {
+                    self.error_msg = format!("Couldn't find lemma {}", lem.value);
+                    result = ExecutionError;
+                }
             }
             Refine(_, _) => todo!(),
             Succeed => result = Success,
@@ -201,27 +240,26 @@ impl<I: Interactive + Sync + Send> VM<I> {
             }
         } else {
             // Register the action as having been executed
-            self.run_until = act.range.end;
-            self.reset_style();
-            self.style_range(0..self.run_until, CodeStyle::Run);
-            self.ast.push(vm::Action {
-                act: act.value,
-                text: act.range,
-                asm: start..self.instructions.len(),
-            });
+            self.store_action(act, start);
         }
         result
     }
 
+    pub fn store_action(&mut self, act: ast::Annot<Action>, from: usize) {
+        self.run_until = act.range.end;
+        self.reset_style();
+        self.style_range(0..self.run_until, CodeStyle::Run);
+        self.ast.push(vm::Action {
+            act: act.value,
+            text: act.range,
+            asm: from..self.instructions.len(),
+        });
+    }
+
     fn clear_interactive(&mut self) {
-        if let Some(act) = self.current_action.take() {
+        if let Some((last_act, act)) = self.current_action.take() {
             act.terminate();
             // Undo partial execution of the action
-            let last_act = self
-                .ast
-                .last()
-                .map(|act| act.asm.end)
-                .unwrap_or(self.first_instruction);
             while self.instructions.len() > last_act {
                 self.pop_instruction();
             }
@@ -233,12 +271,6 @@ impl<I: Interactive + Sync + Send> VM<I> {
         self.initialize_execution();
         self.clear_interactive();
         self.finalize_execution();
-    }
-
-    // Commit the current interactive action
-    pub fn commit_interactive(&mut self) {
-        // TODO
-        todo!()
     }
 
     pub fn run(&mut self, ast: ast::AST) {

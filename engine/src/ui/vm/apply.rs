@@ -1,5 +1,4 @@
 use super::ActionResult;
-use crate::anyterm::IsTerm;
 use crate::data;
 use crate::graph::{Graph, GraphId};
 use crate::substitution::SubstitutableInPlace;
@@ -7,7 +6,7 @@ use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
 use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
 use crate::ui::graph::widget;
 use crate::ui::VM;
-use crate::unification::unify;
+use crate::unification::UnifState;
 use crate::vm::{EdgeLabel, FaceLabel, NodeLabel};
 use egui::{Context, Stroke, Style, Ui, Vec2};
 use std::collections::HashMap;
@@ -58,15 +57,9 @@ struct DisplayState<'a> {
 
 impl LemmaApplicationState {
     pub fn new(vm: &mut VM, lemma: usize) -> Self {
-        let mut sigma = Vec::new();
-        for ex in &vm.lemmas[lemma].existentials {
-            let nex = vm.ctx.new_existential();
-            let term = vm.ctx.mk(data::ActualProofObject::Existential(nex)).term();
-            sigma.push((*ex, term));
-        }
         let mut r = Self {
             lemma,
-            graph: vm.lemmas[lemma].pattern.clone(),
+            graph: vm.prepare_lemma_graph(lemma),
             direct_mapping: HashMap::new(),
             selected: None,
             error_msg: None,
@@ -76,7 +69,6 @@ impl LemmaApplicationState {
             focused: None,
             hovered: None,
         };
-        r.graph.subst_in_place(&vm.ctx, &sigma);
         r.relabel(&vm.ctx);
         r
     }
@@ -212,95 +204,26 @@ impl LemmaApplicationState {
         }
     }
 
-    fn match_connect(&mut self, lem: GraphId, goal: GraphId) {
-        if self
-            .direct_mapping
-            .get(&lem)
-            .map(|v| v.contains(&goal))
-            .unwrap_or(false)
-        {
+    fn do_match(&mut self, vm: &mut VM, lem: GraphId, goal: GraphId) {
+        let mut unif = UnifState::new();
+        if !vm.lemma_add_matching(&self.graph, lem, goal, &mut unif) {
+            self.error_msg = Some("Matching incompatible graph objects".to_string());
             return;
         }
-        self.direct_mapping.entry(lem).or_default().push(goal);
-        self.reverse_mapping.entry(goal).or_default().push(lem);
-    }
-
-    fn match_sides(&mut self, vm: &VM, lem: GraphId, goal: GraphId) {
-        // No unification is needed at that step
-        use GraphId::*;
-        match (lem, goal) {
-            (Node(_), Node(_)) => (),
-            (Morphism(lsrc, lmph), Morphism(gsrc, gmph)) => {
-                self.match_connect(Node(lsrc), Node(gsrc));
-                let ldst = self.graph.edges[lsrc][lmph].0;
-                let gdst = vm.graph.edges[gsrc][gmph].0;
-                self.match_connect(Node(ldst), Node(gdst));
-            }
-            (Face(lfce), Face(gfce)) => {
-                let gface = &vm.graph.faces[gfce];
-                // Connect source and destination
-                self.match_connect(Node(self.graph.faces[lfce].start), Node(gface.start));
-                self.match_connect(Node(self.graph.faces[lfce].end), Node(gface.end));
-                // Connect left side
-                let mut lsrc = self.graph.faces[lfce].start;
-                let mut gsrc = gface.start;
-                for nxt in 0..self.graph.faces[lfce].left.len().min(gface.left.len()) {
-                    self.match_connect(Node(lsrc), Node(gsrc));
-                    let lmph = self.graph.faces[lfce].left[nxt];
-                    let gmph = gface.left[nxt];
-                    self.match_connect(Morphism(lsrc, lmph), Morphism(gsrc, gmph));
-                    lsrc = self.graph.edges[lsrc][lmph].0;
-                    gsrc = vm.graph.edges[gsrc][gmph].0;
-                }
-                // Connect right side
-                let mut lsrc = self.graph.faces[lfce].start;
-                let mut gsrc = gface.start;
-                for nxt in 0..self.graph.faces[lfce].right.len().min(gface.right.len()) {
-                    self.match_connect(Node(lsrc), Node(gsrc));
-                    let lmph = self.graph.faces[lfce].right[nxt];
-                    let gmph = gface.right[nxt];
-                    self.match_connect(Morphism(lsrc, lmph), Morphism(gsrc, gmph));
-                    lsrc = self.graph.edges[lsrc][lmph].0;
-                    gsrc = vm.graph.edges[gsrc][gmph].0;
-                }
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    fn do_match(&mut self, vm: &mut VM, lem: GraphId, goal: GraphId) {
-        use GraphId::*;
-        let term1 = match lem {
-            Node(nd) => self.graph.nodes[nd].0.clone().term(),
-            Morphism(src, mph) => self.graph.edges[src][mph].2.clone().term(),
-            Face(fce) => self.graph.faces[fce].eq.clone().term(),
-        };
-        let term2 = match goal {
-            Node(nd) => vm.graph.nodes[nd].0.clone().term(),
-            Morphism(src, mph) => vm.graph.edges[src][mph].2.clone().term(),
-            Face(fce) => vm.graph.faces[fce].eq.clone().term(),
-        };
-        let sigma = unify(
-            &vm.ctx,
-            term1.clone(),
-            term2.clone(),
-            crate::unification::UnifOpts {
-                debug: Some("lemma.dot".to_string()),
-                ..Default::default()
-            },
-        );
+        let sigma = unif.solve();
         if let Some(sigma) = sigma {
             self.graph.subst_in_place(&vm.ctx, &sigma);
             self.relabel(&vm.ctx);
-            self.match_connect(lem, goal);
-            self.match_sides(vm, lem, goal);
+            vm.lemma_connect_sides(
+                &self.graph,
+                lem,
+                goal,
+                &mut self.direct_mapping,
+                &mut self.reverse_mapping,
+            );
             vm.refine(sigma);
         } else {
-            self.error_msg = Some(format!(
-                "Couldn't unify {} and {}",
-                term1.render(&vm.ctx, 100),
-                term2.render(&vm.ctx, 100)
-            ));
+            self.error_msg = Some("Unification failed".to_string());
         }
     }
 }

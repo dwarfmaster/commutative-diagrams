@@ -59,11 +59,8 @@ pub struct VM<I: Interactive + Sync + Send> {
     // application, it becomes an action and it is assumed the instructions
     // emitted interactively have the same resulting effect as if it was
     // executed at once.
-    pub current_action: Option<I>,
+    pub current_action: Option<(usize, I)>,
     pub instructions: Vec<asm::Instruction>,
-    // Tthe index past the last setup instruction (which should never be
-    // rolled back).
-    pub first_instruction: usize,
     pub run_until: usize, // In bytes
     pub eval_status: interpreter::InterpreterStatus,
     pub names: HashMap<String, GraphId>,
@@ -104,7 +101,6 @@ impl<I: Interactive + Sync + Send> VM<I> {
             ast: Vec::new(),
             current_action: None,
             instructions: Vec::new(),
-            first_instruction: 0,
             eval_status: interpreter::InterpreterStatus::new(),
             names: HashMap::new(),
             code_style: vec![(0, CodeStyle::None)],
@@ -133,7 +129,6 @@ impl<I: Interactive + Sync + Send> VM<I> {
         res.init_face_order();
         Self::layout(&mut res.graph);
         res.prepare_lemmas();
-        res.first_instruction = res.instructions.len();
         res
     }
 
@@ -176,15 +171,20 @@ impl<I: Interactive + Sync + Send> VM<I> {
         self.recompile_to(self.code.len())
     }
 
-    // Insert new code after the last executed instruction, parse it and run it
-    pub fn insert_and_run(&mut self, code: &str) {
+    // Insert new code the last executed instruction and parse it
+    fn insert_and_parse(&mut self, code: &str) -> Option<ast::AST> {
         if self.run_until == 0 {
             self.code.insert_str(self.run_until, code);
         } else {
             self.code.insert_str(self.run_until, &format!("\n{}", code));
         }
         let end = self.run_until + code.len() + (if self.run_until == 0 { 0 } else { 1 });
-        if let Some(ast) = self.recompile_to(end) {
+        self.recompile_to(end)
+    }
+
+    // Insert new code after the last executed instruction, parse it and run it
+    pub fn insert_and_run(&mut self, code: &str) {
+        if let Some(ast) = self.insert_and_parse(code) {
             self.run(ast);
         }
     }
@@ -194,7 +194,18 @@ impl<I: Interactive + Sync + Send> VM<I> {
         if self.current_action.is_some() {
             self.stop_interactive();
         }
-        self.current_action = Some(int);
+        self.current_action = Some((self.instructions.len(), int));
+    }
+
+    // Commit the current interactive action
+    pub fn commit_interactive(&mut self) {
+        if let Some((last, interactive)) = self.current_action.take() {
+            let code = interactive.compile();
+            let ast = self.insert_and_parse(&code).unwrap();
+            assert_eq!(ast.len(), 1);
+            let act = ast.into_iter().next().unwrap();
+            self.store_action(act, last);
+        }
     }
 
     // Build the refinements to send to the proof assistant
