@@ -420,6 +420,9 @@ impl UnifState {
 
                 // Process siblings
                 while let Some(t) = self.gr.nodes[s].siblings.pop() {
+                    if self.gr.nodes[t].status.is_deleted() {
+                        continue;
+                    }
                     let ptr = self.gr.nodes[t].pointer.get_or_insert(r);
                     if *ptr != r {
                         return false;
