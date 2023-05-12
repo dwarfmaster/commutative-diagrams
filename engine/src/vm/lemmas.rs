@@ -53,6 +53,9 @@ impl Lemma {
         for nd in 0..self.pattern.nodes.len() {
             self.pattern.nodes[nd].1.name =
                 VM::<()>::name_compute_node(ctx, &self.pattern, &self.graphical_state.names, nd);
+            self.graphical_state
+                .names
+                .insert(self.pattern.nodes[nd].1.name.clone(), GraphId::Node(nd));
         }
         for src in 0..self.pattern.nodes.len() {
             for mph in 0..self.pattern.edges[src].len() {
@@ -63,6 +66,10 @@ impl Lemma {
                     src,
                     mph,
                 );
+                self.graphical_state.names.insert(
+                    self.pattern.edges[src][mph].1.name.clone(),
+                    GraphId::Morphism(src, mph),
+                );
             }
         }
         for fce in 0..self.pattern.faces.len() {
@@ -72,6 +79,10 @@ impl Lemma {
                 &self.graphical_state.names,
                 "Lem",
                 fce,
+            );
+            self.graphical_state.names.insert(
+                self.pattern.faces[fce].label.name.clone(),
+                GraphId::Face(fce),
             );
         }
     }
