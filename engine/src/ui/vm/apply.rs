@@ -1,3 +1,4 @@
+use super::ActionResult;
 use crate::anyterm::IsTerm;
 use crate::data;
 use crate::graph::{Graph, GraphId};
@@ -80,7 +81,7 @@ impl LemmaApplicationState {
         r
     }
 
-    pub fn display(&mut self, vm: &mut VM, ui: &Context) -> bool {
+    pub fn display(&mut self, vm: &mut VM, ui: &Context) -> ActionResult {
         // Display error message in window
         if let Some(errmsg) = &mut self.error_msg {
             let mut open = true;
@@ -100,6 +101,7 @@ impl LemmaApplicationState {
         // Display window with graph
         let mut open = true;
         let mut should_close = false;
+        let mut commit = false;
         let mut state = DisplayState { apply: self, vm };
         egui::Window::new(format!(
             "Applying {}",
@@ -116,7 +118,11 @@ impl LemmaApplicationState {
                         |ui| {
                             if ui.button("Apply").clicked() {
                                 should_close = true;
-                                // TODO commit
+                                state
+                                    .vm
+                                    .pushout(&state.apply.graph, &state.apply.direct_mapping);
+                                VM::layout(&mut state.vm.graph);
+                                commit = true;
                             };
                             if ui.button("Cancel").clicked() {
                                 should_close = true;
@@ -127,7 +133,13 @@ impl LemmaApplicationState {
                 })
             })
         });
-        open && !should_close
+        if commit {
+            ActionResult::Commit
+        } else if !open || should_close {
+            ActionResult::Stop
+        } else {
+            ActionResult::Continue
+        }
     }
 
     pub fn context_menu(&mut self, vm: &mut VM, on: GraphId, ui: &mut Ui) -> CMR {

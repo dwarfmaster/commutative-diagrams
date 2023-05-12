@@ -29,7 +29,7 @@ impl UiGraph for VM {
             };
             let id = GraphId::Node(nd);
 
-            if let Some(interactive) = &self.current_action {
+            if let Some((_, interactive)) = &self.current_action {
                 let md = interactive.modifier(self, GraphId::Node(nd));
                 crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
             }
@@ -52,7 +52,7 @@ impl UiGraph for VM {
                 };
                 let id = GraphId::Morphism(src, mph);
 
-                if let Some(interactive) = &self.current_action {
+                if let Some((_, interactive)) = &self.current_action {
                     let md = interactive.modifier(self, id);
                     crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
                 }
@@ -139,7 +139,7 @@ impl UiGraph for VM {
             } else {
                 Modifier::None
             };
-            if let Some(interactive) = &self.current_action {
+            if let Some((_, interactive)) = &self.current_action {
                 let modifier = interactive.modifier(&self, id);
                 crate::ui::vm::apply_modifier(modifier, &mut border_color, &mut md);
             }
@@ -196,9 +196,9 @@ impl UiGraph for VM {
     fn action(&mut self, act: Action, ui: &mut Ui) {
         self.hovered_object = None;
 
-        if let Some(mut interactive) = self.current_action.take() {
+        if let Some((last, mut interactive)) = self.current_action.take() {
             let r = interactive.action(self, act, ui);
-            self.current_action = Some(interactive);
+            self.current_action = Some((last, interactive));
             if !r {
                 return;
             }
@@ -244,9 +244,9 @@ impl UiGraph for VM {
 
     fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool {
         let mut r = CMR::Nothing;
-        if let Some(mut interactive) = self.current_action.take() {
+        if let Some((last, mut interactive)) = self.current_action.take() {
             r = interactive.context_menu(self, on, ui);
-            self.current_action = Some(interactive);
+            self.current_action = Some((last, interactive));
             if r == CMR::Closed {
                 return false;
             }

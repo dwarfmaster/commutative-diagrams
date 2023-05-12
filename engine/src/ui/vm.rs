@@ -38,6 +38,13 @@ pub enum ContextMenuResult {
     Nothing,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ActionResult {
+    Continue,
+    Stop,
+    Commit,
+}
+
 impl vm::Interactive for InteractiveAction {
     fn compile(self) -> String {
         use InteractiveAction::*;
@@ -56,7 +63,7 @@ impl InteractiveAction {
         InteractiveAction::LemmaApplication(state)
     }
 
-    pub fn display(&mut self, vm: &mut VM, ui: &Context) -> bool {
+    pub fn display(&mut self, vm: &mut VM, ui: &Context) -> ActionResult {
         use InteractiveAction::*;
         match self {
             LemmaApplication(state) => state.display(vm, ui),

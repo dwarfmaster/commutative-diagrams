@@ -18,6 +18,7 @@ use anyterm::IsTerm;
 use dsl::{cat, eq, funct, mph, obj};
 use graph::Graph;
 use substitution::Substitutable;
+use ui::ActionResult;
 
 use std::fs::File;
 use std::io::{Read, Write};
@@ -243,11 +244,13 @@ fn goal_ui_system(
     mut state: ResMut<State<vm::EndStatus>>,
 ) {
     ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut());
-    if let Some(mut interactive) = vm.current_action.take() {
+    if let Some((last, mut interactive)) = vm.current_action.take() {
         let r = interactive.display(&mut vm, egui_context.ctx_mut());
-        vm.current_action = Some(interactive);
-        if !r {
+        vm.current_action = Some((last, interactive));
+        if r == ActionResult::Stop {
             vm.stop_interactive();
+        } else if r == ActionResult::Commit {
+            vm.commit_interactive();
         }
     }
     egui::SidePanel::left("Code").show(egui_context.ctx_mut(), |ui| ui::code(ui, vm.as_mut()));

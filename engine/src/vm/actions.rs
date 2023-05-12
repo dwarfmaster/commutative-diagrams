@@ -2,6 +2,7 @@ mod hide;
 mod insert;
 mod label;
 mod merge;
+mod pushout;
 mod refine;
 mod shrink;
 mod solve;
