@@ -46,10 +46,10 @@ pub enum ActionResult {
 }
 
 impl vm::Interactive for InteractiveAction {
-    fn compile(self) -> String {
+    fn compile(self, vm: &VM) -> String {
         use InteractiveAction::*;
         match self {
-            LemmaApplication(_) => "".to_string(), // TODO
+            LemmaApplication(apply) => apply.compile(vm),
         }
     }
     fn terminate(self) {}

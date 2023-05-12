@@ -35,12 +35,12 @@ pub enum CodeStyle {
     None,
 }
 
-pub trait Interactive {
-    fn compile(self) -> String;
+pub trait Interactive: Sync + Send + Sized {
+    fn compile(self, vm: &VM<Self>) -> String;
     fn terminate(self);
 }
 impl Interactive for () {
-    fn compile(self) -> String {
+    fn compile(self, _: &VM<()>) -> String {
         "".to_string()
     }
     fn terminate(self) {}
@@ -200,7 +200,7 @@ impl<I: Interactive + Sync + Send> VM<I> {
     // Commit the current interactive action
     pub fn commit_interactive(&mut self) {
         if let Some((last, interactive)) = self.current_action.take() {
-            let code = interactive.compile();
+            let code = interactive.compile(&self);
             let ast = self.insert_and_parse(&code).unwrap();
             assert_eq!(ast.len(), 1);
             let act = ast.into_iter().next().unwrap();

@@ -73,6 +73,27 @@ impl LemmaApplicationState {
         r
     }
 
+    fn get_name<'a>(&'a self, id: GraphId) -> &'a str {
+        use GraphId::*;
+        match id {
+            Node(nd) => &self.graph.nodes[nd].1.name,
+            Morphism(src, mph) => &self.graph.edges[src][mph].1.name,
+            Face(fce) => &self.graph.faces[fce].label.name,
+        }
+    }
+
+    pub fn compile(self, vm: &VM) -> String {
+        let mut cmd = format!("apply {}", vm.lemmas[self.lemma].name);
+        for (lem,goals) in self.direct_mapping.iter() {
+            let lname = self.get_name(*lem);
+            for goal in goals.iter() {
+                let gname = vm.get_name(*goal);
+                cmd = format!("{} {}:{}", cmd, lname, gname);
+            }
+        }
+        cmd
+    }
+
     pub fn display(&mut self, vm: &mut VM, ui: &Context) -> ActionResult {
         // Display error message in window
         if let Some(errmsg) = &mut self.error_msg {
