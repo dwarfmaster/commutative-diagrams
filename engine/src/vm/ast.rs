@@ -6,6 +6,18 @@ pub struct Annot<T> {
     pub range: Range<usize>,
 }
 
+impl<T> Annot<T> {
+    pub fn map<U, F>(self, f: F) -> Annot<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        Annot {
+            value: f(self.value),
+            range: self.range,
+        }
+    }
+}
+
 pub type AST = Vec<Annot<Action>>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +48,8 @@ pub enum Action {
     PushFace(Annot<TermDescr>, Option<usize>),
     // Combined action
     ShrinkFace(Annot<TermDescr>),
+    // Apply lemma
+    Lemma(Annot<String>, Vec<(Annot<Id>, Annot<Id>)>),
     // Unify the two terms as equalities
     Refine(Annot<TermDescr>, Annot<TermDescr>),
     // End the interface with a success

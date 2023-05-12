@@ -1,10 +1,11 @@
 use crate::vm::ast;
 use nom::branch::alt;
-use nom::bytes::complete::tag;
-use nom::character::complete::{alpha1, alphanumeric1, char, digit1, newline, space0, space1};
+use nom::character::complete::{
+    alpha1, alphanumeric1, char, digit1, newline, one_of, space0, space1,
+};
 use nom::combinator::{eof, fail, map, map_res, recognize, success, value};
 use nom::error::ParseError;
-use nom::multi::{many0_count, many1_count, many_till};
+use nom::multi::{many0, many0_count, many1_count, many_till};
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::{IResult, Offset};
 
@@ -16,7 +17,8 @@ fn integer(input: &str) -> IResult<&str, usize> {
 // Inspired by:
 //   https://docs.rs/nom/latest/nom/recipes/index.html#rust-style-identifiers
 fn ident(input: &str) -> IResult<&str, &str> {
-    recognize(pair(alpha1, many0_count(alt((alphanumeric1, tag("_"))))))(input)
+    let extra = recognize(one_of("_.!/;"));
+    recognize(pair(alpha1, many0_count(alt((alphanumeric1, extra)))))(input)
 }
 
 fn endl(input: &str) -> IResult<&str, ()> {
@@ -117,6 +119,7 @@ impl<'a> Parser<'a> {
             "push" => self.act_push(input),
             "shrink" => self.act_shrink(input),
             "refine" => self.act_refine(input),
+            "apply" => self.act_lemma(input),
             "hide" => self.act_hide(true, input),
             "reveal" => self.act_hide(false, input),
             "succeed" => success(ast::Action::Succeed)(input),
@@ -213,6 +216,22 @@ impl<'a> Parser<'a> {
         let (input, _) = space1(input)?;
         let (input, fce) = self.loc_term_descr(input)?;
         success(ast::Action::ShrinkFace(fce))(input)
+    }
+
+    fn act_lemma(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
+        let (input, _) = space1(input)?;
+        let (input, lemma) = self.with_annot(ident)(input)?;
+        let parse_match =
+            |input: &'a str| -> IResult<&'a str, (ast::Annot<ast::Id>, ast::Annot<ast::Id>)> {
+                let mut parse_id = self.with_annot(|i| self.id(i));
+                let (input, _) = space1(input)?;
+                let (input, id1) = parse_id(input)?;
+                let (input, _) = char(':')(input)?;
+                let (input, id2) = parse_id(input)?;
+                success((id1, id2))(input)
+            };
+        let (input, matching) = many0(parse_match)(input)?;
+        success(ast::Action::Lemma(lemma.map(|s| s.to_string()), matching))(input)
     }
 }
 
@@ -400,6 +419,38 @@ mod tests {
                     }),
                     range: 25..28,
                 },
+            ),
+        );
+
+        test(
+            "apply Loader.funct_ctx p0:Goal0 Lem0:p",
+            Lemma(
+                Annot {
+                    value: "Loader.funct_ctx".to_string(),
+                    range: 6..22,
+                },
+                vec![
+                    (
+                        Annot {
+                            value: Id::Name("p0".to_string()),
+                            range: 23..25,
+                        },
+                        Annot {
+                            value: Id::Name("Goal0".to_string()),
+                            range: 26..31,
+                        },
+                    ),
+                    (
+                        Annot {
+                            value: Id::Name("Lem0".to_string()),
+                            range: 32..36,
+                        },
+                        Annot {
+                            value: Id::Name("p".to_string()),
+                            range: 37..38,
+                        },
+                    ),
+                ],
             ),
         );
     }

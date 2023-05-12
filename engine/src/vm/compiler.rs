@@ -185,6 +185,10 @@ impl<I: Interactive + Sync + Send> VM<I> {
                     }
                 }
             }
+            Lemma(lem, matching) => {
+                // TODO implement lemma application
+                todo!()
+            }
             Refine(_, _) => todo!(),
             Succeed => result = Success,
             Fail => result = Failure,
