@@ -2,7 +2,15 @@
 open Hyps.Combinators
 open Data
 
-let instantiateAtomic atom tp =
+let rec mapM f l =
+  match l with
+  | [] -> ret []
+  | x :: t ->
+      let* x = f x in
+      let* t = mapM f t in
+      x :: t |> ret
+
+let rec instantiateAtomic atom tp =
   match atom with
   | Evar (i,None) ->
       let* status = Hyps.getEvar i in
@@ -18,23 +26,43 @@ let instantiateAtomic atom tp =
           let* _ = Hyps.instantiateEvar i evar in
           ret evar in
       ret (Evar (i, Some evar))
+  | Cat c ->
+      let* c = instantiateCat c in
+      Cat c |> ret
+  | Funct f ->
+      let* f = instantiateFunct f in
+      Funct f |> ret
+  | Elem e ->
+      let* e = instantiateElem e in
+      Elem e |> ret
+  | Mph m ->
+      let* m = instantiateMorphism m in
+      Mph m |> ret
+  | Eq p ->
+      let* p = instantiateEq p in
+      Eq p |> ret
+  (* TODO fix composed case *)
+  (* | Composed (f,args) -> *)
+  (*     let* f = instantiateAtomic f in *)
+  (*     let* args = mapM instantiateAtomic args in *)
+  (*     Composed (f, args) |> ret *)
   | _ -> ret atom
 
-let instantiateCat cat =
+and instantiateCat cat =
   match cat with
   | AtomicCategory data ->
       let* tp = Hott.realizeCatType data in
       let* atom = instantiateAtomic data.cat_atom tp in
       AtomicCategory { cat_atom = atom } |> ret
 
-let instantiateFunct funct =
+and instantiateFunct funct =
   match funct with
   | AtomicFunctor data ->
       let* tp = Hott.realizeFunctType data in
       let* atom = instantiateAtomic data.funct_atom tp in
       AtomicFunctor { data with funct_atom = atom } |> ret
 
-let rec instantiateElem elem =
+and instantiateElem elem =
   match elem with
   | AtomicElem data ->
       let* tp = Hott.realizeElemType data in
@@ -45,7 +73,7 @@ let rec instantiateElem elem =
       let* o = instantiateElem o in
       FObj (f,o) |> ret
 
-let rec instantiateMorphism mph =
+and instantiateMorphism mph =
   match mph with
   | AtomicMorphism data ->
       let* tp = Hott.realizeMphType data in
@@ -66,7 +94,7 @@ let rec instantiateMorphism mph =
       let* m = instantiateMorphism m in
       FMph (f,m) |> ret
 
-let rec instantiateEq eq =
+and instantiateEq eq =
   match eq with
   | AtomicEq data ->
       let* tp = Hott.realizeEqType data in
