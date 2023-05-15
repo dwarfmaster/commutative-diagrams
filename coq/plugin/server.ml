@@ -41,13 +41,16 @@ let start_remote (goal : goal) : remote m =
     | GNormalize _ -> [ "embed"; "--normalize" ]
     | GSolve (level,_,_,_) -> [ "embed"; Printf.sprintf "--autosolve=%d" level ]
     in
-  let (stdout,stdin,stderr) =
-    let engine_path = Sys.getenv "COMDIAG_ENGINE" in
-    Unix.open_process_args_full
-      engine_path
-      (Array.of_list ("commutative-diagrams-engine" :: args))
-      (Unix.environment ()) in
-  ret { stdin = stdin; stdout = stdout; stderr = stderr; goal = goal }
+  let engine_path = Sys.getenv_opt "COMDIAG_ENGINE" in
+  match engine_path with
+  | Some engine_path ->
+      let (stdout,stdin,stderr) =
+        Unix.open_process_args_full
+          engine_path
+          (Array.of_list ("commutative-diagrams-engine" :: args))
+          (Unix.environment ()) in
+      ret { stdin = stdin; stdout = stdout; stderr = stderr; goal = goal }
+  | None -> fail "$COMDIAG_ENGINE not found in environment"
 
 let is_none opt : bool =
   match opt with
