@@ -15,13 +15,6 @@ module type Packable = sig
   val unpack : Pk.t -> t option m
 end
 
-let rec mapM f = function
-  | [] -> ret []
-  | x :: t ->
-      let* x = f x in
-      let* t = mapM f t in
-      ret (x :: t)
-
 (*   ____            _       _ _           _   _              *)
 (*  / ___|  ___ _ __(_) __ _| (_)___  __ _| |_(_) ___  _ __   *)
 (*  \___ \ / _ \ '__| |/ _` | | / __|/ _` | __| |/ _ \| '_ \  *)

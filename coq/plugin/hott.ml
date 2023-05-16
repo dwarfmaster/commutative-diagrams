@@ -17,13 +17,6 @@ let isInd sigma pred t =
   | Ind (ind,_) -> pred ind 
   | _ -> false
 
-let rec mapM f = function
-  | [] -> ret []
-  | x :: t ->
-      let* x = f x in
-      let* t = mapM f t in
-      ret (x :: t)
-
 (*  ____                _              *)
 (* |  _ \ __ _ _ __ ___(_)_ __   __ _  *)
 (* | |_) / _` | '__/ __| | '_ \ / _` | *)

@@ -1,0 +1,11 @@
+
+kind msg type.
+type nil msg.
+type integer int -> msg.
+type boolean bool -> msg.
+type floating float -> msg.
+type array msg list -> msg.
+type map list (msg * msg) -> msg.
+type str string -> msg.
+type bin string -> msg.
+type extension int * string -> msg.

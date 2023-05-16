@@ -23,6 +23,8 @@ module Combinators : sig
   val fail    : string -> 'a t
   val message : string -> unit t
   val warning : string -> unit t
+  val concat  : 'a t list -> 'a list t
+  val mapM    : ('a -> 'b t) -> 'a list -> 'b list t
 end
 
 

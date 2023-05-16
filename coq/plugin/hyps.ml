@@ -66,6 +66,14 @@ module Combinators = struct
     Feedback.msg_info (Pp.str msg); ret ()
   let warning msg =
     Feedback.msg_warning (Pp.str msg); ret ()
+
+  let rec concat = function
+  | [] -> ret []
+  | x :: t ->
+      let* x = x in
+      let* t = concat t in
+      ret (x :: t)
+  let mapM f l = concat (List.map f l)
 end
 open Combinators
 

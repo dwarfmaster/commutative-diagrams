@@ -17,15 +17,6 @@ type graph =
   ; gr_faces: faces list
   }
 
-let rec concat (l : 'a m list) : 'a list m =
-  match l with
-  | [] -> ret []
-  | x :: l ->
-      let* x = x in
-      let* l = concat l in
-      ret (x :: l)
-let mapM (f : 'a -> 'b m) (l : 'a list) : 'b list m =
-  concat (List.map f l)
 let rec mapOptM (f : 'a -> 'b option m) (l : 'a list) : 'b list option m =
   match l with
   | [] -> ret (Some [])
