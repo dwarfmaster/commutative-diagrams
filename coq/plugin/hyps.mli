@@ -27,11 +27,30 @@ module Combinators : sig
   val mapM    : ('a -> 'b t) -> 'a list -> 'b list t
 end
 
+val withMask : bool -> 'a t -> 'a t
+val withEnv : Environ.env -> 'a t -> 'a t
+val saveState : unit -> int t
+val restoreState : int -> unit t
+val setState : Evd.evar_map -> unit t
+
+val registerObj : EConstr.t -> EConstr.t -> string option -> int t
+val getObjValue : int -> EConstr.t t
+val getObjType : int -> EConstr.t t
+val getObjName : int -> string option t
+val getObjMask : int -> bool t
+
+val registerSubst : Evd.evar_map -> int t
+val getSubst : int -> Evd.evar_map t
+
+
+(*  _                           *)
+(* | |   ___ __ _ __ _ __ _  _  *)
+(* | |__/ -_) _` / _` / _| || | *)
+(* |____\___\__, \__,_\__|\_, | *)
+(*          |___/         |__/  *)
 
 (* State operations *)
 val getAtom : int -> Data.atomic option t
-val withMask : bool -> 'a t -> 'a t
-val withEnv : Environ.env -> 'a t -> 'a t
 
 val catToIndex : int -> int option
 val catFromIndex : int -> int

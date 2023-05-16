@@ -1,9 +1,17 @@
 
 open Data
 
+type obj =
+  { value: EConstr.t
+  ; tp: EConstr.t
+  ; name: string option
+  ; mask: bool
+  }
+
 (* Masked elements are not included in the goal graph sent to the engine *)
 module IntMap = Map.Make(struct type t = int let compare = compare end)
 type store =
+  (* Legacy *)
   { categories : categoryData array
   ; functors   : functData array 
   ; elems      : (elemData*bool) array 
@@ -11,8 +19,12 @@ type store =
   ; faces      : (eqData*bool) array
   ; funs       : Data.fn array
   ; evars      : EConstr.t option IntMap.t
+  (* New protocal *)
+  ; ctx_stack  : Evd.evar_map list
+  ; objects    : obj array
+  ; substs     : Evd.evar_map array
   }
-let emptyStore : store =
+let emptyStore sigma : store =
   { categories = [| |]
   ; functors   = [| |]
   ; elems      = [| |]
@@ -20,10 +32,18 @@ let emptyStore : store =
   ; faces      = [| |]
   ; funs       = [| |]
   ; evars      = IntMap.empty
+  ; ctx_stack  = [ sigma ]
+  ; objects    = [| |]
+  ; substs     = [| |]
   }
 
 type 'a t = 
   { runState : Environ.env -> bool -> store -> ('a * store) Proofview.tactic }
+let ret x = { runState = fun _ _ st -> Proofview.tclUNIT (x,st) }
+let get (f : store -> 'a) : 'a t = 
+  { runState = fun env mask st -> (ret (f st)).runState env mask st }
+let set (f : store -> store) : unit t = 
+  { runState = fun env mask st -> (ret ()).runState env mask (f st) }
 
 
 (*  __  __                       _  *)
@@ -47,11 +67,18 @@ module Combinators = struct
   let (@<<) f a = bind a f
   let (<$>) f a = bind a (fun x -> ret (f x))
 
-  let run env m = m_bind (m.runState env false emptyStore) (fun (x,_) -> m_ret x) 
-  let lift (x : 'a Proofview.tactic) : 'a t = { runState = fun _ _ st -> m_bind x (fun x -> m_ret (x,st)) }
+  let run env m = 
+    m_bind Proofview.tclEVARMAP
+      (fun sigma -> m_bind (m.runState env false (emptyStore sigma)) (fun (x,_) -> m_ret x))
+  let lift (x : 'a Proofview.tactic) : 'a t =
+    { runState = fun _ _ st -> m_bind x (fun x -> m_ret (x,st)) }
 
   let env () = { runState = fun env _ st -> m_ret (env,st) }
-  let evars () = lift Proofview.tclEVARMAP
+  let evars () =
+    let* stk = get (fun st -> st.ctx_stack) in
+    match stk with
+    | [] -> lift Proofview.tclEVARMAP
+    | sigma :: _ -> ret sigma
   let masked () = { runState = fun _ mask st -> m_ret (mask,st) }
   let none () = ret None
   let some x = ret (Some x)
@@ -78,10 +105,6 @@ end
 open Combinators
 
 
-let get (f : store -> 'a) : 'a t = 
-  { runState = fun env mask st -> (ret (f st)).runState env mask st }
-let set (f : store -> store) : unit t = 
-  { runState = fun env mask st -> (ret ()).runState env mask (f st) }
 
 (*  ____  _        _        *)
 (* / ___|| |_ __ _| |_ ___  *)
@@ -110,6 +133,71 @@ let rec arr_find_optM' (id : int) (pred : 'a -> bool t) (arr : 'a array) : (int*
 let arr_find_optM pred (arr : 'a array) : (int*'a) option t = 
   arr_find_optM' 0 pred arr
 
+let rec drop n = function
+| [] -> []
+| x :: l -> if n <= 0 then x :: l else drop (n-1) l
+let merge_option opt1 opt2 =
+  match opt1, opt2 with
+  | Some x, _ -> Some x
+  | None, Some y -> Some y
+  | None, None -> None
+
+let withMask mask act = { runState = fun env _ st -> act.runState env mask st }
+let withEnv env act = { runState = fun _ mask st -> act.runState env mask st }
+
+let stack () = get (fun st -> st.ctx_stack)
+let saveState () =
+  let* stack = stack () in
+  let* sigma = evars () in
+  let* _ = set (fun st -> { st with ctx_stack = sigma :: stack }) in
+  List.length stack |> ret
+let restoreState state =
+  let* stack = stack () in
+  set (fun st -> { st with ctx_stack = drop (List.length stack - state) stack })
+let setState sigma =
+  let* stack = stack () in 
+  set (fun st -> { st with ctx_stack = sigma :: List.tl stack })
+
+let objects () = get (fun st -> st.objects)
+let registerObj vl tp name =
+  let* id = arr_find_optM (fun o -> eqPred o.value vl) @<< objects () in
+  let* mask = masked () in
+  match id with
+  | Some (id,_) ->
+      let* _ = set (fun st ->
+        let objects = st.objects in
+        objects.(id) <- {
+          value = vl;
+          tp = tp;
+          name = merge_option name objects.(id).name;
+          mask = mask && objects.(id).mask;
+        };
+        { st with objects = objects }) in
+      ret id
+  | None ->
+      let* nid = Array.length <$> objects () in
+      let obj = { value = vl; tp = tp; name = name; mask = mask; } in
+      let* _ = set (fun st -> { st with objects = push_back st.objects obj }) in
+      ret nid
+let getObjValue id = get (fun st -> st.objects.(id).value)
+let getObjType id = get (fun st -> st.objects.(id).tp)
+let getObjName id = get (fun st -> st.objects.(id).name)
+let getObjMask id = get (fun st -> st.objects.(id).mask)
+
+let registerSubst sigma =
+  let* substs = get (fun st -> st.substs) in
+  let* _ = set (fun st -> { st with substs = push_back substs sigma }) in
+  ret (Array.length substs)
+let getSubst id = get (fun st -> st.substs.(id))
+
+
+(*  _                                 *)
+(* | |    ___  __ _  __ _  ___ _   _  *)
+(* | |   / _ \/ _` |/ _` |/ __| | | | *)
+(* | |__|  __/ (_| | (_| | (__| |_| | *)
+(* |_____\___|\__, |\__,_|\___|\__, | *)
+(*            |___/            |___/  *)
+
 let mkPred atom obj =
   let pred = eqPred in
   match atom with
@@ -130,8 +218,6 @@ let getAtom id =
   | 4 -> get (fun st -> Some (fst st.faces.(id/8)).eq_atom)
   | _ -> ret None
 
-let withMask mask act = { runState = fun env _ st -> act.runState env mask st }
-let withEnv env act = { runState = fun _ mask st -> act.runState env mask st }
 
 let catToIndex = toId 0
 let catFromIndex = fromId 0
