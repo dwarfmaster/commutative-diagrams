@@ -175,11 +175,13 @@ let setState sigma =
   set (fun st -> { st with ctx_stack = sigma :: List.tl stack })
 
 let objects () = get (fun st -> st.objects)
+let hasObject ec =
+  Option.map fst <$> arr_find_optM (fun o -> eqPred o.value ec) @<< objects ()
 let registerObj vl tp name =
-  let* id = arr_find_optM (fun o -> eqPred o.value vl) @<< objects () in
+  let* id = hasObject vl in
   let* mask = masked () in
   match id with
-  | Some (id,_) ->
+  | Some id ->
       let* _ = set (fun st ->
         let objects = st.objects in
         objects.(id) <- {

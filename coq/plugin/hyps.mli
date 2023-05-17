@@ -41,6 +41,7 @@ val restoreState : int -> unit t
 val setState : Evd.evar_map -> unit t
 
 val registerObj : EConstr.t -> EConstr.t -> string option -> int t
+val hasObject : EConstr.t -> int option t
 val getObjValue : int -> EConstr.t t
 val getObjType : int -> EConstr.t t
 val getObjName : int -> string option t
