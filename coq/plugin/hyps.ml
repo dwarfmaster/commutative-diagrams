@@ -1,11 +1,19 @@
 
 open Data
 
+type metadata =
+  { is_cat: unit option
+  ; is_funct: (int * int) option
+  ; is_elem: int option
+  ; is_mph: (int * int * int) option
+  ; is_eq: (int * int * int * int * int) option
+  }
 type obj =
   { value: EConstr.t
   ; tp: EConstr.t
   ; name: string option
   ; mask: bool
+  ; mtdt: metadata
   }
 
 (* Masked elements are not included in the goal graph sent to the engine *)
@@ -121,6 +129,14 @@ let eqPred x y =
   (* TODO Reductionops.check_conv fails under quantifiers for some reason *)
   (* ret (Reductionops.check_conv env sigma x y) *)
 
+let emptyMtdt : metadata =
+  { is_cat = None
+  ; is_funct = None
+  ; is_elem = None
+  ; is_mph = None
+  ; is_eq = None
+  }
+
 let rec arr_find_optM' (id : int) (pred : 'a -> bool t) (arr : 'a array) : (int*'a) option t =
   if id >= Array.length arr
   then ret None
@@ -171,18 +187,46 @@ let registerObj vl tp name =
           tp = tp;
           name = merge_option name objects.(id).name;
           mask = mask && objects.(id).mask;
+          mtdt = emptyMtdt;
         };
         { st with objects = objects }) in
       ret id
   | None ->
       let* nid = Array.length <$> objects () in
-      let obj = { value = vl; tp = tp; name = name; mask = mask; } in
+      let obj = { value = vl; tp = tp; name = name; mask = mask; mtdt = emptyMtdt; } in
       let* _ = set (fun st -> { st with objects = push_back st.objects obj }) in
       ret nid
 let getObjValue id = get (fun st -> st.objects.(id).value)
 let getObjType id = get (fun st -> st.objects.(id).tp)
 let getObjName id = get (fun st -> st.objects.(id).name)
 let getObjMask id = get (fun st -> st.objects.(id).mask)
+let getObjMtdt id = get (fun st -> st.objects.(id).mtdt)
+
+let markAsCat id cat =
+  set (fun st ->
+    let objects = st.objects in
+    objects.(id) <- { objects.(id) with mtdt = { objects.(id).mtdt with is_cat = Some cat } };
+    { st with objects = objects })
+let markAsFunct id funct =
+  set (fun st ->
+    let objects = st.objects in
+    objects.(id) <- { objects.(id) with mtdt = { objects.(id).mtdt with is_funct = Some funct } };
+    { st with objects = objects })
+let markAsElem id elem =
+  set (fun st ->
+    let objects = st.objects in
+    objects.(id) <- { objects.(id) with mtdt = { objects.(id).mtdt with is_elem = Some elem } };
+    { st with objects = objects })
+let markAsMph id mph =
+  set (fun st ->
+    let objects = st.objects in
+    objects.(id) <- { objects.(id) with mtdt = { objects.(id).mtdt with is_mph = Some mph } };
+    { st with objects = objects })
+let markAsEq id eq =
+  set (fun st ->
+    let objects = st.objects in
+    objects.(id) <- { objects.(id) with mtdt = { objects.(id).mtdt with is_eq = Some eq } };
+    { st with objects = objects })
 
 let registerSubst sigma =
   let* substs = get (fun st -> st.substs) in

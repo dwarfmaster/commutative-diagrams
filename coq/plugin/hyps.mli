@@ -3,6 +3,13 @@
    context. It also offers a reader monad over the goal environment.
 *)
 
+type metadata =
+  { is_cat: unit option
+  ; is_funct: (int * int) option
+  ; is_elem: int option
+  ; is_mph: (int * int * int) option
+  ; is_eq: (int * int * int * int * int) option
+  }
 type 'a t
 
 (* Monadic operations *)
@@ -38,6 +45,12 @@ val getObjValue : int -> EConstr.t t
 val getObjType : int -> EConstr.t t
 val getObjName : int -> string option t
 val getObjMask : int -> bool t
+val getObjMtdt : int -> metadata t
+val markAsCat : int -> unit -> unit t
+val markAsFunct : int -> int * int -> unit t
+val markAsElem : int -> int -> unit t
+val markAsMph : int -> int * int * int -> unit t
+val markAsEq : int -> int * int * int * int * int -> unit t
 
 val registerSubst : Evd.evar_map -> int t
 val getSubst : int -> Evd.evar_map t
