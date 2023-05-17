@@ -52,6 +52,13 @@ let run_query_cached env sigma tp
       let* q = query tp in
       registerQuery (fun () -> let* tptp = getType env sigma tp in Hyps.registerObj tp tptp None) q
 
+let register ec tp (q : 'a option) : (int * 'a) option Hyps.t =
+  match q with
+  | Some q ->
+      let* id = Hyps.registerObj ec tp None in
+      some (id,q)
+  | None -> none ()
+
 let rec query_cat env sigma tp =
   if isInd sigma Env.is_cat tp then some () else none ()
 and query_cat_cached env sigma tp =
@@ -137,6 +144,75 @@ and query_eq_cached env sigma tp =
     (fun mtdt -> mtdt.is_eq)
     Hyps.markAsEq
 
+and query_funct_obj env sigma ec tp =
+  match EConstr.kind sigma ec with
+  | App (fobj, [| elem |]) ->
+      begin match EConstr.kind sigma fobj with
+      | Proj (fobj,funct) when Env.is_projection fobj Env.is_functor "object_of" ->
+          let* funct = ofst <$> query_impl env sigma Functor funct @<< getType env sigma funct in
+          let* elem = ofst <$> query_impl env sigma Object elem @<< getType env sigma elem in
+          begin match funct, elem with
+          | Some funct, Some elem -> some (Features.AppliedFunctObj (funct,elem))
+          | _ -> none ()
+          end
+      | _ -> none ()
+      end
+  | _ -> none ()
+
+and query_identity env sigma ec tp =
+  let module E = struct exception Ret of EConstr.t * EConstr.t end in
+  try match EConstr.kind sigma ec with
+  | App (id, [| cat; elem |]) ->
+      begin match EConstr.kind sigma id with
+      | Const (name,_) when Env.is_id name ->
+          raise_notrace (E.Ret (cat,elem))
+      | _ -> none ()
+      end 
+  | App (id, [| elem |]) ->
+      begin match EConstr.kind sigma id with
+      | Proj (id,cat) when Env.is_projection id Env.is_cat "identity" ->
+          raise_notrace (E.Ret (cat,elem))
+      | _ -> none ()
+      end
+  | _ -> none ()
+  with E.Ret (cat, elem) -> 
+    let* cat = ofst <$> query_impl env sigma Category cat @<< getType env sigma cat in
+    let* elem = ofst <$> query_impl env sigma Object elem @<< getType env sigma elem in
+    match cat, elem with
+    | Some cat, Some elem -> some (Features.Identity (cat, elem))
+    | _ -> none ()
+
+and query_compose_mph env sigma ec tp =
+  match EConstr.kind sigma ec with
+  | App (cmp, [| _; _; _; mid; msi |]) ->
+    begin match EConstr.kind sigma cmp with
+      | Proj (cmp,cat) when Env.is_projection cmp Env.is_cat "compose" -> begin
+          let* cat = ofst <$> query_impl env sigma Category cat @<< getType env sigma cat in
+          let* msi = ofst <$> query_impl env sigma Morphism msi @<< getType env sigma msi in
+          let* mid = ofst <$> query_impl env sigma Morphism mid @<< getType env sigma mid in
+          match cat, msi, mid with
+          | Some cat, Some msi, Some mid -> some (Features.ComposeMph (cat,msi,mid))
+          | _ -> none ()
+      end
+      | _ -> none ()
+    end
+  | _ -> none ()
+
+and query_funct_mph env sigma ec tp =
+  match EConstr.kind sigma ec with
+  | App (funct, [| _; _; mph |]) ->
+      begin match EConstr.kind sigma funct with
+      | Proj (mof,funct) when Env.is_projection mof Env.is_functor "morphism_of" -> begin
+          let* funct = ofst <$> query_impl env sigma Functor funct @<< getType env sigma funct in
+          let* mph = ofst <$> query_impl env sigma Morphism mph @<< getType env sigma mph in
+          match funct, mph with
+          | Some funct, Some mph -> some (Features.AppliedFunctMph (funct,mph))
+          | _ -> none ()
+          end
+      | _ -> none ()
+      end
+  | _ -> none ()
+
 and query_impl env sigma feat ec tp =
   match feat with
   | Category -> Option.map (fun (id,_) -> (id,Features.Category)) <$> query_cat_cached env sigma tp
@@ -148,23 +224,24 @@ and query_impl env sigma feat ec tp =
   | Equality -> Option.map (fun (id,(cat,src,dst,left,right)) -> (id,Features.Equality (cat,src,dst,left,right)))
                        <$> query_eq_cached env sigma tp
   | Prop -> none ()
-  | AppliedFunctObj -> assert false
-  | Identity -> assert false
-  | ComposeMph -> assert false
-  | InverseMph -> assert false
-  | AppliedFunctMph -> assert false
-  | Reflexivity -> assert false
-  | Concat -> assert false
-  | InverseEq -> assert false
-  | ComposeEq -> assert false
-  | Associativity -> assert false
-  | LeftUnitality -> assert false
-  | RightUnitality -> assert false
-  | LeftApplication -> assert false
-  | RightApplication -> assert false
-  | FunctIdentity -> assert false
-  | FunctComposition -> assert false
-  | AppliedFunctEq -> assert false
+  | AppliedFunctObj -> register ec tp @<< query_funct_obj env sigma ec tp
+  | Identity -> register ec tp @<< query_identity env sigma ec tp
+  | ComposeMph -> register ec tp @<< query_compose_mph env sigma ec tp
+  | InverseMph -> none ()
+  | AppliedFunctMph -> register ec tp @<< query_funct_mph env sigma ec tp
+  (* We don't parse equality terms for now *)
+  | Reflexivity -> none ()
+  | Concat -> none ()
+  | InverseEq -> none ()
+  | ComposeEq -> none ()
+  | Associativity -> none ()
+  | LeftUnitality -> none ()
+  | RightUnitality -> none ()
+  | LeftApplication -> none ()
+  | RightApplication -> none ()
+  | FunctIdentity -> none ()
+  | FunctComposition -> none ()
+  | AppliedFunctEq -> none ()
 
 let query env feat ec tp =
   let* sigma = evars () in

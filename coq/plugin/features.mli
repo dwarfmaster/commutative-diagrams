@@ -43,9 +43,9 @@ type t =
   (* Objects *)
   | AppliedFunctObj of (*funct*)int * (*obj*)int
   (* Morphisms *)
-  | Identity of (*obj*)int
-  | ComposeMph of (*m1*)int * (*m2*)int
-  | InverseMph of int
+  | Identity of (*cat*)int * (*obj*)int
+  | ComposeMph of (*cat*)int * (*m1*)int * (*m2*)int
+  | InverseMph of (*cat*)int * (*mph*)int
   | AppliedFunctMph of (*funct*)int * (*mph*)int
   (* Equality *)
   | Reflexivity of (*mph*)int

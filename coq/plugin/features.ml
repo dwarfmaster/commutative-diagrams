@@ -73,9 +73,9 @@ type t =
   (* Objects *)
   | AppliedFunctObj of (*funct*)int * (*obj*)int
   (* Morphisms *)
-  | Identity of (*obj*)int
-  | ComposeMph of (*m1*)int * (*m2*)int
-  | InverseMph of int
+  | Identity of (*cat*)int * (*obj*)int
+  | ComposeMph of (*cat*)int * (*m1*)int * (*m2*)int
+  | InverseMph of (*cat*)int * (*mph*)int
   | AppliedFunctMph of (*funct*)int * (*mph*)int
   (* Equality *)
   | Reflexivity of (*mph*)int
@@ -124,9 +124,9 @@ let to_list = function
 | Equality (cat,src,dst,left,right) -> [cat;src;dst;left;right]
 | Prop -> []
 | AppliedFunctObj (funct,obj) -> [funct;obj]
-| Identity obj -> [obj]
-| ComposeMph (m1,m2) -> [m1;m2]
-| InverseMph mph -> [mph]
+| Identity (cat,obj) -> [cat;obj]
+| ComposeMph (cat,m1,m2) -> [cat;m1;m2]
+| InverseMph (cat,mph) -> [cat;mph]
 | AppliedFunctMph (funct,mph) -> [funct;mph]
 | Reflexivity mph -> [mph]
 | Concat (eq1,eq2) -> [eq1;eq2]
