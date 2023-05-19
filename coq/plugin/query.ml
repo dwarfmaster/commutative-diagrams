@@ -238,7 +238,6 @@ and query_impl env sigma feat ec tp =
   | AppliedFunctObj -> register ec tp @<< query_funct_obj env sigma ec tp
   | Identity -> register ec tp @<< query_identity env sigma ec tp
   | ComposeMph -> register ec tp @<< query_compose_mph env sigma ec tp
-  | InverseMph -> none ()
   | AppliedFunctMph -> register ec tp @<< query_funct_mph env sigma ec tp
   (* We don't parse equality terms for now *)
   | Reflexivity -> none ()

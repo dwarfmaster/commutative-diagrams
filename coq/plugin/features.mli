@@ -12,7 +12,6 @@ module Tag : sig
     (* Morphisms *)
     | Identity
     | ComposeMph
-    | InverseMph
     | AppliedFunctMph
     (* Equality *)
     | Reflexivity
@@ -43,7 +42,6 @@ type t =
   (* Morphisms *)
   | Identity of (*cat*)int * (*obj*)int
   | ComposeMph of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int * (*m1*)int * (*m2*)int
-  | InverseMph of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
   | AppliedFunctMph of (*src*)int * (*dst*)int * (*funct*)int
                      * (*src*)int * (*dst*)int * (*mph*)int
   (* Equality *)

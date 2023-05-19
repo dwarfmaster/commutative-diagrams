@@ -198,7 +198,6 @@ let build feat =
   | AppliedFunctObj -> build_funct_obj env sigma objs
   | Identity -> build_identity env sigma objs
   | ComposeMph -> build_compose_mph env sigma objs
-  | InverseMph -> assert false (* TODO Not supported yet *)
   | AppliedFunctMph -> build_funct_mph env sigma objs
   | Reflexivity -> build_reflexivity env sigma objs
   | Concat -> build_concat env sigma objs

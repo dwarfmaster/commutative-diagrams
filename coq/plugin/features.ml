@@ -12,7 +12,6 @@ module Tag = struct
     (* Morphisms *)
     | Identity
     | ComposeMph
-    | InverseMph
     | AppliedFunctMph
     (* Equality *)
     | Reflexivity
@@ -42,20 +41,19 @@ module Tag = struct
     | AppliedFunctObj -> 6
     | Identity -> 7
     | ComposeMph -> 8
-    | InverseMph -> 9
-    | AppliedFunctMph -> 10
-    | Reflexivity -> 11
-    | Concat -> 12
-    | InverseEq -> 13
-    | ComposeEq -> 14
-    | Associativity -> 15
-    | LeftUnitality -> 16
-    | RightUnitality -> 17
-    | LeftApplication -> 18
-    | RightApplication -> 19
-    | FunctIdentity -> 20
-    | FunctComposition -> 21
-    | AppliedFunctEq -> 22
+    | AppliedFunctMph -> 9
+    | Reflexivity -> 10
+    | Concat -> 11
+    | InverseEq -> 12
+    | ComposeEq -> 13
+    | Associativity -> 14
+    | LeftUnitality -> 15
+    | RightUnitality -> 16
+    | LeftApplication -> 17
+    | RightApplication -> 18
+    | FunctIdentity -> 19
+    | FunctComposition -> 20
+    | AppliedFunctEq -> 21
 
     let compare tag1 tag2 = Int.compare (tag_id tag1) (tag_id tag2)
   end
@@ -73,7 +71,6 @@ type t =
   (* Morphisms *)
   | Identity of (*cat*)int * (*obj*)int
   | ComposeMph of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int * (*m1*)int * (*m2*)int
-  | InverseMph of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
   | AppliedFunctMph of (*src*)int * (*dst*)int * (*funct*)int
                      * (*src*)int * (*dst*)int * (*mph*)int
   (* Equality *)
@@ -107,7 +104,6 @@ let tag = function
 | AppliedFunctObj _ -> Tag.AppliedFunctObj
 | Identity _ -> Tag.Identity
 | ComposeMph _ -> Tag.ComposeMph
-| InverseMph _ -> Tag.InverseMph
 | AppliedFunctMph _ -> Tag.AppliedFunctMph
 | Reflexivity _ -> Tag.Reflexivity
 | Concat _ -> Tag.Concat
@@ -131,7 +127,6 @@ let to_list = function
 | AppliedFunctObj (src,dst,funct,obj) -> [src;dst;funct;obj]
 | Identity (cat,obj) -> [cat;obj]
 | ComposeMph (cat,src,mid,dst,m1,m2) -> [cat;src;mid;dst;m1;m2]
-| InverseMph (cat,src,dst,mph) -> [cat;src;dst;mph]
 | AppliedFunctMph (src,dst,funct,srcm,dstm,mph) -> [src;dst;funct;srcm;dstm;mph]
 | Reflexivity (cat,src,dst,mph) -> [cat;src;dst;mph]
 | Concat (cat,src,dst,left,mid,right,eq1,eq2) ->
