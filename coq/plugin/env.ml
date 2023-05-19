@@ -113,6 +113,7 @@ let g_coq_functor_names : string array =
   |]
 let get_functor = fun _ -> perform_locate g_coq_functor g_coq_functor_names locate_inductive
 let is_functor : Names.inductive -> bool = is_ind g_coq_functor g_coq_functor_names
+let mk_functor = fun _ -> mk_ind (get_functor ())
 
 let g_coq_funct_obj : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_obj_names : string array =

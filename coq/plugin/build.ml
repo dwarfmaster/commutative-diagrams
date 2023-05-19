@@ -2,6 +2,8 @@
 open Hyps.Combinators
 open Features
 
+let get_objs_value = mapM Hyps.getObjValue
+
 let mk_evar env sigma tp =
   let (sigma,evar) = Evarutil.new_evar env sigma tp in
   let* _ = Hyps.setState sigma in
@@ -12,63 +14,202 @@ let build_evar env sigma tp =
   let* id = Hyps.registerObj ev tp None in
   ret id
 
-let build_category env sigma =
+(* Disable non-exhaustive match warnings for the build_* functions *)
+[@@@ warning "-8"]
+let build_category env sigma _ =
   let* tp = Env.mk_cat () |> lift in
   build_evar env sigma tp
 
-let build_object env sigma cat =
-  let* cat = Hyps.getObjValue cat in
+let build_object env sigma objs =
+  let* [cat] = get_objs_value objs in
   let* tp = Env.app (Env.mk_object ()) [| cat |] |> lift in
   build_evar env sigma tp
 
-let build_morphism env sigma cat src dst =
-  let* cat = Hyps.getObjValue cat in
-  let* src = Hyps.getObjValue src in
-  let* dst = Hyps.getObjValue dst in
+let build_morphism env sigma objs =
+  let* [cat; src; dst] = get_objs_value objs in
   let* tp = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
   build_evar env sigma tp
 
-let build_functor env sigma src dst =
-  let* src = Hyps.getObjValue src in
-  let* dst = Hyps.getObjValue dst in
-  let* tp = Env.app (Env.mk_funct_obj ()) [| src; dst |] |> lift in
+let build_functor env sigma objs =
+  let* [src; dst] = get_objs_value objs in
+  let* tp = Env.app (Env.mk_functor ()) [| src; dst |] |> lift in
   build_evar env sigma tp
 
-let build_eq env sigma cat src dst left right =
-  let* cat = Hyps.getObjValue cat in
-  let* src = Hyps.getObjValue src in
-  let* dst = Hyps.getObjValue dst in
-  let* left = Hyps.getObjValue left in
-  let* right = Hyps.getObjValue right in
+let build_eq env sigma objs =
+  let* [cat; src; dst; left; right] = get_objs_value objs in
   let* mph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
   let* tp = Env.app (Env.mk_eq ()) [| mph; left; right |] |> lift in
   build_evar env sigma tp
 
+let build_funct_obj env sigma objs =
+  let* [src; dst; funct; obj] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_funct_obj ()) [| src; dst; funct; obj |] |> lift in
+  let* tp = Env.app (Env.mk_object ()) [| dst |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_identity env sigma objs =
+  let* [cat; obj] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_id ()) [| cat; obj |] |> lift in
+  let* tp = Env.app (Env.mk_mphT ()) [| cat; obj; obj |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_compose_mph env sigma objs =
+  let* [cat; src; mid; dst; m1; m2] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; m1; m2 |] |> lift in
+  let* tp = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_funct_mph env sigma objs =
+  let* [scat; dcat; funct; src; dst; mph] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_funct_mph ()) [| scat; dcat; funct; src; dst; mph |] |> lift in
+  let* fsrc = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; src |] |> lift in
+  let* fdst = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; dst |] |> lift in
+  let* tp = Env.app (Env.mk_mphT ()) [| dcat; fsrc; fdst |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_reflexivity env sigma objs =
+  let* [cat; src; dst; mph] = get_objs_value objs in
+  let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
+  let* ec = Env.app (Env.mk_refl ()) [| tmph; mph |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; mph; mph |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_concat env sigma objs =
+  let* [cat; src; dst; left; mid; right; eq1; eq2] = get_objs_value objs in
+  let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
+  let* ec = Env.app (Env.mk_concat ()) [| tmph; left; mid; right; eq1; eq2 |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; left; right |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_inverse_eq env sigma objs =
+  let* [cat; src; dst; left; right; eq] = get_objs_value objs in
+  let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
+  let* ec = Env.app (Env.mk_inv ()) [| tmph; left; right; eq |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; right; left |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_compose_eq env sigma objs =
+  let* [cat; src; mid; dst; left1; right1; eq1; left2; right2; eq2] = get_objs_value objs in
+  let* left = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; left1; left2 |] |> lift in
+  let* right = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; right1; right2 |] |> lift in
+  let* tmph = Env.app (Env.mk_mphT ()) [| cat; left; right |] |> lift in
+  let* ec = 
+    Env.app (Env.mk_compose_eq ())
+            [| cat; src; mid; dst; left1; right1; left2; right2; eq1; eq2 |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| cat; left; right |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_assoc env sigma objs =
+  let* [cat; src; mid1; mid2; dst; m1; m2; m3] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_assoc ()) [| cat; src; mid1; mid2; dst; m1; m2; m3 |] |> lift in
+  let* m12 = Env.app (Env.mk_comp ()) [| cat; src; mid1; mid2; m1; m2 |] |> lift in
+  let* m23 = Env.app (Env.mk_comp ()) [| cat; mid1; mid2; dst; m2; m3 |] |> lift in
+  let* m12_3 = Env.app (Env.mk_comp ()) [| cat; src; mid2; dst; m12; m3 |] |> lift in
+  let* m1_23 = Env.app (Env.mk_comp ()) [| cat; src; mid1; dst; m1; m23 |] |> lift in
+  let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; m12_3; m1_23 |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_left_unitality env sigma objs =
+  let* [cat; src; dst; mph] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_left_id ()) [| cat; src; dst; mph |] |> lift in
+  let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
+  let* id = Env.app (Env.mk_id ()) [| cat; src |] |> lift in
+  let* idmph = Env.app (Env.mk_comp ()) [| cat; src; src; dst; id; mph |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; idmph; mph |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_right_unitality env sigma objs =
+  let* [cat; src; dst; mph] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_right_id ()) [| cat; src; dst; mph |] |> lift in
+  let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
+  let* id = Env.app (Env.mk_id ()) [| cat; dst |] |> lift in
+  let* mphid = Env.app (Env.mk_comp ()) [| cat; src; dst; dst; mph; id |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; mphid; mph |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_left_application env sigma objs =
+  let* [cat; src; mid; dst; mph; left; right; eq] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_lap ()) [| cat; src; mid; dst; mph; left; right; eq |] |> lift in
+  let* mleft = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; mph; left |] |> lift in
+  let* mright = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; mph; right |] |> lift in
+  let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; mleft; mright |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_right_application env sigma objs =
+  let* [cat; src; mid; dst; mph; left; right; eq] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_rap ()) [| cat; src; mid; dst; left; right; eq; mph |] |> lift in
+  let* leftm = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; left; mph |] |> lift in
+  let* rightm = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; right; mph |] |> lift in
+  let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; leftm; rightm |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_funct_identity env sigma objs =
+  let* [src; dst; funct; obj] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_funct_id ()) [| src; dst; funct; obj |] |> lift in
+  let* idobj = Env.app (Env.mk_id ()) [| src; obj |] |> lift in
+  let* fidobj = Env.app (Env.mk_funct_mph ()) [| src; dst; funct; obj; obj; idobj |] |> lift in
+  let* fobj = Env.app (Env.mk_funct_obj ()) [| src; dst; funct; obj |] |> lift in
+  let* idfobj = Env.app (Env.mk_id ()) [| dst; fobj |] |> lift in
+  let* tmph = Env.app (Env.mk_mphT ()) [| dst; fobj; fobj |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; fidobj; idfobj |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_funct_composition env sigma objs =
+  let* [scat; dcat; funct; src; mid; dst; m1; m2] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_funct_comp ()) [| scat; dcat; funct; src; mid; dst; m1; m2 |] |> lift in
+  let* m12 = Env.app (Env.mk_comp ()) [| scat; src; mid; dst; m1; m2 |] |> lift in
+  let* fm12 = Env.app (Env.mk_funct_mph ()) [| scat; dcat; funct; src; dst; m12 |] |> lift in
+  let* fsrc = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; src |] |> lift in
+  let* fmid = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; mid |] |> lift in
+  let* fdst = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; dst |] |> lift in
+  let* fm1 = Env.app (Env.mk_funct_mph ()) [| scat; dcat; funct; src; mid; m1 |] |> lift in
+  let* fm2 = Env.app (Env.mk_funct_mph ()) [| scat; dcat; funct; mid; dst; m2 |] |> lift in
+  let* fm1fm2 = Env.app (Env.mk_comp ()) [| dcat; fsrc; fmid; fdst; fm1; fm2 |] |> lift in
+  let* tmph = Env.app (Env.mk_mphT ()) [| dcat; fsrc; fdst |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; fm12; fm1fm2 |] |> lift in
+  Hyps.registerObj ec tp None
+
+let build_funct_eq env sigma objs =
+  let* [scat; dcat; funct; src; dst; left; right; eq] = get_objs_value objs in
+  let* ec = 
+    Env.app (Env.mk_funct_ctx ()) [| scat; dcat; funct; src; dst; left; right; eq |] |> lift in
+  let* fleft = Env.app (Env.mk_funct_mph ()) [| scat; dcat; funct; src; dst; left |] |> lift in
+  let* fright = Env.app (Env.mk_funct_mph ()) [| scat; dcat; funct; src; dst; right |] |> lift in
+  let* fsrc = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; src |] |> lift in
+  let* fdst = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; dst |] |> lift in
+  let* tmph = Env.app (Env.mk_mphT ()) [| dcat; fsrc; fdst |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; fleft; fright |] |> lift in
+  Hyps.registerObj ec tp None
+
+[@@@ warning "+8"]
 let build feat =
   let* env = env () in
   let* sigma = evars () in
-  match feat with
-  | Category -> build_category env sigma
-  | Object cat -> build_object env sigma cat
-  | Morphism (cat,src,dst) -> build_morphism env sigma cat src dst
-  | Functor (src,dst) -> build_functor env sigma src dst
-  | Equality (cat,src,dst,left,right) -> build_eq env sigma cat src dst left right
-  | Prop -> assert false
-  | AppliedFunctObj _ -> assert false
-  | Identity _ -> assert false
-  | ComposeMph _ -> assert false
-  | InverseMph _ -> assert false
-  | AppliedFunctMph _ -> assert false
-  | Reflexivity _ -> assert false
-  | Concat _ -> assert false
-  | InverseEq _ -> assert false
-  | ComposeEq _ -> assert false
-  | Associativity _ -> assert false
-  | LeftUnitality _ -> assert false
-  | RightUnitality _ -> assert false
-  | LeftApplication _ -> assert false
-  | RightApplication _ -> assert false
-  | FunctIdentity _ -> assert false
-  | FunctComposition _ -> assert false
-  | AppliedFunctEq _ -> assert false
+  let objs = to_list feat in
+  match tag feat with
+  | Category -> build_category env sigma objs
+  | Object -> build_object env sigma objs
+  | Morphism -> build_morphism env sigma objs
+  | Functor -> build_functor env sigma objs
+  | Equality -> build_eq env sigma objs
+  | AppliedFunctObj -> build_funct_obj env sigma objs
+  | Identity -> build_identity env sigma objs
+  | ComposeMph -> build_compose_mph env sigma objs
+  | InverseMph -> assert false (* TODO Not supported yet *)
+  | AppliedFunctMph -> build_funct_mph env sigma objs
+  | Reflexivity -> build_reflexivity env sigma objs
+  | Concat -> build_concat env sigma objs
+  | InverseEq -> build_inverse_eq env sigma objs
+  | ComposeEq -> build_compose_eq env sigma objs
+  | Associativity -> build_assoc env sigma objs
+  | LeftUnitality -> build_left_unitality env sigma objs
+  | RightUnitality -> build_right_unitality env sigma objs
+  | LeftApplication -> build_left_application env sigma objs
+  | RightApplication -> build_right_application env sigma objs
+  | FunctIdentity -> build_funct_identity env sigma objs
+  | FunctComposition -> build_funct_composition env sigma objs
+  | AppliedFunctEq -> build_funct_eq env sigma objs
 
