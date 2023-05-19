@@ -7,7 +7,6 @@ module Tag : sig
     | Morphism
     | Functor
     | Equality
-    | Prop
     (* Objects *)
     | AppliedFunctObj
     (* Morphisms *)
@@ -39,27 +38,35 @@ type t =
   | Morphism of (*cat*)int * (*src*)int * (*dst*)int
   | Functor of (*src*)int * (*dst*)int
   | Equality of (*cat*)int * (*src*)int * (*dst*)int * (*left*)int * (*right*)int
-  | Prop
   (* Objects *)
-  | AppliedFunctObj of (*funct*)int * (*obj*)int
+  | AppliedFunctObj of (*src*)int * (*dst*)int * (*funct*)int * (*obj*)int
   (* Morphisms *)
   | Identity of (*cat*)int * (*obj*)int
-  | ComposeMph of (*cat*)int * (*m1*)int * (*m2*)int
-  | InverseMph of (*cat*)int * (*mph*)int
-  | AppliedFunctMph of (*funct*)int * (*mph*)int
+  | ComposeMph of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int * (*m1*)int * (*m2*)int
+  | InverseMph of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
+  | AppliedFunctMph of (*src*)int * (*dst*)int * (*funct*)int
+                     * (*src*)int * (*dst*)int * (*mph*)int
   (* Equality *)
-  | Reflexivity of (*mph*)int
-  | Concat of (*eq1*)int * (*eq2*)int
-  | InverseEq of (*eq*)int
-  | ComposeEq of (*eq1*)int * (*eq2*)int
-  | Associativity of (*m1*)int * (*m2*)int * (*m3*)int
-  | LeftUnitality of (*mph*)int
-  | RightUnitality of (*mph*)int
-  | LeftApplication of (*mph*)int * (*eq*)int
-  | RightApplication of (*eq*)int * (*mph*)int
-  | FunctIdentity of (*funct*)int * (*obj*)int
-  | FunctComposition of (*funct*)int * (*m1*)int * (*m2*)int
-  | AppliedFunctEq of (*funct*)int * (*eq*)int
+  | Reflexivity of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
+  | Concat of (*cat*)int * (*src*)int * (*dst*)int * (*left*)int * (*mid*)int * (*right*)int
+            * (*eq1*)int * (*eq2*)int
+  | InverseEq of (*cat*)int * (*src*)int * (*dst*)int * (*left*)int * (*right*)int * (*eq*)int
+  | ComposeEq of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int
+               * (*left1*)int * (*right1*)int * (*eq1*)int
+               * (*left2*)int * (*right2*)int * (*eq2*)int
+  | Associativity of (*cat*)int * (*src*)int * (*mid1*)int * (*mid2*)int * (*dst*)int
+                   * (*m1*)int * (*m2*)int * (*m3*)int
+  | LeftUnitality of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
+  | RightUnitality of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
+  | LeftApplication of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int
+                     * (*mph*)int * (*left*)int * (*right*)int * (*eq*)int
+  | RightApplication of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int
+                      * (*left*)int * (*right*)int * (*eq*)int * (*mph*)int
+  | FunctIdentity of (*src*)int * (*dst*)int * (*funct*)int * (*obj*)int
+  | FunctComposition of (*src*)int * (*dst*)int * (*funct*)int
+                      * (*src*)int * (*mid*)int * (*dst*)int * (*m1*)int * (*m2*)int
+  | AppliedFunctEq of (*src*)int * (*dst*)int * (*funct*)int
+                    * (*src*)int * (*dst*)int * (*left*)int * (*right*)int * (*eq*)int
 
 val tag : t -> Tag.t
 val to_list : t -> int list

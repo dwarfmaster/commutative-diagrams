@@ -155,10 +155,11 @@ and query_funct_obj env sigma ec tp =
   | App (fobj, [| elem |]) ->
       begin match EConstr.kind sigma fobj with
       | Proj (fobj,funct) when Env.is_projection fobj Env.is_functor "object_of" ->
-          let* funct = ofst <$> query_impl env sigma Functor funct @<< get_type env sigma funct in
+          let* funct = query_impl env sigma Functor funct @<< get_type env sigma funct in
           let* elem = ofst <$> query_impl env sigma Object elem @<< get_type env sigma elem in
           begin match funct, elem with
-          | Some funct, Some elem -> some (Features.AppliedFunctObj (funct,elem))
+          | Some (funct,Features.Functor (src,dst)), Some elem ->
+              some (Features.AppliedFunctObj (src,dst,funct,elem))
           | _ -> none ()
           end
       | _ -> none ()
@@ -194,10 +195,13 @@ and query_compose_mph env sigma ec tp =
     begin match EConstr.kind sigma cmp with
       | Proj (cmp,cat) when Env.is_projection cmp Env.is_cat "compose" -> begin
           let* cat = ofst <$> query_impl env sigma Category cat @<< get_type env sigma cat in
-          let* msi = ofst <$> query_impl env sigma Morphism msi @<< get_type env sigma msi in
-          let* mid = ofst <$> query_impl env sigma Morphism mid @<< get_type env sigma mid in
+          let* msi = query_impl env sigma Morphism msi @<< get_type env sigma msi in
+          let* mid = query_impl env sigma Morphism mid @<< get_type env sigma mid in
           match cat, msi, mid with
-          | Some cat, Some msi, Some mid -> some (Features.ComposeMph (cat,msi,mid))
+          | Some cat
+          , Some (msi, Features.Morphism (_,s,i))
+          , Some (mid, Features.Morphism (_,_,d)) -> 
+            some (Features.ComposeMph (cat,s,i,d,msi,mid))
           | _ -> none ()
       end
       | _ -> none ()
@@ -209,10 +213,12 @@ and query_funct_mph env sigma ec tp =
   | App (funct, [| _; _; mph |]) ->
       begin match EConstr.kind sigma funct with
       | Proj (mof,funct) when Env.is_projection mof Env.is_functor "morphism_of" -> begin
-          let* funct = ofst <$> query_impl env sigma Functor funct @<< get_type env sigma funct in
-          let* mph = ofst <$> query_impl env sigma Morphism mph @<< get_type env sigma mph in
+          let* funct = query_impl env sigma Functor funct @<< get_type env sigma funct in
+          let* mph = query_impl env sigma Morphism mph @<< get_type env sigma mph in
           match funct, mph with
-          | Some funct, Some mph -> some (Features.AppliedFunctMph (funct,mph))
+          | Some (funct, Features.Functor (scat,dcat))
+          , Some (mph, Features.Morphism (_,src,dst)) -> 
+            some (Features.AppliedFunctMph (scat,dcat,funct,src,dst,mph))
           | _ -> none ()
           end
       | _ -> none ()
@@ -229,7 +235,6 @@ and query_impl env sigma feat ec tp =
                       <$> query_functor_cached env sigma tp
   | Equality -> Option.map (fun (id,(cat,src,dst,left,right)) -> (id,Features.Equality (cat,src,dst,left,right)))
                        <$> query_eq_cached env sigma tp
-  | Prop -> none ()
   | AppliedFunctObj -> register ec tp @<< query_funct_obj env sigma ec tp
   | Identity -> register ec tp @<< query_identity env sigma ec tp
   | ComposeMph -> register ec tp @<< query_compose_mph env sigma ec tp
@@ -252,3 +257,7 @@ and query_impl env sigma feat ec tp =
 let query env feat ec tp =
   let* sigma = evars () in
   query_impl env sigma feat ec tp
+
+let query_infer_type env feat ec =
+  let* sigma = evars () in
+  query_impl env sigma feat ec @<< get_type env sigma ec

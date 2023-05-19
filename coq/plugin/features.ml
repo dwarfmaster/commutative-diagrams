@@ -7,7 +7,6 @@ module Tag = struct
     | Morphism
     | Functor
     | Equality
-    | Prop
     (* Objects *)
     | AppliedFunctObj
     (* Morphisms *)
@@ -39,7 +38,7 @@ module Tag = struct
     | Morphism -> 2
     | Functor -> 3
     | Equality -> 4
-    | Prop -> 5
+    (* Prop ? *)
     | AppliedFunctObj -> 6
     | Identity -> 7
     | ComposeMph -> 8
@@ -69,27 +68,35 @@ type t =
   | Morphism of (*cat*)int * (*src*)int * (*dst*)int
   | Functor of (*src*)int * (*dst*)int
   | Equality of (*cat*)int * (*src*)int * (*dst*)int * (*left*)int * (*right*)int
-  | Prop
   (* Objects *)
-  | AppliedFunctObj of (*funct*)int * (*obj*)int
+  | AppliedFunctObj of (*src*)int * (*dst*)int * (*funct*)int * (*obj*)int
   (* Morphisms *)
   | Identity of (*cat*)int * (*obj*)int
-  | ComposeMph of (*cat*)int * (*m1*)int * (*m2*)int
-  | InverseMph of (*cat*)int * (*mph*)int
-  | AppliedFunctMph of (*funct*)int * (*mph*)int
+  | ComposeMph of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int * (*m1*)int * (*m2*)int
+  | InverseMph of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
+  | AppliedFunctMph of (*src*)int * (*dst*)int * (*funct*)int
+                     * (*src*)int * (*dst*)int * (*mph*)int
   (* Equality *)
-  | Reflexivity of (*mph*)int
-  | Concat of (*eq1*)int * (*eq2*)int
-  | InverseEq of (*eq*)int
-  | ComposeEq of (*eq1*)int * (*eq2*)int
-  | Associativity of (*m1*)int * (*m2*)int * (*m3*)int
-  | LeftUnitality of (*mph*)int
-  | RightUnitality of (*mph*)int
-  | LeftApplication of (*mph*)int * (*eq*)int
-  | RightApplication of (*eq*)int * (*mph*)int
-  | FunctIdentity of (*funct*)int * (*obj*)int
-  | FunctComposition of (*funct*)int * (*m1*)int * (*m2*)int
-  | AppliedFunctEq of (*funct*)int * (*eq*)int
+  | Reflexivity of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
+  | Concat of (*cat*)int * (*src*)int * (*dst*)int * (*left*)int * (*mid*)int * (*right*)int
+            * (*eq1*)int * (*eq2*)int
+  | InverseEq of (*cat*)int * (*src*)int * (*dst*)int * (*left*)int * (*right*)int * (*eq*)int
+  | ComposeEq of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int
+               * (*left1*)int * (*right1*)int * (*eq1*)int
+               * (*left2*)int * (*right2*)int * (*eq2*)int
+  | Associativity of (*cat*)int * (*src*)int * (*mid1*)int * (*mid2*)int * (*dst*)int
+                   * (*m1*)int * (*m2*)int * (*m3*)int
+  | LeftUnitality of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
+  | RightUnitality of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
+  | LeftApplication of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int
+                     * (*mph*)int * (*left*)int * (*right*)int * (*eq*)int
+  | RightApplication of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int
+                      * (*left*)int * (*right*)int * (*eq*)int * (*mph*)int
+  | FunctIdentity of (*src*)int * (*dst*)int * (*funct*)int * (*obj*)int
+  | FunctComposition of (*src*)int * (*dst*)int * (*funct*)int
+                      * (*src*)int * (*mid*)int * (*dst*)int * (*m1*)int * (*m2*)int
+  | AppliedFunctEq of (*src*)int * (*dst*)int * (*funct*)int
+                    * (*src*)int * (*dst*)int * (*left*)int * (*right*)int * (*eq*)int
 
 let tag = function
 | Category -> Tag.Category
@@ -97,7 +104,6 @@ let tag = function
 | Morphism _ -> Tag.Morphism
 | Functor _ -> Tag.Functor
 | Equality _ -> Tag.Equality
-| Prop -> Tag.Prop
 | AppliedFunctObj _ -> Tag.AppliedFunctObj
 | Identity _ -> Tag.Identity
 | ComposeMph _ -> Tag.ComposeMph
@@ -122,24 +128,30 @@ let to_list = function
 | Morphism (cat,src,dst) -> [cat;src;dst]
 | Functor (src,dst) -> [src;dst]
 | Equality (cat,src,dst,left,right) -> [cat;src;dst;left;right]
-| Prop -> []
-| AppliedFunctObj (funct,obj) -> [funct;obj]
+| AppliedFunctObj (src,dst,funct,obj) -> [src;dst;funct;obj]
 | Identity (cat,obj) -> [cat;obj]
-| ComposeMph (cat,m1,m2) -> [cat;m1;m2]
-| InverseMph (cat,mph) -> [cat;mph]
-| AppliedFunctMph (funct,mph) -> [funct;mph]
-| Reflexivity mph -> [mph]
-| Concat (eq1,eq2) -> [eq1;eq2]
-| InverseEq eq -> [eq]
-| ComposeEq (eq1,eq2) -> [eq1;eq2]
-| Associativity (m1,m2,m3) -> [m1;m2;m3]
-| LeftUnitality mph -> [mph]
-| RightUnitality mph -> [mph]
-| LeftApplication (mph,eq) -> [mph;eq]
-| RightApplication (eq,mph) -> [eq;mph]
-| FunctIdentity (funct,obj) -> [funct;obj]
-| FunctComposition (funct,m1,m2) -> [funct;m1;m2]
-| AppliedFunctEq (funct,eq) -> [funct;eq]
+| ComposeMph (cat,src,mid,dst,m1,m2) -> [cat;src;mid;dst;m1;m2]
+| InverseMph (cat,src,dst,mph) -> [cat;src;dst;mph]
+| AppliedFunctMph (src,dst,funct,srcm,dstm,mph) -> [src;dst;funct;srcm;dstm;mph]
+| Reflexivity (cat,src,dst,mph) -> [cat;src;dst;mph]
+| Concat (cat,src,dst,left,mid,right,eq1,eq2) ->
+    [cat;src;dst;left;mid;right;eq1;eq2]
+| InverseEq (cat,src,dst,left,right,eq) -> [cat;src;dst;left;right;eq]
+| ComposeEq (cat,src,mid,dst,left1,right1,eq1,left2,right2,eq2) -> 
+    [cat;src;mid;dst;left1;right1;eq1;left2;right2;eq2]
+| Associativity (cat,src,mid1,mid2,dst,m1,m2,m3) ->
+    [cat;src;mid1;mid2;dst;m1;m2;m3]
+| LeftUnitality (cat,src,dst,mph) -> [cat;src;dst;mph]
+| RightUnitality (cat,src,dst,mph) -> [cat;src;dst;mph]
+| LeftApplication (cat,src,mid,dst,mph,left,right,eq) ->
+    [cat;src;mid;dst;mph;left;right;eq]
+| RightApplication (cat,src,mid,dst,left,right,eq,mph) ->
+    [cat;src;mid;dst;left;right;eq;mph]
+| FunctIdentity (src,dst,funct,obj) -> [src;dst;funct;obj]
+| FunctComposition (src,dst,funct,srcm,midm,dstm,m1,m2) -> 
+    [src;dst;funct;srcm;midm;dstm;m1;m2]
+| AppliedFunctEq (src,dst,funct,srcm,dstm,left,right,eq) ->
+    [src;dst;funct;srcm;dstm;left;right;eq]
 
 module Eq = struct
   type super = t
