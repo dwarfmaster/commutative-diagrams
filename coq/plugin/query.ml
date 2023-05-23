@@ -15,7 +15,7 @@ let isInd sigma pred t =
   | Ind (ind,_) -> pred ind 
   | _ -> false
 
-let ofst = Option.map fst
+let ofst opt = Option.map fst opt
 
 (* TODO will break in case of coq evars in ctx *)
 let getType env sigma e : EConstr.t Hyps.t =
@@ -26,6 +26,14 @@ let get_type env sigma e =
   match id with
   | Some id -> Hyps.getObjType id
   | None -> getType env sigma e
+
+
+(*   ___                         *)
+(*  / _ \ _   _  ___ _ __ _   _  *)
+(* | | | | | | |/ _ \ '__| | | | *)
+(* | |_| | |_| |  __/ |  | |_| | *)
+(*  \__\_\\__,_|\___|_|   \__, | *)
+(*                        |___/  *)
 
 let run_query_cached env sigma tp
                      (query : EConstr.t -> 'a option Hyps.t)
@@ -260,3 +268,74 @@ let query env feat ec tp =
 let query_infer_type env feat ec =
   let* sigma = evars () in
   query_impl env sigma feat ec @<< get_type env sigma ec
+
+
+(*   ___                    _   _  __ _          _  *)
+(*  / _ \ _   _  __ _ _ __ | |_(_)/ _(_) ___  __| | *)
+(* | | | | | | |/ _` | '_ \| __| | |_| |/ _ \/ _` | *)
+(* | |_| | |_| | (_| | | | | |_| |  _| |  __/ (_| | *)
+(*  \__\_\\__,_|\__,_|_| |_|\__|_|_| |_|\___|\__,_| *)
+(*                                                  *)
+
+type quantifiedKind =
+  | Existential
+  | Universal
+  | LetIn of int
+type quantified =
+  { name: Names.Name.t option
+  ; tp: int
+  ; kind: quantifiedKind
+  }
+
+let build_env rctx sigma =
+  let* env = env () in
+  let name = Context.({
+    binder_name = Names.Name.Anonymous;
+    binder_relevance = Sorts.Irrelevant;
+  }) in
+  let* rctx = mapM (fun q -> Hyps.getObjValue q.tp) rctx in
+  let ctx = List.rev_map (fun tp ->
+    Context.Rel.Declaration.LocalAssum (name,EConstr.to_constr sigma tp)) rctx in
+  List.fold_left (fun env decl -> Environ.push_rel decl env) env ctx |> ret
+
+let is_some = function
+  | Some _ -> true
+  | None -> false
+
+let mrgOpts opts =
+  let mrg opt1 opt2 = match opt1, opt2 with
+  | Some x, _ -> Some x
+  | _, Some y -> Some y
+  | _ -> None in
+  List.fold_left mrg None opts
+
+let is_relevant_type rctx sigma tp =
+  let* env = build_env rctx sigma in
+  let* is_cat = ofst <$> query_cat_cached env sigma tp in
+  let* is_obj = ofst <$> query_object_cached env sigma tp in
+  let* is_mph = ofst <$> query_morphism_cached env sigma tp in
+  let* is_fun = ofst <$> query_functor_cached env sigma tp in
+  let* is_eq  = ofst <$> query_eq_cached env sigma tp in
+  mrgOpts [is_cat; is_obj; is_mph; is_fun; is_eq] |> ret
+
+let rec query_lemma_impl rctx sigma tp =
+  match EConstr.kind sigma tp with
+  | Prod (name,arg,body) ->
+      let* rel = is_relevant_type rctx sigma arg in
+      begin match rel with
+      | Some id -> begin
+          let q = { name = Some name.binder_name; tp = id; kind = Existential } in
+          query_lemma_impl (q :: rctx) sigma body
+      end
+      | None -> none ()
+      end
+  | _ ->
+      let* rel = is_relevant_type rctx sigma tp in
+      match rel with
+      | Some id -> some (List.rev rctx, id)
+      | None -> none ()
+
+let query_lemma tp = 
+  let* sigma = evars () in
+  query_lemma_impl [] sigma tp
+
