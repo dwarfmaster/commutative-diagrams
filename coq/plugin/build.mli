@@ -1,2 +1,2 @@
 
-val build : Features.t -> int Hyps.t
+val build : int -> Features.t -> Hyps.obj Hyps.t

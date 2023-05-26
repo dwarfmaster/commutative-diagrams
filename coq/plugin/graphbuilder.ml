@@ -1,185 +1,191 @@
 
-module Registerer(Ord : Map.OrderedType) = struct
-  module M = Map.Make(Ord)
+module Make(O: Map.OrderedType) = struct
+  module Registerer(Ord : Map.OrderedType) = struct
+    module M = Map.Make(Ord)
+    type t =
+      { values: Ord.t list
+      ; length: int
+      ; reverse: int M.t
+      }
+  
+    let empty () =
+      { values = []
+      ; length = 0
+      ; reverse = M.empty
+      }
+  
+    let to_list (reg: t) : Ord.t list =
+      List.rev reg.values
+  
+    let insert (x : Ord.t) (reg : t) : int * t =
+      let nreg =
+        { values = x :: reg.values
+        ; length = reg.length + 1
+        ; reverse = M.add x reg.length reg.reverse
+        } in
+      reg.length, nreg
+  
+    let get (x : Ord.t) (reg: t) : int option =
+      M.find_opt x reg.reverse
+  
+    let find (x : Ord.t) (reg: t) : int =
+      M.find x reg.reverse
+  
+    let may_insert (x : Ord.t) (reg : t) : int * t =
+      match get x reg with
+      | Some i -> i, reg
+      | None -> insert x reg
+  
+    let debug_print (fmt: Ord.t -> Pp.t) (reg: t) : Pp.t =
+      let rec pv = function
+        | [] -> Pp.str ""
+        | [x] -> fmt x
+        | x :: xs -> Pp.(fmt x ++ str "::" ++ pv xs) in
+      pv reg.values
+  end
+  
+  let cmp2 x y = if x = 0 then y else x
+  module RegNode = Registerer(O)
+  module EqEdge = struct
+    type t = int * int * O.t
+    let compare (src1,dst1,mph1) (src2,dst2,mph2) =
+      cmp2 (O.compare mph1 mph2)
+           (List.compare Int.compare [src1;dst1] [src2;dst2])
+  end
+  module RegEdge = Registerer(EqEdge)
+  module EqEq = struct
+    type t = int * int * int list * int list * O.t * bool
+    let compare (src1,dst1,left1,right1,eq1,_) (src2,dst2,left2,right2,eq2,_) =
+      cmp2 (O.compare eq1 eq2)
+           (List.compare
+             (List.compare Int.compare)
+             [ [src1;dst1]; left1; right1 ]
+             [ [src2;dst2]; left2; right2 ])
+  end
+  module RegEq = Registerer(EqEq)
   type t =
-    { values: Ord.t list
-    ; length: int
-    ; reverse: int M.t
+    { elems : RegNode.t
+    ; mphs : RegEdge.t
+    ; eqs : RegEq.t
     }
-
+  
+  let debug_print (env: Environ.env) (sigma: Evd.evar_map) printer (bld: t) : Pp.t =
+    let elems = RegNode.debug_print printer bld.elems in
+    let mphs = RegEdge.debug_print (fun (_,_,mph) -> printer mph) bld.mphs in
+    let eqs = RegEq.debug_print (fun (_,_,_,_,eq,_) -> printer eq) bld.eqs in
+    Pp.(str "elems: " ++ elems ++ str "," ++ cut ()
+      ++ str "mphs: " ++ mphs ++ str "," ++ cut ()
+      ++ str "eqs: " ++ eqs)
+  
   let empty () =
-    { values = []
-    ; length = 0
-    ; reverse = M.empty
+    { elems = RegNode.empty ()
+    ; mphs = RegEdge.empty ()
+    ; eqs = RegEq.empty ()
     }
+  
+  let add_node (obj: O.t) (builder: t) : int * t =
+    let i, nelems = RegNode.may_insert obj builder.elems in
+    i, { builder with elems = nelems }
+  let add_edge (src: O.t) (dst: O.t) (mph: O.t) (builder: t) : int * t =
+    let src, builder = add_node src builder in
+    let dst, builder = add_node dst builder in
+    let mph, nmphs = RegEdge.may_insert (src,dst,mph) builder.mphs in
+    mph, { builder with mphs = nmphs }
+  let add_face ?(important = false) src dst left right eq (builder: t) =
+    let flp (a,b) = (b,a) in
+    let (src, builder) = add_node src builder in
+    let (dst, builder) = add_node dst builder in
+    let (builder,left) = 
+      List.fold_left_map (fun bld (src,dst,mph) -> add_edge src dst mph bld |> flp) builder left in
+    let (builder,right) = 
+      List.fold_left_map (fun bld (src,dst,mph) -> add_edge src dst mph bld |> flp) builder right in
+    let _, neqs = RegEq.may_insert (src,dst,left,right,eq,important) builder.eqs in
+    { builder with eqs = neqs }
+  
+  let rec find_in_list (lst: (int * 'a) list) (x : 'a) (n: int) : int * int =
+    match lst with
+    | [] -> assert false
+    | (i,y) :: l when x = y -> (i,n)
+    | _ :: l -> find_in_list l x (n+1)
+  
+  exception ImportantFailed
+  let build_face mphs (src,dst,left,right,eq,important) : O.t Graph.face option =
+    let open Graph in
+    let rec last_is pred = function
+    | [] -> true
+    | [x] -> pred x
+    | _ :: tl -> last_is pred tl in
+    let check_left = match left with
+    | [] -> true
+    | mph :: _ -> (List.nth mphs mph).mph_src = src
+               && last_is (fun mph -> (List.nth mphs mph).mph_dst = dst) left in
+    let check_right = match right with
+    | [] -> true
+    | mph :: _ -> (List.nth mphs mph).mph_src = src 
+               && last_is (fun mph -> (List.nth mphs mph).mph_dst = dst) right in
+    if check_left && check_right
+    then Some { face_src = src
+              ; face_dst = dst
+              ; face_left = left
+              ; face_right = right
+              ; face_eq = eq
+              }
+    else if important then raise ImportantFailed else None
 
-  let to_array (reg: t) : Ord.t array =
-    Array.of_list (List.rev reg.values)
-
-  let insert (x : Ord.t) (reg : t) : int * t =
-    let nreg =
-      { values = x :: reg.values
-      ; length = reg.length + 1
-      ; reverse = M.add x reg.length reg.reverse
-      } in
-    reg.length, nreg
-
-  let get (x : Ord.t) (reg: t) : int option =
-    M.find_opt x reg.reverse
-
-  let find (x : Ord.t) (reg: t) : int =
-    M.find x reg.reverse
-
-  let may_insert (x : Ord.t) (reg : t) : int * t =
-    match get x reg with
-    | Some i -> i, reg
-    | None -> insert x reg
-
-  let debug_print (fmt: Ord.t -> Pp.t) (reg: t) : Pp.t =
-    let rec pv = function
-      | [] -> Pp.str ""
-      | [x] -> fmt x
-      | x :: xs -> Pp.(fmt x ++ str "::" ++ pv xs) in
-    pv reg.values
+  let import obj tp mk builder =
+    let open Hyps.Combinators in
+    let* mtdt = Hyps.getObjMtdt tp in
+    let builder = match mtdt.is_elem with
+    | Some _ -> add_node obj builder |> snd
+    | None -> builder in
+    let* builder = match mtdt.is_mph with
+    | Some (_,src,dst) ->
+        let* src = mk src in
+        let* dst = mk dst in
+        add_edge src dst obj builder |> snd |> ret
+    | None -> ret builder in
+    let* builder = match mtdt.is_eq with
+    | Some (cat,src,dst,left,right) ->
+        let* src = mk src in
+        let* dst = mk dst in
+        let* left = mk left in
+        let* right = mk right in
+        (* TODO split left and right *)
+        add_face src dst [(src,dst,left)] [(src,dst,right)] obj builder |> ret
+    | None -> ret builder in
+    ret builder
+  
+  let build_morphism (src,dst,mph) : O.t Graph.morphism =
+    let open Graph in
+    { mph_src = src
+    ; mph_dst = dst
+    ; mph_mph = mph
+    }
+  
+  let build (builder: t) =
+    try
+      let nodes = RegNode.to_list builder.elems in
+      let mphs = RegEdge.to_list builder.mphs |> List.map build_morphism in
+      let faces = List.filter_map (build_face mphs) builder.eqs.values in
+      let open Graph in
+      Some { gr_nodes = nodes
+           ; gr_edges = mphs
+           ; gr_faces = faces
+           }
+    with
+      _ -> None
+  let build_unsafe (builder : t) =
+    match build builder with
+    | Some gr -> gr
+    | None -> assert false
 end
 
-module RElem = Registerer(Data.EqElem)
-module RMph = Registerer(Data.EqMph)
-module EqWithBool = struct
-  type t = Data.eq * bool
-  let compare (eq1,_) (eq2,_) = Data.EqEq.compare eq1 eq2
-end
-module REq = Registerer(EqWithBool)
-type t =
-  { elems : RElem.t
-  ; mphs : RMph.t
-  ; eqs : REq.t
-  }
-
-let debug_print (env: Environ.env) (sigma: Evd.evar_map) (bld: t) : Pp.t =
-  let elems = RElem.debug_print (Renderer.elem sigma env) bld.elems in
-  let mphs = RMph.debug_print (Renderer.mph sigma env) bld.mphs in
-  let eqs = REq.debug_print (fun (eq,_) -> Renderer.eq sigma env eq) bld.eqs in
-  Pp.(str "elems: " ++ elems ++ str "," ++ cut ()
-    ++ str "mphs: " ++ mphs ++ str "," ++ cut ()
-    ++ str "eqs: " ++ eqs)
-
-let empty () =
-  { elems = RElem.empty ()
-  ; mphs = RMph.empty ()
-  ; eqs = REq.empty ()
-  }
-
-let add_node (obj: Data.elem) (builder: t) =
-  let i, nelems = RElem.may_insert obj builder.elems in
-  i, { builder with elems = nelems }
-let add_edge (mph: Data.morphism) (builder: t) =
-  let _, builder = add_node (Data.morphism_src mph) builder in
-  let _, builder = add_node (Data.morphism_dst mph) builder in
-  let _, nmphs = RMph.may_insert mph builder.mphs in
-  { builder with mphs = nmphs }
-let add_face ?(important = false) (eq: Data.eq) (builder: t) =
-  let rec add_comp mph builder =
-    match mph with
-    | Data.Comp (m1, m2) ->
-        let builder = add_edge m1 builder in
-        add_comp m2 builder
-    | _ -> add_edge mph builder in
-  (* Necessary because they may be different from the src/dst of left and right
-     due to conversion *)
-  let (_, builder) = add_node (Data.eq_src eq) builder in
-  let (_, builder) = add_node (Data.eq_dst eq) builder in
-  let builder = add_comp (Data.eq_left eq) builder in
-  let builder = add_comp (Data.eq_right eq) builder in
-  let _, neqs = REq.may_insert (eq,important) builder.eqs in
-  { builder with eqs = neqs }
-
-let import_hyps (builder: t) =
-  let open Hyps.Combinators in
-  let* builder =
-    Array.fold_left
-      (fun bld (elm,mask) -> if mask then bld else add_node (AtomicElem elm) bld |> snd)
-      builder
-      <$> Hyps.getElems () in
-  let* builder =
-    Array.fold_left
-      (fun bld (mph,mask) -> if mask then bld else add_edge (AtomicMorphism mph) bld)
-      builder
-      <$> Hyps.getMorphisms () in
-  let* builder =
-    Array.fold_left
-      (fun bld (eq,mask) -> if mask then bld else add_face (AtomicEq eq) bld)
-      builder
-      <$> Hyps.getEqs () in
-  ret builder
-
-let rec find_in_list (lst: (int * 'a) list) (x : 'a) (n: int) : int * int =
-  match lst with
-  | [] -> assert false
-  | (i,y) :: l when x = y -> (i,n)
-  | _ :: l -> find_in_list l x (n+1)
-
-let rec build_path (mphs : (int * Data.morphism) list array) (src: int) (mph : Data.morphism) : int list =
-  match mph with
-  | Data.Comp (m1, m2) ->
-      let dst,id = find_in_list mphs.(src) m1 0 in
-      let path = build_path mphs dst m2 in
-      id :: path
-  | _ ->
-      let _,id = find_in_list mphs.(src) mph 0 in [ id ]
-exception InvalidImportant
-let build_face (builder : t) mphs (eq,important) : Graph.faces option =
-  if (Data.cmp_elem 
-       (Data.morphism_src (Data.eq_right eq))
-       (Data.morphism_src (Data.eq_left eq)) != 0)
-     || (Data.cmp_elem
-          (Data.eq_src eq)
-          (Data.morphism_src (Data.eq_right eq)) != 0)
-     || (Data.cmp_elem 
-          (Data.eq_src eq) 
-          (Data.morphism_src (Data.eq_left eq)) != 0)
-     || (Data.cmp_elem 
-          (Data.morphism_dst (Data.eq_right eq))
-          (Data.morphism_dst (Data.eq_left eq)) != 0)
-     || (Data.cmp_elem
-          (Data.eq_dst eq)
-          (Data.morphism_dst (Data.eq_right eq)) != 0)
-     || (Data.cmp_elem 
-          (Data.eq_dst eq) 
-          (Data.morphism_dst (Data.eq_left eq)) != 0)
-  then (if important then raise InvalidImportant else None)
-  else
-    let src_id = RElem.find (Data.eq_src eq) builder.elems in
-    let dst_id = RElem.find (Data.eq_dst eq) builder.elems in
-    let left = build_path mphs src_id (Data.eq_left eq) in
-    let right = build_path mphs src_id (Data.eq_right eq) in
-    let open Graph in
-    Some { face_src = src_id
-         ; face_dst = dst_id
-         ; face_left = left
-         ; face_right = right
-         ; face_eq = eq
-         }
-
-let build (builder: t) =
-  let nodes = RElem.to_array builder.elems in
-  let mphs = Array.make (Array.length nodes) [] in
-  List.iter
-    (fun mph ->
-      let src_id = RElem.find (Data.morphism_src mph) builder.elems in
-      let dst_id = RElem.find (Data.morphism_dst mph) builder.elems in
-      mphs.(src_id) <- (dst_id,mph) :: mphs.(src_id))
-    builder.mphs.values;
-  try
-    let faces = List.filter_map (build_face builder mphs) builder.eqs.values in
-    let open Graph in
-    Some { gr_nodes = nodes
-         ; gr_edges = mphs
-         ; gr_faces = faces
-         }
-  with
-    _ -> None
-let build_unsafe (builder : t) =
-  match build builder with
-  | Some gr -> gr
-  | None -> assert false
+module MInt = Make(struct type t = int let compare = Int.compare end)
+type t = MInt.t
+let empty = MInt.empty
+let add_node = MInt.add_node
+let add_edge = MInt.add_edge
+let add_face = MInt.add_face
+let build = MInt.build
+let build_unsafe = MInt.build_unsafe
+let debug_print env sigma bld = MInt.debug_print env sigma Pp.int bld

@@ -16,7 +16,7 @@ let runWithGoal goal act =
   let env = Proofview.Goal.env goal in
   run env act
 
-let extract_hyp (env : Environ.env) (dec : EConstr.named_declaration) : Lemmas.lemma option m =
+let extract_hyp (env : Environ.env) (dec : EConstr.named_declaration) : Lemmas.t option m =
   let* sigma = evars () in
   let name,tp = match dec with
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
@@ -45,7 +45,7 @@ let add_universes_constraints (env : Environ.env) (c : EConstr.t) (sigma : Evd.e
   Typing.solve_evars env sigma c
 
 let extract_hyps (goal : Proofview.Goal.t) 
-               : (Lemmas.lemma list * Data.morphism * Data.morphism) option m =
+               : (Lemmas.t list * Data.morphism * Data.morphism) option m =
   let env = Proofview.Goal.env goal in
   let context = Proofview.Goal.hyps goal in
   let goal = Proofview.Goal.concl goal in

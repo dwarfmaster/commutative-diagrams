@@ -3,12 +3,17 @@
    context. It also offers a reader monad over the goal environment.
 *)
 
+type obj =
+  { namespace: int
+  ; id: int
+  }
+val compare_obj : obj -> obj -> int
 type metadata =
   { is_cat: unit option
-  ; is_funct: (int * int) option
-  ; is_elem: int option
-  ; is_mph: (int * int * int) option
-  ; is_eq: (int * int * int * int * int) option
+  ; is_funct: (obj * obj) option
+  ; is_elem: obj option
+  ; is_mph: (obj * obj * obj) option
+  ; is_eq: (obj * obj * obj * obj * obj) option
   }
 type 'a t
 
@@ -40,18 +45,23 @@ val saveState : unit -> int t
 val restoreState : int -> unit t
 val setState : Evd.evar_map -> unit t
 
-val registerObj : EConstr.t -> EConstr.t -> string option -> int t
-val hasObject : EConstr.t -> int option t
-val getObjValue : int -> EConstr.t t
-val getObjType : int -> EConstr.t t
-val getObjName : int -> string option t
-val getObjMask : int -> bool t
-val getObjMtdt : int -> metadata t
-val markAsCat : int -> unit -> unit t
-val markAsFunct : int -> int * int -> unit t
-val markAsElem : int -> int -> unit t
-val markAsMph : int -> int * int * int -> unit t
-val markAsEq : int -> int * int * int * int * int -> unit t
+(* The 0th namespace is pre-registered and always considered valid. It is also
+   considered as a super-namespace for all other. When registering an object in a
+   namespace, it may add it to the 0th one if it was present in it. Same as with
+   hasObject, which also search the Oth one. *)
+val registerNamespace : unit -> int t
+val registerObj : (* namespace *)int -> EConstr.t -> EConstr.t -> string option -> obj t
+val hasObject : int -> EConstr.t -> obj option t
+val getObjValue : obj -> EConstr.t t
+val getObjType : obj -> EConstr.t t
+val getObjName : obj -> string option t
+val getObjMask : obj -> bool t
+val getObjMtdt : obj -> metadata t
+val markAsCat : obj -> unit -> unit t
+val markAsFunct : obj -> obj * obj -> unit t
+val markAsElem : obj -> obj -> unit t
+val markAsMph : obj -> obj * obj * obj -> unit t
+val markAsEq : obj -> obj * obj * obj * obj * obj -> unit t
 
 val registerSubst : Evd.evar_map -> int t
 val getSubst : int -> Evd.evar_map t

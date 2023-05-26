@@ -17,7 +17,7 @@ let rec forM (lst: 'a list) (f : 'a -> 'b m) : 'b list m =
       ret (x :: xs)
 
 type goal =
-  | GGraph of string option * bool * int * Graph.graph * Lemmas.lemma list
+  | GGraph of string option * bool * int * Graph.graph * Lemmas.t list
   | GPrint of string * Graph.graph
   | GNormalize of Data.morphism * Data.morphism
   | GSolve of int * Graph.graph * Data.morphism * Data.morphism
@@ -148,13 +148,13 @@ let handle_goal (goal: goal) (args : Msgpack.t list) : handler_ret m =
 let handle_lemmas (goal: goal) (args : Msgpack.t list) : handler_ret m =
   match goal with
   | GGraph (_,_,_,_,lemmas) ->
-      let open Lemmas in
-      let* lemmas_mp = 
+      let* lemmas_mp =
         (fun arr -> Msgpack.Array arr) <$>
           (forM lemmas
             (fun lemma -> 
-              let* graph = Graph.Serde.pack lemma.graph in
-              Msgpack.Array [ Msgpack.String lemma.name; graph ] |> ret)) in
+              let* graph = Lemmas.instantiate lemma in
+              let* graph = Graph.Serde.pack graph in
+              Msgpack.Array [ Msgpack.String (Lemmas.name lemma); graph ] |> ret)) in
       ret (HRet lemmas_mp)
   | _ -> ret (HError "Lemmas only available on graph goal")
 
@@ -313,7 +313,7 @@ let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) m =
   | _ -> fail "Ill formed rpc message"
 
 type action =
-  | Graph of string option * bool * Data.morphism * Data.morphism * Lemmas.lemma list
+  | Graph of string option * bool * Data.morphism * Data.morphism * Lemmas.t list
   | Normalize of Data.morphism * Data.morphism
   | Print of string
   | Solve of int * Data.morphism * Data.morphism
@@ -323,17 +323,18 @@ let run (act: action) : unit m =
     match act with
     | Graph (file,force,left,right,lemmas) -> 
         let goal = Graphbuilder.empty () in
-        let* goal = Graphbuilder.import_hyps goal in
+        (* TODO add hypothesis to goal graph *)
         let* evar = Hyps.newEvar () in
-        let hole = let open Data in 
-          { eq_atom = Evar (evar,None)
-          ; eq_left_ = left
-          ; eq_right_ = right
-          ; eq_cat_ = morphism_cat right
-          ; eq_src_ = morphism_src right
-          ; eq_dst_ = morphism_dst right
-          } in
-        let goal = Graphbuilder.add_face ~important:true (Data.AtomicEq hole) goal in
+        (* let hole = let open Data in  *)
+        (*   { eq_atom = Evar (evar,None) *)
+        (*   ; eq_left_ = left *)
+        (*   ; eq_right_ = right *)
+        (*   ; eq_cat_ = morphism_cat right *)
+        (*   ; eq_src_ = morphism_src right *)
+        (*   ; eq_dst_ = morphism_dst right *)
+        (*   } in *)
+        (* let goal = Graphbuilder.add_face ~important:true (Data.AtomicEq hole) goal in *)
+        (* TODO build goal face *)
         let goal = Graphbuilder.build goal in
         begin match goal with
         | Some goal -> GGraph (file,force,evar,goal,lemmas) |> ret
@@ -343,11 +344,11 @@ let run (act: action) : unit m =
         ret (GNormalize (left,right))
     | Print path -> 
         let goal = Graphbuilder.empty () in
-        let* goal = Graphbuilder.import_hyps goal in
+        (* let* goal = Graphbuilder.import_hyps goal in *)
         ret (GPrint (path, Graphbuilder.build_unsafe goal))
     | Solve (level,left,right) ->
         let goal = Graphbuilder.empty () in
-        let* goal = Graphbuilder.import_hyps goal in
+        (* let* goal = Graphbuilder.import_hyps goal in *)
         let goal = Graphbuilder.build_unsafe goal in
         ret (GSolve (level, goal, left, right))
     in

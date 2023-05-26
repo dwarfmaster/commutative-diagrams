@@ -1,22 +1,25 @@
 
-val query : Environ.env
+val query : int
+         -> Environ.env
          -> Features.Tag.t 
          -> EConstr.t 
          -> EConstr.t 
-         -> (int * Features.t) option Hyps.t
-val query_infer_type : Environ.env
+         -> (Hyps.obj * Features.t) option Hyps.t
+val query_infer_type : int
+                    -> Environ.env
                     -> Features.Tag.t 
                     -> EConstr.t 
-                    -> (int * Features.t) option Hyps.t
+                    -> (Hyps.obj * Features.t) option Hyps.t
 
 type quantifiedKind =
   | Existential
   | Universal
-  | LetIn of int
+  | LetIn of Hyps.obj
 type quantified =
   { name: Names.Name.t option
-  ; tp: int
+  ; tp: Hyps.obj
   ; kind: quantifiedKind
   }
-val query_lemma : EConstr.t -> (quantified list * int) option Hyps.t
+val query_lemma : int -> EConstr.t -> (quantified list * Hyps.obj) option Hyps.t
 
+val get_type : int -> Environ.env -> Evd.evar_map -> EConstr.t -> EConstr.t Hyps.t

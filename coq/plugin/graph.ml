@@ -4,18 +4,24 @@ type 't m = 't Hyps.t
 
 module M = Map.Make(String)
 
-type faces =
+type 'a face =
   { face_src: int
   ; face_dst: int
   ; face_left: int list
   ; face_right: int list
-  ; face_eq: Data.eq
+  ; face_eq: 'a
   }
-type graph =
-  { gr_nodes: Data.elem array
-  ; gr_edges: (int * Data.morphism) list array
-  ; gr_faces: faces list
+type 'a morphism =
+  { mph_src: int
+  ; mph_dst: int
+  ; mph_mph: 'a
   }
+type 'a graph_impl =
+  { gr_nodes: 'a list
+  ; gr_edges: 'a morphism list
+  ; gr_faces: 'a face list
+  }
+type graph = int graph_impl
 
 let rec mapOptM (f : 'a -> 'b option m) (l : 'a list) : 'b list option m =
   match l with
@@ -28,37 +34,28 @@ let rec mapOptM (f : 'a -> 'b option m) (l : 'a list) : 'b list option m =
         | _ -> ret None
       end
 
-let pack_edge src dst mph =
-  let* mph = Serde.Mph.pack mph in
-  ret (Msgpack.Map [
-    (Msgpack.String "src", Msgpack.Integer src);
-    (Msgpack.String "dst", Msgpack.Integer dst);
-    (Msgpack.String "mph", mph);
+let pack_edge mph =
+  ret (Msgpack.Array [
+    Msgpack.Integer mph.mph_src;
+    Msgpack.Integer mph.mph_dst;
+    Msgpack.Integer mph.mph_mph;
   ])
 
 let unpack_edge msg =
+  let open Msgpack in
   match msg with
-  | Msgpack.Map [ (Msgpack.String s1, v1); (Msgpack.String s2, v2); (Msgpack.String s3, v3) ] -> begin
-      let items = List.sort (fun (a,_) (b,_) -> String.compare a b) [ (s1,v1); (s2,v2); (s3,v3) ] in
-      match items with
-      | [ ("dst", Msgpack.Integer dst); ("mph", mph); ("src", Msgpack.Integer src) ] -> begin
-        let* mph = Serde.Mph.unpack mph in
-        match mph with
-        | Some mph -> ret (Some (src,dst,mph))
-        | _ -> ret None
-      end
-      | _ -> ret None
-  end
-  | _ -> ret None
+  | Array [ Integer src; Integer dst; Integer mph ] ->
+      some { mph_src = src; mph_dst = dst; mph_mph = mph; }
+  | _ -> none ()
 
 let pack_face fce =
-  let* eq = Serde.Eq.pack fce.face_eq in
-  ret (Msgpack.Map [
-    (Msgpack.String "src", Msgpack.Integer fce.face_src);
-    (Msgpack.String "dst", Msgpack.Integer fce.face_dst);
-    (Msgpack.String "left", Msgpack.Array (List.map (fun i -> Msgpack.Integer i) fce.face_left));
-    (Msgpack.String "right", Msgpack.Array (List.map (fun i -> Msgpack.Integer i) fce.face_right));
-    (Msgpack.String "eq", eq)
+  let open Msgpack in
+  ret (Array [
+    Integer fce.face_src;
+    Integer fce.face_dst;
+    Array (List.map (fun i -> Integer i) fce.face_left);
+    Array (List.map (fun i -> Integer i) fce.face_right);
+    Integer fce.face_eq;
   ])
 
 let unpack_int msg =
@@ -67,64 +64,67 @@ let unpack_int msg =
   | _ -> ret None
 
 let unpack_face msg =
+  let open Msgpack in
   match msg with
-  | Msgpack.Map [ (Msgpack.String s1, v1); (Msgpack.String s2, v2); (Msgpack.String s3, v3); (Msgpack.String s4, v4); (Msgpack.String s5, v5) ] -> begin
-    let items = List.sort (fun (a,_) (b,_) -> String.compare a b) [ (s1,v1); (s2,v2); (s3,v3); (s4,v4); (s5,v5) ] in
-    match items with
-    | [ ("dst", Msgpack.Integer dst); ("eq", eq); ("left", Msgpack.Array left); ("right", Msgpack.Array right); ("src", Msgpack.Integer src) ] -> begin
-      let* eq = Serde.Eq.unpack eq in
-      let* left = mapOptM unpack_int left in
-      let* right = mapOptM unpack_int right in
-      match eq, left, right with
-      | Some eq, Some left, Some right -> ret (Some { face_src = src; face_dst = dst; face_left = left; face_right = right; face_eq = eq })
-      | _ -> ret None
-    end
-    | _ -> ret None
+  | Array [ Integer src; Integer dst; Array left; Array right; Integer eq ] -> begin
+    let* left = mapOptM unpack_int left in
+    let* right = mapOptM unpack_int right in
+    match left, right with
+    | Some left, Some right -> some { 
+        face_src = src; 
+        face_dst = dst; 
+        face_left = left; 
+        face_right = right; 
+        face_eq = eq;
+      }
+    | _ -> none ()
   end
-  | _ -> ret None
+  | _ -> none ()
 
 module Serde = struct
   type t = graph
 
   let pack gr =
-    let* nodes = mapM (fun e -> Serde.Elem.pack e) (Array.to_list gr.gr_nodes) in
-    let* edges = concat (List.flatten (Array.to_list
-        (Array.mapi (fun s l -> List.map (fun (d,m) -> pack_edge s d m) l) gr.gr_edges))) in
+    let nodes = List.map (fun e -> Msgpack.Integer e) gr.gr_nodes in
+    let* edges = mapM pack_edge gr.gr_edges in
     let* faces = mapM pack_face gr.gr_faces in
-    ret (Msgpack.Map [
-      (Msgpack.String "nodes", Msgpack.Array nodes);
-      (Msgpack.String "edges", Msgpack.Array edges);
-      (Msgpack.String "faces", Msgpack.Array faces);
+    ret (Msgpack.Array [
+      Msgpack.Array nodes;
+      Msgpack.Array edges;
+      Msgpack.Array faces;
     ])
 
   let unpack msg = 
+    let open Msgpack in
     match msg with
-    | Msgpack.Map [ (Msgpack.String s1, v1); (Msgpack.String s2, v2); (Msgpack.String s3, v3) ] -> begin
-      let items = List.sort (fun (a,_) (b,_) -> String.compare a b) [ (s1,v1); (s2,v2); (s3,v3) ] in
-      match items with
-      | [ ("edges", Msgpack.Array edges); ("faces", Msgpack.Array faces); ("nodes", Msgpack.Array nodes) ] -> begin
-        let* nodes = mapOptM Serde.Elem.unpack nodes in
-        let* edges = mapOptM unpack_edge edges in
-        let* faces = mapOptM unpack_face faces in
-        match nodes, edges, faces with
-        | Some nodes, Some edges, Some faces -> begin
-          let size = List.length nodes in
-          let gr = {
-            gr_nodes = Array.of_list nodes; 
-            gr_edges = Array.make size [];
-            gr_faces = faces;
-          } in
-          let edges = ref edges in
-          while !edges != [] do
-            let (s,d,m) = List.hd !edges in
-            edges := List.tl !edges;
-            gr.gr_edges.(s) <- (d,m) :: gr.gr_edges.(s)
-          done;
-          ret (Some gr)
-        end
-        | _ -> ret None
-      end
-      | _ -> ret None
+    | Array [ Array nodes; Array edges; Array faces ] -> begin
+      let* nodes = mapOptM unpack_int nodes in
+      let* edges = mapOptM unpack_edge edges in
+      let* faces = mapOptM unpack_face faces in
+      match nodes, edges, faces with
+      | Some nodes, Some edges, Some faces -> some {
+        gr_nodes = nodes;
+        gr_edges = edges;
+        gr_faces = faces;
+      }
+      | _ -> none ()
     end
-    | _ -> ret None
+    | _ -> none ()
 end
+
+let mapM f gr =
+  let open Hyps.Combinators in
+  let* nodes = mapM f gr.gr_nodes in
+  let fmph mph =
+    let* m = f mph.mph_mph in
+    ret { mph with mph_mph = m } in
+  let* edges = mapM fmph gr.gr_edges in
+  let fface fce =
+    let* eq = f fce.face_eq in
+    ret { fce with face_eq = eq } in
+  let* faces = mapM fface gr.gr_faces in
+  ret {
+    gr_nodes = nodes;
+    gr_edges = edges;
+    gr_faces = faces;
+  }

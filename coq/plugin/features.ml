@@ -28,8 +28,7 @@ module Tag = struct
     | AppliedFunctEq
 
   module Eq = struct
-    type super = t
-    type t = super
+    type nonrec t = t
 
     let tag_id = function
     | Category -> 0
@@ -59,41 +58,42 @@ module Tag = struct
   end
 end
 
+type obj = Hyps.obj
 type t =
   (* Types *)
   | Category
-  | Object of (*cat*)int
-  | Morphism of (*cat*)int * (*src*)int * (*dst*)int
-  | Functor of (*src*)int * (*dst*)int
-  | Equality of (*cat*)int * (*src*)int * (*dst*)int * (*left*)int * (*right*)int
+  | Object of (*cat*)obj
+  | Morphism of (*cat*)obj * (*src*)obj * (*dst*)obj
+  | Functor of (*src*)obj * (*dst*)obj
+  | Equality of (*cat*)obj * (*src*)obj * (*dst*)obj * (*left*)obj * (*right*)obj
   (* Objects *)
-  | AppliedFunctObj of (*src*)int * (*dst*)int * (*funct*)int * (*obj*)int
+  | AppliedFunctObj of (*src*)obj * (*dst*)obj * (*funct*)obj * (*obj*)obj
   (* Morphisms *)
-  | Identity of (*cat*)int * (*obj*)int
-  | ComposeMph of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int * (*m1*)int * (*m2*)int
-  | AppliedFunctMph of (*src*)int * (*dst*)int * (*funct*)int
-                     * (*src*)int * (*dst*)int * (*mph*)int
+  | Identity of (*cat*)obj * (*obj*)obj
+  | ComposeMph of (*cat*)obj * (*src*)obj * (*mid*)obj * (*dst*)obj * (*m1*)obj * (*m2*)obj
+  | AppliedFunctMph of (*src*)obj * (*dst*)obj * (*funct*)obj
+                     * (*src*)obj * (*dst*)obj * (*mph*)obj
   (* Equality *)
-  | Reflexivity of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
-  | Concat of (*cat*)int * (*src*)int * (*dst*)int * (*left*)int * (*mid*)int * (*right*)int
-            * (*eq1*)int * (*eq2*)int
-  | InverseEq of (*cat*)int * (*src*)int * (*dst*)int * (*left*)int * (*right*)int * (*eq*)int
-  | ComposeEq of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int
-               * (*left1*)int * (*right1*)int * (*eq1*)int
-               * (*left2*)int * (*right2*)int * (*eq2*)int
-  | Associativity of (*cat*)int * (*src*)int * (*mid1*)int * (*mid2*)int * (*dst*)int
-                   * (*m1*)int * (*m2*)int * (*m3*)int
-  | LeftUnitality of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
-  | RightUnitality of (*cat*)int * (*src*)int * (*dst*)int * (*mph*)int
-  | LeftApplication of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int
-                     * (*mph*)int * (*left*)int * (*right*)int * (*eq*)int
-  | RightApplication of (*cat*)int * (*src*)int * (*mid*)int * (*dst*)int
-                      * (*left*)int * (*right*)int * (*eq*)int * (*mph*)int
-  | FunctIdentity of (*src*)int * (*dst*)int * (*funct*)int * (*obj*)int
-  | FunctComposition of (*src*)int * (*dst*)int * (*funct*)int
-                      * (*src*)int * (*mid*)int * (*dst*)int * (*m1*)int * (*m2*)int
-  | AppliedFunctEq of (*src*)int * (*dst*)int * (*funct*)int
-                    * (*src*)int * (*dst*)int * (*left*)int * (*right*)int * (*eq*)int
+  | Reflexivity of (*cat*)obj * (*src*)obj * (*dst*)obj * (*mph*)obj
+  | Concat of (*cat*)obj * (*src*)obj * (*dst*)obj * (*left*)obj * (*mid*)obj * (*right*)obj
+            * (*eq1*)obj * (*eq2*)obj
+  | InverseEq of (*cat*)obj * (*src*)obj * (*dst*)obj * (*left*)obj * (*right*)obj * (*eq*)obj
+  | ComposeEq of (*cat*)obj * (*src*)obj * (*mid*)obj * (*dst*)obj
+               * (*left1*)obj * (*right1*)obj * (*eq1*)obj
+               * (*left2*)obj * (*right2*)obj * (*eq2*)obj
+  | Associativity of (*cat*)obj * (*src*)obj * (*mid1*)obj * (*mid2*)obj * (*dst*)obj
+                   * (*m1*)obj * (*m2*)obj * (*m3*)obj
+  | LeftUnitality of (*cat*)obj * (*src*)obj * (*dst*)obj * (*mph*)obj
+  | RightUnitality of (*cat*)obj * (*src*)obj * (*dst*)obj * (*mph*)obj
+  | LeftApplication of (*cat*)obj * (*src*)obj * (*mid*)obj * (*dst*)obj
+                     * (*mph*)obj * (*left*)obj * (*right*)obj * (*eq*)obj
+  | RightApplication of (*cat*)obj * (*src*)obj * (*mid*)obj * (*dst*)obj
+                      * (*left*)obj * (*right*)obj * (*eq*)obj * (*mph*)obj
+  | FunctIdentity of (*src*)obj * (*dst*)obj * (*funct*)obj * (*obj*)obj
+  | FunctComposition of (*src*)obj * (*dst*)obj * (*funct*)obj
+                      * (*src*)obj * (*mid*)obj * (*dst*)obj * (*m1*)obj * (*m2*)obj
+  | AppliedFunctEq of (*src*)obj * (*dst*)obj * (*funct*)obj
+                    * (*src*)obj * (*dst*)obj * (*left*)obj * (*right*)obj * (*eq*)obj
 
 let tag = function
 | Category -> Tag.Category
@@ -149,11 +149,10 @@ let to_list = function
     [src;dst;funct;srcm;dstm;left;right;eq]
 
 module Eq = struct
-  type super = t
-  type t = super
+  type nonrec t = t
   let compare x1 x2 =
     let cmp = Tag.Eq.compare (tag x1) (tag x2) in
     if cmp = 0
-    then List.compare Int.compare (to_list x1) (to_list x2)
+    then List.compare Hyps.compare_obj (to_list x1) (to_list x2)
     else cmp
 end

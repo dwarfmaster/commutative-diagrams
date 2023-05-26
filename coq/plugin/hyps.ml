@@ -1,14 +1,20 @@
 
 open Data
 
+type obj =
+  { namespace: int
+  ; id: int
+  }
+let compare_obj o1 o2 =
+  List.compare Int.compare [o1.namespace;o1.id] [o2.namespace;o2.id]
 type metadata =
   { is_cat: unit option
-  ; is_funct: (int * int) option
-  ; is_elem: int option
-  ; is_mph: (int * int * int) option
-  ; is_eq: (int * int * int * int * int) option
+  ; is_funct: (obj * obj) option
+  ; is_elem: obj option
+  ; is_mph: (obj * obj * obj) option
+  ; is_eq: (obj * obj * obj * obj * obj) option
   }
-type obj =
+type obj_impl =
   { value: EConstr.t
   ; tp: EConstr.t
   ; name: string option
@@ -18,7 +24,7 @@ type obj =
 
 (* Masked elements are not included in the goal graph sent to the engine *)
 module IntMap = Map.Make(struct type t = int let compare = compare end)
-type store =
+type state =
   (* Legacy *)
   { categories : categoryData array
   ; functors   : functData array 
@@ -29,10 +35,10 @@ type store =
   ; evars      : EConstr.t option IntMap.t
   (* New protocal *)
   ; ctx_stack  : Evd.evar_map list
-  ; objects    : obj array
+  ; objects    : obj_impl array array
   ; substs     : Evd.evar_map array
   }
-let emptyStore sigma : store =
+let emptyState sigma : state =
   { categories = [| |]
   ; functors   = [| |]
   ; elems      = [| |]
@@ -41,16 +47,16 @@ let emptyStore sigma : store =
   ; funs       = [| |]
   ; evars      = IntMap.empty
   ; ctx_stack  = [ sigma ]
-  ; objects    = [| |]
+  ; objects    = [| [| |] |]
   ; substs     = [| |]
   }
 
 type 'a t = 
-  { runState : Environ.env -> bool -> store -> ('a * store) Proofview.tactic }
+  { runState : Environ.env -> bool -> state -> ('a * state) Proofview.tactic }
 let ret x = { runState = fun _ _ st -> Proofview.tclUNIT (x,st) }
-let get (f : store -> 'a) : 'a t = 
+let get (f : state -> 'a) : 'a t = 
   { runState = fun env mask st -> (ret (f st)).runState env mask st }
-let set (f : store -> store) : unit t = 
+let set (f : state -> state) : unit t = 
   { runState = fun env mask st -> (ret ()).runState env mask (f st) }
 
 
@@ -77,7 +83,7 @@ module Combinators = struct
 
   let run env m = 
     m_bind Proofview.tclEVARMAP
-      (fun sigma -> m_bind (m.runState env false (emptyStore sigma)) (fun (x,_) -> m_ret x))
+      (fun sigma -> m_bind (m.runState env false (emptyState sigma)) (fun (x,_) -> m_ret x))
   let lift (x : 'a Proofview.tactic) : 'a t =
     { runState = fun _ _ st -> m_bind x (fun x -> m_ret (x,st)) }
 
@@ -174,60 +180,88 @@ let setState sigma =
   let* stack = stack () in 
   set (fun st -> { st with ctx_stack = sigma :: List.tl stack })
 
-let objects () = get (fun st -> st.objects)
-let hasObject ec =
-  Option.map fst <$> arr_find_optM (fun o -> eqPred o.value ec) @<< objects ()
-let registerObj vl tp name =
-  let* id = hasObject vl in
+let registerNamespace () =
+  let* id = get (fun st -> Array.length st.objects) in
+  let* _ = set (fun st ->
+    { st with objects = push_back st.objects [| |] }) in
+  ret id
+
+let objects ns = get (fun st -> st.objects.(ns))
+let find_object ns ec =
+  Option.map fst <$> arr_find_optM (fun o -> eqPred o.value ec) @<< objects ns
+let hasObject ns ec =
+  let* in_ns = find_object ns ec in
+  match in_ns with
+  | Some id -> some { namespace = ns; id = id; }
+  | None -> if ns = 0
+            then none () 
+            else Option.map (fun id -> { namespace = 0; id = id; }) <$> find_object 0 ec
+let registerObj ns vl tp name =
+  let* id = hasObject ns vl in
   let* mask = masked () in
   match id with
-  | Some id ->
+  | Some obj ->
+      let ns = obj.namespace in
+      let id = obj.id in
       let* _ = set (fun st ->
         let objects = st.objects in
-        objects.(id) <- {
+        objects.(ns).(id) <- {
           value = vl;
           tp = tp;
-          name = merge_option name objects.(id).name;
-          mask = mask && objects.(id).mask;
-          mtdt = emptyMtdt;
+          name = merge_option name objects.(ns).(id).name;
+          mask = mask && objects.(ns).(id).mask;
+          mtdt = objects.(ns).(id).mtdt;
         };
         { st with objects = objects }) in
-      ret id
+      ret obj
   | None ->
-      let* nid = Array.length <$> objects () in
+      let* nid = Array.length <$> objects ns in
       let obj = { value = vl; tp = tp; name = name; mask = mask; mtdt = emptyMtdt; } in
-      let* _ = set (fun st -> { st with objects = push_back st.objects obj }) in
-      ret nid
-let getObjValue id = get (fun st -> st.objects.(id).value)
-let getObjType id = get (fun st -> st.objects.(id).tp)
-let getObjName id = get (fun st -> st.objects.(id).name)
-let getObjMask id = get (fun st -> st.objects.(id).mask)
-let getObjMtdt id = get (fun st -> st.objects.(id).mtdt)
+      let* _ = set (fun st -> 
+        let objects = st.objects in
+        objects.(ns) <- push_back st.objects.(ns) obj;
+        { st with objects = objects }) in
+      ret { namespace = ns; id = nid; }
+let getObjValue obj = get (fun st -> st.objects.(obj.namespace).(obj.id).value)
+let getObjType obj = get (fun st -> st.objects.(obj.namespace).(obj.id).tp)
+let getObjName obj = get (fun st -> st.objects.(obj.namespace).(obj.id).name)
+let getObjMask obj = get (fun st -> st.objects.(obj.namespace).(obj.id).mask)
+let getObjMtdt obj = get (fun st -> st.objects.(obj.namespace).(obj.id).mtdt)
 
-let markAsCat id cat =
+let markAsCat obj cat =
   set (fun st ->
     let objects = st.objects in
-    objects.(id) <- { objects.(id) with mtdt = { objects.(id).mtdt with is_cat = Some cat } };
+    objects.(obj.namespace).(obj.id) <-
+      { objects.(obj.namespace).(obj.id) 
+        with mtdt = { objects.(obj.namespace).(obj.id).mtdt with is_cat = Some cat } };
     { st with objects = objects })
-let markAsFunct id funct =
+let markAsFunct obj funct =
   set (fun st ->
     let objects = st.objects in
-    objects.(id) <- { objects.(id) with mtdt = { objects.(id).mtdt with is_funct = Some funct } };
+    objects.(obj.namespace).(obj.id) <- 
+      { objects.(obj.namespace).(obj.id) 
+        with mtdt = { objects.(obj.namespace).(obj.id).mtdt with is_funct = Some funct } };
     { st with objects = objects })
-let markAsElem id elem =
+let markAsElem obj elem =
   set (fun st ->
     let objects = st.objects in
-    objects.(id) <- { objects.(id) with mtdt = { objects.(id).mtdt with is_elem = Some elem } };
+    objects.(obj.namespace).(obj.id) <- 
+      { objects.(obj.namespace).(obj.id) 
+        with mtdt = { objects.(obj.namespace).(obj.id).mtdt with is_elem = Some elem } };
     { st with objects = objects })
-let markAsMph id mph =
+let markAsMph obj mph =
   set (fun st ->
     let objects = st.objects in
-    objects.(id) <- { objects.(id) with mtdt = { objects.(id).mtdt with is_mph = Some mph } };
+    objects.(obj.namespace).(obj.id) <- 
+      { objects.(obj.namespace).(obj.id) 
+        with mtdt = { objects.(obj.namespace).(obj.id).mtdt with is_mph = Some mph } };
     { st with objects = objects })
-let markAsEq id eq =
+let markAsEq obj eq =
   set (fun st ->
     let objects = st.objects in
-    objects.(id) <- { objects.(id) with mtdt = { objects.(id).mtdt with is_eq = Some eq } };
+    objects.(obj.namespace).(obj.id) <- 
+      { objects.(obj.namespace).(obj.id) 
+        with mtdt = { objects.(obj.namespace).(obj.id).mtdt with is_eq = Some eq } };
     { st with objects = objects })
 
 let registerSubst sigma =
@@ -267,7 +301,7 @@ let getAtom id =
 
 let catToIndex = toId 0
 let catFromIndex = fromId 0
-let getCategories () : categoryData array t = get (fun (st : store) -> st.categories)
+let getCategories () : categoryData array t = get (fun (st : state) -> st.categories)
 let getCategory i = match catToIndex i with
 | Some i -> get (fun st -> st.categories.(i))
 | None -> assert false
