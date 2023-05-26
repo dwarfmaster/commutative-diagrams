@@ -5,6 +5,7 @@ type result =
   | Terminate of Msgpack.t
 type state =
   { goal: Graph.graph
+  ; lemmas: Lemmas.t array
   }
 
 val goal : state -> Msgpack.t list -> result Hyps.t

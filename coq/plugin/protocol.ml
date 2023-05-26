@@ -5,6 +5,7 @@ type result =
   | Terminate of Msgpack.t
 type state =
   { goal: Graph.graph
+  ; lemmas: Lemmas.t array
   }
 
 open Hyps.Combinators
@@ -76,8 +77,22 @@ let equalify st args =
       Reductionops.is_conv env sigma ec1 ec2 |> (fun b -> Boolean b) |> success
   | _ -> failure "Wrong arguments to equalify"
 
-let lemmas st args = assert false
-let instantiate st args = assert false
+let lemmas st args =
+  let prep_lem id lem =
+    Array [ Integer id
+          ; String (Lemmas.name lem)
+          ; String (Lemmas.namespace lem)
+          ] in
+  let lms = List.mapi prep_lem (Array.to_list st.lemmas) in
+  success (Array lms)
+
+let instantiate st args =
+  match args with
+  | [ Integer lem ] ->
+      let* graph = Lemmas.instantiate st.lemmas.(lem) in
+      success @<< Graph.Serde.pack graph
+  | _ -> failure "Wrong arguments to instantiate"
+
 let query st args = assert false
 let build st args = assert false
 let parse st args = assert false
