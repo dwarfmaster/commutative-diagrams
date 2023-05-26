@@ -12,6 +12,7 @@ open Msgpack
 let success m = Success m |> ret
 let failure m = Failure m |> ret
 let terminate m = Terminate m |> ret
+let global id = { Hyps.namespace = 0; Hyps.id = id; }
 
 let goal st args =
   let* gr = Graph.Serde.pack st.goal in
@@ -20,7 +21,7 @@ let goal st args =
 let info st args =
   match args with
   | [ Integer id ] ->
-      let obj = { Hyps.namespace = 0; Hyps.id = id; } in
+      let obj = global id in
       (* Name *)
       let* name = Hyps.getObjName obj in
       let name = match name with
@@ -55,8 +56,8 @@ let unify st args =
   match pairs with
   | Some pairs -> begin try
       let* pairs = mapM (fun (o1,o2) ->
-        let* ec1 = Hyps.getObjValue { Hyps.namespace = 0; Hyps.id = o1; } in
-        let* ec2 = Hyps.getObjValue { Hyps.namespace = 0; Hyps.id = o2; } in
+        let* ec1 = Hyps.getObjValue (global o1) in
+        let* ec2 = Hyps.getObjValue (global o2) in
         ret (ec1,ec2)) pairs in
       let* sigma = evars () in
       let sigma = List.fold_left unify_pair sigma pairs in
@@ -65,7 +66,16 @@ let unify st args =
   with UnificationFailed -> success (Boolean false) end
   | None -> failure "Wrong arguments to unify"
 
-let equalify st args = assert false
+let equalify st args =
+  match args with
+  | [ Integer o1; Integer o2 ] ->
+      let* ec1 = Hyps.getObjValue (global o1) in
+      let* ec2 = Hyps.getObjValue (global o2) in
+      let* env = env () in
+      let* sigma = evars () in
+      Reductionops.is_conv env sigma ec1 ec2 |> (fun b -> Boolean b) |> success
+  | _ -> failure "Wrong arguments to equalify"
+
 let lemmas st args = assert false
 let instantiate st args = assert false
 let query st args = assert false
