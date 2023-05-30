@@ -162,3 +162,13 @@ let restoreState st args =
       let* () = Hyps.restoreState saved in
       success Nil
   | _ -> failure "Wrong arguments to restoreState"
+
+let finish st args =
+  match args with
+  | [ Boolean false ] ->
+      let* _ = fail "Proof aborted" in terminate Nil
+  | [ Boolean true ] ->
+      let* sigma = evars () in
+      let* _ = Proofview.Unsafe.tclEVARS sigma |> lift in
+      terminate Nil
+  | _ -> failure "Wrong arguments to finish"

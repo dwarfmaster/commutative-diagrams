@@ -19,3 +19,4 @@ val build : state -> Msgpack.t list -> result Hyps.t
 val parse : state -> Msgpack.t list -> result Hyps.t
 val saveState : state -> Msgpack.t list -> result Hyps.t
 val restoreState : state -> Msgpack.t list -> result Hyps.t
+val finish : state -> Msgpack.t list -> result Hyps.t
