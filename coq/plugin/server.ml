@@ -101,7 +101,7 @@ let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) Hyps.t =
     | "saveState" -> run Protocol.saveState
     | "restoreState" -> run Protocol.restoreState
     | "finish" -> run Protocol.finish
-    | _ -> fail "Unknown method"
+    | _ -> fail ("Unknown method: " ^ mtd)
     end
   | _ -> fail "Ill formed rpc message"
 
