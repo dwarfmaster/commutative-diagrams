@@ -138,5 +138,13 @@ let build st args =
   | _ -> failure "Wrong arguments to build"
 
 let parse st args = assert false
-let saveState st args = assert false
-let restoreState st args = assert false
+
+let saveState st args =
+  let* saved = Hyps.saveState () in
+  success (Integer saved)
+let restoreState st args =
+  match args with
+  | [ Integer saved ] -> 
+      let* () = Hyps.restoreState saved in
+      success Nil
+  | _ -> failure "Wrong arguments to restoreState"
