@@ -13,7 +13,8 @@ open Msgpack
 let success m = Success m |> ret
 let failure m = Failure m |> ret
 let terminate m = Terminate m |> ret
-let global id = { Hyps.namespace = 0; Hyps.id = id; }
+let global_ns = 0
+let global id = { Hyps.namespace = global_ns; Hyps.id = id; }
 
 let goal st args =
   let* gr = Graph.Serde.pack st.goal in
@@ -103,7 +104,7 @@ let query st args =
             let* env = env () in
             let* obj = Hyps.getObjValue id in
             let* tp = Hyps.getObjType id in
-            let* result = Query.query 0 env feat obj tp in
+            let* result = Query.query global_ns env feat obj tp in
             begin match result with
             | Some (_,feat) ->
                 let args = Features.to_list feat |> List.map (fun x -> Integer x.Hyps.id) in
@@ -129,7 +130,7 @@ let build st args =
           let feat = Option.bind (parse_args args) (Features.from_list tag) in
           begin match feat with
           | Some feat ->
-              let* obj = Build.build 0 feat in
+              let* obj = Build.build global_ns feat in
               success (Integer obj.Hyps.id)
           | None -> failure ("Wrong number of arguments when building " ^ tag_str)
           end
@@ -137,7 +138,20 @@ let build st args =
       end
   | _ -> failure "Wrong arguments to build"
 
-let parse st args = assert false
+let parse st args =
+  match args with
+  | [ String str ] -> begin try
+      let ast = Pcoq.parse_string Pcoq.Constr.term str in
+      let* env = env () in
+      let* sigma = evars () in
+      let (c, ctx) = Constrintern.interp_constr env sigma ast in
+      let sigma = Evd.merge_universe_context sigma ctx in
+      let* () = Hyps.setState sigma in
+      let* tp = Query.get_type global_ns env sigma c in
+      let* obj = Hyps.registerObj global_ns c tp None in
+      success (Integer obj.Hyps.id)
+  with _ -> success Nil end
+  | _ -> failure "Wrong arguments to parse"
 
 let saveState st args =
   let* saved = Hyps.saveState () in
