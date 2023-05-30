@@ -71,4 +71,5 @@ type t =
 
 val tag : t -> Tag.t
 val to_list : t -> obj list
+val from_list : Tag.t -> obj list -> t option
 module Eq : Map.OrderedType with type t = t

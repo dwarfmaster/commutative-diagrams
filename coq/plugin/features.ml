@@ -203,6 +203,46 @@ let to_list = function
 | AppliedFunctEq (src,dst,funct,srcm,dstm,left,right,eq) ->
     [src;dst;funct;srcm;dstm;left;right;eq]
 
+let from_list tag args =
+  let some x = Some x in
+  match tag, args with
+  (* Types *)
+  | Tag.Category, [] -> Category |> some
+  | Tag.Object, [cat] -> Object cat |> some
+  | Tag.Morphism, [cat;src;dst] -> Morphism (cat,src,dst) |> some
+  | Tag.Functor, [src;dst] -> Functor (src,dst) |> some
+  | Tag.Equality, [cat;src;dst;left;right] -> Equality (cat,src,dst,left,right) |> some
+  (* Objects *)
+  | Tag.AppliedFunctObj, [src;dst;funct;obj] -> AppliedFunctObj (src,dst,funct,obj) |> some
+  (* Morphisms *)
+  | Tag.Identity, [cat;obj] -> Identity (cat,obj) |> some
+  | Tag.ComposeMph, [cat;src;mid;dst;m1;m2] -> ComposeMph (cat,src,mid,dst,m1,m2) |> some
+  | Tag.AppliedFunctMph, [scat;dcat;funct;src;dst;mph] ->
+      AppliedFunctMph (scat,dcat,funct,src,dst,mph) |> some
+  (* Equality *)
+  | Tag.Reflexivity, [cat;src;dst;mph] -> Reflexivity (cat,src,dst,mph) |> some
+  | Tag.Concat, [cat;src;dst;left;mid;right;eq1;eq2] ->
+      Concat (cat,src,dst,left,mid,right,eq1,eq2) |> some
+  | Tag.InverseEq, [cat;src;dst;left;right;eq] -> InverseEq (cat,src,dst,left,right,eq) |> some
+  | Tag.ComposeEq, [cat;src;mid;dst;left1;right1;eq1;left2;right2;eq2] ->
+      ComposeEq (cat,src,mid,dst,left1,right1,eq1,left2,right2,eq2) |> some
+  | Tag.Associativity, [cat;src;mid1;mid2;dst;m1;m2;m3] ->
+      Associativity (cat,src,mid1,mid2,dst,m1,m2,m3) |> some
+  | Tag.LeftUnitality, [cat;src;dst;mph] ->
+      LeftUnitality (cat,src,dst,mph) |> some
+  | Tag.RightUnitality, [cat;src;dst;mph] ->
+      RightUnitality (cat,src,dst,mph) |> some
+  | Tag.LeftApplication, [cat;src;mid;dst;mph;left;right;eq] ->
+      LeftApplication (cat,src,mid,dst,mph,left,right,eq) |> some
+  | Tag.RightApplication, [cat;src;mid;dst;left;right;eq;mph] -> 
+      RightApplication (cat,src,mid,dst,left,right,eq,mph) |> some
+  | Tag.FunctIdentity, [src;dst;funct;obj] -> FunctIdentity (src,dst,funct,obj) |> some
+  | Tag.FunctComposition, [scat;dcat;funct;src;mid;dst;m1;m2] ->
+      FunctComposition (scat,dcat,funct,src,mid,dst,m1,m2) |> some
+  | Tag.AppliedFunctEq, [scat;dcat;funct;src;dst;left;right;eq] ->
+      AppliedFunctEq (scat,dcat,funct,src,dst,left,right,eq) |> some
+  | _ -> None
+
 module Eq = struct
   type nonrec t = t
   let compare x1 x2 =

@@ -115,7 +115,28 @@ let query st args =
       end
   | _ -> failure "Wrong arguments to query"
 
-let build st args = assert false
+let build st args =
+  match args with
+  | String tag_str :: args ->
+      let tag = Features.Tag.parse tag_str in
+      begin match tag with
+      | Some tag ->
+          let rec parse_args = function
+            | [] -> Some []
+            | Integer id :: args ->
+                parse_args args |> Option.map (fun args -> global id :: args)
+            | _ -> None in
+          let feat = Option.bind (parse_args args) (Features.from_list tag) in
+          begin match feat with
+          | Some feat ->
+              let* obj = Build.build 0 feat in
+              success (Integer obj.Hyps.id)
+          | None -> failure ("Wrong number of arguments when building " ^ tag_str)
+          end
+      | _ -> failure ("Unknown feature to build: " ^ tag_str)
+      end
+  | _ -> failure "Wrong arguments to build"
+
 let parse st args = assert false
 let saveState st args = assert false
 let restoreState st args = assert false
