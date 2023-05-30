@@ -34,6 +34,7 @@ val add_face : ?important:bool
             -> (*right*)(int*int*int) list
             -> int
             -> t -> t
+val import : int -> int -> t -> t Hyps.t
 val build : t -> Graph.graph option
 (* If no face has been marked as important, the building step cannot fail, so we expose
    this convenience function *)

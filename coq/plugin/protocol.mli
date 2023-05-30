@@ -2,7 +2,7 @@
 type result =
   | Success of Msgpack.t
   | Failure of string
-  | Terminate of Msgpack.t
+  | Terminate of bool * Msgpack.t
 type state =
   { goal: Graph.graph
   ; lemmas: Lemmas.t array

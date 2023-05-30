@@ -8,14 +8,6 @@ open Stdarg
 }
 
 TACTIC EXTEND diagram
-| [ "diagram" "print" string(file) ] ->
-  { Extractor.extract file }
-| [ "diagram" "norm" ] ->
-  { Extractor.normalize () }
-| [ "diagram" "solve" int(n) ] ->
-  { Extractor.solve n }
-| [ "diagram" "solve" ] ->
-  { Extractor.solve 5 }
 | [ "diagram" "server" string(file) ] ->
   { Extractor.server (Some file) ~force:false }
 | [ "diagram" "server" ] ->

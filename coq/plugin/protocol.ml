@@ -2,7 +2,7 @@
 type result =
   | Success of Msgpack.t
   | Failure of string
-  | Terminate of Msgpack.t
+  | Terminate of bool * Msgpack.t
 type state =
   { goal: Graph.graph
   ; lemmas: Lemmas.t array
@@ -12,7 +12,7 @@ open Hyps.Combinators
 open Msgpack
 let success m = Success m |> ret
 let failure m = Failure m |> ret
-let terminate m = Terminate m |> ret
+let terminate (b,m) = Terminate (b,m) |> ret
 let global_ns = 0
 let global id = { Hyps.namespace = global_ns; Hyps.id = id; }
 
@@ -165,10 +165,9 @@ let restoreState st args =
 
 let finish st args =
   match args with
-  | [ Boolean false ] ->
-      let* _ = fail "Proof aborted" in terminate Nil
+  | [ Boolean false ] -> terminate (false,Nil)
   | [ Boolean true ] ->
       let* sigma = evars () in
       let* _ = Proofview.Unsafe.tclEVARS sigma |> lift in
-      terminate Nil
+      terminate (true,Nil)
   | _ -> failure "Wrong arguments to finish"

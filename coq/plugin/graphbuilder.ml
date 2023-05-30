@@ -186,6 +186,12 @@ let empty = MInt.empty
 let add_node = MInt.add_node
 let add_edge = MInt.add_edge
 let add_face = MInt.add_face
+let import obj tp bld = 
+  MInt.import
+    obj 
+    Hyps.({ id = tp; namespace = 0; })
+    (fun obj -> Hyps.Combinators.ret obj.Hyps.id) 
+    bld
 let build = MInt.build
 let build_unsafe = MInt.build_unsafe
 let debug_print env sigma bld = MInt.debug_print env sigma Pp.int bld
