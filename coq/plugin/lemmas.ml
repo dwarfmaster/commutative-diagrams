@@ -68,11 +68,6 @@ let mkName ltm =
       cst |> Names.Constant.modpath |> Names.ModPath.to_string
   | VarLemma id -> Names.Id.to_string id, ""
 
-let mkTerm ltm =
-  match ltm with
-  | ConstLemma cst -> Data.FnConst cst |> ret
-  | VarLemma id -> Data.FnVar id |> ret
-
 module Bld = Graphbuilder.Make(LCOrd)
 
 let add_to_builder lc tp dbindex bld =

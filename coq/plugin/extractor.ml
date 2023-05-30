@@ -8,7 +8,6 @@ let (++) = Pp.(++)
 (*   |_|\___/| .__/      |_|\___| \_/ \___|_| *)
 (*           |_| *)
 (* Top-level *)
-module M = Map.Make(Data.EqMph)
 module Sv = Server
 type builder = Graphbuilder.t
 open Hyps.Combinators
