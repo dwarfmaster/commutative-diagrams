@@ -27,6 +27,61 @@ module Tag = struct
     | FunctComposition
     | AppliedFunctEq
 
+  let parse str =
+    match str with
+    (* Types *)
+    | "category" -> Some Category
+    | "object" -> Some Object
+    | "morphism" -> Some Morphism
+    | "functor" -> Some Functor
+    | "equality" -> Some Equality
+    (* Objects *)
+    | "applied_funct_obj" -> Some AppliedFunctObj
+    (* Morphisms *)
+    | "identity" -> Some Identity
+    | "compose_mph" -> Some ComposeMph
+    | "applied_funct_mph" -> Some AppliedFunctMph
+    (* Equality *)
+    | "reflexivity" -> Some Reflexivity
+    | "concat" -> Some Concat
+    | "inverse_eq" -> Some InverseEq
+    | "compose_eq" -> Some ComposeEq
+    | "associativity" -> Some Associativity
+    | "left_unitality" -> Some LeftUnitality
+    | "right_unitality" -> Some RightUnitality
+    | "left_application" -> Some LeftApplication
+    | "right_application" -> Some RightApplication
+    | "funct_identity" -> Some FunctIdentity
+    | "funct_composition" -> Some FunctComposition
+    | "applied_funct_eq" -> Some AppliedFunctEq
+    | _ -> None
+  let to_string = function
+    (* Types *)
+    | Category -> "category"
+    | Object -> "object"
+    | Morphism -> "morphism"
+    | Functor -> "functor"
+    | Equality -> "equality"
+    (* Objects *)
+    | AppliedFunctObj -> "applied_funct_obj"
+    (* Morphisms *)
+    | Identity -> "identity"
+    | ComposeMph -> "compose_mph"
+    | AppliedFunctMph -> "applied_funct_mph"
+    (* Equality *)
+    | Reflexivity -> "reflexivity"
+    | Concat -> "concat"
+    | InverseEq -> "inverse_eq"
+    | ComposeEq -> "compose_eq"
+    | Associativity -> "associativity"
+    | LeftUnitality -> "left_unitality"
+    | RightUnitality -> "right_unitality"
+    | LeftApplication -> "left_application"
+    | RightApplication -> "right_application"
+    | FunctIdentity -> "funct_identity"
+    | FunctComposition -> "funct_composition"
+    | AppliedFunctEq -> "applied_funct_eq"
+
   module Eq = struct
     type nonrec t = t
 

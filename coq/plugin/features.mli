@@ -26,6 +26,8 @@ module Tag : sig
     | FunctIdentity
     | FunctComposition
     | AppliedFunctEq
+  val parse : string -> t option
+  val to_string : t -> string
 
   module Eq : Map.OrderedType with type t = t
 end

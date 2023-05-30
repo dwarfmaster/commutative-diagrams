@@ -93,7 +93,28 @@ let instantiate st args =
       success @<< Graph.Serde.pack graph
   | _ -> failure "Wrong arguments to instantiate"
 
-let query st args = assert false
+let query st args =
+  match args with
+  | [ Integer id; String feat_str ] ->
+      let feat = Features.Tag.parse feat_str in begin
+        match feat with
+        | Some feat ->
+            let id = global id in
+            let* env = env () in
+            let* obj = Hyps.getObjValue id in
+            let* tp = Hyps.getObjType id in
+            let* result = Query.query 0 env feat obj tp in
+            begin match result with
+            | Some (_,feat) ->
+                let args = Features.to_list feat |> List.map (fun x -> Integer x.Hyps.id) in
+                let tag = feat |> Features.tag |> Features.Tag.to_string in
+                success (Array (String tag :: args))
+            | None -> success Nil
+            end
+        | _ -> failure ("Unknown feature to query: " ^ feat_str)
+      end
+  | _ -> failure "Wrong arguments to query"
+
 let build st args = assert false
 let parse st args = assert false
 let saveState st args = assert false
