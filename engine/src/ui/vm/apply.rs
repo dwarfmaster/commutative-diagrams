@@ -84,7 +84,7 @@ impl LemmaApplicationState {
 
     pub fn compile(self, vm: &VM) -> String {
         let mut cmd = format!("apply {}", vm.lemmas[self.lemma].name);
-        for (lem,goals) in self.direct_mapping.iter() {
+        for (lem, goals) in self.direct_mapping.iter() {
             let lname = self.get_name(*lem);
             for goal in goals.iter() {
                 let gname = vm.get_name(*goal);
