@@ -6,7 +6,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 mod features;
-pub use features::{Feature, Tag};
+mod store;
+pub use features::{Feature, FeatureIterator, Tag};
+pub use store::{EvarStatus, Obj, Store};
 
 //  _
 // | |    ___  __ _  __ _  ___ _   _
