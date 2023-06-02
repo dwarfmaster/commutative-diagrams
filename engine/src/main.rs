@@ -7,6 +7,7 @@ pub mod lemmas;
 pub mod normalize;
 pub mod parser;
 pub mod pretty;
+pub mod remote;
 pub mod rpc;
 pub mod simpleq;
 pub mod substitution;
