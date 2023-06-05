@@ -95,7 +95,7 @@ impl Remote for Mock {
 
     fn unify<I>(&mut self, mut pairs: I) -> Result<bool, Self::Error>
     where
-        I: Iterator<Item = (u64, u64)>,
+        I: Iterator<Item = (u64, u64)> + ExactSizeIterator + Clone,
     {
         Ok(pairs.all(|(x, y)| x == y))
     }
@@ -132,7 +132,7 @@ impl Remote for Mock {
         Ok(tm)
     }
 
-    fn parse(&mut self, _str: String) -> Result<Result<u64,String>, ()> {
+    fn parse(&mut self, _str: String) -> Result<Result<u64, String>, ()> {
         Ok(Err("Cannot mock parsing".to_string()))
     }
 
