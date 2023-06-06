@@ -2,6 +2,7 @@ use crate::anyterm::IsTerm;
 use crate::data::ActualProofObject;
 use crate::data::{ActualEquality, Equality, EqualityData};
 use crate::graph::{Face, GraphId};
+use crate::remote::Remote;
 use crate::substitution::{Substitutable, Substitution};
 use crate::unification::{unify, UnifOpts};
 use crate::vm::graph::{FaceLabel, FaceStatus};
@@ -10,7 +11,7 @@ use std::collections::HashSet;
 
 type Ins = crate::vm::asm::Instruction;
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     // Substitute sigma in the graph, and add it to the refinements
     pub fn refine(&mut self, sigma: Substitution) {
         // Substitute nodes

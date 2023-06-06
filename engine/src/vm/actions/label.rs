@@ -1,3 +1,4 @@
+use crate::remote::Remote;
 use crate::vm::asm;
 use crate::vm::graph::{EdgeLabel, FaceLabel, LabelSource, NodeLabel};
 use crate::vm::{Interactive, VM};
@@ -59,7 +60,7 @@ fn label_upd<Label: HasLabel>(uid: u64, label: &Label, text: String) -> asm::Upd
     }
 }
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     pub fn relabel(&mut self) {
         for id in 0..self.graph.nodes.len() {
             let (nd, lbl) = &self.graph.nodes[id];

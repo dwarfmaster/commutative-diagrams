@@ -1,6 +1,7 @@
 use crate::anyterm::AnyTerm;
 use crate::data::Context;
 use crate::graph::GraphId;
+use crate::remote::{Mock, Remote};
 use crate::substitution::{Substitutable, Substitution};
 use crate::vm::asm;
 use crate::vm::ast;
@@ -36,19 +37,20 @@ pub enum CodeStyle {
 }
 
 pub trait Interactive: Sync + Send + Sized {
-    fn compile(self, vm: &VM<Self>) -> String;
+    fn compile<R: Remote + Sync + Send>(self, vm: &VM<R, Self>) -> String;
     fn terminate(self);
 }
 impl Interactive for () {
-    fn compile(self, _: &VM<()>) -> String {
+    fn compile<R: Remote + Sync + Send>(self, _: &VM<R, ()>) -> String {
         "".to_string()
     }
     fn terminate(self) {}
 }
 
 #[derive(Resource)]
-pub struct VM<I: Interactive + Sync + Send> {
+pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     pub ctx: Context,
+    pub remote: Rm,
     pub prev_code: String,
     pub code: String,
     pub ast: Vec<Action>,
@@ -71,19 +73,21 @@ pub struct VM<I: Interactive + Sync + Send> {
     pub graph: Graph,
     pub offset: Vec2,
     pub zoom: f32,
+    pub end_status: EndStatus,
+    pub refinements: Vec<(u64, AnyTerm)>,
+    pub lemmas: Vec<Lemma>,
+    // Graphical status
     pub selected_face: Option<usize>,
     pub focused_object: Option<GraphId>,
     pub hovered_object: Option<GraphId>,
     pub face_goal_order: Vec<usize>,
     pub face_hyps_order: Vec<usize>,
-    pub end_status: EndStatus,
-    pub refinements: Vec<(u64, AnyTerm)>,
-    pub lemmas: Vec<Lemma>,
     pub selected_lemma: Option<usize>,
     pub lemma_window_open: bool,
 }
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<I: Interactive + Sync + Send> VM<Mock, I> {
+    // Legacy code
     pub fn new(
         ctx: Context,
         gd: Graph,
@@ -96,6 +100,7 @@ impl<I: Interactive + Sync + Send> VM<I> {
             .collect();
         let mut res = Self {
             ctx,
+            remote: Mock::new(),
             prev_code: String::new(),
             code: String::new(),
             ast: Vec::new(),
@@ -130,6 +135,12 @@ impl<I: Interactive + Sync + Send> VM<I> {
         Self::layout(&mut res.graph);
         res.prepare_lemmas();
         res
+    }
+}
+
+impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
+    pub fn start(_remote: R) -> Self {
+        todo!()
     }
 
     fn prepare_lemmas(&mut self) {

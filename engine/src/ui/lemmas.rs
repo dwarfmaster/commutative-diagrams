@@ -1,8 +1,9 @@
+use crate::remote::Remote;
 use crate::ui::vm::InteractiveAction;
 use crate::ui::{graph_lemma, VM};
 use egui::Vec2;
 
-pub fn lemmas_window(ctx: &egui::Context, vm: &mut VM) {
+pub fn lemmas_window<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<Rm>) {
     if let Some(lem) = vm.selected_lemma {
         let mut open = true;
         let mut should_close = false;

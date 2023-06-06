@@ -1,13 +1,14 @@
 use crate::data::{ActualEquality, ActualMorphism, Morphism};
 use crate::graph::{Face, GraphId};
 use crate::normalize;
+use crate::remote::Remote;
 use crate::vm::asm;
 use crate::vm::{Interactive, VM};
 use std::ops::Deref;
 
 type Ins = asm::Instruction;
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     pub fn split(&mut self, src: usize, mph: usize) {
         if let Some(fce) = self.split_norm(src, mph) {
             self.extend_face_in_eqs(fce);
@@ -240,6 +241,7 @@ impl<I: Interactive + Sync + Send> VM<I> {
 mod tests {
     use crate::data::Context;
     use crate::dsl::{cat, mph, obj};
+    use crate::remote::Mock;
     use crate::vm::{Graph, VM};
     use std::default::Default;
 
@@ -265,7 +267,7 @@ mod tests {
             edges: vec![vec![(1, Default::default(), m)], vec![]],
             faces: vec![],
         };
-        let mut vm = VM::<()>::new(ctx, gr, Vec::new(), Vec::new());
+        let mut vm = VM::<Mock, ()>::new(ctx, gr, Vec::new(), Vec::new());
         vm.split(0, 0);
 
         assert!(vm.graph.check(&vm.ctx), "Graph is not valid after split");
@@ -305,7 +307,7 @@ mod tests {
             edges: vec![vec![(1, Default::default(), m)], vec![]],
             faces: vec![],
         };
-        let mut vm = VM::<()>::new(ctx, gr, Vec::new(), Vec::new());
+        let mut vm = VM::<Mock, ()>::new(ctx, gr, Vec::new(), Vec::new());
         vm.split_norm(0, 0);
 
         assert!(vm.graph.check(&vm.ctx), "Graph is not valid after split");

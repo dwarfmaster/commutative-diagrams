@@ -1,6 +1,7 @@
 use super::ActionResult;
 use crate::data;
 use crate::graph::{Graph, GraphId};
+use crate::remote::Remote;
 use crate::substitution::SubstitutableInPlace;
 use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
 use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
@@ -50,13 +51,13 @@ fn same_nature(id1: GraphId, id2: GraphId) -> bool {
     }
 }
 
-struct DisplayState<'a> {
+struct DisplayState<'a, Rm: Remote + Sync + Send> {
     apply: &'a mut LemmaApplicationState,
-    vm: &'a mut VM,
+    vm: &'a mut VM<Rm>,
 }
 
 impl LemmaApplicationState {
-    pub fn new(vm: &mut VM, lemma: usize) -> Self {
+    pub fn new<Rm: Remote + Sync + Send>(vm: &mut VM<Rm>, lemma: usize) -> Self {
         let mut r = Self {
             lemma,
             graph: vm.prepare_lemma_graph(lemma),
@@ -82,7 +83,7 @@ impl LemmaApplicationState {
         }
     }
 
-    pub fn compile(self, vm: &VM) -> String {
+    pub fn compile<Rm: Remote + Sync + Send>(self, vm: &VM<Rm>) -> String {
         let mut cmd = format!("apply {}", vm.lemmas[self.lemma].name);
         for (lem, goals) in self.direct_mapping.iter() {
             let lname = self.get_name(*lem);
@@ -94,7 +95,11 @@ impl LemmaApplicationState {
         cmd
     }
 
-    pub fn display(&mut self, vm: &mut VM, ui: &Context) -> ActionResult {
+    pub fn display<Rm: Remote + Sync + Send>(
+        &mut self,
+        vm: &mut VM<Rm>,
+        ui: &Context,
+    ) -> ActionResult {
         // Display error message in window
         if let Some(errmsg) = &mut self.error_msg {
             let mut open = true;
@@ -134,7 +139,7 @@ impl LemmaApplicationState {
                                 state
                                     .vm
                                     .pushout(&state.apply.graph, &state.apply.direct_mapping);
-                                VM::layout(&mut state.vm.graph);
+                                VM::<Rm>::layout(&mut state.vm.graph);
                                 commit = true;
                             };
                             if ui.button("Cancel").clicked() {
@@ -155,7 +160,12 @@ impl LemmaApplicationState {
         }
     }
 
-    pub fn context_menu(&mut self, vm: &mut VM, on: GraphId, ui: &mut Ui) -> CMR {
+    pub fn context_menu<Rm: Remote + Sync + Send>(
+        &mut self,
+        vm: &mut VM<Rm>,
+        on: GraphId,
+        ui: &mut Ui,
+    ) -> CMR {
         if let Some(AppId::Lemma(id)) = &self.selected {
             if same_nature(*id, on) {
                 if ui.button("Match").clicked() {
@@ -170,11 +180,16 @@ impl LemmaApplicationState {
         CMR::Nothing
     }
 
-    pub fn action(&mut self, vm: &mut VM, act: Action, _ui: &mut Ui) -> bool {
+    pub fn action<Rm: Remote + Sync + Send>(
+        &mut self,
+        vm: &mut VM<Rm>,
+        act: Action,
+        _ui: &mut Ui,
+    ) -> bool {
         match act {
             Action::Click(id) => {
                 if let Some(AppId::Lemma(GraphId::Face(prev))) = self.selected {
-                    self.unshow_face(prev);
+                    self.unshow_face::<Rm>(prev);
                 }
                 vm.deselect_face();
                 self.selected = Some(AppId::Goal(id));
@@ -187,7 +202,7 @@ impl LemmaApplicationState {
         }
     }
 
-    pub fn modifier(&self, _vm: &VM, on: GraphId) -> Mod {
+    pub fn modifier<Rm: Remote + Sync + Send>(&self, _vm: &VM<Rm>, on: GraphId) -> Mod {
         Mod {
             active: self.reverse_mapping.contains_key(&on),
             selected: self.selected == Some(AppId::Goal(on)),
@@ -203,12 +218,12 @@ impl LemmaApplicationState {
         }
     }
 
-    fn show_face(&mut self, fce: usize) {
-        VM::show_face_impl(&mut self.graph, fce);
+    fn show_face<Rm: Remote + Sync + Send>(&mut self, fce: usize) {
+        VM::<Rm>::show_face_impl(&mut self.graph, fce);
     }
 
-    fn unshow_face(&mut self, fce: usize) {
-        VM::unshow_face_impl(&mut self.graph, fce);
+    fn unshow_face<Rm: Remote + Sync + Send>(&mut self, fce: usize) {
+        VM::<Rm>::unshow_face_impl(&mut self.graph, fce);
     }
 
     fn relabel(&mut self, ctx: &data::Context) {
@@ -225,7 +240,7 @@ impl LemmaApplicationState {
         }
     }
 
-    fn do_match(&mut self, vm: &mut VM, lem: GraphId, goal: GraphId) {
+    fn do_match<Rm: Remote + Sync + Send>(&mut self, vm: &mut VM<Rm>, lem: GraphId, goal: GraphId) {
         let mut unif = UnifState::new();
         if !vm.lemma_add_matching(&self.graph, lem, goal, &mut unif) {
             self.error_msg = Some("Matching incompatible graph objects".to_string());
@@ -249,7 +264,7 @@ impl LemmaApplicationState {
     }
 }
 
-impl<'vm> UiGraph for DisplayState<'vm> {
+impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
         F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId),
@@ -388,11 +403,11 @@ impl<'vm> UiGraph for DisplayState<'vm> {
             Action::Click(id) => {
                 if self.apply.selected != Some(AppId::Lemma(id)) {
                     if let Some(AppId::Lemma(GraphId::Face(prev))) = self.apply.selected {
-                        self.apply.unshow_face(prev)
+                        self.apply.unshow_face::<Rm>(prev)
                     }
                     self.apply.selected = Some(AppId::Lemma(id));
                     if let GraphId::Face(fce) = id {
-                        self.apply.show_face(fce);
+                        self.apply.show_face::<Rm>(fce);
                     }
                 }
             }

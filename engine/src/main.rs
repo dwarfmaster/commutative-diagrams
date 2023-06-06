@@ -32,6 +32,7 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 
 type SolveGraph = Graph<(), (), ()>;
+type VM = ui::VM<remote::Mock>;
 
 #[derive(Resource)]
 struct AppConfig {
@@ -131,7 +132,7 @@ fn test_main() {
 }
 
 // Return true if the code has succeeded, ie no ui should be started
-fn init_vm_code<In, Out>(client: &mut rpc::Client<In, Out>, vm: &mut ui::VM, path: &str) -> bool
+fn init_vm_code<In, Out>(client: &mut rpc::Client<In, Out>, vm: &mut VM, path: &str) -> bool
 where
     In: std::io::Read,
     Out: std::io::Write,
@@ -241,7 +242,7 @@ fn goal_graph<In, Out>(
 
 fn goal_ui_system(
     mut egui_context: ResMut<EguiContext>,
-    mut vm: ResMut<ui::VM>,
+    mut vm: ResMut<VM>,
     mut state: ResMut<State<vm::EndStatus>>,
 ) {
     ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut());
@@ -268,7 +269,7 @@ fn goal_ui_system(
     }
 }
 
-fn save_code_on_exit(path: &str, vm: &ui::VM) {
+fn save_code_on_exit(path: &str, vm: &VM) {
     let path = std::path::Path::new(path);
     let prefix = path.parent().unwrap();
     std::fs::create_dir_all(prefix).unwrap();
@@ -297,7 +298,7 @@ where
 fn failure_system<In, Out>(
     mut exit: EventWriter<AppExit>,
     mut client: ResMut<rpc::Client<In, Out>>,
-    vm: Res<ui::VM>,
+    vm: Res<VM>,
     cfg: Res<AppConfig>,
 ) where
     In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,
@@ -310,7 +311,7 @@ fn failure_system<In, Out>(
     exit.send(AppExit)
 }
 
-fn on_success<In, Out>(client: &mut rpc::Client<In, Out>, vm: &mut ui::VM)
+fn on_success<In, Out>(client: &mut rpc::Client<In, Out>, vm: &mut VM)
 where
     In: std::io::Read,
     Out: std::io::Write,
@@ -333,7 +334,7 @@ where
 fn success_system<In, Out>(
     mut exit: EventWriter<AppExit>,
     mut client: ResMut<rpc::Client<In, Out>>,
-    mut vm: ResMut<ui::VM>,
+    mut vm: ResMut<VM>,
     cfg: Res<AppConfig>,
 ) where
     In: std::io::Read + std::marker::Sync + std::marker::Send + 'static,

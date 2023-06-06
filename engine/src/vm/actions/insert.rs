@@ -1,10 +1,11 @@
 use crate::data::{Morphism, Object};
+use crate::remote::Remote;
 use crate::vm::asm;
 use crate::vm::{Interactive, VM};
 
 type Ins = asm::Instruction;
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     /// Look over graph nodes, if obj is already present returns its index,
     /// otherwise insert it and return the index of the nely inserted node.
     pub fn insert_node(&mut self, obj: Object) -> usize {
@@ -51,6 +52,7 @@ impl<I: Interactive + Sync + Send> VM<I> {
 mod tests {
     use crate::data::Context;
     use crate::dsl::{cat, mph, obj};
+    use crate::remote::Mock;
     use crate::vm::{Graph, VM};
 
     #[test]
@@ -67,7 +69,7 @@ mod tests {
             edges: Vec::new(),
             faces: Vec::new(),
         };
-        let mut vm = VM::<()>::new(ctx, gr, Vec::new(), Vec::new());
+        let mut vm = VM::<Mock, ()>::new(ctx, gr, Vec::new(), Vec::new());
 
         let (m1_src, _, _) = vm.insert_mph(m1);
         assert_eq!(

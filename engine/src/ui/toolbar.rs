@@ -1,7 +1,8 @@
+use crate::remote::Remote;
 use crate::ui::VM;
 use egui::menu;
 
-pub fn toolbar(ui: &mut egui::Ui, vm: &mut VM) {
+pub fn toolbar<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
     menu::bar(ui, |ui| {
         ui.menu_button("Proof", |ui| {
             if ui.button("Finish").clicked() {

@@ -1,6 +1,7 @@
 use crate::anyterm::IsTerm;
 use crate::data::ActualProofObject;
 use crate::graph::GraphId;
+use crate::remote::Remote;
 use crate::substitution::SubstitutableInPlace;
 use crate::unification::UnifState;
 use crate::vm::{Graph, Interactive, VM};
@@ -8,7 +9,7 @@ use std::collections::HashMap;
 
 type Mapping = HashMap<GraphId, Vec<GraphId>>;
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     // Returns true on success and false on failure
     pub fn apply_lemma(&mut self, lemma: usize, matching: &[(GraphId, GraphId)]) -> bool {
         let mut pattern = self.prepare_lemma_graph(lemma);

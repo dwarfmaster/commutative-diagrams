@@ -1,8 +1,9 @@
+use crate::remote::Remote;
 use crate::vm::vm::CodeStyle;
 use crate::vm::{Interactive, VM};
 use std::ops::Range;
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     pub fn reset_style(&mut self) {
         assert!(self.code_style.len() >= 1);
         self.code_style[0].1 = CodeStyle::None;

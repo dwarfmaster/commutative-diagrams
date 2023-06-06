@@ -1,4 +1,5 @@
 use crate::graph::{Face, GraphId};
+use crate::remote::Remote;
 use crate::vm::{Graph, Interactive, VM};
 use std::collections::HashMap;
 
@@ -77,7 +78,7 @@ impl Mapping {
     }
 }
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     fn pushout_merge_nodes(&mut self, direct: &mut Mapping, map: &mut PartialMap) {
         while let Some(mapping) = direct.nodes.pop() {
             let nd1 = mapping.1[0];

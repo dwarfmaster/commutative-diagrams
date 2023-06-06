@@ -1,4 +1,5 @@
 use crate::graph::GraphId;
+use crate::remote::Remote;
 use crate::vm::ast;
 use crate::vm::ast::Action;
 use crate::vm::vm;
@@ -12,7 +13,7 @@ pub enum ExecutionResult {
     Unfinished,
 }
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     fn execute(&mut self, act: ast::Annot<ast::Action>) -> ExecutionResult {
         use Action::*;
         use ExecutionResult::*;

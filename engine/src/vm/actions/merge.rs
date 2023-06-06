@@ -1,9 +1,10 @@
 use crate::graph::GraphId;
+use crate::remote::Remote;
 use crate::vm::{Interactive, VM};
 
 type Ins = crate::vm::asm::Instruction;
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     // Returns the face that is kept
     pub fn merge_faces(&mut self, mut fce1: usize, mut fce2: usize) -> usize {
         if self.graph.faces[fce1].label.name > self.graph.faces[fce2].label.name {
@@ -104,6 +105,7 @@ mod tests {
     use crate::data::Context;
     use crate::dsl::{cat, eq, mph, obj};
     use crate::graph::Face;
+    use crate::remote::Mock;
     use crate::vm::{Graph, VM};
 
     #[test]
@@ -139,7 +141,7 @@ mod tests {
             ],
             faces: vec![face],
         };
-        let mut vm = VM::<()>::new(ctx, gr, Vec::new(), Vec::new());
+        let mut vm = VM::<Mock, ()>::new(ctx, gr, Vec::new(), Vec::new());
 
         let rmph = vm.merge_edges(0, 0, 1);
         assert_eq!(rmph, 0);

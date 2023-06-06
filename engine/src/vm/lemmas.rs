@@ -2,6 +2,7 @@ use super::graph::{EdgeLabel, FaceLabel, NodeLabel};
 use crate::data::Context;
 use crate::graph::GraphId;
 use crate::lemmas;
+use crate::remote::Mock;
 use crate::vm::VM;
 use egui::Vec2;
 use std::collections::HashMap;
@@ -51,15 +52,19 @@ impl Lemma {
 
     pub fn name(&mut self, ctx: &mut Context) {
         for nd in 0..self.pattern.nodes.len() {
-            self.pattern.nodes[nd].1.name =
-                VM::<()>::name_compute_node(ctx, &self.pattern, &self.graphical_state.names, nd);
+            self.pattern.nodes[nd].1.name = VM::<Mock, ()>::name_compute_node(
+                ctx,
+                &self.pattern,
+                &self.graphical_state.names,
+                nd,
+            );
             self.graphical_state
                 .names
                 .insert(self.pattern.nodes[nd].1.name.clone(), GraphId::Node(nd));
         }
         for src in 0..self.pattern.nodes.len() {
             for mph in 0..self.pattern.edges[src].len() {
-                self.pattern.edges[src][mph].1.name = VM::<()>::name_compute_morphism(
+                self.pattern.edges[src][mph].1.name = VM::<Mock, ()>::name_compute_morphism(
                     ctx,
                     &self.pattern,
                     &self.graphical_state.names,
@@ -73,7 +78,7 @@ impl Lemma {
             }
         }
         for fce in 0..self.pattern.faces.len() {
-            self.pattern.faces[fce].label.name = VM::<()>::name_compute_face(
+            self.pattern.faces[fce].label.name = VM::<Mock, ()>::name_compute_face(
                 ctx,
                 &self.pattern,
                 &self.graphical_state.names,
@@ -88,10 +93,10 @@ impl Lemma {
     }
 
     pub fn show_face(&mut self, fce: usize) {
-        VM::<()>::show_face_impl(&mut self.pattern, fce);
+        VM::<Mock, ()>::show_face_impl(&mut self.pattern, fce);
     }
 
     pub fn unshow_face(&mut self, fce: usize) {
-        VM::<()>::unshow_face_impl(&mut self.pattern, fce);
+        VM::<Mock, ()>::unshow_face_impl(&mut self.pattern, fce);
     }
 }

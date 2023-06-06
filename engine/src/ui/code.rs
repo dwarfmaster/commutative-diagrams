@@ -1,8 +1,9 @@
+use crate::remote::Remote;
 use crate::ui::VM;
 use crate::vm;
 use itertools::Itertools;
 
-pub fn code(ui: &mut egui::Ui, vm: &mut VM) {
+pub fn code<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
     let format_none = egui::TextFormat {
         font_id: egui::FontId::monospace(14.0),
         color: ui.style().noninteractive().fg_stroke.color,

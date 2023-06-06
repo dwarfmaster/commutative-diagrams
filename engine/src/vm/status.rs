@@ -1,10 +1,11 @@
 use crate::anyterm::IsTerm;
 use crate::data::{ActualEquality, ActualProofObject};
+use crate::remote::Remote;
 use crate::vm::graph::FaceStatus;
 use crate::vm::{Interactive, VM};
 use std::ops::Deref;
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     /// Auto compute and set a face status depending on the existentials in its
     /// term.
     pub fn set_face_status(&mut self, fce: usize) {

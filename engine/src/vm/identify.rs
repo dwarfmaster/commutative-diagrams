@@ -4,12 +4,13 @@ use crate::data::{ActualProofObject, Context};
 use crate::data::{Category, Equality, Functor, Morphism, Object};
 use crate::data::{CategoryData, EqualityData, FunctorData, MorphismData, ObjectData};
 use crate::graph::GraphId;
+use crate::remote::Remote;
 use crate::substitution::Substitutable;
 use crate::unification::{unify, UnifOpts, UnifState};
 use crate::vm::ast::{Annot, Id, TermDescr};
 use crate::vm::{Interactive, VM};
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     fn realize_descr_as_cat(
         &mut self,
         _unif: &mut UnifState,
@@ -489,6 +490,7 @@ mod tests {
     use crate::anyterm::IsTerm;
     use crate::data::Context;
     use crate::dsl::{cat, obj};
+    use crate::remote::Mock;
     use crate::vm::ast::{Annot, Id, TermDescr};
     use crate::vm::identify;
     use crate::vm::VM;
@@ -505,7 +507,7 @@ mod tests {
             edges: vec![vec![]],
             faces: vec![],
         };
-        let mut vm = VM::<()>::new(ctx, gr, Vec::new(), Vec::new());
+        let mut vm = VM::<Mock, ()>::new(ctx, gr, Vec::new(), Vec::new());
 
         let descr = TermDescr::Ref(Annot {
             value: Id::Id(0),
@@ -545,7 +547,7 @@ mod tests {
             edges: vec![vec![], vec![]],
             faces: vec![],
         };
-        let mut vm = VM::<()>::new(ctx, gr, Vec::new(), Vec::new());
+        let mut vm = VM::<Mock, ()>::new(ctx, gr, Vec::new(), Vec::new());
 
         let annot = |v: Id| -> Annot<Id> {
             Annot {

@@ -1,13 +1,14 @@
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
+use crate::remote::Remote;
 use crate::ui::vm::VM;
 use crate::vm::FaceStatus;
 use egui::{Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
 type CMR = crate::ui::vm::ContextMenuResult;
 
-impl UiGraph for VM {
+impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
         F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId),

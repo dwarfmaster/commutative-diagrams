@@ -1,4 +1,5 @@
 use crate::data::Morphism;
+use crate::remote::Remote;
 use crate::vm::graph::EdgeLabel;
 use crate::vm::{Graph, Interactive, VM};
 
@@ -17,7 +18,7 @@ fn on_path<F>(
     }
 }
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     pub fn show_face_impl(graph: &mut Graph, fce: usize) {
         on_path(
             &mut graph.edges,

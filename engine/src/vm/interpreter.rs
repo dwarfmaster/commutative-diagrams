@@ -1,4 +1,5 @@
 use crate::graph::GraphId;
+use crate::remote::Remote;
 use crate::vm::asm::Instruction;
 use crate::vm::{Interactive, VM};
 
@@ -14,7 +15,7 @@ impl InterpreterStatus {
     }
 }
 
-impl<I: Interactive + Sync + Send> VM<I> {
+impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     // Execute the instruction and register it in the vm
     pub fn register_instruction(&mut self, ins: Instruction) {
         self.execute_instruction(&ins);
