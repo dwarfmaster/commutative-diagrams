@@ -1,5 +1,5 @@
 use crate::anyterm::AnyTerm;
-use crate::data::Context;
+use crate::data::{Context, Store};
 use crate::graph::GraphId;
 use crate::remote::{Mock, Remote};
 use crate::substitution::{Substitutable, Substitution};
@@ -51,6 +51,7 @@ impl Interactive for () {
 pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     pub ctx: Context,
     pub remote: Rm,
+    pub store: Store,
     pub prev_code: String,
     pub code: String,
     pub ast: Vec<Action>,
@@ -101,6 +102,7 @@ impl<I: Interactive + Sync + Send> VM<Mock, I> {
         let mut res = Self {
             ctx,
             remote: Mock::new(),
+            store: Store::new(),
             prev_code: String::new(),
             code: String::new(),
             ast: Vec::new(),

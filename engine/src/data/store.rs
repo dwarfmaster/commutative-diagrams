@@ -45,7 +45,13 @@ impl Store {
         })
     }
 
-    pub fn register(&mut self, id: u64, label: String, name: Option<String>, status: EvarStatus) {
+    pub fn register<'a>(
+        &'a mut self,
+        id: u64,
+        label: String,
+        name: Option<String>,
+        status: EvarStatus,
+    ) -> &'a Obj {
         self.objects
             .entry(id)
             .and_modify(|v| {
@@ -61,13 +67,21 @@ impl Store {
                     status,
                     cache: QueryCache::new(),
                 }]
-            });
+            })
+            .last()
+            .unwrap()
     }
 
     // Id must be present in the store
     pub fn store(&mut self, id: u64, feat: Feature) {
         let obj = self.objects.get_mut(&id).unwrap().last_mut().unwrap();
         obj.cache.store(feat)
+    }
+
+    // Id must be present in the store
+    pub fn store_none(&mut self, id: u64, tag: Tag) {
+        let obj = self.objects.get_mut(&id).unwrap().last_mut().unwrap();
+        obj.cache.store_none(tag)
     }
 
     pub fn get<'a>(&'a self, id: u64) -> Option<&'a Obj> {
@@ -79,22 +93,22 @@ impl Store {
         obj.cache.query(tag)
     }
 
-    pub fn is_funct_obj(&self, id: u64, cat: u64) -> Option<(u64, u64, u64)> {
+    pub fn is_funct_obj(&self, id: u64, cat: u64) -> Option<Option<(u64, u64, u64)>> {
         let obj = self.get(id)?;
         obj.cache.is_funct_obj(cat)
     }
 
-    pub fn is_identity(&self, id: u64, cat: u64) -> Option<u64> {
+    pub fn is_identity(&self, id: u64, cat: u64) -> Option<Option<u64>> {
         let obj = self.get(id)?;
         obj.cache.is_identity(cat)
     }
 
-    pub fn is_comp(&self, id: u64, cat: u64) -> Option<(u64, u64, u64, u64, u64)> {
+    pub fn is_comp(&self, id: u64, cat: u64) -> Option<Option<(u64, u64, u64, u64, u64)>> {
         let obj = self.get(id)?;
         obj.cache.is_comp(cat)
     }
 
-    pub fn is_funct_mph(&self, id: u64, cat: u64) -> Option<(u64, u64, u64, u64, u64)> {
+    pub fn is_funct_mph(&self, id: u64, cat: u64) -> Option<Option<(u64, u64, u64, u64, u64)>> {
         let obj = self.get(id)?;
         obj.cache.is_funct_mph(cat)
     }
@@ -242,6 +256,33 @@ impl QueryCache {
         }
     }
 
+    fn store_none(&mut self, tag: Tag) {
+        use Tag::*;
+        match tag {
+            Category => get_store!(self, Category) = Some(Vec::new()),
+            Object => get_store!(self, Object) = Some(Vec::new()),
+            Morphism => get_store!(self, Morphism) = Some(Vec::new()),
+            Functor => get_store!(self, Functor) = Some(Vec::new()),
+            Equality => get_store!(self, Equality) = Some(Vec::new()),
+            AppliedFunctObj => get_store!(self, AppliedFunctObj) = Some(Vec::new()),
+            Identity => get_store!(self, Identity) = Some(Vec::new()),
+            ComposeMph => get_store!(self, ComposeMph) = Some(Vec::new()),
+            AppliedFunctMph => get_store!(self, AppliedFunctMph) = Some(Vec::new()),
+            Reflexivity => get_store!(self, Reflexivity) = Some(Vec::new()),
+            Concat => get_store!(self, Concat) = Some(Vec::new()),
+            InverseEq => get_store!(self, InverseEq) = Some(Vec::new()),
+            ComposeEq => get_store!(self, ComposeEq) = Some(Vec::new()),
+            Associativity => get_store!(self, Associativity) = Some(Vec::new()),
+            LeftUnitality => get_store!(self, LeftUnitality) = Some(Vec::new()),
+            RightUnitality => get_store!(self, RightUnitality) = Some(Vec::new()),
+            LeftApplication => get_store!(self, LeftApplication) = Some(Vec::new()),
+            RightApplication => get_store!(self, RightApplication) = Some(Vec::new()),
+            FunctIdentity => get_store!(self, FunctIdentity) = Some(Vec::new()),
+            FunctComposition => get_store!(self, FunctComposition) = Some(Vec::new()),
+            AppliedFunctEq => get_store!(self, AppliedFunctEq) = Some(Vec::new()),
+        }
+    }
+
     fn store(&mut self, feat: Feature) {
         use Tag::*;
         match feat.tag() {
@@ -296,9 +337,9 @@ impl QueryCache {
         }
     }
 
-    fn is_funct_obj(&self, qdcat: u64) -> Option<(u64, u64, u64)> {
+    fn is_funct_obj(&self, qdcat: u64) -> Option<Option<(u64, u64, u64)>> {
         let v = self.query(Tag::AppliedFunctObj)?;
-        v.into_iter().find_map(|feat| {
+        Some(v.into_iter().find_map(|feat| {
             if let Feature::AppliedFunctObj {
                 scat,
                 dcat,
@@ -314,12 +355,12 @@ impl QueryCache {
             } else {
                 None
             }
-        })
+        }))
     }
 
-    fn is_identity(&self, qcat: u64) -> Option<u64> {
+    fn is_identity(&self, qcat: u64) -> Option<Option<u64>> {
         let v = self.query(Tag::Identity)?;
-        v.into_iter().find_map(|feat| {
+        Some(v.into_iter().find_map(|feat| {
             if let Feature::Identity { cat, obj } = feat {
                 if qcat == cat {
                     Some(obj)
@@ -329,12 +370,12 @@ impl QueryCache {
             } else {
                 None
             }
-        })
+        }))
     }
 
-    fn is_comp(&self, qcat: u64) -> Option<(u64, u64, u64, u64, u64)> {
+    fn is_comp(&self, qcat: u64) -> Option<Option<(u64, u64, u64, u64, u64)>> {
         let v = self.query(Tag::ComposeMph)?;
-        v.into_iter().find_map(|feat| {
+        Some(v.into_iter().find_map(|feat| {
             if let Feature::ComposeMph {
                 cat,
                 src,
@@ -352,12 +393,12 @@ impl QueryCache {
             } else {
                 None
             }
-        })
+        }))
     }
 
-    fn is_funct_mph(&self, qdcat: u64) -> Option<(u64, u64, u64, u64, u64)> {
+    fn is_funct_mph(&self, qdcat: u64) -> Option<Option<(u64, u64, u64, u64, u64)>> {
         let v = self.query(Tag::AppliedFunctMph)?;
-        v.into_iter().find_map(|feat| {
+        Some(v.into_iter().find_map(|feat| {
             if let Feature::AppliedFunctMph {
                 scat,
                 dcat,
@@ -375,7 +416,7 @@ impl QueryCache {
             } else {
                 None
             }
-        })
+        }))
     }
 }
 
@@ -403,11 +444,14 @@ mod tests {
             m1: 4,
             m2: 5,
         });
+        cache.store_none(Tag::AppliedFunctMph);
         assert_eq!(cache.query(Tag::Category), None);
         assert_eq!(cache.query(Tag::ComposeMph).map(|v| v.len()), Some(2));
-        assert_eq!(cache.is_comp(0), Some((1, 2, 3, 4, 5)));
-        assert_eq!(cache.is_comp(3), None);
-        assert_eq!(cache.is_comp(6), Some((1, 2, 3, 4, 5)));
+        assert_eq!(cache.is_comp(0), Some(Some((1, 2, 3, 4, 5))));
+        assert_eq!(cache.is_comp(3), Some(None));
+        assert_eq!(cache.is_comp(6), Some(Some((1, 2, 3, 4, 5))));
+        assert_eq!(cache.is_identity(0), None);
+        assert_eq!(cache.is_funct_mph(0), Some(None));
     }
 
     #[test]
@@ -436,7 +480,7 @@ mod tests {
         );
         store.store(2, Feature::Identity { cat: 0, obj: 1 });
         assert_eq!(store.get(1).map(|o| o.status), Some(ES::Grounded));
-        assert_eq!(store.is_identity(2, 0), Some(1));
+        assert_eq!(store.is_identity(2, 0), Some(Some(1)));
 
         store.push_state(|_, x| x.clone());
         store.register(1, "a".to_string(), Some("a".to_string()), ES::Grounded);
@@ -447,7 +491,7 @@ mod tests {
 
         store.pop_state();
         assert_eq!(store.get(1).map(|o| o.name.clone()), Some(None));
-        assert_eq!(store.is_identity(2, 0), Some(1));
+        assert_eq!(store.is_identity(2, 0), Some(Some(1)));
 
         store.pop_state();
         assert_eq!(store.get(1).map(|o| o.status), Some(ES::Evar));

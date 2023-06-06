@@ -12,6 +12,7 @@ mod order;
 mod parser;
 mod sides;
 mod status;
+mod store;
 mod style;
 mod vm;
 

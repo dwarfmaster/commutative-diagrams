@@ -1,9 +1,10 @@
 use crate::data::{EvarStatus, Feature, Tag};
 use crate::graph::Graph;
+use std::fmt::Debug;
 
 // Remote is a trait to enable mocking for test purposes
 pub trait Remote {
-    type Error;
+    type Error: Debug;
 
     // Query the goal from the proof assistant
     fn goal<NL, EL, FL>(&mut self) -> Result<Graph<NL, EL, FL>, Self::Error>
