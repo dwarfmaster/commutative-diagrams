@@ -1,20 +1,24 @@
-use crate::data::{EqualityData, Functor};
 use itertools::Itertools;
 use std::cmp::Ordering;
 
-type Path = (usize, Vec<(usize, usize)>);
+#[derive(Eq, PartialEq, Hash, Debug, Clone)]
+pub struct Morphism {
+    pub src: u64,
+    pub dst: u64,
+    pub comps: Vec<(u64, u64, u64)>,
+}
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub struct Eq {
     pub slices: Vec<Slice>,
-    pub inp: Path,
-    pub outp: Path,
+    pub inp: Morphism,
+    pub outp: Morphism,
 }
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub struct Slice {
-    pub inp: Path,
-    pub outp: Path,
+    pub inp: Morphism,
+    pub outp: Morphism,
     // Assumes blocks are sorted by position. The first usize in the position in
     // the input and the second the position in the outputs. Relative positions
     // of blocks are the same in inputs and outputs.
@@ -23,22 +27,23 @@ pub struct Slice {
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub struct Block {
-    pub inp: Path,
-    pub outp: Path,
+    pub inp: Morphism,
+    pub outp: Morphism,
     pub data: BlockData,
 }
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub enum BlockData {
-    Direct(EqualityData),
-    Inv(EqualityData),
-    Funct(Functor, Eq),
+    Direct(u64),
+    Inv(u64),
+    Funct(u64, Eq),
+    Split,
 }
 
 // TODO handle functors
 
 impl Eq {
-    pub fn refl(p: Path) -> Eq {
+    pub fn refl(p: Morphism) -> Eq {
         Eq {
             inp: p.clone(),
             outp: p,
@@ -95,10 +100,10 @@ impl Eq {
     // the inp of the appended equality is a subpath of the outp of self
     // starting at offset.
     pub fn append_at(&mut self, offset: usize, eq: Eq) {
-        assert!(self.outp.1.len() >= offset + eq.inp.1.len());
+        assert!(self.outp.comps.len() >= offset + eq.inp.comps.len());
         assert_eq!(
-            &eq.inp.1[..],
-            &self.outp.1[offset..(offset + eq.inp.1.len())]
+            &eq.inp.comps[..],
+            &self.outp.comps[offset..(offset + eq.inp.comps.len())]
         );
 
         for slice in eq.slices {
@@ -120,25 +125,27 @@ impl Eq {
     }
 
     // Inefficient
-    pub fn lap(&mut self, p: &Path) {
-        self.inp.0 = p.0;
-        self.inp.1 =
-            p.1.iter()
-                .copied()
-                .chain(self.inp.1.iter().copied())
-                .collect();
-        self.outp.0 = p.0;
-        self.outp.1 =
-            p.1.iter()
-                .copied()
-                .chain(self.outp.1.iter().copied())
-                .collect();
+    pub fn lap(&mut self, p: &Morphism) {
+        self.inp.src = p.src;
+        self.inp.comps = p
+            .comps
+            .iter()
+            .copied()
+            .chain(self.inp.comps.iter().copied())
+            .collect();
+        self.outp.src = p.src;
+        self.outp.comps = p
+            .comps
+            .iter()
+            .copied()
+            .chain(self.outp.comps.iter().copied())
+            .collect();
         self.slices.iter_mut().for_each(|slice| slice.lap(p));
     }
 
-    pub fn rap(&mut self, p: &Path) {
-        self.inp.1.extend(p.1.iter().copied());
-        self.outp.1.extend(p.1.iter().copied());
+    pub fn rap(&mut self, p: &Morphism) {
+        self.inp.comps.extend(p.comps.iter().copied());
+        self.outp.comps.extend(p.comps.iter().copied());
         self.slices.iter_mut().for_each(|slice| slice.rap(p));
     }
 
@@ -166,14 +173,14 @@ impl Eq {
             })
             .collect();
 
-        self.inp.1.extend(eq.inp.1.into_iter());
-        self.outp.1.extend(eq.outp.1.into_iter());
+        self.inp.comps.extend(eq.inp.comps.into_iter());
+        self.outp.comps.extend(eq.outp.comps.into_iter());
     }
 }
 
 // TODO simplify concatenation of inverse equalities
 impl Slice {
-    fn refl(p: Path) -> Slice {
+    fn refl(p: Morphism) -> Slice {
         Slice {
             inp: p.clone(),
             outp: p,
@@ -191,8 +198,10 @@ impl Slice {
         // inp doesn't change, since we insert on a passthrough place.
         // However output changes
         let start_input = self.output_source(start).unwrap();
-        let output_range = start..(start + blk.inp.1.len());
-        self.outp.1.splice(output_range, blk.outp.1.iter().copied());
+        let output_range = start..(start + blk.inp.comps.len());
+        self.outp
+            .comps
+            .splice(output_range, blk.outp.comps.iter().copied());
 
         let r = self
             .blocks
@@ -212,15 +221,19 @@ impl Slice {
 
         // Update input
         let start_input = self.output_source(start).unwrap();
-        let input_range = start_input..(start_input + blk.inp.1.len());
-        self.inp.1.splice(input_range, blk.outp.1.iter().copied());
+        let input_range = start_input..(start_input + blk.inp.comps.len());
+        self.inp
+            .comps
+            .splice(input_range, blk.outp.comps.iter().copied());
 
         // Update output
-        let output_range = start..(start + blk.inp.1.len());
-        self.outp.1.splice(output_range, blk.outp.1.iter().copied());
+        let output_range = start..(start + blk.inp.comps.len());
+        self.outp
+            .comps
+            .splice(output_range, blk.outp.comps.iter().copied());
 
         // Update blocks
-        let offset = (blk.outp.1.len() as isize) - (blk.inp.1.len() as isize);
+        let offset = (blk.outp.comps.len() as isize) - (blk.inp.comps.len() as isize);
         self.blocks
             .iter_mut()
             .filter(|(_, st, _)| *st > start)
@@ -235,7 +248,7 @@ impl Slice {
     // Test if the block is compatible with the slice (assumes well typedness).
     // start is assumed to be relative to output.
     fn block_compatible(&self, start: usize, blk: &Block) -> bool {
-        (0..blk.inp.1.len())
+        (0..blk.inp.comps.len())
             .map(|x| x + start)
             .all(|output| self.output_source(output).is_ok())
     }
@@ -247,7 +260,7 @@ impl Slice {
         let r = self.blocks.binary_search_by(|(src, _, blk)| {
             if *src > input {
                 Ordering::Greater
-            } else if src + blk.inp.1.len() <= input {
+            } else if src + blk.inp.comps.len() <= input {
                 Ordering::Less
             } else {
                 Ordering::Equal
@@ -258,8 +271,8 @@ impl Slice {
             Err(0) => Ok(input),
             Err(blkid) => {
                 let blkid = blkid - 1;
-                let offset = input - self.blocks[blkid].0 - self.blocks[blkid].2.inp.1.len();
-                Ok(self.blocks[blkid].1 + self.blocks[blkid].2.outp.1.len() + offset)
+                let offset = input - self.blocks[blkid].0 - self.blocks[blkid].2.inp.comps.len();
+                Ok(self.blocks[blkid].1 + self.blocks[blkid].2.outp.comps.len() + offset)
             }
         }
     }
@@ -270,7 +283,7 @@ impl Slice {
         let r = self.blocks.binary_search_by(|(_, src, blk)| {
             if *src > output {
                 Ordering::Greater
-            } else if src + blk.outp.1.len() <= output {
+            } else if src + blk.outp.comps.len() <= output {
                 Ordering::Less
             } else {
                 Ordering::Equal
@@ -281,8 +294,8 @@ impl Slice {
             Err(0) => Ok(output),
             Err(blkid) => {
                 let blkid = blkid - 1;
-                let offset = output - self.blocks[blkid].1 - self.blocks[blkid].2.outp.1.len();
-                Ok(self.blocks[blkid].0 + self.blocks[blkid].2.inp.1.len() + offset)
+                let offset = output - self.blocks[blkid].1 - self.blocks[blkid].2.outp.comps.len();
+                Ok(self.blocks[blkid].0 + self.blocks[blkid].2.inp.comps.len() + offset)
             }
         }
     }
@@ -293,35 +306,37 @@ impl Slice {
     }
 
     // Inefficient, avoid as much as possible
-    fn lap(&mut self, p: &Path) {
+    fn lap(&mut self, p: &Morphism) {
         self.blocks.iter_mut().for_each(|blk| {
-            blk.0 += p.1.len();
-            blk.1 += p.1.len();
+            blk.0 += p.comps.len();
+            blk.1 += p.comps.len();
         });
-        self.inp.0 = p.0;
-        self.inp.1 =
-            p.1.iter()
-                .copied()
-                .chain(self.inp.1.iter().copied())
-                .collect();
-        self.outp.0 = p.0;
-        self.outp.1 =
-            p.1.iter()
-                .copied()
-                .chain(self.outp.1.iter().copied())
-                .collect();
+        self.inp.src = p.src;
+        self.inp.comps = p
+            .comps
+            .iter()
+            .copied()
+            .chain(self.inp.comps.iter().copied())
+            .collect();
+        self.outp.src = p.src;
+        self.outp.comps = p
+            .comps
+            .iter()
+            .copied()
+            .chain(self.outp.comps.iter().copied())
+            .collect();
     }
 
-    fn rap(&mut self, p: &Path) {
-        self.inp.1.extend(p.1.iter().copied());
-        self.outp.1.extend(p.1.iter().copied());
+    fn rap(&mut self, p: &Morphism) {
+        self.inp.comps.extend(p.comps.iter().copied());
+        self.outp.comps.extend(p.comps.iter().copied());
     }
 
     fn compose(&mut self, o: Slice) {
-        let offset_in = self.inp.1.len();
-        let offset_out = self.outp.1.len();
-        self.inp.1.extend(o.inp.1.into_iter());
-        self.outp.1.extend(o.outp.1.into_iter());
+        let offset_in = self.inp.comps.len();
+        let offset_out = self.outp.comps.len();
+        self.inp.comps.extend(o.inp.comps.into_iter());
+        self.outp.comps.extend(o.outp.comps.into_iter());
         self.blocks.extend(
             o.blocks
                 .into_iter()
@@ -342,51 +357,42 @@ impl Block {
                 eq.inv();
                 Funct(f.clone(), eq)
             }
+            Split => Split,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::data::{ActualProofObject, Context, EqualityData};
-    use crate::dsl::{cat, mph, obj};
-    use crate::graph::eq::{Block, BlockData, Eq, Slice};
+    use crate::graph::eq::definition::{Block, BlockData, Eq, Morphism, Slice};
 
-    fn dummy_data() -> BlockData {
-        let ctx = Context::new();
-        let cat = cat!(ctx, :0);
-        let x = obj!(ctx, (:1) in cat);
-        let m = mph!(ctx, (:2) : x -> x);
-        let eqdata = EqualityData {
-            category: cat,
-            src: x.clone(),
-            dst: x,
-            left: m.clone(),
-            right: m,
-            pobj: ctx.mk(ActualProofObject::Term(3)),
-        };
-        BlockData::Direct(eqdata)
+    fn loops(n: usize, mph: u64) -> Morphism {
+        Morphism {
+            src: 0,
+            dst: 0,
+            comps: vec![(0, 0, mph); n],
+        }
     }
 
     fn test_slice() -> Slice {
         let b31 = Block {
-            inp: (0, vec![(0, 0); 3]),
-            outp: (0, vec![(0, 0); 1]),
-            data: dummy_data(),
+            inp: loops(3, 1),
+            outp: loops(1, 1),
+            data: BlockData::Direct(42),
         };
         let b14 = Block {
-            inp: (0, vec![(0, 0); 1]),
-            outp: (0, vec![(0, 0); 4]),
-            data: dummy_data(),
+            inp: loops(1, 1),
+            outp: loops(4, 1),
+            data: BlockData::Direct(43),
         };
         let b25 = Block {
-            inp: (0, vec![(0, 0); 2]),
-            outp: (0, vec![(0, 0); 5]),
-            data: dummy_data(),
+            inp: loops(2, 1),
+            outp: loops(5, 1),
+            data: BlockData::Direct(44),
         };
         Slice {
-            inp: (0, vec![(0, 0); 10]),
-            outp: (0, vec![(0, 0); 14]),
+            inp: loops(10, 1),
+            outp: loops(14, 1),
             blocks: vec![(1, 1, b31), (5, 3, b25), (9, 10, b14)],
         }
     }
@@ -413,65 +419,65 @@ mod tests {
     #[test]
     fn slice_insert_block() {
         let b25 = Block {
-            inp: (0, vec![(0, 0); 2]),
-            outp: (0, vec![(1, 1); 5]),
-            data: dummy_data(),
+            inp: loops(2, 1),
+            outp: loops(5, 17),
+            data: BlockData::Direct(45),
         };
         let mut slice = test_slice();
 
         let ins1 = slice.insert_block_at(1, b25.clone());
         // Check nothing's changed
         assert!(ins1.is_some());
-        assert_eq!(slice.inp.1.len(), 10);
-        assert_eq!(slice.outp.1.len(), 14);
+        assert_eq!(slice.inp.comps.len(), 10);
+        assert_eq!(slice.outp.comps.len(), 14);
 
         let ins2 = slice.insert_block_at(8, b25);
         assert!(ins2.is_none());
-        assert_eq!(slice.inp.1.len(), 10);
-        assert_eq!(slice.outp.1.len(), 17);
-        assert_eq!(slice.outp.1[8], (1, 1));
-        assert_eq!(slice.outp.1[12], (1, 1));
+        assert_eq!(slice.inp.comps.len(), 10);
+        assert_eq!(slice.outp.comps.len(), 17);
+        assert_eq!(slice.outp.comps[8], (0, 0, 17));
+        assert_eq!(slice.outp.comps[12], (0, 0, 17));
     }
 
     #[test]
     fn slice_commutes_block() {
         let b25 = Block {
-            inp: (0, vec![(0, 0); 2]),
-            outp: (0, vec![(1, 1); 5]),
-            data: dummy_data(),
+            inp: loops(2, 1),
+            outp: loops(5, 17),
+            data: BlockData::Direct(47),
         };
         let mut slice = test_slice();
 
         let ins1 = slice.commutes_with_block(1, &b25);
         // Check nothing's changed
         assert!(ins1.is_none());
-        assert_eq!(slice.inp.1.len(), 10);
-        assert_eq!(slice.outp.1.len(), 14);
+        assert_eq!(slice.inp.comps.len(), 10);
+        assert_eq!(slice.outp.comps.len(), 14);
 
         let ins2 = slice.commutes_with_block(8, &b25);
         assert_eq!(ins2, Some(7));
-        assert_eq!(slice.inp.1.len(), 13);
-        assert_eq!(slice.inp.1[7], (1, 1));
-        assert_eq!(slice.inp.1[11], (1, 1));
-        assert_eq!(slice.outp.1.len(), 17);
-        assert_eq!(slice.outp.1[8], (1, 1));
-        assert_eq!(slice.outp.1[12], (1, 1));
+        assert_eq!(slice.inp.comps.len(), 13);
+        assert_eq!(slice.inp.comps[7], (0, 0, 17));
+        assert_eq!(slice.inp.comps[11], (0, 0, 17));
+        assert_eq!(slice.outp.comps.len(), 17);
+        assert_eq!(slice.outp.comps[8], (0, 0, 17));
+        assert_eq!(slice.outp.comps[12], (0, 0, 17));
         assert_eq!(slice.blocks[2].0, 12);
         assert_eq!(slice.blocks[2].1, 13);
     }
 
     #[test]
     fn eq_append_block() {
-        let mut eq = Eq::refl((0, vec![(0, 0); 10]));
+        let mut eq = Eq::refl(loops(10, 1));
         let b25 = Block {
-            inp: (0, vec![(0, 0); 2]),
-            outp: (0, vec![(1, 1); 5]),
-            data: dummy_data(),
+            inp: loops(2, 1),
+            outp: loops(5, 17),
+            data: BlockData::Direct(48),
         };
 
         eq.append_block(1, b25.clone());
         assert_eq!(eq.slices.len(), 1);
-        assert_eq!(eq.inp.1.len(), 10);
+        assert_eq!(eq.inp.comps.len(), 10);
 
         eq.append_block(10, b25.clone());
         assert_eq!(eq.slices.len(), 1);
@@ -483,11 +489,11 @@ mod tests {
 
     #[test]
     fn eq_append_slice() {
-        let mut eq = Eq::refl((0, vec![(0, 0); 7]));
+        let mut eq = Eq::refl(loops(7, 1));
         let b25 = Block {
-            inp: (0, vec![(0, 0); 2]),
-            outp: (0, vec![(1, 1); 5]),
-            data: dummy_data(),
+            inp: loops(2, 1),
+            outp: loops(5, 17),
+            data: BlockData::Direct(49),
         };
         eq.append_block(2, b25);
         eq.append_slice(0, test_slice());
@@ -499,20 +505,20 @@ mod tests {
 
     #[test]
     fn eq_append() {
-        let mut eq1 = Eq::refl((0, vec![(0, 0); 7]));
+        let mut eq1 = Eq::refl(loops(7, 1));
         let b25 = Block {
-            inp: (0, vec![(0, 0); 2]),
-            outp: (0, vec![(0, 0); 5]),
-            data: dummy_data(),
+            inp: loops(2, 1),
+            outp: loops(5, 1),
+            data: BlockData::Direct(50),
         };
         eq1.append_block(2, b25.clone());
         eq1.outp = eq1.slices[0].outp.clone();
 
-        let mut eq2 = Eq::refl((0, vec![(0, 0); 7]));
+        let mut eq2 = Eq::refl(loops(7, 1));
         eq2.append_block(5, b25.clone());
 
         eq1.append_at(2, eq2);
-        assert_eq!(eq1.outp.1.len(), 13);
+        assert_eq!(eq1.outp.comps.len(), 13);
         assert_eq!(eq1.slices.len(), 1);
     }
 }
