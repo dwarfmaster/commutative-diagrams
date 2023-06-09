@@ -5,6 +5,7 @@ pub mod dsl;
 pub mod graph;
 pub mod lemmas;
 pub mod normalize;
+pub mod normalizer;
 pub mod parser;
 pub mod pretty;
 pub mod remote;
