@@ -1,3 +1,3 @@
 mod definition;
 
-pub use definition::{Block, BlockData, Eq, Slice};
+pub use definition::{Block, BlockData, Eq, Morphism, Slice};

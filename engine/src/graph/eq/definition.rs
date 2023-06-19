@@ -5,12 +5,14 @@ use std::cmp::Ordering;
 pub struct Morphism {
     pub src: u64,
     pub dst: u64,
+    // (src, dst, mph)
     pub comps: Vec<(u64, u64, u64)>,
 }
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub struct Eq {
     pub slices: Vec<Slice>,
+    pub cat: u64,
     pub inp: Morphism,
     pub outp: Morphism,
 }
@@ -43,8 +45,9 @@ pub enum BlockData {
 // TODO handle functors
 
 impl Eq {
-    pub fn refl(p: Morphism) -> Eq {
+    pub fn refl(cat: u64, p: Morphism) -> Eq {
         Eq {
+            cat,
             inp: p.clone(),
             outp: p,
             slices: Vec::new(),
@@ -468,7 +471,7 @@ mod tests {
 
     #[test]
     fn eq_append_block() {
-        let mut eq = Eq::refl(loops(10, 1));
+        let mut eq = Eq::refl(0, loops(10, 1));
         let b25 = Block {
             inp: loops(2, 1),
             outp: loops(5, 17),
@@ -489,7 +492,7 @@ mod tests {
 
     #[test]
     fn eq_append_slice() {
-        let mut eq = Eq::refl(loops(7, 1));
+        let mut eq = Eq::refl(0, loops(7, 1));
         let b25 = Block {
             inp: loops(2, 1),
             outp: loops(5, 17),
@@ -505,7 +508,7 @@ mod tests {
 
     #[test]
     fn eq_append() {
-        let mut eq1 = Eq::refl(loops(7, 1));
+        let mut eq1 = Eq::refl(0, loops(7, 1));
         let b25 = Block {
             inp: loops(2, 1),
             outp: loops(5, 1),
@@ -514,7 +517,7 @@ mod tests {
         eq1.append_block(2, b25.clone());
         eq1.outp = eq1.slices[0].outp.clone();
 
-        let mut eq2 = Eq::refl(loops(7, 1));
+        let mut eq2 = Eq::refl(0, loops(7, 1));
         eq2.append_block(5, b25.clone());
 
         eq1.append_at(2, eq2);
