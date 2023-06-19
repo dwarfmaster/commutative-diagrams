@@ -8,6 +8,7 @@ pub mod normalize;
 pub mod normalizer;
 pub mod parser;
 pub mod pretty;
+pub mod realizer;
 pub mod remote;
 pub mod rpc;
 pub mod simpleq;
