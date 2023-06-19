@@ -1,15 +1,6 @@
 use crate::data::Feature;
 use crate::remote::Remote;
-
-pub trait TermEngine {
-    type R: Remote;
-
-    fn remote<'a>(&'a mut self) -> &'a mut Self::R;
-    fn is_funct_obj(&mut self, obj: u64, cat: u64) -> Option<(u64, u64, u64)>;
-    fn is_identity(&mut self, obj: u64, cat: u64) -> Option<u64>;
-    fn is_comp(&mut self, obj: u64, cat: u64) -> Option<(u64, u64, u64, u64, u64)>;
-    fn is_funct_mph(&mut self, obj: u64, cat: u64) -> Option<(u64, u64, u64, u64, u64)>;
-}
+use crate::remote::TermEngine;
 
 pub fn morphism<R: TermEngine>(
     rm: &mut R,
