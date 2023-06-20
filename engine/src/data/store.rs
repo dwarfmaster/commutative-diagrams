@@ -93,6 +93,31 @@ impl Store {
         obj.cache.query(tag)
     }
 
+    pub fn is_cat(&self, id: u64) -> Option<Option<()>> {
+        let obj = self.get(id)?;
+        obj.cache.is_cat()
+    }
+
+    pub fn is_obj(&self, id: u64, cat: u64) -> Option<Option<()>> {
+        let obj = self.get(id)?;
+        obj.cache.is_obj(cat)
+    }
+
+    pub fn is_funct(&self, id: u64, cat: u64) -> Option<Option<u64>> {
+        let obj = self.get(id)?;
+        obj.cache.is_funct(cat)
+    }
+
+    pub fn is_mph(&self, id: u64, cat: u64) -> Option<Option<(u64, u64)>> {
+        let obj = self.get(id)?;
+        obj.cache.is_mph(cat)
+    }
+
+    pub fn is_eq(&self, id: u64, cat: u64) -> Option<Option<(u64, u64, u64, u64)>> {
+        let obj = self.get(id)?;
+        obj.cache.is_eq(cat)
+    }
+
     pub fn is_funct_obj(&self, id: u64, cat: u64) -> Option<Option<(u64, u64, u64)>> {
         let obj = self.get(id)?;
         obj.cache.is_funct_obj(cat)
@@ -335,6 +360,84 @@ impl QueryCache {
             FunctComposition => do_query!(self, FunctComposition),
             AppliedFunctEq => do_query!(self, AppliedFunctEq),
         }
+    }
+
+    fn is_cat(&self) -> Option<Option<()>> {
+        let v = self.query(Tag::Category)?;
+        Some(v.into_iter().find_map(|feat| {
+            if let Feature::Category = feat {
+                Some(())
+            } else {
+                None
+            }
+        }))
+    }
+
+    fn is_obj(&self, qcat: u64) -> Option<Option<()>> {
+        let v = self.query(Tag::Object)?;
+        Some(v.into_iter().find_map(|feat| {
+            if let Feature::Object { cat } = feat {
+                if cat == qcat {
+                    Some(())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }))
+    }
+
+    fn is_funct(&self, qdcat: u64) -> Option<Option<u64>> {
+        let v = self.query(Tag::Functor)?;
+        Some(v.into_iter().find_map(|feat| {
+            if let Feature::Functor { scat, dcat } = feat {
+                if dcat == qdcat {
+                    Some(scat)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }))
+    }
+
+    fn is_mph(&self, qcat: u64) -> Option<Option<(u64, u64)>> {
+        let v = self.query(Tag::Morphism)?;
+        Some(v.into_iter().find_map(|feat| {
+            if let Feature::Morphism { cat, src, dst } = feat {
+                if cat == qcat {
+                    Some((src, dst))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }))
+    }
+
+    fn is_eq(&self, qcat: u64) -> Option<Option<(u64, u64, u64, u64)>> {
+        let v = self.query(Tag::Equality)?;
+        Some(v.into_iter().find_map(|feat| {
+            if let Feature::Equality {
+                cat,
+                src,
+                dst,
+                left,
+                right,
+            } = feat
+            {
+                if cat == qcat {
+                    Some((src, dst, left, right))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }))
     }
 
     fn is_funct_obj(&self, qdcat: u64) -> Option<Option<(u64, u64, u64)>> {

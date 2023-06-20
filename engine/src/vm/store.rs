@@ -55,6 +55,61 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         }
     }
 
+    pub fn is_cat(&mut self, obj: u64) -> bool {
+        let data = self.store.is_cat(obj);
+        match data {
+            Some(cat) => cat.is_some(),
+            None => {
+                self.do_query(obj, Tag::Category);
+                self.store.is_cat(obj).unwrap().is_some()
+            }
+        }
+    }
+
+    pub fn is_obj(&mut self, obj: u64, cat: u64) -> bool {
+        let data = self.store.is_obj(obj, cat);
+        match data {
+            Some(obj) => obj.is_some(),
+            None => {
+                self.do_query(obj, Tag::Object);
+                self.store.is_obj(obj, cat).unwrap().is_some()
+            }
+        }
+    }
+
+    pub fn is_funct(&mut self, obj: u64, cat: u64) -> Option<u64> {
+        let data = self.store.is_funct(obj, cat);
+        match data {
+            Some(f) => f,
+            None => {
+                self.do_query(obj, Tag::Functor);
+                self.store.is_funct(obj, cat).unwrap()
+            }
+        }
+    }
+
+    pub fn is_mph(&mut self, obj: u64, cat: u64) -> Option<(u64, u64)> {
+        let data = self.store.is_mph(obj, cat);
+        match data {
+            Some(mph) => mph,
+            None => {
+                self.do_query(obj, Tag::Morphism);
+                self.store.is_mph(obj, cat).unwrap()
+            }
+        }
+    }
+
+    pub fn is_eq(&mut self, obj: u64, cat: u64) -> Option<(u64, u64, u64, u64)> {
+        let data = self.store.is_eq(obj, cat);
+        match data {
+            Some(eq) => eq,
+            None => {
+                self.do_query(obj, Tag::Equality);
+                self.store.is_eq(obj, cat).unwrap()
+            }
+        }
+    }
+
     pub fn is_funct_obj(&mut self, obj: u64, cat: u64) -> Option<(u64, u64, u64)> {
         let data = self.store.is_funct_obj(obj, cat);
         match data {
