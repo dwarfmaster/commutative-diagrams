@@ -1,5 +1,6 @@
 use crate::data::Feature;
 use crate::graph::eq::{Block, BlockData, Eq, Morphism, Slice};
+use crate::normalizer::morphism;
 use crate::remote::{Remote, TermEngine};
 
 fn morphism_sub(mph: &Morphism, start: usize, size: usize) -> Morphism {
@@ -29,31 +30,51 @@ fn morphism_sub(mph: &Morphism, start: usize, size: usize) -> Morphism {
 // From a list of non-overlapping blocks covering part of a morphism, get a
 // complete covering with ranges given by their index and size (and ordered),
 // and wether the range is handled by a block.
-fn normalize_slice<F>(
-    start: F, // Gives the range covered by a block
+fn normalize_slice(
     blks: &[(usize, usize, Block)],
-    mph: &Morphism,
-) -> Vec<(usize, usize, Option<Block>)>
-where
-    F: Fn(&(usize, usize, Block)) -> (usize, usize),
-{
-    let mut current = 0;
+    mph_in: &Morphism,
+    mph_out: &Morphism,
+) -> Vec<(
+    /*start_in*/ usize,
+    /*len_in*/ usize,
+    /*start_out*/ usize,
+    /*len_out*/ usize,
+    Option<Block>,
+)> {
+    let mut current_in = 0;
+    let mut current_out = 0;
     let mut blk = 0;
     let mut r = Vec::new();
-    while current < mph.comps.len() {
-        if blk < blks.len() && current == start(&blks[blk]).0 {
-            let len = start(&blks[blk]).1;
-            r.push((current, len, Some(blks[blk].2.clone())));
-            current += len;
+    while current_in < mph_in.comps.len() || current_out < mph_out.comps.len() {
+        if blk < blks.len() && current_in == blks[blk].0 {
+            assert_eq!(current_out, blks[blk].1);
+            let len_in = blks[blk].2.inp.comps.len();
+            let len_out = blks[blk].2.outp.comps.len();
+            r.push((
+                current_in,
+                len_in,
+                current_out,
+                len_out,
+                Some(blks[blk].2.clone()),
+            ));
+            current_in += len_in;
+            current_out += len_out;
             blk += 1;
         } else {
             let next = if blk < blks.len() {
-                start(&blks[blk]).0
+                blks[blk].0
             } else {
-                mph.comps.len()
+                mph_in.comps.len()
             };
-            r.push((current, next - current, None));
-            current = next;
+            r.push((
+                current_in,
+                next - current_in,
+                current_out,
+                next - current_in,
+                None,
+            ));
+            current_in = next;
+            current_out += next - current_in;
         }
     }
     r
@@ -157,20 +178,18 @@ where
 }
 
 fn mk_inp_slice<R: TermEngine>(rm: &mut R, cat: u64, slice: &Slice) -> u64 {
-    let nm = normalize_slice(
-        |(id, _, blk)| (*id, blk.inp.comps.len()),
-        &slice.blocks[..],
-        &slice.inp,
-    );
+    let nm = normalize_slice(&slice.blocks[..], &slice.inp, &slice.outp)
+        .into_iter()
+        .map(|(start, len, _, _, blk)| (start, len, blk))
+        .collect();
     mk_slice(rm, cat, &slice.inp, nm, |rm, blk| mk_inp_blk(rm, cat, blk))
 }
 
 fn mk_outp_slice<R: TermEngine>(rm: &mut R, cat: u64, slice: &Slice) -> u64 {
-    let nm = normalize_slice(
-        |(_, id, blk)| (*id, blk.outp.comps.len()),
-        &slice.blocks[..],
-        &slice.outp,
-    );
+    let nm = normalize_slice(&slice.blocks[..], &slice.inp, &slice.outp)
+        .into_iter()
+        .map(|(_, _, start, len, blk)| (start, len, blk))
+        .collect();
     mk_slice(rm, cat, &slice.outp, nm, |rm, blk| {
         mk_outp_blk(rm, cat, blk)
     })
@@ -221,5 +240,324 @@ fn mk_outp_blk<R: TermEngine>(rm: &mut R, cat: u64, blk: &Block) -> u64 {
                 .unwrap()
         }
         Split => mk_morphism(rm, cat, &blk.outp),
+    }
+}
+
+//  ____            _ _
+// |  _ \ ___  __ _| (_)_______
+// | |_) / _ \/ _` | | |_  / _ \
+// |  _ <  __/ (_| | | |/ /  __/
+// |_| \_\___|\__,_|_|_/___\___|
+//
+
+// Create an equality between two morphisms that have the same normal form
+fn repar<R: TermEngine>(rm: &mut R, cat: u64, src: u64, dst: u64, left: u64, right: u64) -> u64 {
+    if left == right {
+        rm.remote()
+            .build(Feature::Reflexivity {
+                cat,
+                src,
+                dst,
+                mph: left,
+            })
+            .unwrap()
+    } else {
+        let (m1, eq1) = morphism(rm, cat, src, dst, left);
+        let (m2, eq2) = morphism(rm, cat, src, dst, right);
+        assert_eq!(m1, m2); // TODO maybe a bit strong ? They only need to be convertible
+        let eq2 = rm
+            .remote()
+            .build(Feature::InverseEq {
+                cat,
+                src,
+                dst,
+                left: right,
+                right: m2,
+                eq: eq2,
+            })
+            .unwrap();
+
+        rm.remote()
+            .build(Feature::Concat {
+                cat,
+                src,
+                dst,
+                left,
+                mid: m2,
+                right,
+                eq1,
+                eq2,
+            })
+            .unwrap()
+    }
+}
+
+pub fn realize_eq<R: TermEngine>(rm: &mut R, left: u64, right: u64, eq: &Eq) -> u64 {
+    let cat = eq.cat;
+    let src = eq.inp.src;
+    let dst = eq.inp.dst;
+
+    let mut input = left;
+    let mut acc = None;
+    for slice in &eq.slices {
+        let (output, eq) = realize_slice(rm, cat, src, dst, input, slice);
+        if let Some(acc_eq) = acc {
+            acc = Some(
+                rm.remote()
+                    .build(Feature::Concat {
+                        cat,
+                        src,
+                        dst,
+                        left,
+                        mid: input,
+                        right: output,
+                        eq1: acc_eq,
+                        eq2: eq,
+                    })
+                    .unwrap(),
+            );
+        } else {
+            acc = Some(eq);
+        }
+        input = output;
+    }
+
+    if let Some(acc) = acc {
+        if input == right {
+            acc
+        } else {
+            let eq = repar(rm, cat, src, dst, input, right);
+            rm.remote()
+                .build(Feature::Concat {
+                    cat,
+                    src,
+                    dst,
+                    left,
+                    mid: input,
+                    right,
+                    eq1: acc,
+                    eq2: eq,
+                })
+                .unwrap()
+        }
+    } else {
+        repar(rm, cat, src, dst, input, right)
+    }
+}
+
+fn realize_slice<R: TermEngine>(
+    rm: &mut R,
+    cat: u64,
+    src: u64,
+    dst: u64,
+    input: u64,
+    slice: &Slice,
+) -> (/*output*/ u64, /*equality*/ u64) {
+    let nm = normalize_slice(&slice.blocks[..], &slice.inp, &slice.outp);
+    let mut partial_state = None;
+    for (start_in, len_in, _, _, blk) in nm {
+        if let Some(blk) = blk {
+            let mph = morphism_sub(&slice.inp, start_in, len_in);
+            let (blk_in, blk_out, eq) = realize_block(rm, cat, &blk);
+            if let Some((peq, pin, pout)) = partial_state {
+                let eq = rm
+                    .remote()
+                    .build(Feature::ComposeEq {
+                        cat,
+                        src,
+                        mid: mph.src,
+                        dst: mph.dst,
+                        left1: pin,
+                        right1: pout,
+                        eq1: peq,
+                        left2: blk_in,
+                        right2: blk_out,
+                        eq2: eq,
+                    })
+                    .unwrap();
+                let min = rm
+                    .remote()
+                    .build(Feature::ComposeMph {
+                        cat,
+                        src,
+                        mid: mph.src,
+                        dst: mph.dst,
+                        m1: pin,
+                        m2: blk_in,
+                    })
+                    .unwrap();
+                let mout = rm
+                    .remote()
+                    .build(Feature::ComposeMph {
+                        cat,
+                        src,
+                        mid: mph.src,
+                        dst: mph.dst,
+                        m1: pout,
+                        m2: blk_out,
+                    })
+                    .unwrap();
+                partial_state = Some((eq, min, mout));
+            } else {
+                partial_state = Some((eq, blk_in, blk_out));
+            }
+        } else {
+            let mph = morphism_sub(&slice.inp, start_in, len_in);
+            let m = mk_morphism(rm, cat, &mph);
+            if let Some((peq, pin, pout)) = partial_state {
+                let eq = rm
+                    .remote()
+                    .build(Feature::RightApplication {
+                        cat,
+                        src,
+                        mid: mph.src,
+                        dst: mph.dst,
+                        left: pin,
+                        right: pout,
+                        eq: peq,
+                        mph: m,
+                    })
+                    .unwrap();
+                let min = rm
+                    .remote()
+                    .build(Feature::ComposeMph {
+                        cat,
+                        src,
+                        mid: mph.src,
+                        dst: mph.dst,
+                        m1: pin,
+                        m2: m,
+                    })
+                    .unwrap();
+                let mout = rm
+                    .remote()
+                    .build(Feature::ComposeMph {
+                        cat,
+                        src,
+                        mid: mph.src,
+                        dst: mph.dst,
+                        m1: pout,
+                        m2: m,
+                    })
+                    .unwrap();
+                partial_state = Some((eq, min, mout));
+            } else {
+                partial_state = Some((
+                    rm.remote()
+                        .build(Feature::Reflexivity {
+                            cat,
+                            src: mph.src,
+                            dst: mph.dst,
+                            mph: m,
+                        })
+                        .unwrap(),
+                    m,
+                    m,
+                ));
+            }
+        }
+    }
+
+    let (expecting, output, eq) =
+        partial_state.unwrap_or_else(|| panic!("There should be no empty slices in equalities"));
+    let rep = repar(rm, cat, src, dst, input, expecting);
+    let eq = rm
+        .remote()
+        .build(Feature::Concat {
+            cat,
+            src,
+            dst,
+            left: input,
+            mid: expecting,
+            right: output,
+            eq1: rep,
+            eq2: eq,
+        })
+        .unwrap();
+
+    (output, eq)
+}
+
+fn realize_block<R: TermEngine>(
+    rm: &mut R,
+    cat: u64,
+    blk: &Block,
+) -> (/*left*/ u64, /*right*/ u64, /*eq*/ u64) {
+    use BlockData::*;
+    match &blk.data {
+        Direct(eq) => {
+            let (_, _, left, right) = rm.is_eq(*eq, cat).unwrap();
+            (left, right, *eq)
+        }
+        Inv(eq) => {
+            let (_, _, left, right) = rm.is_eq(*eq, cat).unwrap();
+            let eq = rm
+                .remote()
+                .build(Feature::InverseEq {
+                    cat,
+                    src: blk.inp.src,
+                    dst: blk.inp.dst,
+                    left,
+                    right,
+                    eq: *eq,
+                })
+                .unwrap();
+            (right, left, eq)
+        }
+        Funct(f, eq) => {
+            let scat = rm.is_funct(*f, cat).unwrap();
+            let m_in = mk_inp_eq(rm, &eq);
+            let m_out = mk_outp_eq(rm, &eq);
+            let m_eq = realize_eq(rm, m_in, m_out, &eq);
+            let f_in = rm
+                .remote()
+                .build(Feature::AppliedFunctMph {
+                    scat,
+                    dcat: cat,
+                    funct: *f,
+                    src: eq.inp.src,
+                    dst: eq.inp.dst,
+                    mph: m_in,
+                })
+                .unwrap();
+            let f_out = rm
+                .remote()
+                .build(Feature::AppliedFunctMph {
+                    scat,
+                    dcat: cat,
+                    funct: *f,
+                    src: eq.inp.src,
+                    dst: eq.inp.dst,
+                    mph: m_out,
+                })
+                .unwrap();
+            let f_eq = rm
+                .remote()
+                .build(Feature::AppliedFunctEq {
+                    scat,
+                    dcat: cat,
+                    funct: *f,
+                    src: eq.inp.src,
+                    dst: eq.inp.dst,
+                    left: m_in,
+                    right: m_out,
+                    eq: m_eq,
+                })
+                .unwrap();
+            (f_in, f_out, f_eq)
+        }
+        Split => {
+            let m = mk_morphism(rm, cat, &blk.inp);
+            let eq = rm
+                .remote()
+                .build(Feature::Reflexivity {
+                    cat,
+                    src: blk.inp.src,
+                    dst: blk.inp.dst,
+                    mph: m,
+                })
+                .unwrap();
+            (m, m, eq)
+        }
     }
 }
