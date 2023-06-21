@@ -99,6 +99,26 @@ impl Eq {
         }
     }
 
+    // An atomic equality
+    pub fn atomic(cat: u64, left: Morphism, right: Morphism, eq: u64) -> Self {
+        let blk = Block {
+            inp: left.clone(),
+            outp: right.clone(),
+            data: BlockData::Direct(eq),
+        };
+        let slice = Slice {
+            inp: left.clone(),
+            outp: right.clone(),
+            blocks: vec![(0, 0, blk)],
+        };
+        Eq {
+            cat,
+            inp: left,
+            outp: right,
+            slices: vec![slice],
+        }
+    }
+
     // Append an equality to the current equality. The only condition is that
     // the inp of the appended equality is a subpath of the outp of self
     // starting at offset.
