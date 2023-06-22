@@ -4,7 +4,6 @@ mod ast;
 mod compiler;
 mod engine;
 mod graph;
-mod identify;
 mod interpreter;
 mod layout;
 mod lemmas;

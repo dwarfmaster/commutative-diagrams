@@ -1,14 +1,13 @@
-use crate::anyterm::AnyTerm;
-use crate::data::{Context, Store};
+use crate::graph::eq::Eq;
 use crate::graph::GraphId;
-use crate::remote::{Mock, Remote};
-use crate::substitution::{Substitutable, Substitution};
+use crate::remote::Remote;
 use crate::vm::asm;
 use crate::vm::ast;
 use crate::vm::graph::Graph;
 use crate::vm::interpreter;
 use crate::vm::lemmas::Lemma;
 use crate::vm::parser;
+use crate::vm::store::Context;
 use bevy::ecs::system::Resource;
 use core::ops::Range;
 use egui::Vec2;
@@ -49,12 +48,28 @@ impl Interactive for () {
 
 #[derive(Resource)]
 pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
-    pub ctx: Context,
-    pub remote: Rm,
-    pub store: Store,
+    // State
+    pub ctx: Context<Rm>,
+    pub graph: Graph,
+    pub names: HashMap<String, GraphId>,
+    pub lemmas: Vec<Lemma>,
+    pub end_status: EndStatus,
+    pub refinements: Vec<(u64, Eq)>,
+
+    // Execution
+    pub instructions: Vec<asm::Instruction>,
+    pub eval_status: interpreter::InterpreterStatus,
+
+    // Code
     pub prev_code: String,
     pub code: String,
     pub ast: Vec<Action>,
+    pub run_until: usize, // In bytes
+    // Means that at offset .0, the text must be styled with style .1, and the
+    // offset are kept stored in increasing order. The first offset is always 0.
+    pub code_style: Vec<(usize, CodeStyle)>,
+    pub error_msg: String,
+
     // Used to handle partial action execution. Indeed, some actions executions
     // are interactive, and as such can be in a state of being partially
     // executed in the interface. If any other action is run, this one must be
@@ -63,21 +78,10 @@ pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     // emitted interactively have the same resulting effect as if it was
     // executed at once.
     pub current_action: Option<(usize, I)>,
-    pub instructions: Vec<asm::Instruction>,
-    pub run_until: usize, // In bytes
-    pub eval_status: interpreter::InterpreterStatus,
-    pub names: HashMap<String, GraphId>,
-    // Means that at offset .0, the text must be styled with style .1, and the
-    // offset are kept stored in increasing order. The first offset is always 0.
-    pub code_style: Vec<(usize, CodeStyle)>,
-    pub error_msg: String,
-    pub graph: Graph,
+
+    // Graphical status
     pub offset: Vec2,
     pub zoom: f32,
-    pub end_status: EndStatus,
-    pub refinements: Vec<(u64, AnyTerm)>,
-    pub lemmas: Vec<Lemma>,
-    // Graphical status
     pub selected_face: Option<usize>,
     pub focused_object: Option<GraphId>,
     pub hovered_object: Option<GraphId>,
@@ -87,22 +91,28 @@ pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     pub lemma_window_open: bool,
 }
 
-impl<I: Interactive + Sync + Send> VM<Mock, I> {
-    // Legacy code
-    pub fn new(
-        ctx: Context,
-        gd: Graph,
-        init_sigma: Substitution,
-        lemmas: Vec<(String, Graph)>,
-    ) -> Self {
-        let lemmas = lemmas
+impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
+    pub fn start(remote: R) -> Self {
+        log::info!("Starting VM");
+        let mut ctx = Context::new(remote);
+        let graph_parsed = ctx.remote.goal().unwrap_or_else(|err| {
+            log::warn!("Couldn't parse goal answer: {:#?}", err);
+            panic!()
+        });
+        let graph = graph_parsed.prepare(&mut ctx);
+        let lemmas = ctx
+            .remote
+            .lemmas()
+            .unwrap_or_else(|err| {
+                log::warn!("Couldn't parse lemma list: {:#?}", err);
+                panic!()
+            })
             .into_iter()
-            .map(|(name, graph)| crate::lemmas::Lemma::new(name, graph))
+            .map(|(id, name, namespace)| Lemma::new(id, name, namespace))
             .collect();
-        let mut res = Self {
+        let mut vm = Self {
             ctx,
-            remote: Mock::new(),
-            store: Store::new(),
+            refinements: Vec::new(),
             prev_code: String::new(),
             code: String::new(),
             ast: Vec::new(),
@@ -113,7 +123,7 @@ impl<I: Interactive + Sync + Send> VM<Mock, I> {
             code_style: vec![(0, CodeStyle::None)],
             error_msg: String::new(),
             run_until: 0,
-            graph: gd,
+            graph,
             offset: Vec2::ZERO,
             zoom: 1.0,
             selected_face: None,
@@ -122,33 +132,25 @@ impl<I: Interactive + Sync + Send> VM<Mock, I> {
             face_goal_order: Vec::new(),
             face_hyps_order: Vec::new(),
             end_status: EndStatus::Running,
-            // The final substitution, given as a sequential substitution. Before sending
-            // it to the proof assistant, all elements must be substituted with the tail
-            // of the vector, using finalize_refinements
-            refinements: init_sigma,
             lemmas,
             selected_lemma: None,
             lemma_window_open: false,
         };
-        res.relabel();
-        res.autoname();
-        res.recompute_face_statuses();
-        res.init_face_order();
-        Self::layout(&mut res.graph);
-        res.prepare_lemmas();
-        res
-    }
-}
-
-impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
-    pub fn start(_remote: R) -> Self {
-        todo!()
+        // vm.relabel();
+        vm.autoname();
+        vm.recompute_face_statuses();
+        vm.init_face_order();
+        Self::layout(&mut vm.graph);
+        vm.prepare_lemmas();
+        vm
     }
 
     fn prepare_lemmas(&mut self) {
         self.lemmas.iter_mut().for_each(|lemma| {
-            Self::layout(&mut lemma.pattern);
-            lemma.relabel(&self.ctx);
+            if let Some(pattern) = &mut lemma.pattern {
+                Self::layout(pattern);
+            }
+            lemma.relabel(&mut self.ctx);
             lemma.name(&mut self.ctx);
         });
     }
@@ -219,20 +221,5 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             let act = ast.into_iter().next().unwrap();
             self.store_action(act, last);
         }
-    }
-
-    // Build the refinements to send to the proof assistant
-    pub fn finalize_refinements(&self) -> Vec<(u64, AnyTerm)> {
-        (0..self.refinements.len())
-            .into_iter()
-            .map(|n| {
-                let (id, term) = &self.refinements[n];
-                (
-                    *id,
-                    term.clone()
-                        .subst_slice(&self.ctx, &self.refinements[n + 1..]),
-                )
-            })
-            .collect()
     }
 }

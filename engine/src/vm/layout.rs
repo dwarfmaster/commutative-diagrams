@@ -36,7 +36,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             let mut stdin = graphviz.stdin.take().expect("Failed to open stdin");
             write!(stdin, "digraph {{\n").unwrap();
             for n in 0..graph.nodes.len() {
-                let lbl = &graph.nodes[n].1;
+                let lbl = &graph.nodes[n].2;
                 if !lbl.hidden {
                     write!(
                         stdin,
@@ -89,7 +89,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     .parse::<usize>()
                     .expect("The first part of the label should be the id");
                 let pos = object_pos(object);
-                graph.nodes[id].1.pos = pos;
+                graph.nodes[id].2.pos = pos;
             }
         }
 

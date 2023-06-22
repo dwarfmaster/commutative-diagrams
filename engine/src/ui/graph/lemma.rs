@@ -12,70 +12,69 @@ impl UiGraph for Lemma {
     {
         let mut stroke = style.noninteractive().fg_stroke;
 
-        // Draw nodes
-        for nd in 0..self.pattern.nodes.len() {
-            // There will be no hidden nodes
-            let drawable = Drawable::Text(
-                self.pattern.nodes[nd].1.pos,
-                &self.pattern.nodes[nd].1.label,
-            );
-            let modifier = if self.graphical_state.hovered == Some(GraphId::Node(nd)) {
-                Modifier::Highlight
-            } else {
-                Modifier::None
-            };
-            f(drawable, stroke, modifier, GraphId::Node(nd));
-        }
-
-        // Draw edges
-        for src in 0..self.pattern.nodes.len() {
-            for mph in 0..self.pattern.edges[src].len() {
-                // There will be no hidden edges
-                let id = GraphId::Morphism(src, mph);
-                let modifier = if self.graphical_state.hovered == Some(id) {
+        if let Some(pattern) = &self.pattern {
+            // Draw nodes
+            for nd in 0..pattern.nodes.len() {
+                // There will be no hidden nodes
+                let drawable = Drawable::Text(pattern.nodes[nd].2.pos, &pattern.nodes[nd].2.label);
+                let modifier = if self.graphical_state.hovered == Some(GraphId::Node(nd)) {
                     Modifier::Highlight
                 } else {
                     Modifier::None
                 };
+                f(drawable, stroke, modifier, GraphId::Node(nd));
+            }
 
-                // Label
-                f(
-                    Drawable::Text(
-                        self.pattern.edges[src][mph].1.label_pos,
-                        &self.pattern.edges[src][mph].1.label,
-                    ),
-                    stroke,
-                    modifier,
-                    id,
-                );
-
-                // Curve
-                for part in 0..self.pattern.edges[src][mph].1.shape.len() {
-                    let arrow = if part == self.pattern.edges[src][mph].1.shape.len() - 1 {
-                        ArrowStyle::Simple
+            // Draw edges
+            for src in 0..pattern.nodes.len() {
+                for mph in 0..pattern.edges[src].len() {
+                    // There will be no hidden edges
+                    let id = GraphId::Morphism(src, mph);
+                    let modifier = if self.graphical_state.hovered == Some(id) {
+                        Modifier::Highlight
                     } else {
-                        ArrowStyle::None
+                        Modifier::None
                     };
-                    let drawable = Drawable::Curve(
-                        self.pattern.edges[src][mph].1.shape[part],
-                        CurveStyle::Simple,
-                        arrow,
+
+                    // Label
+                    f(
+                        Drawable::Text(
+                            pattern.edges[src][mph].1.label_pos,
+                            &pattern.edges[src][mph].1.label,
+                        ),
+                        stroke,
+                        modifier,
+                        id,
                     );
 
-                    let stl = self.pattern.edges[src][mph].1.style;
-                    stroke.color = if stl.left && stl.right {
-                        egui::Color32::GOLD
-                    } else if stl.left {
-                        egui::Color32::RED
-                    } else if stl.right {
-                        egui::Color32::GREEN
-                    } else {
-                        style.noninteractive().fg_stroke.color
-                    };
+                    // Curve
+                    for part in 0..pattern.edges[src][mph].1.shape.len() {
+                        let arrow = if part == pattern.edges[src][mph].1.shape.len() - 1 {
+                            ArrowStyle::Simple
+                        } else {
+                            ArrowStyle::None
+                        };
+                        let drawable = Drawable::Curve(
+                            pattern.edges[src][mph].1.shape[part],
+                            CurveStyle::Simple,
+                            arrow,
+                        );
 
-                    f(drawable, stroke, modifier, id);
+                        let stl = pattern.edges[src][mph].1.style;
+                        stroke.color = if stl.left && stl.right {
+                            egui::Color32::GOLD
+                        } else if stl.left {
+                            egui::Color32::RED
+                        } else if stl.right {
+                            egui::Color32::GREEN
+                        } else {
+                            style.noninteractive().fg_stroke.color
+                        };
+
+                        f(drawable, stroke, modifier, id);
+                    }
+                    stroke.color = style.noninteractive().fg_stroke.color
                 }
-                stroke.color = style.noninteractive().fg_stroke.color
             }
         }
     }
@@ -84,32 +83,34 @@ impl UiGraph for Lemma {
     where
         F: FnMut(GraphId, FaceContent<'a>, bool, FaceStyle),
     {
-        for fce in 0..self.pattern.faces.len() {
-            // There won't be any hidden
-            let id = GraphId::Face(fce);
-            let content = FaceContent {
-                name: &self.pattern.faces[fce].label.name,
-                content: &self.pattern.faces[fce].label.label,
-            };
-            let folded = self.pattern.faces[fce].label.folded;
+        if let Some(pattern) = &self.pattern {
+            for fce in 0..pattern.faces.len() {
+                // There won't be any hidden
+                let id = GraphId::Face(fce);
+                let content = FaceContent {
+                    name: &pattern.faces[fce].label.name,
+                    content: &pattern.faces[fce].label.label,
+                };
+                let folded = pattern.faces[fce].label.folded;
 
-            let style = if self.graphical_state.selected_face == Some(fce) {
-                FaceStyle {
-                    border: style.noninteractive().fg_stroke,
-                    sep: style.noninteractive().fg_stroke,
-                    fill: style.visuals.widgets.active.bg_fill,
-                    text: style.visuals.widgets.active.fg_stroke.color,
-                }
-            } else {
-                FaceStyle {
-                    border: style.noninteractive().bg_stroke,
-                    sep: style.noninteractive().bg_stroke,
-                    fill: style.noninteractive().bg_fill,
-                    text: style.noninteractive().fg_stroke.color,
-                }
-            };
+                let style = if self.graphical_state.selected_face == Some(fce) {
+                    FaceStyle {
+                        border: style.noninteractive().fg_stroke,
+                        sep: style.noninteractive().fg_stroke,
+                        fill: style.visuals.widgets.active.bg_fill,
+                        text: style.visuals.widgets.active.fg_stroke.color,
+                    }
+                } else {
+                    FaceStyle {
+                        border: style.noninteractive().bg_stroke,
+                        sep: style.noninteractive().bg_stroke,
+                        fill: style.noninteractive().bg_fill,
+                        text: style.noninteractive().fg_stroke.color,
+                    }
+                };
 
-            f(id, content, folded, style);
+                f(id, content, folded, style);
+            }
         }
     }
 
@@ -144,21 +145,26 @@ impl UiGraph for Lemma {
 
     // No menu
     fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool {
-        if let GraphId::Face(fce) = on {
-            if self.pattern.faces[fce].label.folded {
-                if ui.button("Show term").clicked() {
-                    self.pattern.faces[fce].label.folded = false;
-                    ui.close_menu();
-                    return false;
+        if let Some(pattern) = &mut self.pattern {
+            if let GraphId::Face(fce) = on {
+                if pattern.faces[fce].label.folded {
+                    if ui.button("Show term").clicked() {
+                        pattern.faces[fce].label.folded = false;
+                        ui.close_menu();
+                        return false;
+                    }
+                } else {
+                    if ui.button("Hide term").clicked() {
+                        pattern.faces[fce].label.folded = true;
+                        ui.close_menu();
+                        return false;
+                    }
                 }
+                true
             } else {
-                if ui.button("Hide term").clicked() {
-                    self.pattern.faces[fce].label.folded = true;
-                    ui.close_menu();
-                    return false;
-                }
+                ui.close_menu();
+                false
             }
-            true
         } else {
             ui.close_menu();
             false
@@ -166,6 +172,6 @@ impl UiGraph for Lemma {
     }
 
     fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
-        &mut self.pattern.faces[fce].label.folded
+        &mut self.pattern.as_mut().unwrap().faces[fce].label.folded
     }
 }

@@ -1,6 +1,6 @@
 use crate::data::{ActualEquality, ActualMorphism};
 use crate::data::{Context, Equality, Morphism};
-use crate::graph::definition::Graph;
+use crate::graph::Graph;
 use crate::normalize;
 use std::collections::HashMap;
 

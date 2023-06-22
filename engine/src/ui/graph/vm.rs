@@ -17,12 +17,12 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
 
         // Draw nodes
         for nd in 0..self.graph.nodes.len() {
-            if self.graph.nodes[nd].1.hidden {
+            if self.graph.nodes[nd].2.hidden {
                 continue;
             }
 
             let drawable =
-                Drawable::Text(self.graph.nodes[nd].1.pos, &self.graph.nodes[nd].1.label);
+                Drawable::Text(self.graph.nodes[nd].2.pos, &self.graph.nodes[nd].2.label);
             let mut modifier = if self.hovered_object == Some(GraphId::Node(nd)) {
                 Modifier::Highlight
             } else {
@@ -212,7 +212,7 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                 egui::show_tooltip_at_pointer(ui.ctx(), egui::Id::new("Graph tooltip"), |ui| {
                     let label = match id {
                         GraphId::Node(n) => {
-                            let node = &self.graph.nodes[n].1;
+                            let node = &self.graph.nodes[n].2;
                             format!("node {}: {}", node.name, node.label)
                         }
                         GraphId::Morphism(src, dst) => {

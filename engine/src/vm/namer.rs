@@ -1,7 +1,7 @@
-use crate::data::{ActualEquality, ActualProofObject, Context};
 use crate::graph::GraphId;
 use crate::remote::Remote;
-use crate::vm::graph::Graph;
+use crate::vm::graph::{FaceStatus, Graph};
+use crate::vm::store::Context;
 use crate::vm::vm::{Interactive, VM};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -11,7 +11,6 @@ use nom::multi::many0_count;
 use nom::sequence::delimited;
 use nom::IResult;
 use std::collections::HashMap;
-use std::ops::Deref;
 
 type Ins = crate::vm::asm::Instruction;
 
@@ -35,7 +34,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             self.names.insert(name.clone(), id);
         }
         match id {
-            Node(n) => self.graph.nodes[n].1.name = name,
+            Node(n) => self.graph.nodes[n].2.name = name,
             Morphism(src, mph) => self.graph.edges[src][mph].1.name = name,
             Face(fce) => self.graph.faces[fce].label.name = name,
         }
@@ -44,7 +43,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     pub fn get_name(&self, id: GraphId) -> String {
         use GraphId::*;
         match id {
-            Node(n) => self.graph.nodes[n].1.name.clone(),
+            Node(n) => self.graph.nodes[n].2.name.clone(),
             Morphism(src, mph) => self.graph.edges[src][mph].1.name.clone(),
             Face(f) => self.graph.faces[f].label.name.clone(),
         }
@@ -74,18 +73,18 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     }
 
     pub fn name_compute_node(
-        ctx: &mut Context,
+        ctx: &mut Context<Rm>,
         graph: &Graph,
         names: &HashMap<String, GraphId>,
         nd: usize,
     ) -> String {
-        let lbl = &graph.nodes[nd].1.label;
+        let lbl = &graph.nodes[nd].2.label;
         if is_valid_name(lbl) && names.get(lbl).is_none() {
             return lbl.clone();
         }
 
         // Try to name it from the category
-        let cat_name = graph.nodes[nd].0.cat(ctx).render(ctx, 100).to_lowercase();
+        let cat_name = ctx.get_stored_label(graph.nodes[nd].1).to_lowercase();
         let base_name = if is_valid_name(&cat_name) {
             cat_name
         } else {
@@ -101,13 +100,13 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     }
 
     pub fn autoname_node(&mut self, nd: usize) {
-        assert!(self.graph.nodes[nd].1.name.is_empty());
+        assert!(self.graph.nodes[nd].2.name.is_empty());
         let name = Self::name_compute_node(&mut self.ctx, &self.graph, &self.names, nd);
         self.set_name(GraphId::Node(nd), name.clone());
     }
 
     pub fn name_compute_morphism(
-        _ctx: &mut Context,
+        _ctx: &mut Context<Rm>,
         graph: &Graph,
         names: &HashMap<String, GraphId>,
         src: usize,
@@ -119,14 +118,14 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         }
 
         // Try to use src and dst to name it
-        let src_name = if is_valid_name(&graph.nodes[src].1.label) {
-            graph.nodes[src].1.label.clone()
+        let src_name = if is_valid_name(&graph.nodes[src].2.label) {
+            graph.nodes[src].2.label.clone()
         } else {
             "".to_string()
         };
         let dst = graph.edges[src][mph].0;
-        let dst_name = if is_valid_name(&graph.nodes[dst].1.label) {
-            graph.nodes[dst].1.label.clone()
+        let dst_name = if is_valid_name(&graph.nodes[dst].2.label) {
+            graph.nodes[dst].2.label.clone()
         } else {
             "".to_string()
         };
@@ -147,7 +146,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     }
 
     pub fn name_compute_face(
-        _ctx: &mut Context,
+        _ctx: &mut Context<Rm>,
         graph: &Graph,
         names: &HashMap<String, GraphId>,
         base: &str,
@@ -158,17 +157,15 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             return lbl.clone();
         }
 
-        // If it is only an atomic name it Goal{count}
-        if let ActualEquality::Atomic(data) = graph.faces[fce].eq.deref() {
-            if let ActualProofObject::Existential(_) = data.pobj.deref() {
-                let mut name = format!("{}0", base);
-                let mut count = 0;
-                while names.get(&name).is_some() {
-                    count += 1;
-                    name = format!("{}{}", base, count);
-                }
-                return name;
+        // We name goals Goal{count}
+        if graph.faces[fce].label.status == FaceStatus::Goal {
+            let mut name = format!("{}0", base);
+            let mut count = 0;
+            while names.get(&name).is_some() {
+                count += 1;
+                name = format!("{}{}", base, count);
             }
+            return name;
         }
 
         // Otherwise, use an arbitrary name

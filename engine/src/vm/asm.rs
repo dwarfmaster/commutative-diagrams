@@ -1,6 +1,5 @@
-use crate::data::{Equality, Morphism, Object};
+use crate::graph::eq::Eq;
 use crate::graph::Face;
-use crate::substitution::Substitution;
 use crate::vm::{EdgeLabel, FaceLabel, NodeLabel};
 use std::fmt::{Debug, Error, Formatter};
 
@@ -36,23 +35,23 @@ impl<T> Updater<T> {
 // deterministic it avoids storing the changes in locations as instructions.
 #[derive(Debug)]
 pub enum Instruction {
-    InsertNode(Object),
-    UpdateNode(usize, Object, Object),
+    InsertNode(/*object*/ u64, /*cat*/ u64),
+    UpdateNode(usize, u64, u64),
     UpdateNodeLabel(usize, Updater<NodeLabel>),
     RenameNode(usize, String, String),
-    InsertMorphism(usize, usize, Morphism),
-    UpdateMorphism(usize, usize, Morphism, Morphism),
+    InsertMorphism(usize, usize, u64),
+    UpdateMorphism(usize, usize, u64, u64),
     RelocateMorphismSrc(usize, usize, usize),
     RelocateMorphismDst(usize, usize, usize, usize),
     UpdateMorphismLabel(usize, usize, Updater<EdgeLabel>),
     RenameMorphism(usize, usize, String, String),
     InsertFace(Face<FaceLabel>), // Add a face
-    UpdateFace(usize, Equality, Equality),
+    UpdateFace(usize, Eq, Eq),
     RelocateFaceSrc(usize, usize, usize),
     RelocateFaceDst(usize, usize, usize),
     RelocateFaceLeft(usize, Vec<usize>, Vec<usize>),
     RelocateFaceRight(usize, Vec<usize>, Vec<usize>),
     UpdateFaceLabel(usize, Updater<FaceLabel>),
     RenameFace(usize, String, String),
-    ExtendRefinements(Substitution),
+    ExtendRefinement(u64, Eq),
 }

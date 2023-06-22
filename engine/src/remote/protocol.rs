@@ -1,4 +1,5 @@
 mod feature;
+mod graph;
 mod parse;
 mod seq;
 mod status;
@@ -6,20 +7,20 @@ mod tag;
 
 use super::{Error, Remote, RPC};
 use crate::data::{EvarStatus, Feature, Tag};
-use crate::graph::Graph;
+use crate::graph::GraphParsed;
 use seq::Seq;
 
 impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
     type Error = Error;
 
-    fn goal<NL, EL, FL>(&mut self) -> Result<Graph<NL, EL, FL>, Self::Error>
+    fn goal<NL, EL, FL>(&mut self) -> Result<GraphParsed<NL, EL, FL>, Self::Error>
     where
         NL: Default,
         EL: Default,
         FL: Default,
     {
-        // Wait for refactor of the graph structure
-        todo!()
+        let req = self.send_msg("goal", ())?;
+        self.receive_msg(req)
     }
 
     fn info(&mut self, obj: u64) -> Result<(String, Option<String>, EvarStatus), Self::Error> {
@@ -45,14 +46,14 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
         self.receive_msg(req)
     }
 
-    fn instantiate<NL, EL, FL>(&mut self, _lem: u64) -> Result<Graph<NL, EL, FL>, Self::Error>
+    fn instantiate<NL, EL, FL>(&mut self, lem: u64) -> Result<GraphParsed<NL, EL, FL>, Self::Error>
     where
         NL: Default,
         EL: Default,
         FL: Default,
     {
-        // TODO wait for the graph structure refactor
-        todo!()
+        let req = self.send_msg("instantiate", lem)?;
+        self.receive_msg(req)
     }
 
     fn query(&mut self, obj: u64, tag: Tag) -> Result<Vec<Feature>, Self::Error> {

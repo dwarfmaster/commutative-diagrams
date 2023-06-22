@@ -1,8 +1,34 @@
-use crate::data::{EvarStatus, Feature, Obj, Tag};
+use crate::data::{EvarStatus, Feature, Obj, Store, Tag};
 use crate::remote::Remote;
-use crate::vm::{Interactive, VM};
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+pub struct Context<Rm: Remote> {
+    pub remote: Rm,
+    pub store: Store,
+    pub states: Vec<u64>,
+}
+
+impl<Rm: Remote> Context<Rm> {
+    pub fn new(rm: Rm) -> Self {
+        Self {
+            remote: rm,
+            store: Store::new(),
+            states: Vec::new(),
+        }
+    }
+
+    pub fn save_state(&mut self) {
+        let state = self.remote.save_state().unwrap();
+        self.states.push(state);
+    }
+
+    pub fn restore_state(&mut self, state: u64) {
+        self.remote.restore_state(state).unwrap();
+        let pos = self.states.iter().position(|v| *v == state);
+        if let Some(pos) = pos {
+            self.states.truncate(pos + 1)
+        }
+    }
+
     fn query_info<'a>(&'a mut self, obj: u64) -> &'a Obj {
         let (label, name, status) = self.remote.info(obj).unwrap();
         self.store.register(obj, label, name, status)

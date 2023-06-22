@@ -21,213 +21,200 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         let start = self.instructions.len();
         match act.value.clone() {
             InsertNode(node) => {
-                let node = self.descr_as_object(&node.value);
+                let node = self.ctx.remote.parse(node.value.clone()).unwrap();
                 match node {
-                    Some(node) => {
-                        self.insert_node(node);
+                    Ok(_node) => {
+                        todo!()
                     }
-                    None => {
-                        self.error_msg = "Couldn't interpret object description".to_string();
+                    Err(err) => {
+                        self.error_msg = format!("Couldn't parse object: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
             }
             InsertMorphism(mph) => {
-                let mph = self.descr_as_morphism(&mph.value);
+                let mph = self.ctx.remote.parse(mph.value.clone()).unwrap();
                 match mph {
-                    Some(mph) => {
-                        self.insert_mph(mph);
+                    Ok(_mph) => {
+                        todo!()
                     }
-                    None => {
-                        self.error_msg = "Couldn't interpret morphism description".to_string();
+                    Err(err) => {
+                        self.error_msg = format!("Couldn't parse morphism: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
             }
             InsertMorphismAt(node, mph) => {
-                let mph = self.descr_as_morphism(&mph.value);
+                let mph = self.ctx.remote.parse(mph.value.clone()).unwrap();
                 match mph {
-                    Some(mph) => {
-                        self.insert_mph_at(node.value, mph);
+                    Ok(_mph) => {
+                        if let Some(GraphId::Node(_id)) = self.names.get(&node.value) {
+                            todo!()
+                        } else {
+                            self.error_msg = format!("{} is not a valid node name", node.value);
+                            result = ExecutionError;
+                        }
                     }
-                    None => {
-                        self.error_msg = "Couldn't interpret morphism description".to_string();
+                    Err(err) => {
+                        self.error_msg = format!("Couldn't parse morphism: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
             }
             Split(mph) => {
-                let mph = self.identify_edge(&mph.value);
-                match mph {
-                    Some((src, mph)) => self.split(src, mph),
-                    None => {
-                        self.error_msg = "Couldn't interpret morphism description".to_string();
-                        result = ExecutionError;
-                    }
+                if let Some(GraphId::Morphism(_src, _mph)) = self.names.get(&mph.value) {
+                    // self.split(src,mph)
+                    todo!()
+                } else {
+                    self.error_msg = format!("{} is not a valid morphism name", mph.value);
+                    result = ExecutionError;
                 }
             }
             HideNode(n) => {
-                let n = self.identify_node(&n.value);
-                match n {
-                    Some(n) => self.hide(GraphId::Node(n)),
-                    None => {
-                        self.error_msg = "Couldn't interpret node description".to_string();
-                        result = ExecutionError;
-                    }
+                if let Some(GraphId::Node(_n)) = self.names.get(&n.value) {
+                    // self.hide(GraphId::Node(n))
+                    todo!()
+                } else {
+                    self.error_msg = format!("{} is not a valid node name", n.value);
+                    result = ExecutionError;
                 }
             }
             RevealNode(n) => {
-                let n = self.identify_node(&n.value);
-                match n {
-                    Some(n) => self.reveal(GraphId::Node(n)),
-                    None => {
-                        self.error_msg = "Couldn't interpret node description".to_string();
-                        result = ExecutionError;
-                    }
+                if let Some(GraphId::Node(_n)) = self.names.get(&n.value) {
+                    // self.reveal(GraphId::Node(n))
+                    todo!()
+                } else {
+                    self.error_msg = format!("{} is not a valid node name", n.value);
+                    result = ExecutionError;
                 }
             }
             HideMorphism(m) => {
-                let m = self.identify_edge(&m.value);
-                match m {
-                    Some((s, m)) => self.hide(GraphId::Morphism(s, m)),
-                    None => {
-                        self.error_msg = "Couldn't interpret edge description".to_string();
-                        result = ExecutionError;
-                    }
+                if let Some(GraphId::Morphism(_s, _m)) = self.names.get(&m.value) {
+                    // self.hide(GraphId::Morphism(s, m))
+                    todo!()
+                } else {
+                    self.error_msg = format!("{} is not a valid morphism name", m.value);
+                    result = ExecutionError;
                 }
             }
             RevealMorphism(m) => {
-                let m = self.identify_edge(&m.value);
-                match m {
-                    Some((s, m)) => self.reveal(GraphId::Morphism(s, m)),
-                    None => {
-                        self.error_msg = "Couldn't interpret edge description".to_string();
-                        result = ExecutionError;
-                    }
+                if let Some(GraphId::Morphism(_s, _m)) = self.names.get(&m.value) {
+                    // self.reveal(GraphId::Morphism(s,m))
+                    todo!()
+                } else {
+                    self.error_msg = format!("{} is not a valid morphism name", m.value);
+                    result = ExecutionError;
                 }
             }
             HideFace(f) => {
-                let f = self.identify_face(&f.value);
-                match f {
-                    Some(f) => self.hide(GraphId::Face(f)),
-                    None => {
-                        self.error_msg = "Couldn't interpret face description".to_string();
-                        result = ExecutionError;
-                    }
+                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
+                    // self.hide(GraphId::Face(f))
+                    todo!()
+                } else {
+                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    result = ExecutionError;
                 }
             }
             RevealFace(f) => {
-                let f = self.identify_face(&f.value);
-                match f {
-                    Some(f) => self.reveal(GraphId::Face(f)),
-                    None => {
-                        self.error_msg = "Couldn't interpret face description".to_string();
-                        result = ExecutionError;
-                    }
+                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
+                    // self.reveal(GraphId::Face(f))
+                    todo!()
+                } else {
+                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    result = ExecutionError;
                 }
             }
-            Solve(size, f) => {
-                let f = self.identify_face(&f.value);
-                match f {
-                    Some(f) => {
-                        if !self.solve_face(f, size.map(|a| a.value).unwrap_or(5)) {
-                            self.error_msg = format!("Couldn't solve face {}", f);
-                            result = ExecutionError;
-                        }
-                    }
-                    None => {
-                        self.error_msg = "Couldn't interpret face description".to_string();
-                        result = ExecutionError;
-                    }
+            Solve(_size, f) => {
+                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
+                    // if !self.solve_face(f, size.map(|a| a.value).unwrap_or(5)) {
+                    //     self.error_msg = format!("Couldn't solve face {}", f);
+                    //     result = ExecutionError;
+                    // }
+                    todo!()
+                } else {
+                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    result = ExecutionError;
                 }
             }
-            PullFace(f, size) => {
-                let f = self.identify_face(&f.value);
-                match f {
-                    Some(f) => {
-                        if !self.shrink(f, Some(0), size) {
-                            self.error_msg = "Couldn't pull previous face".to_string();
-                            result = ExecutionError;
-                        }
-                    }
-                    None => {
-                        self.error_msg = "Couldn't interpret face description".to_string();
-                        result = ExecutionError;
-                    }
+            PullFace(f, _size) => {
+                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
+                    // if !self.shrink(f, Some(0), size) {
+                    //     self.error_msg = "Couldn't pull previous face".to_string();
+                    //     result = ExecutionError;
+                    // }
+                    todo!()
+                } else {
+                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    result = ExecutionError;
                 }
             }
-            PushFace(f, size) => {
-                let f = self.identify_face(&f.value);
-                match f {
-                    Some(f) => {
-                        if !self.shrink(f, size, Some(0)) {
-                            self.error_msg = "Couldn't push previous face".to_string();
-                            result = ExecutionError;
-                        }
-                    }
-                    None => {
-                        self.error_msg = "Couldn't interpret face description".to_string();
-                        result = ExecutionError;
-                    }
+            PushFace(f, _size) => {
+                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
+                    // if !self.shrink(f, size, Some(0)) {
+                    //     self.error_msg = "Couldn't push previous face".to_string();
+                    //     result = ExecutionError;
+                    // }
+                    todo!()
+                } else {
+                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    result = ExecutionError;
                 }
             }
             ShrinkFace(f) => {
-                let f = self.identify_face(&f.value);
-                match f {
-                    Some(f) => {
-                        if !self.shrink(f, None, None) {
-                            self.error_msg = "Couldn't shrink previous face".to_string();
-                            result = ExecutionError;
-                        }
-                    }
-                    None => {
-                        self.error_msg = "Couldn't interpret face description".to_string();
-                        result = ExecutionError;
-                    }
-                }
-            }
-            Lemma(lem, matching) => {
-                let lemma = self.find_lemma(&lem.value);
-                if let Some(lemma) = lemma {
-                    let matching = matching
-                        .iter()
-                        .map(|(lem, goal)| {
-                            let lemid = match &lem.value {
-                                ast::Id::Name(name) => {
-                                    self.lemmas[lemma].graphical_state.names.get(name)
-                                }
-                                ast::Id::Id(_) => None,
-                            };
-                            let goalid = match &goal.value {
-                                ast::Id::Name(name) => self.names.get(name),
-                                ast::Id::Id(_) => None,
-                            };
-                            match (lemid, goalid) {
-                                (Some(lem), Some(goal)) => Ok((lem.clone(), goal.clone())),
-                                (None, _) => {
-                                    Err(format!("Couldn't find {:#?} in lemma", lem.value))
-                                }
-                                _ => Err(format!("Couldn't find {:#?} in goal", goal.value)),
-                            }
-                        })
-                        .collect::<Result<Vec<_>, String>>();
-                    match matching {
-                        Ok(matching) => {
-                            if !self.apply_lemma(lemma, &matching[..]) {
-                                self.error_msg =
-                                    "Couldn't compute the lemma application".to_string();
-                                result = ExecutionError;
-                            }
-                        }
-                        Err(msg) => {
-                            self.error_msg = msg;
-                            result = ExecutionError;
-                        }
-                    }
+                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
+                    // if !self.shrink(f, None, None) {
+                    //     self.error_msg = "Couldn't shrink previous face".to_string();
+                    //     result = ExecutionError;
+                    // }
+                    todo!()
                 } else {
-                    self.error_msg = format!("Couldn't find lemma {}", lem.value);
+                    self.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
+            }
+            Lemma(_lem, _matching) => {
+                todo!()
+                // let lemma = self.find_lemma(&lem.value);
+                // if let Some(lemma) = lemma {
+                //     let matching = matching
+                //         .iter()
+                //         .map(|(lem, goal)| {
+                //             let lemid = match &lem.value {
+                //                 ast::Id::Name(name) => {
+                //                     self.lemmas[lemma].graphical_state.names.get(name)
+                //                 }
+                //                 ast::Id::Id(_) => None,
+                //             };
+                //             let goalid = match &goal.value {
+                //                 ast::Id::Name(name) => self.names.get(name),
+                //                 ast::Id::Id(_) => None,
+                //             };
+                //             match (lemid, goalid) {
+                //                 (Some(lem), Some(goal)) => Ok((lem.clone(), goal.clone())),
+                //                 (None, _) => {
+                //                     Err(format!("Couldn't find {:#?} in lemma", lem.value))
+                //                 }
+                //                 _ => Err(format!("Couldn't find {:#?} in goal", goal.value)),
+                //             }
+                //         })
+                //         .collect::<Result<Vec<_>, String>>();
+                //     match matching {
+                //         Ok(matching) => {
+                //             if !self.apply_lemma(lemma, &matching[..]) {
+                //                 self.error_msg =
+                //                     "Couldn't compute the lemma application".to_string();
+                //                 result = ExecutionError;
+                //             }
+                //         }
+                //         Err(msg) => {
+                //             self.error_msg = msg;
+                //             result = ExecutionError;
+                //         }
+                //     }
+                // } else {
+                //     self.error_msg = format!("Couldn't find lemma {}", lem.value);
+                //     result = ExecutionError;
+                // }
             }
             Refine(_, _) => todo!(),
             Succeed => result = Success,

@@ -1,7 +1,7 @@
-use super::vm::{Interactive, VM};
+use super::store::Context;
 use crate::remote::{Remote, TermEngine};
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> TermEngine for VM<Rm, I> {
+impl<Rm: Remote> TermEngine for Context<Rm> {
     type R = Rm;
 
     fn remote<'a>(&'a mut self) -> &'a mut Self::R {

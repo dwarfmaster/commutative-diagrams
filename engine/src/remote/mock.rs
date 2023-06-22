@@ -1,6 +1,6 @@
 use super::Remote;
 use crate::data::{EvarStatus, Feature, Tag};
-use crate::graph::{Face, Graph};
+use crate::graph::{FaceParsed, GraphParsed};
 
 struct Term {
     label: String,
@@ -11,18 +11,18 @@ struct Term {
 
 pub struct Mock {
     terms: Vec<Term>,
-    goal: Graph<(), (), ()>,
+    goal: GraphParsed<(), (), ()>,
 }
 
 impl Mock {
     pub fn new() -> Self {
         Mock {
             terms: Vec::new(),
-            goal: Graph::new(),
+            goal: GraphParsed::new(),
         }
     }
 
-    pub fn set_graph(&mut self, gr: Graph<(), (), ()>) {
+    pub fn set_graph(&mut self, gr: GraphParsed<(), (), ()>) {
         self.goal = gr;
     }
 
@@ -45,18 +45,18 @@ impl Mock {
 
 impl Remote for Mock {
     type Error = ();
-    fn goal<NL, EL, FL>(&mut self) -> Result<Graph<NL, EL, FL>, ()>
+    fn goal<NL, EL, FL>(&mut self) -> Result<GraphParsed<NL, EL, FL>, ()>
     where
         NL: Default,
         EL: Default,
         FL: Default,
     {
-        Ok(Graph {
+        Ok(GraphParsed {
             nodes: self
                 .goal
                 .nodes
                 .iter()
-                .map(|(nd, ())| (nd.clone(), Default::default()))
+                .map(|(nd, cat, ())| (*nd, *cat, Default::default()))
                 .collect(),
             edges: self
                 .goal
@@ -72,7 +72,7 @@ impl Remote for Mock {
                 .goal
                 .faces
                 .iter()
-                .map(|f| Face {
+                .map(|f| FaceParsed {
                     start: f.start,
                     end: f.end,
                     left: f.left.clone(),
@@ -108,7 +108,7 @@ impl Remote for Mock {
         Ok(Vec::new())
     }
 
-    fn instantiate<NL, EL, FL>(&mut self, _lem: u64) -> Result<Graph<NL, EL, FL>, ()>
+    fn instantiate<NL, EL, FL>(&mut self, _lem: u64) -> Result<GraphParsed<NL, EL, FL>, ()>
     where
         NL: Default,
         EL: Default,

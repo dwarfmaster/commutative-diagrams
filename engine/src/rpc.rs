@@ -6,7 +6,6 @@ use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::ser::{SerializeTuple, Serializer};
 use serde::Serialize;
 use std::fmt;
-use std::io::Write;
 
 #[derive(Resource)]
 pub struct Client<In, Out>
@@ -160,9 +159,7 @@ where
         };
         self.id += 1;
         let msgpack = rmp_serde::encode::to_vec(&msg).map_err(|err| Error::Encode(err))?;
-        let mut file =
-            std::fs::File::create(format!("request_{}.mp", self.id - 1)).map_err(send_io_error)?;
-        file.write_all(&msgpack).map_err(send_io_error)?;
+        log::trace!("Request \"{}\"[{}]", method, self.id);
         self.output.write_all(&msgpack).map_err(send_io_error)?;
         self.output.flush().map_err(send_io_error)?;
         Ok(msg.id)

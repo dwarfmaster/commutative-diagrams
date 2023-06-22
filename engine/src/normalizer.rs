@@ -11,7 +11,7 @@ pub fn morphism<R: TermEngine>(
 ) -> (
     /*morphism*/ u64,
     /*equality*/ u64,
-    /* components */ Vec<u64>,
+    /* components */ Vec<(u64, u64, u64)>,
 ) {
     let mut functs = Vec::new();
     norm_under_functors(rm, &mut functs, cat, src, dst, mph)
@@ -516,7 +516,7 @@ fn norm_under_functors<R: TermEngine>(
 ) -> (
     /*morphism*/ u64,
     /*equality*/ u64,
-    /* components */ Vec<u64>,
+    /* components */ Vec<(u64, u64, u64)>,
 ) {
     use Feature::*;
     if let Some(e) = rm.is_identity(cat, m) {
@@ -526,7 +526,7 @@ fn norm_under_functors<R: TermEngine>(
         let (fcat, fsrc, fmid, fdst, fm1, fm2, fleft, fright, feq) =
             raise_composition(rm, functs, cat, src, mid, dst, m1, m2);
         let (nm1, eq1, mut comps) = norm_under_functors(rm, functs, cat, src, mid, m1);
-        let (nm2, eq2, comps2) = norm_under_functors(rm, functs, cat, mid, dst, m2);
+        let (nm2, eq2, mut comps2) = norm_under_functors(rm, functs, cat, mid, dst, m2);
         comps.append(&mut comps2);
         let cmpeq = rm
             .remote()
@@ -598,6 +598,6 @@ fn norm_under_functors<R: TermEngine>(
                 mph: fmph,
             })
             .unwrap();
-        (fmph, rfl, vec![fmph])
+        (fmph, rfl, vec![(fsrc, fdst, fmph)])
     }
 }

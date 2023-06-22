@@ -1,5 +1,5 @@
 use crate::data::{EvarStatus, Feature, Tag};
-use crate::graph::Graph;
+use crate::graph::GraphParsed;
 use std::fmt::Debug;
 
 // Remote is a trait to enable mocking for test purposes
@@ -7,7 +7,7 @@ pub trait Remote {
     type Error: Debug;
 
     // Query the goal from the proof assistant
-    fn goal<NL, EL, FL>(&mut self) -> Result<Graph<NL, EL, FL>, Self::Error>
+    fn goal<NL, EL, FL>(&mut self) -> Result<GraphParsed<NL, EL, FL>, Self::Error>
     where
         NL: Default,
         EL: Default,
@@ -18,7 +18,7 @@ pub trait Remote {
         I: Iterator<Item = (u64, u64)> + ExactSizeIterator + Clone;
     fn equalify(&mut self, obj1: u64, obj2: u64) -> Result<bool, Self::Error>;
     fn lemmas(&mut self) -> Result<Vec<(u64, String, String)>, Self::Error>;
-    fn instantiate<NL, EL, FL>(&mut self, lem: u64) -> Result<Graph<NL, EL, FL>, Self::Error>
+    fn instantiate<NL, EL, FL>(&mut self, lem: u64) -> Result<GraphParsed<NL, EL, FL>, Self::Error>
     where
         NL: Default,
         EL: Default,

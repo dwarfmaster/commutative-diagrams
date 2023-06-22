@@ -51,8 +51,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     // Log current state of refinements
     fn log_debug_refinements(&self, extend: bool) {
         log::trace!("{} refinements:", if extend { "Extend" } else { "Retract" });
-        for (ex, tm) in &self.refinements {
-            log::trace!("  {} => {}", ex, tm.render(&self.ctx, 100));
+        for (ex, _tm) in &self.refinements {
+            log::trace!("  {} => <<todo!>>", ex);
         }
     }
 
@@ -61,8 +61,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         use Instruction::*;
         self.eval_status.should_relayout = true;
         match ins {
-            InsertNode(obj) => {
-                self.graph.nodes.push((obj.clone(), Default::default()));
+            InsertNode(obj, cat) => {
+                self.graph.nodes.push((*obj, *cat, Default::default()));
                 self.autoname_node(self.graph.nodes.len() - 1);
                 self.graph.edges.push(vec![]);
             }
@@ -70,10 +70,10 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 assert_eq!(self.graph.nodes[*nd].0, *old);
                 self.graph.nodes[*nd].0 = new.clone();
             }
-            UpdateNodeLabel(nd, upd) => upd.apply(&mut self.graph.nodes[*nd].1),
+            UpdateNodeLabel(nd, upd) => upd.apply(&mut self.graph.nodes[*nd].2),
             RenameNode(nd, prev, new) => {
-                assert_eq!(&self.graph.nodes[*nd].1.name, prev);
-                self.graph.nodes[*nd].1.name = new.clone();
+                assert_eq!(&self.graph.nodes[*nd].2.name, prev);
+                self.graph.nodes[*nd].2.name = new.clone();
                 self.names.remove(prev);
                 self.names.insert(new.clone(), GraphId::Node(*nd));
             }
@@ -138,8 +138,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.graph.faces[*fce].right = new.clone();
             }
             UpdateFaceLabel(fce, upd) => upd.apply(&mut self.graph.faces[*fce].label),
-            ExtendRefinements(sigma) => {
-                self.refinements.extend(sigma.iter().map(|p| p.clone()));
+            ExtendRefinement(ev, eq) => {
+                self.refinements.push((*ev, eq.clone()));
                 self.log_debug_refinements(true);
             }
             RenameFace(fce, prev, new) => {
@@ -156,9 +156,9 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         use Instruction::*;
         self.eval_status.should_relayout = true;
         match ins {
-            InsertNode(_) => {
+            InsertNode(..) => {
                 if let Some(nd) = self.graph.nodes.pop() {
-                    self.names.remove(&nd.1.name);
+                    self.names.remove(&nd.2.name);
                 }
                 self.graph.edges.pop();
             }
@@ -166,10 +166,10 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 assert_eq!(self.graph.nodes[*nd].0, *new);
                 self.graph.nodes[*nd].0 = old.clone();
             }
-            UpdateNodeLabel(nd, upd) => upd.undo(&mut self.graph.nodes[*nd].1),
+            UpdateNodeLabel(nd, upd) => upd.undo(&mut self.graph.nodes[*nd].2),
             RenameNode(nd, prev, new) => {
-                assert_eq!(&self.graph.nodes[*nd].1.name, new);
-                self.graph.nodes[*nd].1.name = prev.clone();
+                assert_eq!(&self.graph.nodes[*nd].2.name, new);
+                self.graph.nodes[*nd].2.name = prev.clone();
                 self.names.remove(new);
                 self.names.insert(prev.clone(), GraphId::Node(*nd));
             }
@@ -238,9 +238,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.graph.faces[*fce].right = old.clone();
             }
             UpdateFaceLabel(fce, upd) => upd.undo(&mut self.graph.faces[*fce].label),
-            ExtendRefinements(sigma) => {
-                self.refinements
-                    .truncate(self.refinements.len().saturating_sub(sigma.len()));
+            ExtendRefinement(..) => {
+                self.refinements.pop();
                 self.log_debug_refinements(false);
             }
             RenameFace(fce, prev, new) => {

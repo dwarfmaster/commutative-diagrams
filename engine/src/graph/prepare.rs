@@ -1,29 +1,36 @@
-use crate::anyterm::IsTerm;
-use crate::data::{ActualEquality, EqualityData};
-use crate::data::{ActualMorphism, ActualProofObject, Context, Morphism, Object};
+use crate::graph::eq::{Eq, Morphism};
 use crate::graph::{Face, FaceParsed, Graph, GraphParsed};
-use crate::normalize;
-use crate::substitution::Substitution;
-use std::ops::Deref;
+use crate::normalizer;
+use crate::remote::TermEngine;
 
 impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
-    pub fn prepare(self, ctx: &mut Context) -> (Graph<NL, EL, FL>, Substitution) {
-        let mut sigma = Vec::new();
+    pub fn prepare<R: TermEngine>(self, rm: &mut R) -> Graph<NL, EL, FL> {
         let nodes = self.nodes;
 
-        // Normalize edges and remember identites
+        // Normalize edges
         let mut edges = self.edges;
+        let mut edge_comps: Vec<Vec<Vec<(u64, u64, u64)>>> = vec![Vec::new(); nodes.len()];
         let mut edge_map: Vec<Vec<Option<usize>>> = vec![Vec::new(); nodes.len()];
         for src in 0..nodes.len() {
             for mph in 0..edges[src].len() {
-                let (nmph, _) = normalize::identities(ctx, edges[src][mph].2.clone());
+                let dst = edges[src][mph].0;
+                let (nmph, _, comps) = normalizer::morphism(
+                    rm,
+                    nodes[src].1,
+                    nodes[src].0,
+                    nodes[dst].0,
+                    edges[src][mph].2,
+                );
                 edges[src][mph].2 = nmph;
+                edge_comps[src][mph] = comps;
             }
-            edge_map[src] = edges[src]
+            edge_map[src] = edge_comps[src]
                 .iter()
-                .scan(0, |index, (_, _, m)| match m.deref() {
-                    ActualMorphism::Identity(..) => Some(None),
-                    _ => {
+                .scan(0, |index, cmps| {
+                    if cmps.is_empty() {
+                        // Identity case
+                        Some(None)
+                    } else {
                         *index += 1;
                         Some(Some(*index - 1))
                     }
@@ -34,7 +41,7 @@ impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
         let faces = self
             .faces
             .into_iter()
-            .map(|fce| fce.prepare(ctx, &nodes, &edges, &edge_map, &mut sigma))
+            .map(|fce| fce.prepare(rm, &nodes, &edges, &edge_map, &edge_comps))
             .collect();
 
         // Remove identites from edges
@@ -48,90 +55,71 @@ impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
                 .map(|v| v.1)
                 .collect();
         }
-        (
-            Graph {
-                nodes,
-                edges,
-                faces,
-            },
-            sigma,
-        )
+        Graph {
+            nodes,
+            edges,
+            faces,
+        }
     }
 }
 
 impl<FL> FaceParsed<FL> {
-    fn prepare<NL, EL>(
+    fn prepare<R: TermEngine, NL, EL>(
         self,
-        ctx: &mut Context,
-        _nodes: &[(Object, NL)],
-        edges: &[Vec<(usize, EL, Morphism)>],
+        _rm: &mut R,
+        nodes: &[(u64, u64, NL)],
+        edges: &[Vec<(usize, EL, u64)>],
         edge_map: &[Vec<Option<usize>>],
-        sigma: &mut Substitution,
+        edge_comps: &[Vec<Vec<(u64, u64, u64)>>],
     ) -> Face<FL> {
-        use ActualEquality::*;
         let nxt_mph = |src: &mut usize, mph: usize| -> Option<(usize, usize)> {
             let prev = *src;
             *src = edges[*src][mph].0;
             Some((prev, mph))
         };
 
-        let left = self.eq.left(&ctx);
-        let (leftmph, lefteq) = normalize::identities(ctx, left);
-        let left = self
+        let left_path: Vec<usize> = self
             .left
             .into_iter()
             .scan(self.start, nxt_mph)
             .filter_map(|(src, mph)| edge_map[src][mph])
             .collect();
-
-        let right = self.eq.right(&ctx);
-        let (rightmph, righteq) = normalize::identities(ctx, right);
-        let right = self
+        let right_path: Vec<usize> = self
             .right
             .into_iter()
             .scan(self.start, nxt_mph)
             .filter_map(|(src, mph)| edge_map[src][mph])
             .collect();
 
-        let eq = if let ActualEquality::Atomic(data) = self.eq.deref() {
-            if let ActualProofObject::Existential(ex) = data.pobj.deref() {
-                let nex = ctx.new_existential();
-                let hole = ctx.mk(ActualEquality::Atomic(EqualityData {
-                    category: self.eq.cat(ctx),
-                    src: self.eq.src(ctx),
-                    dst: self.eq.dst(ctx),
-                    left: leftmph,
-                    right: rightmph,
-                    pobj: ctx.mk(ActualProofObject::Existential(nex)),
-                }));
-                let refined = ctx
-                    .mk(Concat(
-                        lefteq.clone(),
-                        ctx.mk(Concat(hole.clone(), ctx.mk(Inv(righteq.clone())))),
-                    ))
-                    .simpl(ctx);
-                sigma.push((*ex, refined.term()));
-                Some(hole)
-            } else {
-                None
-            }
-        } else {
-            None
+        let left_mph = Morphism {
+            src: nodes[self.start].0,
+            dst: nodes[self.end].0,
+            comps: left_path
+                .iter()
+                .copied()
+                .scan(self.start, nxt_mph)
+                .map(|(src, mph)| edge_comps[src][mph].clone())
+                .flatten()
+                .collect(),
         };
-
-        let eq = eq.unwrap_or(
-            ctx.mk(Concat(
-                ctx.mk(Inv(lefteq)),
-                ctx.mk(Concat(self.eq, righteq)),
-            ))
-            .simpl(ctx),
-        );
+        let right_mph = Morphism {
+            src: nodes[self.start].0,
+            dst: nodes[self.end].0,
+            comps: right_path
+                .iter()
+                .copied()
+                .scan(self.start, nxt_mph)
+                .map(|(src, mph)| edge_comps[src][mph].clone())
+                .flatten()
+                .collect(),
+        };
+        let eq = Eq::atomic(nodes[self.start].1, left_mph, right_mph, self.eq);
 
         Face {
             start: self.start,
             end: self.end,
-            left,
-            right,
+            left: left_path,
+            right: right_path,
             eq,
             label: self.label,
         }

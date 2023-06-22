@@ -80,21 +80,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn id(&'a self, input: &'a str) -> IResult<&'a str, ast::Id> {
-        alt((
-            map(ident, |id| ast::Id::Name(id.to_string())),
-            map(delimited(char('['), integer, char(']')), |id| {
-                ast::Id::Id(id)
-            }),
-        ))(input)
-    }
-
-    fn term_descr(&'a self, input: &'a str) -> IResult<&'a str, ast::TermDescr> {
-        let parse_id = self.with_annot(|i| self.id(i));
-        alt((
-            map(parse_id, |id| ast::TermDescr::Ref(id)),
-            value(ast::TermDescr::Hole, char('_')),
-        ))(input)
+    fn name(&'a self, input: &'a str) -> IResult<&'a str, ast::Annot<String>> {
+        self.with_annot(map(ident, |id| id.to_string()))(input)
     }
 
     fn script(&'a self, input: &'a str) -> IResult<&'a str, Vec<ast::Annot<ast::Action>>> {
@@ -129,15 +116,11 @@ impl<'a> Parser<'a> {
         success(act)(input)
     }
 
-    fn loc_term_descr(&'a self, input: &'a str) -> IResult<&'a str, ast::Annot<ast::TermDescr>> {
-        self.with_annot(|i| self.term_descr(i))(input)
-    }
-
     fn act_insert(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
         let (input, _) = space1(input)?;
         let (input, sub) = ident(input)?;
         let (input, _) = sep(input)?;
-        let (input, desc) = self.loc_term_descr(input)?;
+        let (input, desc) = self.name(input)?;
         match sub {
             "node" => success(ast::Action::InsertNode(desc))(input),
             "morphism" => success(ast::Action::InsertMorphism(desc))(input),
@@ -147,36 +130,33 @@ impl<'a> Parser<'a> {
 
     fn act_insert_at(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
         let (input, _) = space1(input)?;
-        let (input, at) = self.with_annot(integer)(input)?;
+        let (input, at) = self.name(input)?;
         let (input, _) = sep(input)?;
-        let (input, mph) = self.loc_term_descr(input)?;
+        let (input, mph) = self.name(input)?;
         success(ast::Action::InsertMorphismAt(at, mph))(input)
     }
 
     fn act_split(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
         let (input, _) = space1(input)?;
-        map(|i| self.loc_term_descr(i), |desc| ast::Action::Split(desc))(input)
+        map(|i| self.name(i), |desc| ast::Action::Split(desc))(input)
     }
 
     fn act_solve(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
         let (input, _) = space1(input)?;
         alt((
             map(
-                tuple((self.with_annot(integer), sep, |i| self.loc_term_descr(i))),
+                tuple((self.with_annot(integer), sep, |i| self.name(i))),
                 |(size, _, d)| ast::Action::Solve(Some(size), d),
             ),
-            map(
-                |i| self.loc_term_descr(i),
-                |desc| ast::Action::Solve(None, desc),
-            ),
+            map(|i| self.name(i), |desc| ast::Action::Solve(None, desc)),
         ))(input)
     }
 
     fn act_refine(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
         let (input, _) = space1(input)?;
-        let (input, d1) = self.loc_term_descr(input)?;
+        let (input, d1) = self.name(input)?;
         let (input, _) = sep(input)?;
-        let (input, d2) = self.loc_term_descr(input)?;
+        let (input, d2) = self.name(input)?;
         success(ast::Action::Refine(d1, d2))(input)
     }
 
@@ -184,7 +164,7 @@ impl<'a> Parser<'a> {
         let (input, _) = space1(input)?;
         let (input, cat) = ident(input)?;
         let (input, _) = space1(input)?;
-        let (input, d) = self.loc_term_descr(input)?;
+        let (input, d) = self.name(input)?;
         match (hide, cat) {
             (true, "node") => success(ast::Action::HideNode(d))(input),
             (false, "node") => success(ast::Action::RevealNode(d))(input),
@@ -198,7 +178,7 @@ impl<'a> Parser<'a> {
 
     fn act_pull(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
         let (input, _) = space1(input)?;
-        let (input, fce) = self.loc_term_descr(input)?;
+        let (input, fce) = self.name(input)?;
         let (input, _) = sep(input)?;
         let (input, span) = alt((value(None, char('*')), map(integer, |i| Some(i))))(input)?;
         success(ast::Action::PullFace(fce, span))(input)
@@ -206,7 +186,7 @@ impl<'a> Parser<'a> {
 
     fn act_push(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
         let (input, _) = space1(input)?;
-        let (input, fce) = self.loc_term_descr(input)?;
+        let (input, fce) = self.name(input)?;
         let (input, _) = sep(input)?;
         let (input, span) = alt((value(None, char('*')), map(integer, |i| Some(i))))(input)?;
         success(ast::Action::PushFace(fce, span))(input)
@@ -214,7 +194,7 @@ impl<'a> Parser<'a> {
 
     fn act_shrink(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
         let (input, _) = space1(input)?;
-        let (input, fce) = self.loc_term_descr(input)?;
+        let (input, fce) = self.name(input)?;
         success(ast::Action::ShrinkFace(fce))(input)
     }
 
@@ -222,12 +202,11 @@ impl<'a> Parser<'a> {
         let (input, _) = space1(input)?;
         let (input, lemma) = self.with_annot(ident)(input)?;
         let parse_match =
-            |input: &'a str| -> IResult<&'a str, (ast::Annot<ast::Id>, ast::Annot<ast::Id>)> {
-                let mut parse_id = self.with_annot(|i| self.id(i));
+            |input: &'a str| -> IResult<&'a str, (ast::Annot<String>, ast::Annot<String>)> {
                 let (input, _) = space1(input)?;
-                let (input, id1) = parse_id(input)?;
+                let (input, id1) = self.name(input)?;
                 let (input, _) = char(':')(input)?;
-                let (input, id2) = parse_id(input)?;
+                let (input, id2) = self.name(input)?;
                 success((id1, id2))(input)
             };
         let (input, matching) = many0(parse_match)(input)?;
@@ -239,51 +218,11 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::vm::ast;
     use crate::vm::parser::Parser;
-    use nom::combinator::not;
-
-    #[test]
-    fn termdescr() {
-        fn test(input: &str, expected: ast::TermDescr) {
-            let p = Parser::new(0, input);
-            assert_eq!(p.term_descr(input), Ok(("", expected)))
-        }
-        fn test_fail<'a>(input: &'a str) {
-            let p = Parser::<'a>::new(0, input);
-            assert_eq!(not(|i| { p.term_descr(i) })(input), Ok((input, ())));
-        }
-
-        test(
-            "[55]",
-            ast::TermDescr::Ref(ast::Annot {
-                value: ast::Id::Id(55),
-                range: 0..4,
-            }),
-        );
-        test(
-            "[197]",
-            ast::TermDescr::Ref(ast::Annot {
-                value: ast::Id::Id(197),
-                range: 0..5,
-            }),
-        );
-        test(
-            "hello",
-            ast::TermDescr::Ref(ast::Annot {
-                value: ast::Id::Name("hello".to_string()),
-                range: 0..5,
-            }),
-        );
-        test("_", ast::TermDescr::Hole);
-        test_fail("[-18]");
-        test_fail("1hoy");
-    }
 
     #[test]
     fn action() {
         use ast::Action::*;
         use ast::Annot;
-        use ast::Id;
-        use ast::TermDescr::*;
 
         // Successes
         fn test(input: &str, expected: ast::Action) {
@@ -292,45 +231,36 @@ mod tests {
         }
 
         test(
-            "insert node, [10]",
+            "insert node, toto",
             InsertNode(Annot {
-                value: Ref(Annot {
-                    value: Id::Id(10),
-                    range: 13..17,
-                }),
+                value: "toto".to_string(),
                 range: 13..17,
             }),
         );
         test(
-            "insert morphism, _",
+            "insert morphism, x",
             InsertMorphism(Annot {
-                value: Hole,
+                value: "x".to_string(),
                 range: 17..18,
             }),
         );
         test(
-            "insert_at 5, toto",
+            "insert_at x, toto",
             InsertMorphismAt(
                 Annot {
-                    value: 5,
+                    value: "x".to_string(),
                     range: 10..11,
                 },
                 Annot {
-                    value: Ref(Annot {
-                        value: Id::Name("toto".to_string()),
-                        range: 13..17,
-                    }),
+                    value: "toto".to_string(),
                     range: 13..17,
                 },
             ),
         );
         test(
-            "split [2]",
+            "split tot",
             Split(Annot {
-                value: Ref(Annot {
-                    value: Id::Id(2),
-                    range: 6..9,
-                }),
+                value: "tot".to_string(),
                 range: 6..9,
             }),
         );
@@ -339,10 +269,7 @@ mod tests {
             Solve(
                 None,
                 Annot {
-                    value: Ref(Annot {
-                        value: Id::Name("fce1".to_string()),
-                        range: 6..10,
-                    }),
+                    value: "fce1".to_string(),
                     range: 6..10,
                 },
             ),
@@ -355,50 +282,35 @@ mod tests {
                     range: 6..8,
                 }),
                 Annot {
-                    value: Ref(Annot {
-                        value: Id::Name("fce1".to_string()),
-                        range: 10..14,
-                    }),
+                    value: "fce1".to_string(),
                     range: 10..14,
                 },
             ),
         );
         test(
-            "refine [1], [2]",
+            "refine xxx, yyy",
             Refine(
                 Annot {
-                    value: Ref(Annot {
-                        value: Id::Id(1),
-                        range: 7..10,
-                    }),
+                    value: "xxx".to_string(),
                     range: 7..10,
                 },
                 Annot {
-                    value: Ref(Annot {
-                        value: Id::Id(2),
-                        range: 12..15,
-                    }),
+                    value: "yyy".to_string(),
                     range: 12..15,
                 },
             ),
         );
         test(
-            "hide node [1]",
+            "hide node xxx",
             HideNode(Annot {
-                value: Ref(Annot {
-                    value: Id::Id(1),
-                    range: 10..13,
-                }),
+                value: "xxx".to_string(),
                 range: 10..13,
             }),
         );
         test(
-            "reveal morphism [3]",
+            "reveal morphism yyy",
             RevealMorphism(Annot {
-                value: Ref(Annot {
-                    value: Id::Id(3),
-                    range: 16..19,
-                }),
+                value: "yyy".to_string(),
                 range: 16..19,
             }),
         );
@@ -406,17 +318,14 @@ mod tests {
         test("fail", Fail);
 
         test(
-            "  insert_at\t5        ,   [0]",
+            "  insert_at\tx        ,   xxx",
             InsertMorphismAt(
                 Annot {
-                    value: 5,
+                    value: "x".to_string(),
                     range: 12..13,
                 },
                 Annot {
-                    value: Ref(Annot {
-                        value: Id::Id(0),
-                        range: 25..28,
-                    }),
+                    value: "xxx".to_string(),
                     range: 25..28,
                 },
             ),
@@ -432,21 +341,21 @@ mod tests {
                 vec![
                     (
                         Annot {
-                            value: Id::Name("p0".to_string()),
+                            value: "p0".to_string(),
                             range: 23..25,
                         },
                         Annot {
-                            value: Id::Name("Goal0".to_string()),
+                            value: "Goal0".to_string(),
                             range: 26..31,
                         },
                     ),
                     (
                         Annot {
-                            value: Id::Name("Lem0".to_string()),
+                            value: "Lem0".to_string(),
                             range: 32..36,
                         },
                         Annot {
-                            value: Id::Name("p".to_string()),
+                            value: "p".to_string(),
                             range: 37..38,
                         },
                     ),
