@@ -5,7 +5,6 @@ pub mod lemmas;
 pub mod normalizer;
 pub mod realizer;
 pub mod remote;
-pub mod rpc;
 pub mod ui;
 pub mod vm;
 
