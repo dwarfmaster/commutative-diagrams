@@ -66,7 +66,7 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
     }
 
     fn build(&mut self, feat: Feature) -> Result<u64, Self::Error> {
-        let req = self.send_msg("build", [feat])?;
+        let req = self.send_msg("build", feat)?;
         self.receive_msg(req)
     }
 
