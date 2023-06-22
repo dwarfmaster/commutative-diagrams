@@ -4,11 +4,13 @@ mod parse;
 mod seq;
 mod status;
 mod tag;
+mod vec;
 
 use super::{Error, Remote, RPC};
 use crate::data::{EvarStatus, Feature, Tag};
 use crate::graph::GraphParsed;
 use seq::Seq;
+use vec::VecWrapper;
 
 impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
     type Error = Error;
@@ -43,7 +45,7 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
 
     fn lemmas(&mut self) -> Result<Vec<(u64, String, String)>, Self::Error> {
         let req = self.send_msg("lemmas", ())?;
-        self.receive_msg(req)
+        self.receive_msg(req).map(|v: VecWrapper<(u64, String, String)>| v.wrapped_vec)
     }
 
     fn instantiate<NL, EL, FL>(&mut self, lem: u64) -> Result<GraphParsed<NL, EL, FL>, Self::Error>
@@ -58,7 +60,7 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
 
     fn query(&mut self, obj: u64, tag: Tag) -> Result<Vec<Feature>, Self::Error> {
         let req = self.send_msg("query", (obj, tag))?;
-        self.receive_msg(req)
+        self.receive_msg(req).map(|v: VecWrapper<Feature>| v.wrapped_vec)
     }
 
     fn build(&mut self, feat: Feature) -> Result<u64, Self::Error> {
