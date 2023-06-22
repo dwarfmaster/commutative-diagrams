@@ -4,6 +4,10 @@ type 't m = 't Hyps.t
 
 module M = Map.Make(String)
 
+type 'a obj =
+  { obj_obj: 'a
+  ; obj_cat: 'a
+  }
 type 'a face =
   { face_src: int
   ; face_dst: int
@@ -17,7 +21,7 @@ type 'a morphism =
   ; mph_mph: 'a
   }
 type 'a graph_impl =
-  { gr_nodes: 'a list
+  { gr_nodes: 'a obj list
   ; gr_edges: 'a morphism list
   ; gr_faces: 'a face list
   }
@@ -33,6 +37,19 @@ let rec mapOptM (f : 'a -> 'b option m) (l : 'a list) : 'b list option m =
         | Some x, Some l -> ret (Some (x :: l))
         | _ -> ret None
       end
+
+let pack_obj obj =
+  ret (Msgpack.Array [
+    Msgpack.Integer obj.obj_obj;
+    Msgpack.Integer obj.obj_cat;
+  ])
+
+let unpack_obj msg =
+  let open Msgpack in
+  match msg with
+  | Array [ Integer obj; Integer cat ] ->
+      some { obj_obj = obj; obj_cat = cat; }
+  | _ -> none ()
 
 let pack_edge mph =
   ret (Msgpack.Array [
@@ -85,7 +102,7 @@ module Serde = struct
   type t = graph
 
   let pack gr =
-    let nodes = List.map (fun e -> Msgpack.Integer e) gr.gr_nodes in
+    let* nodes = mapM pack_obj gr.gr_nodes in
     let* edges = mapM pack_edge gr.gr_edges in
     let* faces = mapM pack_face gr.gr_faces in
     ret (Msgpack.Array [
@@ -98,7 +115,7 @@ module Serde = struct
     let open Msgpack in
     match msg with
     | Array [ Array nodes; Array edges; Array faces ] -> begin
-      let* nodes = mapOptM unpack_int nodes in
+      let* nodes = mapOptM unpack_obj nodes in
       let* edges = mapOptM unpack_edge edges in
       let* faces = mapOptM unpack_face faces in
       match nodes, edges, faces with
@@ -114,7 +131,11 @@ end
 
 let mapM f gr =
   let open Hyps.Combinators in
-  let* nodes = mapM f gr.gr_nodes in
+  let fobj obj =
+    let* o = f obj.obj_obj in
+    let* cat = f obj.obj_cat in
+    ret { obj_obj = o; obj_cat = cat; } in
+  let* nodes = mapM fobj gr.gr_nodes in
   let fmph mph =
     let* m = f mph.mph_mph in
     ret { mph with mph_mph = m } in

@@ -45,18 +45,22 @@ module Make(O: Map.OrderedType) = struct
   end
   
   let cmp2 x y = if x = 0 then y else x
-  module RegNode = Registerer(O)
+  module EqObj = struct
+    type t = O.t * O.t
+    let compare (o1,c1) (o2,c2) = cmp2 (O.compare o1 o2) (O.compare c1 c2)
+  end
+  module RegNode = Registerer(EqObj)
   module EqEdge = struct
-    type t = int * int * O.t
-    let compare (src1,dst1,mph1) (src2,dst2,mph2) =
-      cmp2 (O.compare mph1 mph2)
+    type t = int * int * O.t * O.t
+    let compare (src1,dst1,cat1,mph1) (src2,dst2,cat2,mph2) =
+      cmp2 (cmp2 (O.compare mph1 mph2) (O.compare cat1 cat2))
            (List.compare Int.compare [src1;dst1] [src2;dst2])
   end
   module RegEdge = Registerer(EqEdge)
   module EqEq = struct
-    type t = int * int * int list * int list * O.t * bool
-    let compare (src1,dst1,left1,right1,eq1,_) (src2,dst2,left2,right2,eq2,_) =
-      cmp2 (O.compare eq1 eq2)
+    type t = int * int * int list * int list * O.t * O.t * bool
+    let compare (src1,dst1,left1,right1,cat1,eq1,_) (src2,dst2,left2,right2,cat2,eq2,_) =
+      cmp2 (cmp2 (O.compare eq1 eq2) (O.compare cat1 cat2))
            (List.compare
              (List.compare Int.compare)
              [ [src1;dst1]; left1; right1 ]
@@ -70,9 +74,9 @@ module Make(O: Map.OrderedType) = struct
     }
   
   let debug_print (env: Environ.env) (sigma: Evd.evar_map) printer (bld: t) : Pp.t =
-    let elems = RegNode.debug_print printer bld.elems in
-    let mphs = RegEdge.debug_print (fun (_,_,mph) -> printer mph) bld.mphs in
-    let eqs = RegEq.debug_print (fun (_,_,_,_,eq,_) -> printer eq) bld.eqs in
+    let elems = RegNode.debug_print (fun (_,o) -> printer o) bld.elems in
+    let mphs = RegEdge.debug_print (fun (_,_,_,mph) -> printer mph) bld.mphs in
+    let eqs = RegEq.debug_print (fun (_,_,_,_,_,eq,_) -> printer eq) bld.eqs in
     Pp.(str "elems: " ++ elems ++ str "," ++ cut ()
       ++ str "mphs: " ++ mphs ++ str "," ++ cut ()
       ++ str "eqs: " ++ eqs)
@@ -83,23 +87,27 @@ module Make(O: Map.OrderedType) = struct
     ; eqs = RegEq.empty ()
     }
   
-  let add_node (obj: O.t) (builder: t) : int * t =
-    let i, nelems = RegNode.may_insert obj builder.elems in
+  let add_node (cat: O.t) (obj: O.t) (builder: t) : int * t =
+    let i, nelems = RegNode.may_insert (cat,obj) builder.elems in
     i, { builder with elems = nelems }
-  let add_edge (src: O.t) (dst: O.t) (mph: O.t) (builder: t) : int * t =
-    let src, builder = add_node src builder in
-    let dst, builder = add_node dst builder in
-    let mph, nmphs = RegEdge.may_insert (src,dst,mph) builder.mphs in
+  let add_edge (cat: O.t) (src: O.t) (dst: O.t) (mph: O.t) (builder: t) : int * t =
+    let src, builder = add_node cat src builder in
+    let dst, builder = add_node cat dst builder in
+    let mph, nmphs = RegEdge.may_insert (src,dst,cat,mph) builder.mphs in
     mph, { builder with mphs = nmphs }
-  let add_face ?(important = false) src dst left right eq (builder: t) =
+  let add_face ?(important = false) cat src dst left right eq (builder: t) =
     let flp (a,b) = (b,a) in
-    let (src, builder) = add_node src builder in
-    let (dst, builder) = add_node dst builder in
+    let (src, builder) = add_node cat src builder in
+    let (dst, builder) = add_node cat dst builder in
     let (builder,left) = 
-      List.fold_left_map (fun bld (src,dst,mph) -> add_edge src dst mph bld |> flp) builder left in
+      List.fold_left_map
+        (fun bld (src,dst,mph) -> add_edge cat src dst mph bld |> flp) 
+        builder left in
     let (builder,right) = 
-      List.fold_left_map (fun bld (src,dst,mph) -> add_edge src dst mph bld |> flp) builder right in
-    let _, neqs = RegEq.may_insert (src,dst,left,right,eq,important) builder.eqs in
+      List.fold_left_map
+        (fun bld (src,dst,mph) -> add_edge cat src dst mph bld |> flp)
+        builder right in
+    let _, neqs = RegEq.may_insert (src,dst,left,right,cat,eq,important) builder.eqs in
     { builder with eqs = neqs }
   
   let rec find_in_list (lst: (int * 'a) list) (x : 'a) (n: int) : int * int =
@@ -109,7 +117,7 @@ module Make(O: Map.OrderedType) = struct
     | _ :: l -> find_in_list l x (n+1)
   
   exception ImportantFailed
-  let build_face mphs (src,dst,left,right,eq,important) : O.t Graph.face option =
+  let build_face mphs (src,dst,left,right,_,eq,important) : O.t Graph.face option =
     let open Graph in
     let rec last_is pred = function
     | [] -> true
@@ -135,36 +143,46 @@ module Make(O: Map.OrderedType) = struct
   let import obj tp mk builder =
     let open Hyps.Combinators in
     let* mtdt = Hyps.getObjMtdt tp in
-    let builder = match mtdt.is_elem with
-    | Some _ -> add_node obj builder |> snd
-    | None -> builder in
+    let* builder = match mtdt.is_elem with
+    | Some cat -> 
+        let* cat = mk cat in
+        add_node cat obj builder |> snd |> ret
+    | None -> ret builder in
     let* builder = match mtdt.is_mph with
-    | Some (_,src,dst) ->
+    | Some (cat,src,dst) ->
+        let* cat = mk cat in
         let* src = mk src in
         let* dst = mk dst in
-        add_edge src dst obj builder |> snd |> ret
+        add_edge cat src dst obj builder |> snd |> ret
     | None -> ret builder in
     let* builder = match mtdt.is_eq with
     | Some (cat,src,dst,left,right) ->
+        let* cat = mk cat in
         let* src = mk src in
         let* dst = mk dst in
         let* left = mk left in
         let* right = mk right in
         (* TODO split left and right *)
-        add_face src dst [(src,dst,left)] [(src,dst,right)] obj builder |> ret
+        add_face cat src dst [(src,dst,left)] [(src,dst,right)] obj builder |> ret
     | None -> ret builder in
     ret builder
   
-  let build_morphism (src,dst,mph) : O.t Graph.morphism =
+  let build_morphism (src,dst,_,mph) : O.t Graph.morphism =
     let open Graph in
     { mph_src = src
     ; mph_dst = dst
     ; mph_mph = mph
     }
+
+  let build_object (cat,obj) : O.t Graph.obj =
+    let open Graph in
+    { obj_obj = obj
+    ; obj_cat = cat
+    }
   
   let build (builder: t) =
     try
-      let nodes = RegNode.to_list builder.elems in
+      let nodes = RegNode.to_list builder.elems |> List.map build_object in
       let mphs = RegEdge.to_list builder.mphs |> List.map build_morphism in
       let faces = List.filter_map (build_face mphs) builder.eqs.values in
       let open Graph in

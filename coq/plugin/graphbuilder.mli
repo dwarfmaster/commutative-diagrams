@@ -2,11 +2,12 @@
 module Make(O: Map.OrderedType) : sig
   type t
   val empty : unit -> t
-  val add_node : O.t -> t -> int*t
-  val add_edge : (*src*)O.t -> (*dst*)O.t -> (*mph*)O.t -> t -> int*t
+  val add_node : (*cat*)O.t -> (*obj*)O.t -> t -> int*t
+  val add_edge : (*cat*)O.t -> (*src*)O.t -> (*dst*)O.t -> (*mph*)O.t -> t -> int*t
   (* Faces may be ignored if they are not valid when building. However, if they are marked
      as important, the building step will fail *)
   val add_face : ?important:bool
+              -> (*cat*)O.t
               -> (*src*)O.t
               -> (*dst*)O.t
               -> (*left*)(O.t*O.t*O.t) list
@@ -23,11 +24,12 @@ end
 
 type t
 val empty : unit -> t
-val add_node : int -> t -> int*t
-val add_edge : (*src*)int -> (*dst*)int -> (*mph*)int -> t -> int*t
+val add_node : (*cat*)int -> (*obj*)int -> t -> int*t
+val add_edge : (*cat*)int -> (*src*)int -> (*dst*)int -> (*mph*)int -> t -> int*t
 (* Faces may be ignored if they are not valid when building. However, if they are marked
    as important, the building step will fail *)
 val add_face : ?important:bool
+            -> (*cat*)int
             -> (*src*)int
             -> (*dst*)int
             -> (*left*)(int*int*int) list

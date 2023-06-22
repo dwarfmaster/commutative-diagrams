@@ -1,4 +1,8 @@
 
+type 'a obj =
+  { obj_obj: 'a
+  ; obj_cat: 'a
+  }
 type 'a face =
   { face_src: int
   ; face_dst: int
@@ -12,7 +16,7 @@ type 'a morphism =
   ; mph_mph: 'a
   }
 type 'a graph_impl =
-  { gr_nodes: 'a list
+  { gr_nodes: 'a obj list
   ; gr_edges: 'a morphism list
   ; gr_faces: 'a face list
   }
