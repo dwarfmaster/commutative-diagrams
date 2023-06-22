@@ -1,5 +1,7 @@
 use crate::graph;
 use crate::graph::GraphParsed;
+use core::marker::PhantomData;
+use serde::de::{Error, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -22,6 +24,18 @@ struct Face {
     eq: u64,
 }
 
+struct Nodes<'a, NL> {
+    nodes: &'a [(u64, u64, NL)],
+}
+
+struct Edges<'a, EL> {
+    edges: &'a [Vec<(usize, EL, u64)>],
+}
+
+struct Faces<'a, FL> {
+    faces: &'a [graph::FaceParsed<FL>],
+}
+
 //  ____            _       _ _
 // / ___|  ___ _ __(_) __ _| (_)_______
 // \___ \ / _ \ '__| |/ _` | | |_  / _ \
@@ -39,10 +53,6 @@ impl Serialize for Node {
         seq.serialize_element(&self.cat)?;
         seq.end()
     }
-}
-
-struct Nodes<'a, NL> {
-    nodes: &'a [(u64, u64, NL)],
 }
 
 impl<'a, NL> Serialize for Nodes<'a, NL> {
@@ -68,10 +78,6 @@ impl Serialize for Edge {
         seq.serialize_element(&self.mph)?;
         seq.end()
     }
-}
-
-struct Edges<'a, EL> {
-    edges: &'a [Vec<(usize, EL, u64)>],
 }
 
 impl<'a, EL> Serialize for Edges<'a, EL> {
@@ -110,10 +116,6 @@ impl Serialize for Face {
     }
 }
 
-struct Faces<'a, FL> {
-    faces: &'a [graph::FaceParsed<FL>],
-}
-
 impl<'a, FL> Serialize for Faces<'a, FL> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -149,17 +151,185 @@ impl<NL, EL, FL> Serialize for GraphParsed<NL, EL, FL> {
 // |____/ \___||___/\___|_|  |_|\__,_|_|_/___\___|
 //
 
+struct NodeDeserializer {}
+impl<'de> Visitor<'de> for NodeDeserializer {
+    type Value = Node;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "a tuple of an object and a category")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let obj = seq.next_element()?.ok_or(Error::invalid_length(0, &self))?;
+        let cat = seq.next_element()?.ok_or(Error::invalid_length(1, &self))?;
+        if seq.next_element::<()>()?.is_some() {
+            Err(Error::invalid_length(3 /* TODO find length */, &self))
+        } else {
+            Ok(Node { obj, cat })
+        }
+    }
+}
+impl<'de> Deserialize<'de> for Node {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_tuple(2, NodeDeserializer {})
+    }
+}
+
+struct EdgeDeserializer {}
+impl<'de> Visitor<'de> for EdgeDeserializer {
+    type Value = Edge;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "a triple representing an edge")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let src = seq.next_element()?.ok_or(Error::invalid_length(0, &self))?;
+        let dst = seq.next_element()?.ok_or(Error::invalid_length(1, &self))?;
+        let mph = seq.next_element()?.ok_or(Error::invalid_length(2, &self))?;
+        if seq.next_element::<()>()?.is_some() {
+            Err(Error::invalid_length(4 /* TODO find length */, &self))
+        } else {
+            Ok(Edge { src, dst, mph })
+        }
+    }
+}
+impl<'de> Deserialize<'de> for Edge {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_tuple(3, EdgeDeserializer {})
+    }
+}
+
+struct FaceDeserializer {}
+impl<'de> Visitor<'de> for FaceDeserializer {
+    type Value = Face;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "a quintuplet representing a face")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let src = seq.next_element()?.ok_or(Error::invalid_length(0, &self))?;
+        let dst = seq.next_element()?.ok_or(Error::invalid_length(1, &self))?;
+        let left = seq.next_element()?.ok_or(Error::invalid_length(2, &self))?;
+        let right = seq.next_element()?.ok_or(Error::invalid_length(3, &self))?;
+        let eq = seq.next_element()?.ok_or(Error::invalid_length(4, &self))?;
+        if seq.next_element::<()>()?.is_some() {
+            Err(Error::invalid_length(6 /* TODO find length */, &self))
+        } else {
+            Ok(Face {
+                src,
+                dst,
+                left,
+                right,
+                eq,
+            })
+        }
+    }
+}
+impl<'de> Deserialize<'de> for Face {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_tuple(5, FaceDeserializer {})
+    }
+}
+
+struct GraphDeserializer<NL, EL, FL> {
+    nl: PhantomData<NL>,
+    el: PhantomData<EL>,
+    fl: PhantomData<FL>,
+}
+impl<'de, NL: Default, EL: Default, FL: Default> Visitor<'de> for GraphDeserializer<NL, EL, FL> {
+    type Value = GraphParsed<NL, EL, FL>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            formatter,
+            "a graph as a triple of nodes, morphisms and edges"
+        )
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let nodes: Vec<Node> = seq.next_element()?.ok_or(Error::invalid_length(0, &self))?;
+        let edges: Vec<Edge> = seq.next_element()?.ok_or(Error::invalid_length(1, &self))?;
+        let faces: Vec<Face> = seq.next_element()?.ok_or(Error::invalid_length(2, &self))?;
+        if seq.next_element::<()>()?.is_some() {
+            return Err(Error::invalid_length(4 /* TODO get length */, &self));
+        }
+
+        let gr_nodes: Vec<(u64, u64, NL)> = nodes
+            .into_iter()
+            .map(|nd| (nd.obj, nd.cat, Default::default()))
+            .collect();
+
+        let mut gr_edges: Vec<Vec<(usize, EL, u64)>> = Vec::new();
+        for _ in 0..gr_nodes.len() {
+            gr_edges.push(Vec::new())
+        }
+        let mut edges_map: Vec<(usize, usize)> = Vec::new();
+        for edge in edges {
+            edges_map.push((edge.src, gr_edges[edge.src].len()));
+            gr_edges[edge.src].push((edge.dst, Default::default(), edge.mph));
+        }
+
+        let mut gr_faces: Vec<graph::FaceParsed<FL>> = Vec::new();
+        for face in faces {
+            let fce = graph::FaceParsed {
+                start: face.src,
+                end: face.dst,
+                left: face.left.iter().map(|m| edges_map[*m].1).collect(),
+                right: face.right.iter().map(|m| edges_map[*m].1).collect(),
+                eq: face.eq,
+                label: Default::default(),
+            };
+            gr_faces.push(fce);
+        }
+
+        Ok(Self::Value {
+            nodes: gr_nodes,
+            edges: gr_edges,
+            faces: gr_faces,
+        })
+    }
+}
+
 impl<'de, NL, EL, FL> Deserialize<'de> for GraphParsed<NL, EL, FL>
 where
     NL: Default,
     EL: Default,
     FL: Default,
 {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        // TODO
-        todo!()
+        d.deserialize_tuple(
+            3,
+            GraphDeserializer {
+                nl: PhantomData,
+                el: PhantomData,
+                fl: PhantomData,
+            },
+        )
     }
 }
