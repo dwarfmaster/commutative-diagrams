@@ -24,7 +24,7 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
     }
 
     fn info(&mut self, obj: u64) -> Result<(String, Option<String>, EvarStatus), Self::Error> {
-        let req = self.send_msg("info", obj)?;
+        let req = self.send_msg("info", [obj])?;
         self.receive_msg(req)
     }
 
@@ -52,7 +52,7 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
         EL: Default,
         FL: Default,
     {
-        let req = self.send_msg("instantiate", lem)?;
+        let req = self.send_msg("instantiate", [lem])?;
         self.receive_msg(req)
     }
 
@@ -62,12 +62,12 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
     }
 
     fn build(&mut self, feat: Feature) -> Result<u64, Self::Error> {
-        let req = self.send_msg("build", feat)?;
+        let req = self.send_msg("build", [feat])?;
         self.receive_msg(req)
     }
 
     fn parse(&mut self, str: String) -> Result<Result<u64, String>, Self::Error> {
-        let req = self.send_msg("parse", str)?;
+        let req = self.send_msg("parse", [str])?;
         self.receive_msg(req)
             .map(|pr: parse::ParseResult| pr.unpack())
     }
@@ -78,12 +78,12 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
     }
 
     fn restore_state(&mut self, state: u64) -> Result<(), Self::Error> {
-        let req = self.send_msg("restore_state", state)?;
+        let req = self.send_msg("restore_state", [state])?;
         self.receive_msg(req)
     }
 
     fn finish(&mut self, success: bool) -> Result<(), Self::Error> {
-        let req = self.send_msg("finish", success)?;
+        let req = self.send_msg("finish", [success])?;
         self.receive_msg(req)
     }
 }
