@@ -1,6 +1,7 @@
 use core::marker::PhantomData;
 use serde::de::{SeqAccess, Visitor};
-use serde::Deserialize;
+use serde::ser::SerializeSeq;
+use serde::{Deserialize, Serialize};
 
 pub struct VecWrapper<T> {
     pub wrapped_vec: Vec<T>,
@@ -42,5 +43,18 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for VecWrapper<T> {
         deserializer.deserialize_seq(Visit {
             phantom: PhantomData,
         })
+    }
+}
+
+impl<T: Serialize> Serialize for VecWrapper<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.wrapped_vec.len()))?;
+        for elem in &self.wrapped_vec {
+            seq.serialize_element(elem)?;
+        }
+        seq.end()
     }
 }

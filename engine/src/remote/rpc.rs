@@ -7,7 +7,6 @@ use serde::de::{SeqAccess, Visitor};
 use serde::ser::{SerializeTuple, Serializer};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::io::Write;
 
 #[derive(Resource)]
 pub struct RPC<In, Out>
@@ -39,7 +38,7 @@ struct Message<T> {
     tp: MessageType,
     id: u32,
     str: Option<String>,
-    value: T,
+    value: Option<T>,
 }
 struct PMessage<T> {
     phantom: PhantomData<T>,
@@ -79,9 +78,18 @@ where
         let error: Option<String> = seq
             .next_element()?
             .ok_or(de::Error::invalid_length(2, &"4"))?;
-        let result = seq
-            .next_element()?
-            .ok_or(de::Error::invalid_length(3, &"4"))?;
+        let result: Option<T> = match error {
+            Some(_) => {
+                let () = seq
+                    .next_element()?
+                    .ok_or(de::Error::invalid_length(3, &"4"))?;
+                None
+            }
+            None => Some(
+                seq.next_element()?
+                    .ok_or(de::Error::invalid_length(3, &"4"))?,
+            ),
+        };
         if !seq.next_element::<()>()?.is_none() {
             return Err(de::Error::invalid_length(5, &"4"));
         }
@@ -157,13 +165,14 @@ where
             tp: MessageType::Request,
             id: self.id,
             str: Some(method.to_string()),
-            value: params,
+            value: Some(params),
         };
         self.id += 1;
         let msgpack = rmp_serde::encode::to_vec(&msg).map_err(|err| Error::Encode(err))?;
-        let mut file =
-            std::fs::File::create(format!("request_{}.mp", self.id - 1)).map_err(send_io_error)?;
-        file.write_all(&msgpack).map_err(send_io_error)?;
+        log::debug!(
+            "Sending message: {}",
+            serde_json::to_string(&msg).unwrap_or("{{error}}".to_string())
+        );
         self.output.write_all(&msgpack).map_err(send_io_error)?;
         self.output.flush().map_err(send_io_error)?;
         Ok(msg.id)
@@ -171,10 +180,16 @@ where
 
     pub fn receive_msg<'de, T>(&mut self, id: u32) -> Result<T, Error>
     where
-        T: Deserialize<'de>,
+        T: Deserialize<'de> + Serialize,
     {
         let msg = Message::<T>::deserialize(&mut self.input).map_err(|err| Error::Decode(err))?;
-        log::debug!("Received {:#?} message (id: {})", msg.tp, msg.id);
+        let json = serde_json::to_string(&msg);
+        log::debug!(
+            "Received {:#?} message (id: {}): {}",
+            msg.tp,
+            msg.id,
+            json.unwrap_or("{{error}}".to_string())
+        );
         if msg.tp != MessageType::Response {
             return Err(Error::InvalidType(MessageType::Response, msg.tp));
         }
@@ -183,7 +198,7 @@ where
         }
         match msg.str {
             Some(err) => Err(Error::Remote(err)),
-            None => Ok(msg.value),
+            None => Ok(msg.value.unwrap()),
         }
     }
 }

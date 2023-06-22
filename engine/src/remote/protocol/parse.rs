@@ -1,5 +1,5 @@
 use serde::de::Visitor;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 pub struct ParseResult {
     content: Result<u64, String>,
@@ -35,5 +35,17 @@ impl<'de> Deserialize<'de> for ParseResult {
         D: Deserializer<'de>,
     {
         deserializer.deserialize_any(ParseResultVisitor {})
+    }
+}
+
+impl Serialize for ParseResult {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match &self.content {
+            Ok(v) => serializer.serialize_u64(*v),
+            Err(str) => serializer.serialize_str(str),
+        }
     }
 }
