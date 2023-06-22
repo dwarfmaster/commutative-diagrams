@@ -22,7 +22,7 @@ impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
                     edges[src][mph].2,
                 );
                 edges[src][mph].2 = nmph;
-                edge_comps[src][mph] = comps;
+                edge_comps[src].push(comps);
             }
             edge_map[src] = edge_comps[src]
                 .iter()
