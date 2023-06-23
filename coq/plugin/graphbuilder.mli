@@ -14,7 +14,7 @@ module Make(O: Map.OrderedType) : sig
               -> (*right*)(O.t*O.t*O.t) list
               -> O.t
               -> t -> t
-  val import : (*object*)O.t -> (*type*)Hyps.obj -> (Hyps.obj -> O.t Hyps.t) -> t -> t Hyps.t
+  val import : int -> (*object*)O.t -> (*type*)Hyps.obj -> (Hyps.obj -> O.t Hyps.t) -> t -> t Hyps.t
   val build : t -> O.t Graph.graph_impl option
   (* If no face has been marked as important, the building step cannot fail, so we expose
      this convenience function *)

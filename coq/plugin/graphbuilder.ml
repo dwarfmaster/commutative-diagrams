@@ -140,7 +140,7 @@ module Make(O: Map.OrderedType) = struct
               }
     else if important then raise ImportantFailed else None
 
-  let import obj tp mk builder =
+  let import ns obj tp mk builder =
     let open Hyps.Combinators in
     let* mtdt = Hyps.getObjMtdt tp in
     let* builder = match mtdt.is_elem with
@@ -157,13 +157,25 @@ module Make(O: Map.OrderedType) = struct
     | None -> ret builder in
     let* builder = match mtdt.is_eq with
     | Some (cat,src,dst,left,right) ->
+        let* env = env () in
+        let rec mk_comp src dst mph =
+          let* vl = Hyps.getObjValue mph in
+          let* tp = Hyps.getObjType mph in
+          let* cmp = Query.query ns env Features.Tag.ComposeMph vl tp in
+          match cmp with
+          | Some (_, Features.ComposeMph (_,_,mid,_,m1,m2)) ->
+              let* mid = mk mid in
+              let* m1 = mk m1 in
+              let* sm2 = mk_comp mid dst m2 in
+              ret ((src,mid,m1) :: sm2)
+          | _ -> let* mph = mk mph in ret [(src,dst,mph)] in
         let* cat = mk cat in
         let* src = mk src in
         let* dst = mk dst in
-        let* left = mk left in
-        let* right = mk right in
+        let* left = mk_comp src dst left in
+        let* right = mk_comp src dst right in
         (* TODO split left and right *)
-        add_face cat src dst [(src,dst,left)] [(src,dst,right)] obj builder |> ret
+        add_face cat src dst left right obj builder |> ret
     | None -> ret builder in
     ret builder
   
@@ -206,6 +218,7 @@ let add_edge = MInt.add_edge
 let add_face = MInt.add_face
 let import obj tp bld = 
   MInt.import
+    0
     obj 
     Hyps.({ id = tp; namespace = 0; })
     (fun obj -> Hyps.Combinators.ret obj.Hyps.id) 

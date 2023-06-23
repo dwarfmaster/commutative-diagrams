@@ -70,23 +70,23 @@ let mkName ltm =
 
 module Bld = Graphbuilder.Make(LCOrd)
 
-let add_to_builder lc tp dbindex bld =
+let add_to_builder ns lc tp dbindex bld =
   let to_lc obj =
     let* vl = Hyps.getObjValue obj in
     let* sigma = evars () in
     match EConstr.kind sigma vl with
     | Rel id -> ret (Var (id - 1))
     | _ -> ret (Subst (obj,dbindex)) in
-  Bld.import lc tp to_lc bld
+  Bld.import ns lc tp to_lc bld
 
 (* dbindex is the index in the quantifiers list *)
-let handle_quantifier q dbindex lemma bld =
+let handle_quantifier ns q dbindex lemma bld =
   match q.Query.kind with
   | Existential -> assert false
   | Universal ->
       let tp = q.Query.tp in
       let lc = Var dbindex in
-      let* bld = add_to_builder lc tp dbindex bld in
+      let* bld = add_to_builder ns lc tp dbindex bld in
       let nq = {
         name = Option.map (fun nm -> nm |> Names.Name.print |> Pp.string_of_ppcmds) q.Query.name;
         tp = q.Query.tp;
@@ -105,13 +105,13 @@ let build_lemma ns lemma tp quantifiers =
   let rec handle_quantifiers bld id = function
     | [] -> ret (bld,[])
   | q :: qs ->
-      let* (bld,q) = handle_quantifier q id lemma bld in
+      let* (bld,q) = handle_quantifier ns q id lemma bld in
       let* (bld,qs) = handle_quantifiers bld (id + 1) qs in
       ret (bld, q::qs) in
   let* (bld,qs) = handle_quantifiers (Bld.empty ()) 0 quantifiers in
   let args = quantifiers |> List.mapi prepare_quantifier |> List.filter_map (fun x -> x) in
   let lterm = App (Subst (tp,List.length quantifiers), Lemma lemma, args) in
-  let* bld = add_to_builder lterm tp (List.length quantifiers) bld in
+  let* bld = add_to_builder ns lterm tp (List.length quantifiers) bld in
   let name, namespace = mkName lemma in
   let pattern = Bld.build bld in
   match pattern with
