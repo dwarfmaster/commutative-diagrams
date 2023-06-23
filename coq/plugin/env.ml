@@ -117,23 +117,23 @@ let mk_functor = fun _ -> mk_ind (get_functor ())
 
 let g_coq_funct_obj : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_obj_names : string array =
-  [| "Loader.funct_obj" |]
+  [| "HoTT.Categories.object_of" |]
 let get_funct_obj = fun _ -> perform_locate g_coq_funct_obj g_coq_funct_obj_names locate_const
 let mk_funct_obj = fun _ -> mk_const (get_funct_obj ())
 let g_coq_funct_mph : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_mph_names : string array =
-  [| "Loader.funct_mph" |]
+  [| "HoTT.Categories.morphism_of" |]
 let get_funct_mph = fun _ -> perform_locate g_coq_funct_mph g_coq_funct_mph_names locate_const
 let mk_funct_mph = fun _ -> mk_const (get_funct_mph ())
 
 let g_coq_funct_id : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_id_names : string array =
-  [| "Loader.funct_id" |]
+  [| "HoTT.Categories.identity_of" |]
 let get_funct_id = fun _ -> perform_locate g_coq_funct_id g_coq_funct_id_names locate_const
 let mk_funct_id = fun _ -> mk_const (get_funct_id ())
 let g_coq_funct_comp : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_comp_names : string array =
-  [| "Loader.funct_comp" |]
+  [| "HoTT.Categories.composition_of" |]
 let get_funct_comp = fun _ -> perform_locate g_coq_funct_comp g_coq_funct_comp_names locate_const
 let mk_funct_comp = fun _ -> mk_const (get_funct_comp ())
 let g_coq_funct_ctx : Names.Constant.t array ref = ref [| |]
@@ -152,7 +152,7 @@ let mk_funct_ctx = fun _ -> mk_const (get_funct_ctx ())
 (*           |__/                *)
 let g_coq_object : Names.Constant.t array ref = ref [| |]
 let g_coq_object_names : string array =
-  [| "Loader.objectT" |]
+  [| "HoTT.Categories.Category.Core.object" |]
 let get_object = fun _ -> perform_locate g_coq_object g_coq_object_names locate_const
 let mk_object = fun _ -> mk_const (get_object ())
 
@@ -234,7 +234,7 @@ let mk_compose_eq = fun _ -> mk_const (get_compose_eq ())
 (* Associativity *)
 let g_coq_assoc : Names.Constant.t array ref = ref [| |]
 let g_coq_assoc_names : string array =
-  [| "Loader.assoc"
+  [| "HoTT.Categories.Category.Core.associativity"
   |]
 let get_assoc = fun _ -> perform_locate g_coq_assoc g_coq_assoc_names locate_const
 let mk_assoc = fun _ -> mk_const (get_assoc ())
@@ -248,13 +248,13 @@ let mk_assoc = fun _ -> mk_const (get_assoc ())
 (* Identity *)
 let g_coq_left_id : Names.Constant.t array ref = ref [| |]
 let g_coq_left_id_names : string array =
-  [| "Loader.left_id"
+  [| "HoTT.Categories.Category.Core.left_identity"
   |]
 let get_left_id = fun _ -> perform_locate g_coq_left_id g_coq_left_id_names locate_const
 let mk_left_id = fun _ -> mk_const (get_left_id ())
 let g_coq_right_id : Names.Constant.t array ref = ref [| |]
 let g_coq_right_id_names : string array =
-  [| "Loader.right_id"
+  [| "HoTT.Categories.Category.Core.right_identity"
   |]
 let get_right_id = fun _ -> perform_locate g_coq_right_id g_coq_right_id_names locate_const
 let mk_right_id = fun _ -> mk_const (get_right_id ())
@@ -268,20 +268,20 @@ let mk_right_id = fun _ -> mk_const (get_right_id ())
 (* Morphisms *)
 let g_coq_id : Names.Constant.t array ref = ref [| |]
 let g_coq_id_names : string array =
-  [| "Loader.id"
+  [| "HoTT.Categories.Category.Core.identity"
   |]
 let get_id = fun _ -> perform_locate g_coq_id g_coq_id_names locate_const
 let is_id = is_const g_coq_id g_coq_id_names
 let mk_id = fun _ -> mk_const (get_id ())
 let g_coq_comp : Names.Constant.t array ref = ref [| |]
 let g_coq_comp_names : string array =
-  [| "Loader.comp"
+  [| "HoTT.Categories.Category.Core.compose"
   |]
 let get_comp = fun _ -> perform_locate g_coq_comp g_coq_comp_names locate_const
 let mk_comp = fun _ -> mk_const (get_comp ())
 let g_coq_mphT : Names.Constant.t array ref = ref [| |]
 let g_coq_mphT_names : string array =
-  [| "Loader.mphT"
+  [| "HoTT.Categories.Category.Core.morphism"
   |]
 let get_mphT = fun _ -> perform_locate g_coq_mphT g_coq_mphT_names locate_const
 let mk_mphT = fun _ -> mk_const (get_mphT ())
@@ -365,19 +365,19 @@ let is_iso = is_ind g_coq_iso g_coq_iso_names
 let mk_iso = fun _ -> mk_ind (get_iso ())
 let g_coq_inv_mph : Names.Constant.t array ref = ref [| |]
 let g_coq_inv_mph_names : string array =
-  [| "Loader.mph_inv"
+  [| "HoTT.Categories.Category.Morphisms.morphism_inverse"
   |]
 let get_inv_mph = fun _ -> perform_locate g_coq_inv_mph g_coq_inv_mph_names locate_const
 let mk_inv_mph = fun _ -> mk_const (get_inv_mph ())
 let g_coq_right_inv : Names.Constant.t array ref = ref [| |]
 let g_coq_right_inv_names : string array =
-  [| "Loader.right_inv"
+  [| "HoTT.Categories.Category.Morphisms.left_inverse"
   |]
 let get_right_inv = fun _ -> perform_locate g_coq_right_inv g_coq_right_inv_names locate_const
 let mk_right_inv = fun _ -> mk_const (get_right_inv ())
 let g_coq_left_inv : Names.Constant.t array ref = ref [| |]
 let g_coq_left_inv_names : string array =
-  [| "Loader.left_inv"
+  [| "HoTT.Categories.Category.Morphisms.right_inverse"
   |]
 let get_left_inv = fun _ -> perform_locate g_coq_left_inv g_coq_left_inv_names locate_const
 let mk_left_inv = fun _ -> mk_const (get_left_inv ())
