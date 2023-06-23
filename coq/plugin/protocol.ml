@@ -112,7 +112,7 @@ let query st args =
             | Some (_,feat) ->
                 let args = Features.to_list feat |> List.map (fun x -> Integer x.Hyps.id) in
                 let tag = feat |> Features.tag |> Features.Tag.to_string in
-                success (Array (String tag :: args))
+                success (Array [ Array (String tag :: args) ])
             | None -> success Nil
             end
         | _ -> failure ("Unknown feature to query: " ^ feat_str)
