@@ -347,7 +347,7 @@ fn post_compose<R: TermEngine>(
     post: u64,
 ) -> (/*morphism*/ u64, /*equality*/ u64) {
     use Feature::*;
-    if let Some(_) = rm.is_identity(cat, m) {
+    if let Some(_) = rm.is_identity(m, cat) {
         let lid = rm
             .remote()
             .build(LeftUnitality {
@@ -358,7 +358,7 @@ fn post_compose<R: TermEngine>(
             })
             .unwrap();
         (post, lid)
-    } else if let Some((_, mmid, _, m1, m2)) = rm.is_comp(cat, m) {
+    } else if let Some((_, mmid, _, m1, m2)) = rm.is_comp(m, cat) {
         let (r, req) = post_compose(rm, cat, mmid, mid, dst, m2, post);
         let assoc = rm
             .remote()
@@ -443,7 +443,7 @@ fn post_compose<R: TermEngine>(
                 eq2: lap,
             })
             .unwrap();
-        if let Some(_) = rm.is_identity(cat, r) {
+        if let Some(_) = rm.is_identity(r, cat) {
             let rid = rm
                 .remote()
                 .build(RightUnitality {
@@ -470,7 +470,7 @@ fn post_compose<R: TermEngine>(
         } else {
             (right, eq)
         }
-    } else if let Some(_) = rm.is_identity(cat, post) {
+    } else if let Some(_) = rm.is_identity(post, cat) {
         let eq = rm
             .remote()
             .build(RightUnitality {
@@ -519,10 +519,10 @@ fn norm_under_functors<R: TermEngine>(
     /* components */ Vec<(u64, u64, u64)>,
 ) {
     use Feature::*;
-    if let Some(e) = rm.is_identity(cat, m) {
+    if let Some(e) = rm.is_identity(m, cat) {
         let (_, _, id, eq) = raise_identity(rm, functs, cat, e);
         (id, eq, Vec::new())
-    } else if let Some((_, mid, _, m1, m2)) = rm.is_comp(cat, m) {
+    } else if let Some((_, mid, _, m1, m2)) = rm.is_comp(m, cat) {
         let (fcat, fsrc, fmid, fdst, fm1, fm2, fleft, fright, feq) =
             raise_composition(rm, functs, cat, src, mid, dst, m1, m2);
         let (nm1, eq1, mut comps) = norm_under_functors(rm, functs, cat, src, mid, m1);
@@ -582,7 +582,7 @@ fn norm_under_functors<R: TermEngine>(
             })
             .unwrap();
         (r, eq, comps)
-    } else if let Some((scat, funct, src, dst, mph)) = rm.is_funct_mph(cat, m) {
+    } else if let Some((scat, funct, src, dst, mph)) = rm.is_funct_mph(m, cat) {
         functs.push((scat, cat, funct));
         let norm = norm_under_functors(rm, functs, scat, src, dst, mph);
         functs.pop();
