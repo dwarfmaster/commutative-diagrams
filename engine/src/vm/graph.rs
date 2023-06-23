@@ -1,19 +1,10 @@
 use crate::graph;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum LabelSource {
-    Manual,
-    Render(u64),
-    #[default]
-    None,
-}
-
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct NodeLabel {
     pub pos: egui::Pos2,
     pub name: String,
     pub label: String,
-    pub label_source: LabelSource,
     // Invariant: when a node is hidden, all in/out-going edges must be hidden too
     pub hidden: bool,
 }
@@ -24,7 +15,6 @@ impl NodeLabel {
             pos: egui::Pos2::ZERO,
             name: "".to_string(),
             label: String::new(),
-            label_source: LabelSource::None,
             hidden: false,
         }
     }
@@ -44,7 +34,6 @@ pub struct EdgeLabel {
     pub name: String,
     pub label: String,
     pub label_pos: egui::Pos2,
-    pub label_source: LabelSource,
     pub style: EdgeStyle,
     pub hidden: bool,
 }
@@ -56,7 +45,6 @@ impl EdgeLabel {
             name: "".to_string(),
             label: String::new(),
             label_pos: egui::Pos2::ZERO,
-            label_source: LabelSource::None,
             style: EdgeStyle::default(),
             hidden: false,
         }
@@ -74,7 +62,6 @@ pub enum FaceStatus {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct FaceLabel {
     pub label: String,
-    pub label_source: LabelSource,
     pub name: String,
     pub hidden: bool,
     pub folded: bool,
@@ -88,7 +75,6 @@ impl FaceLabel {
         Self {
             name: "".to_string(),
             label: String::new(),
-            label_source: LabelSource::None,
             hidden: false,
             folded: false,
             parent: None,

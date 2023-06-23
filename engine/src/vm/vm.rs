@@ -136,7 +136,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             selected_lemma: None,
             lemma_window_open: false,
         };
-        // vm.relabel();
+        vm.relabel();
         vm.autoname();
         vm.recompute_face_statuses();
         vm.init_face_order();
