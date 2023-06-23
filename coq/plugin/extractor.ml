@@ -67,11 +67,12 @@ let extract_hyps (goal : Proofview.Goal.t)
   let* env = env () in
   let context = Proofview.Goal.hyps goal in
   let concl = Proofview.Goal.concl goal in
-  let goal = Proofview.Goal.goal goal |> fun ev -> EConstr.mkEvar (ev,[]) in
+  let* sigma = evars () in
+  (* TODO! remember this is the one the goal should be refined with *)
+  let* goal = Build.mk_evar env sigma concl in
   let* is_eq = Query.query global_ns env Features.Tag.Equality goal concl in
   match is_eq with
   | Some _ ->
-      let* sigma = evars () in
       let* tptp = Query.get_type global_ns env sigma concl in
       let* tpobj = Hyps.registerObj global_ns concl tptp None in
       let* obj = Hyps.registerObj global_ns goal concl (Some "Goal") in
