@@ -11,8 +11,8 @@ impl Serialize for EvarStatus {
         use EvarStatus::*;
         match self {
             Evar => s.serialize_u8(0),
-            Partial => s.serialize_u8(1),
-            Grounded => s.serialize_u8(2),
+            Partial => s.serialize_u8(2),
+            Grounded => s.serialize_u8(1),
         }
     }
 }
@@ -26,8 +26,8 @@ impl<'de> Deserialize<'de> for EvarStatus {
         let id = u8::deserialize(d)?;
         match id {
             0 => Ok(Evar),
-            1 => Ok(Partial),
-            2 => Ok(Grounded),
+            1 => Ok(Grounded),
+            2 => Ok(Partial),
             _ => Err(Error::invalid_value(
                 Unexpected::Unsigned(id as u64),
                 &"0, 1 or 2",
