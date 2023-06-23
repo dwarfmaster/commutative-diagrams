@@ -36,6 +36,19 @@ let get_type ns env sigma e =
 (*                        |___/  *)
 type obj = Hyps.obj
 
+let do_query ns (ec: EConstr.t) (tp: EConstr.t) 
+             (mk_feat: 'a -> Features.t) 
+             (cached: (obj * 'a) option) 
+             : (obj * Features.t) option Hyps.t =
+  match cached with
+  | None -> none ()
+  | Some cached ->
+      let* has_obj = Hyps.hasObject ns ec in
+      let* id = match has_obj with
+      | Some id -> ret id
+      | None -> Hyps.registerObj ns ec tp None in
+      cached |> (fun (_,f) -> (id, mk_feat f)) |> some
+
 let run_query_cached ns env sigma tp
                      (query : EConstr.t -> 'a option Hyps.t)
                      (querySuper : 'a -> 'b option Hyps.t)
@@ -239,17 +252,17 @@ and query_funct_mph ns env sigma ec tp =
 
 and query_impl ns env sigma feat ec tp =
   match feat with
-  | Category -> Option.map (fun (id,_) -> (id,Features.Category)) 
-                       <$> query_cat_cached ns env sigma tp
-  | Object -> Option.map (fun (id,v) -> (id,Features.Object v)) 
-                     <$> query_object_cached ns env sigma tp
-  | Morphism -> Option.map (fun (id,(cat,src,dst)) -> (id,Features.Morphism (cat,src,dst)))
-                       <$> query_morphism_cached ns env sigma tp
-  | Functor -> Option.map (fun (id,(src,dst)) -> (id,Features.Functor (src,dst)))
-                      <$> query_functor_cached ns env sigma tp
-  | Equality -> Option.map (fun (id,(cat,src,dst,left,right)) -> 
-                              (id,Features.Equality (cat,src,dst,left,right)))
-                       <$> query_eq_cached ns env sigma tp
+  | Category -> do_query ns ec tp (fun _ -> Features.Category) 
+                         @<< query_cat_cached ns env sigma tp
+  | Object -> do_query ns ec tp (fun v -> Features.Object v)
+                       @<< query_object_cached ns env sigma tp
+  | Morphism -> do_query ns ec tp (fun (cat,src,dst) -> Features.Morphism (cat,src,dst))
+                         @<< query_morphism_cached ns env sigma tp
+  | Functor -> do_query ns ec tp (fun (src,dst) -> Features.Functor (src,dst))
+                        @<< query_functor_cached ns env sigma tp
+  | Equality -> do_query ns ec tp (fun (cat,src,dst,left,right) -> 
+                                     Features.Equality (cat,src,dst,left,right))
+                         @<< query_eq_cached ns env sigma tp
   | AppliedFunctObj -> register ns ec tp @<< query_funct_obj ns env sigma ec tp
   | Identity -> register ns ec tp @<< query_identity ns env sigma ec tp
   | ComposeMph -> register ns ec tp @<< query_compose_mph ns env sigma ec tp
