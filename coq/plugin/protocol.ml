@@ -35,7 +35,10 @@ let info st args =
       let* vl = Hyps.getObjValue obj in
       let label = Pp.(Printer.pr_econstr_env env sigma vl |> string_of_ppcmds) in
       (* Evars *)
-      let evar = 1 in (* TODO set evar status *)
+      let evar = if EConstr.isEvar sigma vl then 0 (* Evar *)
+        else if EConstr.fold sigma (fun b ec -> b || EConstr.isEvar sigma ec) false vl
+          then 2 (* Partial *)
+          else 1 (* Grounded *) in
       success(Array [String label ; name; Integer evar])
   | _ -> failure "Wrong arguments for info"
 
