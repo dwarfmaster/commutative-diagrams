@@ -6,4 +6,4 @@ mod label;
 // mod pushout;
 // mod shrink;
 // mod solve;
-// mod split;
+mod split;
