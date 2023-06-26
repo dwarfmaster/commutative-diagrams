@@ -26,6 +26,7 @@ val mk_left_id : unit -> EConstr.t Proofview.tactic
 val mk_right_id : unit -> EConstr.t Proofview.tactic
 val is_id : Names.Constant.t -> bool
 val mk_id : unit -> EConstr.t Proofview.tactic
+val is_comp : Names.Constant.t -> bool
 val mk_comp : unit -> EConstr.t Proofview.tactic
 val mk_mphT : unit -> EConstr.t Proofview.tactic
 val mk_lap : unit -> EConstr.t Proofview.tactic

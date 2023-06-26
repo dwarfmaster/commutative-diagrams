@@ -215,23 +215,31 @@ and query_identity ns env sigma ec tp =
     | _ -> none ()
 
 and query_compose_mph ns env sigma ec tp =
-  match EConstr.kind sigma ec with
+  let module E = struct exception Ret of EConstr.t * EConstr.t * EConstr.t end in
+  try match EConstr.kind sigma ec with
+  | App (cmp, [| cat; _; _; _; mid; msi |]) ->
+      begin match EConstr.kind sigma cmp with
+      | Const (name,_) when Env.is_comp name ->
+          raise_notrace (E.Ret (cat, mid, msi))
+      | _ -> none ()
+      end
   | App (cmp, [| _; _; _; mid; msi |]) ->
     begin match EConstr.kind sigma cmp with
-      | Proj (cmp,cat) when Env.is_projection cmp Env.is_cat "compose" -> begin
-          let* cat = ofst <$> query_impl ns env sigma Category cat @<< get_type ns env sigma cat in
-          let* msi = query_impl ns env sigma Morphism msi @<< get_type ns env sigma msi in
-          let* mid = query_impl ns env sigma Morphism mid @<< get_type ns env sigma mid in
-          match cat, msi, mid with
-          | Some cat
-          , Some (msi, Features.Morphism (_,s,i))
-          , Some (mid, Features.Morphism (_,_,d)) -> 
-            some (Features.ComposeMph (cat,s,i,d,msi,mid))
-          | _ -> none ()
-      end
-      | _ -> none ()
+    | Proj (cmp,cat) when Env.is_projection cmp Env.is_cat "compose" ->
+        raise_notrace (E.Ret (cat, mid, msi))
+    | _ -> none ()
     end
   | _ -> none ()
+  with E.Ret (cat, mid, msi) ->
+    let* cat = ofst <$> query_impl ns env sigma Category cat @<< get_type ns env sigma cat in
+    let* msi = query_impl ns env sigma Morphism msi @<< get_type ns env sigma msi in
+    let* mid = query_impl ns env sigma Morphism mid @<< get_type ns env sigma mid in
+    match cat, msi, mid with
+    | Some cat
+    , Some (msi, Features.Morphism (_,s,i))
+    , Some (mid, Features.Morphism (_,_,d)) -> 
+      some (Features.ComposeMph (cat,s,i,d,msi,mid))
+    | _ -> none ()
 
 and query_funct_mph ns env sigma ec tp =
   match EConstr.kind sigma ec with

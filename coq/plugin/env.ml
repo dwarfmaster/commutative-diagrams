@@ -278,6 +278,7 @@ let g_coq_comp_names : string array =
   [| "HoTT.Categories.Category.Core.compose"
   |]
 let get_comp = fun _ -> perform_locate g_coq_comp g_coq_comp_names locate_const
+let is_comp = is_const g_coq_comp g_coq_comp_names
 let mk_comp = fun _ -> mk_const (get_comp ())
 let g_coq_mphT : Names.Constant.t array ref = ref [| |]
 let g_coq_mphT_names : string array =
