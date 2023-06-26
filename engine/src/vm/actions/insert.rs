@@ -31,7 +31,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             }
         }
         let cat = self.graph.nodes[node].1;
-        let (src,dst) = self.ctx.is_mph(mph, cat).unwrap();
+        let (src, dst) = self.ctx.is_mph(mph, cat).unwrap();
         assert_eq!(src, self.graph.nodes[node].0);
         let ndst = self.insert_node(dst, cat);
         self.register_instruction(Ins::InsertMorphism(node, ndst, mph));
@@ -42,7 +42,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     /// morhism. Returns the index of the source node, that of the morphism and that
     /// of the destination.
     pub fn insert_mph(&mut self, mph: u64, cat: u64) -> (usize, usize, usize) {
-        let (src,_) = self.ctx.is_mph(mph, cat).unwrap();
+        let (src, _) = self.ctx.is_mph(mph, cat).unwrap();
         let nsrc = self.insert_node(src, cat);
         let (nmph, ndst) = self.insert_mph_at(nsrc, mph);
         (nsrc, nmph, ndst)
@@ -51,9 +51,9 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
 #[cfg(test)]
 mod tests {
+    use crate::data::{EvarStatus, Feature};
     use crate::remote::Mock;
     use crate::vm::VM;
-    use crate::data::{Feature,EvarStatus};
 
     #[test]
     fn basic() {
@@ -67,11 +67,25 @@ mod tests {
         let y = ctx.new_term("y".to_string(), None, Grounded);
         ctx.add_feat(y, Feature::Object { cat });
         let m1 = ctx.new_term("m1".to_string(), None, Grounded);
-        ctx.add_feat(m1, Feature::Morphism { cat, src: x, dst: y });
+        ctx.add_feat(
+            m1,
+            Feature::Morphism {
+                cat,
+                src: x,
+                dst: y,
+            },
+        );
         let m2 = ctx.new_term("m2".to_string(), None, Grounded);
-        ctx.add_feat(m2, Feature::Morphism { cat, src: x, dst: y });
+        ctx.add_feat(
+            m2,
+            Feature::Morphism {
+                cat,
+                src: x,
+                dst: y,
+            },
+        );
 
-        let mut vm = VM::<Mock,()>::start(ctx);
+        let mut vm = VM::<Mock, ()>::start(ctx);
 
         let (m1_src, _, _) = vm.insert_mph(m1, cat);
         assert_eq!(

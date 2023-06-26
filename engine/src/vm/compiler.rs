@@ -1,3 +1,4 @@
+use crate::data::{Feature, Tag};
 use crate::graph::GraphId;
 use crate::remote::Remote;
 use crate::vm::ast;
@@ -23,8 +24,13 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             InsertNode(node) => {
                 let node = self.ctx.remote.parse(node.value.clone()).unwrap();
                 match node {
-                    Ok(_node) => {
-                        todo!()
+                    Ok(node) => {
+                        let tps = self.ctx.get_stored_query(node, Tag::Object);
+                        for tp in tps {
+                            if let Feature::Object { cat } = tp {
+                                self.insert_node(node, cat);
+                            }
+                        }
                     }
                     Err(err) => {
                         self.error_msg = format!("Couldn't parse object: {:#?}", err);
@@ -35,8 +41,18 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             InsertMorphism(mph) => {
                 let mph = self.ctx.remote.parse(mph.value.clone()).unwrap();
                 match mph {
-                    Ok(_mph) => {
-                        todo!()
+                    Ok(mph) => {
+                        let tps = self.ctx.get_stored_query(mph, Tag::Morphism);
+                        for tp in tps {
+                            if let Feature::Morphism {
+                                cat,
+                                src: _,
+                                dst: _,
+                            } = tp
+                            {
+                                self.insert_mph(mph, cat);
+                            }
+                        }
                     }
                     Err(err) => {
                         self.error_msg = format!("Couldn't parse morphism: {:#?}", err);
@@ -47,9 +63,9 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             InsertMorphismAt(node, mph) => {
                 let mph = self.ctx.remote.parse(mph.value.clone()).unwrap();
                 match mph {
-                    Ok(_mph) => {
-                        if let Some(GraphId::Node(_id)) = self.names.get(&node.value) {
-                            todo!()
+                    Ok(mph) => {
+                        if let Some(GraphId::Node(id)) = self.names.get(&node.value) {
+                            self.insert_mph_at(*id, mph);
                         } else {
                             self.error_msg = format!("{} is not a valid node name", node.value);
                             result = ExecutionError;
@@ -62,63 +78,56 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 }
             }
             Split(mph) => {
-                if let Some(GraphId::Morphism(_src, _mph)) = self.names.get(&mph.value) {
-                    // self.split(src,mph)
-                    todo!()
+                if let Some(GraphId::Morphism(src, mph)) = self.names.get(&mph.value) {
+                    self.split(*src, *mph)
                 } else {
                     self.error_msg = format!("{} is not a valid morphism name", mph.value);
                     result = ExecutionError;
                 }
             }
             HideNode(n) => {
-                if let Some(GraphId::Node(_n)) = self.names.get(&n.value) {
-                    // self.hide(GraphId::Node(n))
-                    todo!()
+                if let Some(GraphId::Node(n)) = self.names.get(&n.value) {
+                    self.hide(GraphId::Node(*n))
                 } else {
                     self.error_msg = format!("{} is not a valid node name", n.value);
                     result = ExecutionError;
                 }
             }
             RevealNode(n) => {
-                if let Some(GraphId::Node(_n)) = self.names.get(&n.value) {
-                    // self.reveal(GraphId::Node(n))
-                    todo!()
+                if let Some(GraphId::Node(n)) = self.names.get(&n.value) {
+                    self.reveal(GraphId::Node(*n))
                 } else {
                     self.error_msg = format!("{} is not a valid node name", n.value);
                     result = ExecutionError;
                 }
             }
             HideMorphism(m) => {
-                if let Some(GraphId::Morphism(_s, _m)) = self.names.get(&m.value) {
-                    // self.hide(GraphId::Morphism(s, m))
-                    todo!()
+                if let Some(GraphId::Morphism(s, m)) = self.names.get(&m.value) {
+                    self.hide(GraphId::Morphism(*s, *m))
                 } else {
                     self.error_msg = format!("{} is not a valid morphism name", m.value);
                     result = ExecutionError;
                 }
             }
             RevealMorphism(m) => {
-                if let Some(GraphId::Morphism(_s, _m)) = self.names.get(&m.value) {
-                    // self.reveal(GraphId::Morphism(s,m))
-                    todo!()
+                if let Some(GraphId::Morphism(s, m)) = self.names.get(&m.value) {
+                    self.reveal(GraphId::Morphism(*s, *m))
                 } else {
                     self.error_msg = format!("{} is not a valid morphism name", m.value);
                     result = ExecutionError;
                 }
             }
             HideFace(f) => {
-                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
-                    // self.hide(GraphId::Face(f))
-                    todo!()
+                if let Some(GraphId::Face(f)) = self.names.get(&f.value) {
+                    self.hide(GraphId::Face(*f))
                 } else {
                     self.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             RevealFace(f) => {
-                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
-                    // self.reveal(GraphId::Face(f))
-                    todo!()
+                if let Some(GraphId::Face(f)) = self.names.get(&f.value) {
+                    self.reveal(GraphId::Face(*f))
                 } else {
                     self.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;

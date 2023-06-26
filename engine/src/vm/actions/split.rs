@@ -1,3 +1,4 @@
+use crate::graph::GraphId;
 use crate::normalizer;
 use crate::remote::Remote;
 use crate::vm::asm;
@@ -6,8 +7,11 @@ use crate::vm::{Interactive, VM};
 type Ins = asm::Instruction;
 
 impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+    // Normalize morphism mph, and hide it if it changed
     pub fn split(&mut self, src: usize, mph: usize) {
         if let Some(path) = self.split_norm(src, mph) {
+            self.hide(GraphId::Morphism(src, mph));
+
             // Replace mph by path in all equalities, the equality itself doesn't change
             for fce in 0..self.graph.faces.len() {
                 let replace =
