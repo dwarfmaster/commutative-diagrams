@@ -7,3 +7,4 @@ mod label;
 // mod shrink;
 // mod solve;
 mod split;
+mod unif_eq;
