@@ -73,8 +73,8 @@ fn normalize_slice(
                 next - current_in,
                 None,
             ));
-            current_in = next;
             current_out += next - current_in;
+            current_in = next;
         }
     }
     r
