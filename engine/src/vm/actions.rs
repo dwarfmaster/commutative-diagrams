@@ -1,5 +1,5 @@
 mod hide;
-// mod insert;
+mod insert;
 mod label;
 // mod lemma;
 // mod merge;
