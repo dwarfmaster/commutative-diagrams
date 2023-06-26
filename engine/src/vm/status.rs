@@ -23,20 +23,8 @@ fn merge_statuses(s1: EvarStatus, s2: EvarStatus) -> EvarStatus {
 
 impl<Rm: Remote> Context<Rm> {
     pub fn compute_eq_status(&mut self, eq: &Eq) -> EvarStatus {
-        if eq.slices.len() == 1
-            && eq.inp.comps.len() == eq.slices[0].inp.comps.len()
-            && eq.outp.comps.len() == eq.slices[0].outp.comps.len()
-            && eq.slices[0].blocks.len() == 1
-            && eq.slices[0].blocks[0].0 == 0
-            && eq.slices[0].blocks[0].1 == 0
-            && eq.inp.comps.len() == eq.slices[0].blocks[0].2.inp.comps.len()
-            && eq.outp.comps.len() == eq.slices[0].blocks[0].2.outp.comps.len()
-        {
-            if let BlockData::Direct(neq) = eq.slices[0].blocks[0].2.data {
-                return self.get_stored_status(neq);
-            } else if let BlockData::Inv(neq) = eq.slices[0].blocks[0].2.data {
-                return self.get_stored_status(neq);
-            }
+        if let Some(eq) = eq.is_simple() {
+            return self.get_stored_status(eq.unwrap_or_else(|e| e));
         }
 
         let mut status = EvarStatus::Grounded;

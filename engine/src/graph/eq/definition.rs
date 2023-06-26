@@ -54,6 +54,29 @@ impl Eq {
         }
     }
 
+    // Check if the equality is a single block, with either a Direct(v) (Ok(v))
+    // or Inv(v) (Err(v))
+    pub fn is_simple(&self) -> Option<Result<u64, u64>> {
+        use BlockData::*;
+        if self.slices.len() == 1
+            && self.inp.comps.len() == self.slices[0].inp.comps.len()
+            && self.outp.comps.len() == self.slices[0].outp.comps.len()
+            && self.slices[0].blocks.len() == 1
+            && self.slices[0].blocks[0].0 == 0
+            && self.slices[0].blocks[0].1 == 0
+            && self.inp.comps.len() == self.slices[0].blocks[0].2.inp.comps.len()
+            && self.outp.comps.len() == self.slices[0].blocks[0].2.outp.comps.len()
+        {
+            match self.slices[0].blocks[0].2.data {
+                Direct(eq) => Some(Ok(eq)),
+                Inv(eq) => Some(Err(eq)),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
     // start is relative to the outputs of the block. Does not update outp or inp
     fn append_block(&mut self, start: usize, blk: Block) {
         // Find insertion point
