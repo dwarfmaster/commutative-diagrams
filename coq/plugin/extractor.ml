@@ -87,8 +87,8 @@ let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit
   match obj with
   | None -> fail "Goal is not a face"
   | Some (lemmas,graph) ->
-      (* let* globalLemmas = Lemmas.extractAllConstants () |> Hyps.withMask true in *)
-      (* let lemmas = List.append lemmas globalLemmas in *)
+      let* globalLemmas = Lemmas.extractAllConstants () |> Hyps.withMask true in
+      let lemmas = List.append lemmas globalLemmas in
       let* _ = Sv.run ~file:file ~force:force graph lemmas in
       ret ()
 let server file ~force : unit Proofview.tactic =

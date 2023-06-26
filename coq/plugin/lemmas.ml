@@ -80,19 +80,27 @@ let add_to_builder ns lc tp dbindex bld =
   Bld.import ns lc tp to_lc bld
 
 (* dbindex is the index in the quantifiers list *)
-let handle_quantifier ns q dbindex lemma bld =
+let handle_quantifier ns q dbindex lemma env bld =
   match q.Query.kind with
   | Existential -> assert false
   | Universal ->
       let tp = q.Query.tp in
       let lc = Var dbindex in
-      let* bld = add_to_builder ns lc tp dbindex bld in
+      let* bld = add_to_builder ns lc tp dbindex bld |> Hyps.withEnv env in
       let nq = {
         name = Option.map (fun nm -> nm |> Names.Name.print |> Pp.string_of_ppcmds) q.Query.name;
-        tp = q.Query.tp;
+        tp = tp;
         value = None;
       } in
-      ret (bld, nq)
+      let* tp = Hyps.getObjValue tp in
+      let* sigma = evars () in
+      let name = Context.({
+        binder_name = Names.Name.Anonymous;
+        binder_relevance = Sorts.Irrelevant;
+      }) in
+      let decl = Context.Rel.Declaration.LocalAssum (name,EConstr.to_constr sigma tp) in
+      let env = Environ.push_rel decl env in
+      ret (env, bld, nq)
   | LetIn v -> assert false
 
 let prepare_quantifier i q =
@@ -102,16 +110,17 @@ let prepare_quantifier i q =
   | LetIn _ -> None
 
 let build_lemma ns lemma tp quantifiers =
-  let rec handle_quantifiers bld id = function
-    | [] -> ret (bld,[])
-  | q :: qs ->
-      let* (bld,q) = handle_quantifier ns q id lemma bld in
-      let* (bld,qs) = handle_quantifiers bld (id + 1) qs in
-      ret (bld, q::qs) in
-  let* (bld,qs) = handle_quantifiers (Bld.empty ()) 0 quantifiers in
+  let rec handle_quantifiers env bld id = function
+    | [] -> ret (env,bld,[])
+    | q :: qs ->
+      let* (env,bld,q) = handle_quantifier ns q id lemma env bld in
+      let* (env,bld,qs) = handle_quantifiers env bld (id + 1) qs in
+      ret (env, bld, q::qs) in
+  let* env = env () in
+  let* (env,bld,qs) = handle_quantifiers env (Bld.empty ()) 0 quantifiers in
   let args = quantifiers |> List.mapi prepare_quantifier |> List.filter_map (fun x -> x) in
   let lterm = App (Subst (tp,List.length quantifiers), Lemma lemma, args) in
-  let* bld = add_to_builder ns lterm tp (List.length quantifiers) bld in
+  let* bld = add_to_builder ns lterm tp (List.length quantifiers) bld |> Hyps.withEnv env in
   let name, namespace = mkName lemma in
   let pattern = Bld.build bld in
   match pattern with
