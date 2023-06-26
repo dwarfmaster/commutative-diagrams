@@ -55,7 +55,7 @@ let build_identity ns env sigma objs =
 
 let build_compose_mph ns env sigma objs =
   let* [cat; src; mid; dst; m1; m2] = get_objs_value objs in
-  let* ec = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; m1; m2 |] |> lift in
+  let* ec = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; m2; m1 |] |> lift in
   let* tp = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
   Hyps.registerObj ns ec tp None
 
