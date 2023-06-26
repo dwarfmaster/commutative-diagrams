@@ -1,4 +1,4 @@
-// mod hide;
+mod hide;
 // mod insert;
 mod label;
 // mod lemma;
