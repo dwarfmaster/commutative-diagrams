@@ -139,8 +139,8 @@ let build_left_application ns env objs =
   Hyps.registerObj ns ec tp None
 
 let build_right_application ns env objs =
-  let* [cat; src; mid; dst; mph; left; right; eq] = get_objs_value objs in
-  let* ec = Env.app (Env.mk_rap ()) [| cat; src; mid; dst; left; right; eq; mph |] |> lift in
+  let* [cat; src; mid; dst; left; right; eq; mph] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_rap ()) [| cat; src; mid; dst; left; right; mph; eq |] |> lift in
   let* leftm = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; left; mph |] |> lift in
   let* rightm = Env.app (Env.mk_comp ()) [| cat; src; mid; dst; right; mph |] |> lift in
   let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
