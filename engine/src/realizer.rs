@@ -264,7 +264,9 @@ fn repar<R: TermEngine>(rm: &mut R, cat: u64, src: u64, dst: u64, left: u64, rig
     } else {
         let (m1, eq1, _) = morphism(rm, cat, src, dst, left);
         let (m2, eq2, _) = morphism(rm, cat, src, dst, right);
-        assert_eq!(m1, m2); // TODO maybe a bit strong ? They only need to be convertible
+        // todo! equalify is broken in coq, so let's not use it for now
+        // let convertible = rm.remote().equalify(m1, m2).unwrap();
+        assert_eq!(m1, m2);
         let eq2 = rm
             .remote()
             .build(Feature::InverseEq {

@@ -1,55 +1,62 @@
-use crate::anyterm::IsTerm;
-use crate::data::ActualProofObject;
-use crate::data::{ActualEquality, Equality, EqualityData};
-use crate::data::{ActualMorphism, Morphism};
+use crate::data::Feature;
+use crate::graph::eq::{Eq, Morphism};
 use crate::graph::{Face, GraphId};
-use crate::normalize;
-use crate::remote::Remote;
-use crate::unification::{unify, UnifOpts};
-use crate::vm::graph::LabelSource;
-use crate::vm::graph::{FaceLabel, FaceStatus};
+use crate::remote::{Remote, TermEngine};
+use crate::vm::graph::{FaceLabel, FaceStatus, Graph};
 use crate::vm::{Interactive, VM};
-use std::collections::HashSet;
-
-// TODO Fix when one of the sides is not normalised
-// Ie: shrink_prefix and shrink_suffix normalize the sides of the equality when
-// constructing. This fails when the realized morphism of the side of the face
-// is not normalized (for example because it includes an edge which is a
-// composition). In order to fix this, either the normalization should be done
-// twice, once with the desired target, or I could finish the refactoring with
-// the new equality type.
 
 type Ins = crate::vm::asm::Instruction;
 
+fn realize_morphism<Rm: TermEngine>(
+    rm: &mut Rm,
+    graph: &Graph,
+    src: usize,
+    mphs: &[usize],
+) -> (u64, Morphism) {
+    let cat = graph.nodes[src].1;
+    let comps = mphs
+        .iter()
+        .scan(
+            src,
+            |src: &mut usize, mph: &usize| -> Option<(u64, u64, u64)> {
+                let ret_src = graph.nodes[*src].0;
+                let ret_dst = graph.nodes[graph.edges[*src][*mph].0].0;
+                let ret = graph.edges[*src][*mph].2;
+                *src = graph.edges[*src][*mph].0;
+                Some((ret_src, ret_dst, ret))
+            },
+        )
+        .collect::<Vec<_>>();
+    let mph_term = comps
+        .iter()
+        .copied()
+        .reduce(|(src, mid, m1), (_, dst, m2)| -> (u64, u64, u64) {
+            let mph = rm
+                .remote()
+                .build(Feature::ComposeMph {
+                    cat,
+                    src,
+                    mid,
+                    dst,
+                    m1,
+                    m2,
+                })
+                .unwrap();
+            (src, dst, mph)
+        })
+        .unwrap_or_else(|| {
+            let obj = graph.nodes[src].0;
+            let id = rm.remote().build(Feature::Identity { cat, obj }).unwrap();
+            (obj, obj, id)
+        })
+        .2;
+    let src = graph.nodes[src].0;
+    let dst = comps.last().map(|(_, d, _)| *d).unwrap_or(src);
+    let mph = Morphism { src, dst, comps };
+    (mph_term, mph)
+}
+
 impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
-    // Given an equality between left and right, and a morphism common with the
-    // same destination as the source of the equality, we construct an equaltiy
-    // between common > left(eq) and common > right(eq) normalised.
-    fn shrink_prefix(&mut self, eq: Equality, common: Morphism) -> Equality {
-        let neq = self.ctx.mk(ActualEquality::LAp(common, eq));
-        let left = neq.left(&self.ctx);
-        let (_, eql) = normalize::morphism(&mut self.ctx, left);
-        let right = neq.right(&self.ctx);
-        let (_, eqr) = normalize::morphism(&mut self.ctx, right);
-        self.ctx.mk(ActualEquality::Concat(
-            self.ctx.mk(ActualEquality::Inv(eql)),
-            self.ctx.mk(ActualEquality::Concat(neq, eqr)),
-        ))
-    }
-
-    // Same but with common after left/right
-    fn shrink_suffix(&mut self, eq: Equality, common: Morphism) -> Equality {
-        let neq = self.ctx.mk(ActualEquality::RAp(eq, common));
-        let left = neq.left(&self.ctx);
-        let (_, eql) = normalize::morphism(&mut self.ctx, left);
-        let right = neq.right(&self.ctx);
-        let (_, eqr) = normalize::morphism(&mut self.ctx, right);
-        self.ctx.mk(ActualEquality::Concat(
-            self.ctx.mk(ActualEquality::Inv(eql)),
-            self.ctx.mk(ActualEquality::Concat(neq, eqr)),
-        ))
-    }
-
     // Find a common part of size size (or as big as possible if size is None)
     // at the start and end of the sides of equality fce. Return the length of
     // the found prefix and suffix.
@@ -135,20 +142,6 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         (prefix, suffix)
     }
 
-    fn realize_morphism(&self, src: usize, mphs: &[usize]) -> Morphism {
-        mphs.iter()
-            .scan(src, |src: &mut usize, mph: &usize| -> Option<Morphism> {
-                let ret = self.graph.edges[*src][*mph].2.clone();
-                *src = self.graph.edges[*src][*mph].0;
-                Some(ret)
-            })
-            .reduce(|mph1, mph2| -> Morphism { self.ctx.mk(ActualMorphism::Comp(mph1, mph2)) })
-            .unwrap_or(
-                self.ctx
-                    .mk(ActualMorphism::Identity(self.graph.nodes[src].0.clone())),
-            )
-    }
-
     // May fail if fce is not an existential
     pub fn shrink(
         &mut self,
@@ -156,28 +149,18 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         prefix_size: Option<usize>,
         suffix_size: Option<usize>,
     ) -> bool {
+        let cat = self.graph.nodes[self.graph.faces[fce].start].1;
+
         // If left and right are the same, we conclude by reflexivity
         let total_size = prefix_size
             .unwrap_or(std::usize::MAX)
             .saturating_add(suffix_size.unwrap_or(std::usize::MAX));
-        if self.graph.faces[fce].eq.left(&self.ctx) == self.graph.faces[fce].eq.right(&self.ctx)
+        if self.graph.faces[fce].eq.inp == self.graph.faces[fce].eq.outp
             && total_size >= self.graph.faces[fce].left.len()
         {
-            let new_eq = self.ctx.mk(ActualEquality::Refl(
-                self.graph.faces[fce].eq.left(&self.ctx),
-            ));
-            let sigma = unify(
-                &self.ctx,
-                self.graph.faces[fce].eq.clone().term(),
-                new_eq.term(),
-                Default::default(),
-            );
-            if let Some(sigma) = sigma {
-                self.refine(sigma);
-                return true;
-            } else {
-                return false;
-            }
+            let new_eq = Eq::refl(cat, self.graph.faces[fce].eq.inp.clone());
+            let eq = self.graph.faces[fce].eq.clone();
+            return self.unify_eq(cat, &new_eq, &eq);
         }
 
         let (prefix_len, suffix_len) = self.find_common(fce, prefix_size, suffix_size);
@@ -209,67 +192,50 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         let left_slice = &self.graph.faces[fce].left[left_range.clone()];
         let right_range = prefix_len..(self.graph.faces[fce].right.len() - suffix_len);
         let right_slice = &self.graph.faces[fce].right[right_range.clone()];
-        let left = self.realize_morphism(src_id, left_slice);
-        let right = self.realize_morphism(src_id, right_slice);
+        let (left, left_mph) = realize_morphism(&mut self.ctx, &self.graph, src_id, left_slice);
+        let (right, right_mph) = realize_morphism(&mut self.ctx, &self.graph, src_id, right_slice);
 
         // We create the new equality
-        let ex = self.ctx.new_existential();
-        let new_eq = self.ctx.mk(ActualEquality::Atomic(EqualityData {
-            pobj: self.ctx.mk(ActualProofObject::Existential(ex)),
-            category: self.graph.faces[fce].eq.cat(&self.ctx),
-            src: self.graph.nodes[src_id].0.clone(),
-            dst: self.graph.nodes[dst_id].0.clone(),
-            left,
-            right,
-        }));
+        log::trace!("Creating existential");
+        let ex = self
+            .ctx
+            .remote
+            .build(Feature::Equality {
+                cat,
+                src: self.graph.nodes[src_id].0,
+                dst: self.graph.nodes[dst_id].0,
+                left,
+                right,
+            })
+            .unwrap();
+        let new_eq = Eq::atomic(cat, left_mph, right_mph, ex);
         let mut prev_eq = new_eq.clone();
 
         // Shrinking the suffix
         if suffix_len != 0 {
-            let suffix = self.realize_morphism(
+            let (_, suffix) = realize_morphism(
+                &mut self.ctx,
+                &self.graph,
                 dst_id,
                 &self.graph.faces[fce].left[(self.graph.faces[fce].left.len() - suffix_len)..],
             );
-<<<<<<< Updated upstream
-            prev_eq = self.shrink_suffix(prev_eq, suffix);
-||||||| Stash base
-            log::trace!("Suffixing with [{}]\"{}\"", sterm, self.ctx.get_stored_label(sterm));
             prev_eq.rap(&suffix);
-=======
-            prev_eq.rap(&suffix);
->>>>>>> Stashed changes
         }
 
         // Shrinking the prefix
         if prefix_len != 0 {
-            let prefix = self.realize_morphism(
+            let (_, prefix) = realize_morphism(
+                &mut self.ctx,
+                &self.graph,
                 self.graph.faces[fce].start,
                 &self.graph.faces[fce].left[0..prefix_len],
             );
-<<<<<<< Updated upstream
-            prev_eq = self.shrink_prefix(prev_eq, prefix);
-||||||| Stash base
-            log::trace!("Prefixing with [{}]\"{}\"", pterm, self.ctx.get_stored_label(pterm));
             prev_eq.lap(&prefix);
-=======
-            prev_eq.lap(&prefix);
->>>>>>> Stashed changes
         }
 
         // Unify with previous face
-        assert!(new_eq.check(&self.ctx));
-        let sigma = unify(
-            &self.ctx,
-            self.graph.faces[fce].eq.clone().term(),
-            prev_eq.term(),
-            UnifOpts {
-                ground: HashSet::from([ex]),
-                ..Default::default()
-            },
-        );
-        if let Some(sigma) = sigma {
-            self.refine(sigma);
-        } else {
+        let eq = self.graph.faces[fce].eq.clone();
+        if !self.unify_eq(cat, &eq, &prev_eq) {
             return false;
         }
 
@@ -284,7 +250,6 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             eq: new_eq,
             label: FaceLabel {
                 label: "".to_string(),
-                label_source: LabelSource::None,
                 name: "".to_string(),
                 hidden: false,
                 parent: Some(fce),

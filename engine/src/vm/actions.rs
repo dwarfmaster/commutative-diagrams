@@ -4,7 +4,7 @@ mod label;
 // mod lemma;
 // mod merge;
 // mod pushout;
-// mod shrink;
+mod shrink;
 // mod solve;
 mod split;
 mod unif_eq;

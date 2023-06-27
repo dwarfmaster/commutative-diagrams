@@ -145,37 +145,34 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     result = ExecutionError;
                 }
             }
-            PullFace(f, _size) => {
-                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
-                    // if !self.shrink(f, Some(0), size) {
-                    //     self.error_msg = "Couldn't pull previous face".to_string();
-                    //     result = ExecutionError;
-                    // }
-                    todo!()
+            PullFace(f, size) => {
+                if let Some(GraphId::Face(f)) = self.names.get(&f.value) {
+                    if !self.shrink(*f, Some(0), size) {
+                        self.error_msg = "Couldn't pull previous face".to_string();
+                        result = ExecutionError;
+                    }
                 } else {
                     self.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
-            PushFace(f, _size) => {
-                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
-                    // if !self.shrink(f, size, Some(0)) {
-                    //     self.error_msg = "Couldn't push previous face".to_string();
-                    //     result = ExecutionError;
-                    // }
-                    todo!()
+            PushFace(f, size) => {
+                if let Some(GraphId::Face(f)) = self.names.get(&f.value) {
+                    if !self.shrink(*f, size, Some(0)) {
+                        self.error_msg = "Couldn't push previous face".to_string();
+                        result = ExecutionError;
+                    }
                 } else {
                     self.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             ShrinkFace(f) => {
-                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
-                    // if !self.shrink(f, None, None) {
-                    //     self.error_msg = "Couldn't shrink previous face".to_string();
-                    //     result = ExecutionError;
-                    // }
-                    todo!()
+                if let Some(GraphId::Face(f)) = self.names.get(&f.value) {
+                    if !self.shrink(*f, None, None) {
+                        self.error_msg = "Couldn't shrink previous face".to_string();
+                        result = ExecutionError;
+                    }
                 } else {
                     self.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
