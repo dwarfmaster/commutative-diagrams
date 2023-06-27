@@ -373,6 +373,17 @@ fn post_compose<R: TermEngine>(
                 m3: post,
             })
             .unwrap();
+        let left = rm
+            .remote()
+            .build(ComposeMph {
+                cat,
+                src,
+                mid,
+                dst,
+                m1: m,
+                m2: post,
+            })
+            .unwrap();
         let cmp = rm
             .remote()
             .build(ComposeMph {
@@ -382,6 +393,28 @@ fn post_compose<R: TermEngine>(
                 dst,
                 m1: m2,
                 m2: post,
+            })
+            .unwrap();
+        let mid = rm
+            .remote()
+            .build(ComposeMph {
+                cat,
+                src,
+                mid: mmid,
+                dst,
+                m1,
+                m2: cmp,
+            })
+            .unwrap();
+        let assoc = rm
+            .remote()
+            .build(InverseEq {
+                cat,
+                src,
+                dst,
+                left: mid,
+                right: left,
+                eq: assoc,
             })
             .unwrap();
         let lap = rm
@@ -395,28 +428,6 @@ fn post_compose<R: TermEngine>(
                 left: cmp,
                 right: r,
                 eq: req,
-            })
-            .unwrap();
-        let left = rm
-            .remote()
-            .build(ComposeMph {
-                cat,
-                src,
-                mid,
-                dst,
-                m1: m,
-                m2: post,
-            })
-            .unwrap();
-        let mid = rm
-            .remote()
-            .build(ComposeMph {
-                cat,
-                src,
-                mid: mmid,
-                dst,
-                m1,
-                m2: cmp,
             })
             .unwrap();
         let right = rm
