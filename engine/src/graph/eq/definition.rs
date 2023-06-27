@@ -190,7 +190,9 @@ impl Eq {
     }
 
     pub fn rap(&mut self, p: &Morphism) {
+        self.inp.dst = p.dst;
         self.inp.comps.extend(p.comps.iter().copied());
+        self.outp.dst = p.dst;
         self.outp.comps.extend(p.comps.iter().copied());
         self.slices.iter_mut().for_each(|slice| slice.rap(p));
     }

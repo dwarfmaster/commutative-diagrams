@@ -230,7 +230,14 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 dst_id,
                 &self.graph.faces[fce].left[(self.graph.faces[fce].left.len() - suffix_len)..],
             );
+<<<<<<< Updated upstream
             prev_eq = self.shrink_suffix(prev_eq, suffix);
+||||||| Stash base
+            log::trace!("Suffixing with [{}]\"{}\"", sterm, self.ctx.get_stored_label(sterm));
+            prev_eq.rap(&suffix);
+=======
+            prev_eq.rap(&suffix);
+>>>>>>> Stashed changes
         }
 
         // Shrinking the prefix
@@ -239,7 +246,14 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.graph.faces[fce].start,
                 &self.graph.faces[fce].left[0..prefix_len],
             );
+<<<<<<< Updated upstream
             prev_eq = self.shrink_prefix(prev_eq, prefix);
+||||||| Stash base
+            log::trace!("Prefixing with [{}]\"{}\"", pterm, self.ctx.get_stored_label(pterm));
+            prev_eq.lap(&prefix);
+=======
+            prev_eq.lap(&prefix);
+>>>>>>> Stashed changes
         }
 
         // Unify with previous face
