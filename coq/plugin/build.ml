@@ -112,20 +112,20 @@ let build_assoc ns env sigma objs =
 
 let build_left_unitality ns env sigma objs =
   let* [cat; src; dst; mph] = get_objs_value objs in
-  let* ec = Env.app (Env.mk_left_id ()) [| cat; src; dst; mph |] |> lift in
-  let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
-  let* id = Env.app (Env.mk_id ()) [| cat; src |] |> lift in
-  let* idmph = Env.app (Env.mk_comp ()) [| cat; src; src; dst; id; mph |] |> lift in
-  let* tp = Env.app (Env.mk_eq ()) [| tmph; idmph; mph |] |> lift in
-  Hyps.registerObj ns ec tp None
-
-let build_right_unitality ns env sigma objs =
-  let* [cat; src; dst; mph] = get_objs_value objs in
   let* ec = Env.app (Env.mk_right_id ()) [| cat; src; dst; mph |] |> lift in
   let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
   let* id = Env.app (Env.mk_id ()) [| cat; dst |] |> lift in
   let* mphid = Env.app (Env.mk_comp ()) [| cat; src; dst; dst; mph; id |] |> lift in
   let* tp = Env.app (Env.mk_eq ()) [| tmph; mphid; mph |] |> lift in
+  Hyps.registerObj ns ec tp None
+
+let build_right_unitality ns env sigma objs =
+  let* [cat; src; dst; mph] = get_objs_value objs in
+  let* ec = Env.app (Env.mk_left_id ()) [| cat; src; dst; mph |] |> lift in
+  let* tmph = Env.app (Env.mk_mphT ()) [| cat; src; dst |] |> lift in
+  let* id = Env.app (Env.mk_id ()) [| cat; src |] |> lift in
+  let* idmph = Env.app (Env.mk_comp ()) [| cat; src; src; dst; id; mph |] |> lift in
+  let* tp = Env.app (Env.mk_eq ()) [| tmph; idmph; mph |] |> lift in
   Hyps.registerObj ns ec tp None
 
 let build_left_application ns env sigma objs =
