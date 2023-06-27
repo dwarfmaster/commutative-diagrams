@@ -69,10 +69,7 @@ module Combinators = struct
 
   let env () = { runState = fun env _ st -> m_ret (env,st) }
   let evars () =
-    let* stk = get (fun st -> st.ctx_stack) in
-    match stk with
-    | [] -> lift Proofview.tclEVARMAP
-    | sigma :: _ -> ret sigma
+    lift Proofview.tclEVARMAP
   let masked () = { runState = fun _ mask st -> m_ret (mask,st) }
   let none () = ret None
   let some x = ret (Some x)
@@ -155,9 +152,12 @@ let saveState () =
   List.length stack |> ret
 let restoreState state =
   let* stack = stack () in
-  set (fun st -> { st with ctx_stack = drop (List.length stack - state) stack })
+  let nstack = drop (List.length stack - state) stack in
+  let* () = Proofview.Unsafe.tclEVARS (List.hd nstack) |> lift in
+  set (fun st -> { st with ctx_stack = nstack })
 let setState sigma =
   let* stack = stack () in 
+  let* () = Proofview.Unsafe.tclEVARS sigma |> lift in
   set (fun st -> { st with ctx_stack = sigma :: List.tl stack })
 
 let registerNamespace () =
