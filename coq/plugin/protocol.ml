@@ -53,10 +53,8 @@ let unify st args =
         end
     | _ -> None in
   let* env = env () in
-  let exception UnificationFailed in
   let unify_pair sigma (ec1,ec2) =
-    try Unification.w_unify env sigma Reduction.CONV ec1 ec2 with
-      _ -> raise UnificationFailed in
+    Unification.w_unify env sigma Reduction.CONV ec1 ec2 in
   let pairs = parse_pairs args in
   match pairs with
   | Some pairs -> begin try
@@ -68,7 +66,7 @@ let unify st args =
       let sigma = List.fold_left unify_pair sigma pairs in
       let* _ = Hyps.setState sigma in
       success (Boolean true)
-  with UnificationFailed -> success (Boolean false) end
+  with _ -> success (Boolean false) end
   | None -> failure "Wrong arguments to unify"
 
 (* TODO equalify is broken *)
