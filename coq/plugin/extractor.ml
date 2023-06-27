@@ -63,7 +63,7 @@ let scanM (pred : 'a -> 'b -> ('b * 'c option) Hyps.t)
   ret (acc,List.rev r)
 
 let extract_hyps (goal : Proofview.Goal.t) 
-               : (Lemmas.t list * Graph.graph) option Hyps.t =
+               : (Lemmas.t list * Graph.graph * EConstr.t) option Hyps.t =
   let* env = env () in
   let context = Proofview.Goal.hyps goal in
   let concl = Proofview.Goal.concl goal in
@@ -79,17 +79,23 @@ let extract_hyps (goal : Proofview.Goal.t)
       let bld = Graphbuilder.empty () in
       let* (bld,lemmas) = scanM (extract_hyp env) context bld in
       let* bld = Graphbuilder.import obj.id tpobj.id bld in
-      bld |> Graphbuilder.build |> Option.map (fun gr -> (lemmas, gr)) |> ret
+      bld |> Graphbuilder.build |> Option.map (fun gr -> (lemmas, gr, goal)) |> ret
   | None -> none ()
 
 let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit Hyps.t =
   let* obj = extract_hyps goal in
   match obj with
   | None -> fail "Goal is not a face"
-  | Some (lemmas,graph) ->
+  | Some (lemmas,graph,goal_term) ->
       let* globalLemmas = Lemmas.extractAllConstants () |> Hyps.withMask true in
       let lemmas = List.append lemmas globalLemmas in
       let* _ = Sv.run ~file:file ~force:force graph lemmas in
+      let* sigma = evars () in
+      let* env = env () in
+      let* () = Refine.refine ~typecheck:false 
+                  (fun _ -> Typing.solve_evars env sigma goal_term)
+                |> lift in
+      let* () = lift Refine.solve_constraints in
       ret ()
 let server file ~force : unit Proofview.tactic =
   Proofview.Goal.enter_one (fun goal -> server' file force goal |> runWithGoal goal)
