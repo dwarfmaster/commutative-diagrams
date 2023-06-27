@@ -71,6 +71,8 @@ let unify st args =
   with UnificationFailed -> success (Boolean false) end
   | None -> failure "Wrong arguments to unify"
 
+(* TODO equalify is broken *)
+(* The conversion checker fails with Univ.repr: Universe ... undefined *)
 let equalify st args =
   match args with
   | [ Integer o1; Integer o2 ] ->

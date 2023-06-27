@@ -111,7 +111,7 @@ open Combinators
 let push_back (arr : 'a array) (x : 'a) : 'a array = Array.append arr [| x |]
 let eqPred x y =
   let* sigma = evars () in
-  ret (EConstr.eq_constr sigma x y)
+  ret (EConstr.eq_constr_nounivs sigma x y)
   (* TODO Reductionops.check_conv fails under quantifiers for some reason *)
   (* ret (Reductionops.check_conv env sigma x y) *)
 
