@@ -111,6 +111,12 @@ and query_object_cached ns env sigma tp =
 
 and query_morphism env sigma tp =
   match EConstr.kind sigma tp with
+  | App (m, [| cat; src; dst |]) ->
+    begin match EConstr.kind sigma m with
+    | Const (name,_) when Env.is_mphT name ->
+        some (cat,src,dst)
+    | _ -> none ()
+    end
   | App (p, [| src; dst |]) ->
     begin match EConstr.kind sigma p with
       | Proj (p,cat) when Env.is_projection p Env.is_cat "morphism" ->

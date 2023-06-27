@@ -285,6 +285,7 @@ let g_coq_mphT_names : string array =
   [| "HoTT.Categories.Category.Core.morphism"
   |]
 let get_mphT = fun _ -> perform_locate g_coq_mphT g_coq_mphT_names locate_const
+let is_mphT = is_const g_coq_mphT g_coq_mphT_names
 let mk_mphT = fun _ -> mk_const (get_mphT ())
 
 
