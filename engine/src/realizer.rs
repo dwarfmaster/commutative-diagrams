@@ -122,7 +122,7 @@ fn mk_morphism<R: TermEngine>(rm: &mut R, cat: u64, mph: &Morphism) -> u64 {
                 .unwrap();
             (s1, d2, m)
         });
-    if let Some((_, m, _)) = r {
+    if let Some((_, _, m)) = r {
         m
     } else {
         rm.remote()
@@ -458,7 +458,7 @@ fn realize_slice<R: TermEngine>(
         }
     }
 
-    let (expecting, output, eq) =
+    let (eq, expecting, output) =
         partial_state.unwrap_or_else(|| panic!("There should be no empty slices in equalities"));
     let rep = repar(rm, cat, src, dst, input, expecting);
     let eq = rm
