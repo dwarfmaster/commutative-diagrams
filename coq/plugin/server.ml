@@ -98,8 +98,8 @@ let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) Hyps.t =
     | "query" -> run Protocol.query
     | "build" -> run Protocol.build
     | "parse" -> run Protocol.parse
-    | "saveState" -> run Protocol.saveState
-    | "restoreState" -> run Protocol.restoreState
+    | "save_state" -> run Protocol.saveState
+    | "restore_state" -> run Protocol.restoreState
     | "finish" -> run Protocol.finish
     | _ -> fail ("Unknown method: " ^ mtd)
     end
