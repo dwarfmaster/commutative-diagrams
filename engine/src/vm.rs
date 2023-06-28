@@ -5,6 +5,7 @@ mod compiler;
 mod engine;
 mod graph;
 mod interpreter;
+mod label;
 mod layout;
 mod lemmas;
 mod namer;

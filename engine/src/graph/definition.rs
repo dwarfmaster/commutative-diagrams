@@ -18,7 +18,7 @@ pub type Face<FaceLabel> = FaceImpl<Eq, FaceLabel>;
 /// Adjacency list 2-graph of morphisms
 #[derive(Clone, Debug)]
 pub struct GraphImpl<EqType, NodeLabel, EdgeLabel, FaceLabel> {
-    pub nodes: Vec<(u64, u64, NodeLabel)>,
+    pub nodes: Vec<(/*node*/ u64, /*cat*/ u64, NodeLabel)>,
     pub edges: Vec<Vec<(usize, EdgeLabel, u64)>>,
     pub faces: Vec<FaceImpl<EqType, FaceLabel>>,
 }

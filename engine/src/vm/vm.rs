@@ -1,4 +1,3 @@
-use crate::graph::eq::Eq;
 use crate::graph::GraphId;
 use crate::remote::Remote;
 use crate::vm::asm;
@@ -54,7 +53,6 @@ pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     pub names: HashMap<String, GraphId>,
     pub lemmas: Vec<Lemma>,
     pub end_status: EndStatus,
-    pub refinements: Vec<(u64, Eq)>,
 
     // Execution
     pub instructions: Vec<asm::Instruction>,
@@ -69,6 +67,11 @@ pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     // offset are kept stored in increasing order. The first offset is always 0.
     pub code_style: Vec<(usize, CodeStyle)>,
     pub error_msg: String,
+    // The proof-assistant states corresponding to the execution of actions.
+    // The nth actions has initial state states[n] and final state states[n+1]
+    // (which may be the same). As such states should never be empty, and
+    // always be of length exactly one more than the length of ast.
+    pub states: Vec<u64>,
 
     // Used to handle partial action execution. Indeed, some actions executions
     // are interactive, and as such can be in a state of being partially
@@ -110,9 +113,9 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             .into_iter()
             .map(|(id, name, namespace)| Lemma::new(id, name, namespace))
             .collect();
+        let init_state = ctx.remote.save_state().unwrap();
         let mut vm = Self {
             ctx,
-            refinements: Vec::new(),
             prev_code: String::new(),
             code: String::new(),
             ast: Vec::new(),
@@ -123,6 +126,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             code_style: vec![(0, CodeStyle::None)],
             error_msg: String::new(),
             run_until: 0,
+            states: vec![init_state],
             graph,
             offset: Vec2::ZERO,
             zoom: 1.0,

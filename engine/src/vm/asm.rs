@@ -53,5 +53,4 @@ pub enum Instruction {
     RelocateFaceRight(usize, Vec<usize>, Vec<usize>),
     UpdateFaceLabel(usize, Updater<FaceLabel>),
     RenameFace(usize, String, String),
-    ExtendRefinement(u64, Eq),
 }

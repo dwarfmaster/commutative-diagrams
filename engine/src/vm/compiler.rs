@@ -235,6 +235,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         } else {
             // Register the action as having been executed
             self.store_action(act, start);
+            let status = self.ctx.remote.save_state().unwrap();
+            self.states.push(status);
         }
         result
     }
@@ -319,6 +321,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
         // Undo all these actions and remove them from the ast
         let tail = self.ast.split_off(first_modified);
+        let status = self.states[first_modified];
+        self.states.truncate(first_modified + 1);
         self.initialize_execution();
         self.clear_interactive();
         for act in tail.iter().rev() {
@@ -326,6 +330,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.pop_instruction();
             }
         }
+        self.ctx.remote.restore_state(status).unwrap();
         self.finalize_execution();
 
         // Update run_until

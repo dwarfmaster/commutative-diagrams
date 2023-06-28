@@ -137,11 +137,11 @@ impl Remote for Mock {
     }
 
     fn save_state(&mut self) -> Result<u64, ()> {
-        Err(())
+        Ok(0)
     }
 
     fn restore_state(&mut self, _state: u64) -> Result<(), ()> {
-        Err(())
+        Ok(())
     }
 
     fn finish(&mut self, _success: bool) -> Result<(), ()> {

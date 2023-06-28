@@ -196,7 +196,6 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         let (right, right_mph) = realize_morphism(&mut self.ctx, &self.graph, src_id, right_slice);
 
         // We create the new equality
-        log::trace!("Creating existential");
         let ex = self
             .ctx
             .remote
@@ -260,7 +259,6 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         };
         self.register_instruction(Ins::InsertFace(new_face));
         self.hide(GraphId::Face(fce));
-        self.relabel();
         true
     }
 }

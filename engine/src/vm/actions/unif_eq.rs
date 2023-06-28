@@ -29,6 +29,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
         if let Some((_, _, left, right)) = self.ctx.is_eq(atomic, cat) {
             let eq = realize_eq(&mut self.ctx, left, right, &eq);
+            self.change_state();
             self.ctx
                 .remote
                 .unify(std::iter::once((atomic, eq)))
