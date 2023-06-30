@@ -89,7 +89,11 @@ let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit
   | Some (lemmas,graph,goal_term) ->
       let* globalLemmas = Lemmas.extractAllConstants () |> Hyps.withMask true in
       let lemmas = List.append lemmas globalLemmas in
+      let* () = Hyps.mapState (fun sigma -> (), Evd.push_shelf sigma) in
       let* _ = Sv.run ~file:file ~force:force graph lemmas in
+      let* shelf = Hyps.mapState Evd.pop_shelf in
+      let* handled = Hyps.handled () in
+      let* () = Hyps.mapState (fun sigma -> (), Evd.unshelve sigma handled) in
       let* sigma = evars () in
       let* env = env () in
       let* () = Refine.refine ~typecheck:false 

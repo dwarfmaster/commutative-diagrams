@@ -45,6 +45,9 @@ val saveState : unit -> int t
 val restoreState : int -> unit t
 val setState : Evd.evar_map -> unit t
 val mapState : (Evd.evar_map -> 'a * Evd.evar_map) -> 'a t
+(* Mark an evar as being handled by the plugin *)
+val handleEvar : EConstr.t -> unit t
+val handled : unit -> Evar.t list t
 
 (* The 0th namespace is pre-registered and always considered valid. It is also
    considered as a super-namespace for all other. When registering an object in a

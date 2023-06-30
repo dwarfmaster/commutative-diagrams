@@ -7,7 +7,8 @@ let get_objs_value = mapM Hyps.getObjValue
 let mk_evar env tp =
   let* sigma = evars () in
   let (sigma,evar) = Evarutil.new_evar env sigma tp in
-  let* _ = Hyps.setState sigma in
+  let* () = Hyps.setState sigma in
+  let* () = Hyps.handleEvar evar in
   ret evar
 
 let build_evar ns env tp =
