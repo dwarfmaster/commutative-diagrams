@@ -22,12 +22,16 @@ type obj_impl =
 
 (* Masked elements are not included in the goal graph sent to the engine *)
 module IntMap = Map.Make(struct type t = int let compare = compare end)
+type evar_state = (Evar.t * Evd.evar_info) list
 type state =
-  { ctx_stack  : Evd.evar_map list
+  { ctx_stack  : evar_state list
   ; objects    : obj_impl array array
   }
-let emptyState sigma : state =
-  { ctx_stack  = [ sigma ]
+
+let evarStateFromEvarMap sigma =
+  Evd.fold (fun ev info acc -> (ev,info) :: acc) sigma []
+let emptyState : state =
+  { ctx_stack  = [ ]
   ; objects    = [| [| |] |]
   }
 
@@ -63,7 +67,7 @@ module Combinators = struct
 
   let run env m = 
     m_bind Proofview.tclEVARMAP
-      (fun sigma -> m_bind (m.runState env false (emptyState sigma)) (fun (x,_) -> m_ret x))
+      (fun sigma -> m_bind (m.runState env false emptyState) (fun (x,_) -> m_ret x))
   let lift (x : 'a Proofview.tactic) : 'a t =
     { runState = fun _ _ st -> m_bind x (fun x -> m_ret (x,st)) }
 
@@ -148,17 +152,29 @@ let stack () = get (fun st -> st.ctx_stack)
 let saveState () =
   let* stack = stack () in
   let* sigma = evars () in
-  let* _ = set (fun st -> { st with ctx_stack = sigma :: stack }) in
+  let state = evarStateFromEvarMap sigma in
+  let* _ = set (fun st -> { st with ctx_stack = state :: stack }) in
   List.length stack |> ret
+let applyState sigma state =
+  (* A bit brutal *)
+  let evars = Evd.fold (fun evar _ acc -> evar :: acc) sigma [] in
+  let sigma = List.fold_left (fun sigma ev -> Evd.remove sigma ev) sigma evars in
+  let sigma = List.fold_left (fun sigma (ev,info) -> Evd.add sigma ev info) sigma state in
+  sigma
 let restoreState state =
   let* stack = stack () in
-  let nstack = drop (List.length stack - state) stack in
-  let* () = Proofview.Unsafe.tclEVARS (List.hd nstack) |> lift in
+  let nstack = drop (List.length stack - state - 1) stack in
+  let* sigma = evars () in
+  let sigma = List.hd nstack |> applyState sigma in
+  let* () = Proofview.Unsafe.tclEVARS sigma |> lift in
   set (fun st -> { st with ctx_stack = nstack })
 let setState sigma =
-  let* stack = stack () in 
+  Proofview.Unsafe.tclEVARS sigma |> lift
+let mapState fn =
+  let* sigma = evars () in
+  let r, sigma = fn sigma in
   let* () = Proofview.Unsafe.tclEVARS sigma |> lift in
-  set (fun st -> { st with ctx_stack = sigma :: List.tl stack })
+  ret r
 
 let registerNamespace () =
   let* id = get (fun st -> Array.length st.objects) in
