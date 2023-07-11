@@ -45,6 +45,14 @@ pub enum BlockData {
 // TODO handle functors
 
 impl Morphism {
+    pub fn atom(src: u64, dst: u64, mph: u64) -> Self {
+        Morphism {
+            src,
+            dst,
+            comps: vec![(src, dst, mph)],
+        }
+    }
+
     pub fn id(obj: u64) -> Self {
         Morphism {
             src: obj,
