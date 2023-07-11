@@ -1,6 +1,6 @@
 use crate::graph::eq::{Eq, Morphism};
 use crate::graph::{Face, FaceParsed, Graph, GraphParsed};
-use crate::normalizer::to_morphism;
+use crate::normalizer::morphism;
 use crate::remote::TermEngine;
 
 impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
@@ -9,24 +9,29 @@ impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
 
         // Normalize edges
         let edges = self.edges;
-        let mut edge_comps: Vec<Vec<Morphism>> = vec![Vec::new(); nodes.len()];
+        let mut edge_comps: Vec<Vec<(u64, Morphism)>> = vec![Vec::new(); nodes.len()];
         let mut edge_map: Vec<Vec<Option<usize>>> = vec![Vec::new(); nodes.len()];
         for src in 0..nodes.len() {
             for mph in 0..edges[src].len() {
                 let dst = edges[src][mph].0;
-                let comps = to_morphism(
+                let (mph, _, comps) = morphism(
                     rm,
                     nodes[src].1,
                     nodes[src].0,
                     nodes[dst].0,
                     edges[src][mph].2,
                 );
-                edge_comps[src].push(comps);
+                let norm = Morphism {
+                    src: nodes[src].0,
+                    dst: nodes[dst].0,
+                    comps,
+                };
+                edge_comps[src].push((mph, norm));
             }
             edge_map[src] = edge_comps[src]
                 .iter()
                 .scan(0, |index, cmps| {
-                    if cmps.comps.is_empty() {
+                    if cmps.1.comps.is_empty() {
                         // Identity case
                         Some(None)
                     } else {
@@ -52,7 +57,10 @@ impl<NL, EL, FL> GraphParsed<NL, EL, FL> {
                     .into_iter()
                     .enumerate()
                     .filter(|(i, _)| edge_map[src][*i].is_some())
-                    .map(|(i, mph)| (mph.0, mph.1, mph.2, edge_comps[src][i].clone()))
+                    .map(|(i, mph)| {
+                        let (m, norm) = edge_comps[src][i].clone();
+                        (mph.0, mph.1, m, norm)
+                    })
                     .collect()
             })
             .collect();
@@ -71,7 +79,7 @@ impl<FL> FaceParsed<FL> {
         nodes: &[(u64, u64, NL)],
         edges: &[Vec<(usize, EL, u64, ())>],
         edge_map: &[Vec<Option<usize>>],
-        edge_comps: &[Vec<Morphism>],
+        edge_comps: &[Vec<(u64, Morphism)>],
     ) -> Face<FL> {
         let nxt_mph = |src: &mut usize, mph: usize| -> Option<(usize, usize)> {
             let prev = *src;
@@ -99,7 +107,7 @@ impl<FL> FaceParsed<FL> {
                 .iter()
                 .copied()
                 .scan(self.start, nxt_mph)
-                .map(|(src, mph)| edge_comps[src][mph].comps.clone())
+                .map(|(src, mph)| edge_comps[src][mph].1.comps.clone())
                 .flatten()
                 .collect(),
         };
@@ -110,7 +118,7 @@ impl<FL> FaceParsed<FL> {
                 .iter()
                 .copied()
                 .scan(self.start, nxt_mph)
-                .map(|(src, mph)| edge_comps[src][mph].comps.clone())
+                .map(|(src, mph)| edge_comps[src][mph].1.comps.clone())
                 .flatten()
                 .collect(),
         };
