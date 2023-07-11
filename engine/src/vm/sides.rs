@@ -1,13 +1,18 @@
+use crate::graph::eq::Morphism;
 use crate::remote::Remote;
 use crate::vm::graph::EdgeLabel;
 use crate::vm::{Graph, Interactive, VM};
 
-fn on_path<F>(edges: &mut Vec<Vec<(usize, EdgeLabel, u64)>>, mut node: usize, nexts: &[usize], f: F)
-where
+fn on_path<F>(
+    edges: &mut Vec<Vec<(usize, EdgeLabel, u64, Morphism)>>,
+    mut node: usize,
+    nexts: &[usize],
+    f: F,
+) where
     F: Fn(&mut EdgeLabel),
 {
     for nid in 0..nexts.len() {
-        let (dst, lbl, _) = &mut edges[node][nexts[nid]];
+        let (dst, lbl, _, _) = &mut edges[node][nexts[nid]];
         f(lbl);
         node = *dst;
     }

@@ -44,6 +44,22 @@ pub enum BlockData {
 
 // TODO handle functors
 
+impl Morphism {
+    pub fn id(obj: u64) -> Self {
+        Morphism {
+            src: obj,
+            dst: obj,
+            comps: Vec::new(),
+        }
+    }
+
+    pub fn compose(&mut self, other: &Morphism) {
+        assert_eq!(self.dst, other.src);
+        self.dst = other.dst;
+        self.comps.extend(other.comps.iter());
+    }
+}
+
 impl Eq {
     pub fn refl(cat: u64, p: Morphism) -> Eq {
         Eq {

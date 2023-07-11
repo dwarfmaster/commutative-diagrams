@@ -1,6 +1,13 @@
 use crate::data::Feature;
+use crate::graph::eq::Morphism;
 use crate::remote::Remote;
 use crate::remote::TermEngine;
+
+pub fn to_morphism<R: TermEngine>(rm: &mut R, cat: u64, src: u64, dst: u64, mph: u64) -> Morphism {
+    let mut functs = Vec::new();
+    let (_, _, comps) = norm_under_functors(rm, &mut functs, cat, src, dst, mph, false);
+    Morphism { src, dst, comps }
+}
 
 pub fn morphism<R: TermEngine>(
     rm: &mut R,
@@ -14,7 +21,8 @@ pub fn morphism<R: TermEngine>(
     /* components */ Vec<(u64, u64, u64)>,
 ) {
     let mut functs = Vec::new();
-    norm_under_functors(rm, &mut functs, cat, src, dst, mph)
+    let (mph, eq, comps) = norm_under_functors(rm, &mut functs, cat, src, dst, mph, true);
+    (mph.unwrap(), eq.unwrap(), comps)
 }
 
 // Given a list of functors and a morphism, give the image of the morphism
@@ -524,91 +532,111 @@ fn norm_under_functors<R: TermEngine>(
     src: u64,
     dst: u64,
     m: u64,
+    build: bool,
 ) -> (
-    /*morphism*/ u64,
-    /*equality*/ u64,
+    /*morphism*/ Option<u64>,
+    /*equality*/ Option<u64>,
     /* components */ Vec<(u64, u64, u64)>,
 ) {
     use Feature::*;
     if let Some(e) = rm.is_identity(m, cat) {
-        let (_, _, id, eq) = raise_identity(rm, functs, cat, e);
+        let (id, eq) = if build {
+            let (_, _, id, eq) = raise_identity(rm, functs, cat, e);
+            (Some(id), Some(eq))
+        } else {
+            (None, None)
+        };
         (id, eq, Vec::new())
     } else if let Some((_, mid, _, m1, m2)) = rm.is_comp(m, cat) {
         let (fcat, fsrc, fmid, fdst, fm1, fm2, fleft, fright, feq) =
             raise_composition(rm, functs, cat, src, mid, dst, m1, m2);
-        let (nm1, eq1, mut comps) = norm_under_functors(rm, functs, cat, src, mid, m1);
-        let (nm2, eq2, mut comps2) = norm_under_functors(rm, functs, cat, mid, dst, m2);
+        let (nm1, eq1, mut comps) = norm_under_functors(rm, functs, cat, src, mid, m1, build);
+        let (nm2, eq2, mut comps2) = norm_under_functors(rm, functs, cat, mid, dst, m2, build);
         comps.append(&mut comps2);
-        let cmpeq = rm
-            .remote()
-            .build(ComposeEq {
-                cat: fcat,
-                src: fsrc,
-                mid: fmid,
-                dst: fdst,
-                left1: fm1,
-                right1: nm1,
-                eq1,
-                left2: fm2,
-                right2: nm2,
-                eq2,
-            })
-            .unwrap();
-        let nm12 = rm
-            .remote()
-            .build(ComposeMph {
-                cat: fcat,
-                src: fsrc,
-                mid: fmid,
-                dst: fdst,
-                m1: nm1,
-                m2: nm2,
-            })
-            .unwrap();
-        let eq = rm
-            .remote()
-            .build(Concat {
-                cat: fcat,
-                src: fsrc,
-                dst: fdst,
-                left: fleft,
-                mid: fright,
-                right: nm12,
-                eq1: feq,
-                eq2: cmpeq,
-            })
-            .unwrap();
-        let (r, req) = post_compose(rm, fcat, fsrc, fmid, fdst, nm1, nm2);
-        let eq = rm
-            .remote()
-            .build(Concat {
-                cat: fcat,
-                src: fsrc,
-                dst: fdst,
-                left: fleft,
-                mid: nm12,
-                right: r,
-                eq1: eq,
-                eq2: req,
-            })
-            .unwrap();
+        let (r, eq) = if build {
+            let nm1 = nm1.unwrap();
+            let eq1 = eq1.unwrap();
+            let nm2 = nm2.unwrap();
+            let eq2 = eq2.unwrap();
+            let cmpeq = rm
+                .remote()
+                .build(ComposeEq {
+                    cat: fcat,
+                    src: fsrc,
+                    mid: fmid,
+                    dst: fdst,
+                    left1: fm1,
+                    right1: nm1,
+                    eq1,
+                    left2: fm2,
+                    right2: nm2,
+                    eq2,
+                })
+                .unwrap();
+            let nm12 = rm
+                .remote()
+                .build(ComposeMph {
+                    cat: fcat,
+                    src: fsrc,
+                    mid: fmid,
+                    dst: fdst,
+                    m1: nm1,
+                    m2: nm2,
+                })
+                .unwrap();
+            let eq = rm
+                .remote()
+                .build(Concat {
+                    cat: fcat,
+                    src: fsrc,
+                    dst: fdst,
+                    left: fleft,
+                    mid: fright,
+                    right: nm12,
+                    eq1: feq,
+                    eq2: cmpeq,
+                })
+                .unwrap();
+            let (r, req) = post_compose(rm, fcat, fsrc, fmid, fdst, nm1, nm2);
+            let eq = rm
+                .remote()
+                .build(Concat {
+                    cat: fcat,
+                    src: fsrc,
+                    dst: fdst,
+                    left: fleft,
+                    mid: nm12,
+                    right: r,
+                    eq1: eq,
+                    eq2: req,
+                })
+                .unwrap();
+            (Some(r), Some(eq))
+        } else {
+            (None, None)
+        };
         (r, eq, comps)
     } else if let Some((scat, funct, src, dst, mph)) = rm.is_funct_mph(m, cat) {
         functs.push((scat, cat, funct));
-        let norm = norm_under_functors(rm, functs, scat, src, dst, mph);
+        let norm = norm_under_functors(rm, functs, scat, src, dst, mph, build);
         functs.pop();
         norm
     } else {
         let (fcat, fsrc, fdst, fmph) = apply_functors(rm, functs, cat, src, dst, m);
-        let rfl = rm
-            .remote()
-            .build(Reflexivity {
-                cat: fcat,
-                src: fsrc,
-                dst: fdst,
-                mph: fmph,
-            })
-            .unwrap();
-        (fmph, rfl, vec![(fsrc, fdst, fmph)])
+        let (mph, rfl) = if build {
+            let rfl = rm
+                .remote()
+                .build(Reflexivity {
+                    cat: fcat,
+                    src: fsrc,
+                    dst: fdst,
+                    mph: fmph,
+                })
+                .unwrap();
+            (Some(fmph), Some(rfl))
+        } else {
+            (None, None)
+        };
+        (mph, rfl, vec![(fsrc, fdst, fmph)])
     }
 }

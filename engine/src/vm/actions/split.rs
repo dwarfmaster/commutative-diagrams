@@ -1,5 +1,5 @@
 use crate::graph::GraphId;
-use crate::normalizer;
+use crate::normalizer::to_morphism;
 use crate::remote::Remote;
 use crate::vm::asm;
 use crate::vm::{Interactive, VM};
@@ -16,7 +16,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             for fce in 0..self.graph.faces.len() {
                 let replace =
                     |node: &mut usize, nxt: &usize| -> Option<Box<dyn Iterator<Item = usize>>> {
-                        let (dst, _, _) = &self.graph.edges[*node][*nxt];
+                        let (dst, _, _, _) = &self.graph.edges[*node][*nxt];
                         let prev = *node;
                         *node = *dst;
                         if prev == src && *nxt == mph {
@@ -69,7 +69,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         let dobj = self.graph.nodes[self.graph.edges[src][mph].0].0;
         let mobj = self.graph.edges[src][mph].2;
 
-        let (_, _, comps) = normalizer::morphism(&mut self.ctx, cat, sobj, dobj, mobj);
+        let comps = to_morphism(&mut self.ctx, cat, sobj, dobj, mobj).comps;
         if comps.len() == 1 {
             return None;
         }
@@ -218,9 +218,9 @@ mod tests {
             },
         );
 
-        let gr = GraphImpl::<u64, (), (), ()> {
+        let gr = GraphImpl::<(), u64, (), (), ()> {
             nodes: vec![(v, cat, Default::default()), (z, cat, Default::default())],
-            edges: vec![vec![(1, Default::default(), m)], vec![]],
+            edges: vec![vec![(1, Default::default(), m, ())], vec![]],
             faces: vec![],
         };
         ctx.set_graph(gr);

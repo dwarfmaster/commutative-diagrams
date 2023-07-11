@@ -1,4 +1,4 @@
-use crate::graph::eq::Eq;
+use crate::graph::eq::{Eq, Morphism};
 use crate::graph::Face;
 use crate::vm::{EdgeLabel, FaceLabel, NodeLabel};
 use std::fmt::{Debug, Error, Formatter};
@@ -39,7 +39,7 @@ pub enum Instruction {
     UpdateNode(usize, u64, u64),
     UpdateNodeLabel(usize, Updater<NodeLabel>),
     RenameNode(usize, String, String),
-    InsertMorphism(usize, usize, u64),
+    InsertMorphism(usize, usize, u64, Morphism),
     UpdateMorphism(usize, usize, u64, u64),
     RelocateMorphismSrc(usize, usize, usize),
     RelocateMorphismDst(usize, usize, usize, usize),

@@ -28,8 +28,8 @@ struct Nodes<'a, NL> {
     nodes: &'a [(u64, u64, NL)],
 }
 
-struct Edges<'a, EL> {
-    edges: &'a [Vec<(usize, EL, u64)>],
+struct Edges<'a, EL, MPH> {
+    edges: &'a [Vec<(usize, EL, u64, MPH)>],
 }
 
 struct Faces<'a, FL> {
@@ -80,7 +80,7 @@ impl Serialize for Edge {
     }
 }
 
-impl<'a, EL> Serialize for Edges<'a, EL> {
+impl<'a, EL, MPH> Serialize for Edges<'a, EL, MPH> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -90,7 +90,7 @@ impl<'a, EL> Serialize for Edges<'a, EL> {
                 .iter()
                 .enumerate()
                 .map(|(src, v)| {
-                    v.iter().map(move |(dst, _, mph)| Edge {
+                    v.iter().map(move |(dst, _, mph, _)| Edge {
                         src,
                         dst: *dst,
                         mph: *mph,
@@ -282,14 +282,14 @@ impl<'de, NL: Default, EL: Default, FL: Default> Visitor<'de> for GraphDeseriali
             .map(|nd| (nd.obj, nd.cat, Default::default()))
             .collect();
 
-        let mut gr_edges: Vec<Vec<(usize, EL, u64)>> = Vec::new();
+        let mut gr_edges: Vec<Vec<(usize, EL, u64, ())>> = Vec::new();
         for _ in 0..gr_nodes.len() {
             gr_edges.push(Vec::new())
         }
         let mut edges_map: Vec<(usize, usize)> = Vec::new();
         for edge in edges {
             edges_map.push((edge.src, gr_edges[edge.src].len()));
-            gr_edges[edge.src].push((edge.dst, Default::default(), edge.mph));
+            gr_edges[edge.src].push((edge.dst, Default::default(), edge.mph, ()));
         }
 
         let mut gr_faces: Vec<graph::FaceParsed<FL>> = Vec::new();

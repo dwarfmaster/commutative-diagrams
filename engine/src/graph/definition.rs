@@ -1,4 +1,4 @@
-use super::eq::Eq;
+use super::eq::{Eq, Morphism};
 use std::vec::Vec;
 
 /// A pair of two paths in a graph with the same start and end
@@ -17,14 +17,14 @@ pub type Face<FaceLabel> = FaceImpl<Eq, FaceLabel>;
 
 /// Adjacency list 2-graph of morphisms
 #[derive(Clone, Debug)]
-pub struct GraphImpl<EqType, NodeLabel, EdgeLabel, FaceLabel> {
+pub struct GraphImpl<MphType, EqType, NodeLabel, EdgeLabel, FaceLabel> {
     pub nodes: Vec<(/*node*/ u64, /*cat*/ u64, NodeLabel)>,
-    pub edges: Vec<Vec<(usize, EdgeLabel, u64)>>,
+    pub edges: Vec<Vec<(usize, EdgeLabel, u64, MphType)>>,
     pub faces: Vec<FaceImpl<EqType, FaceLabel>>,
 }
 
-pub type GraphParsed<NL, EL, FL> = GraphImpl<u64, NL, EL, FL>;
-pub type Graph<NL, EL, FL> = GraphImpl<Eq, NL, EL, FL>;
+pub type GraphParsed<NL, EL, FL> = GraphImpl<(), u64, NL, EL, FL>;
+pub type Graph<NL, EL, FL> = GraphImpl<Morphism, Eq, NL, EL, FL>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GraphId {
@@ -34,9 +34,9 @@ pub enum GraphId {
 }
 
 impl<EQ, FL> FaceImpl<EQ, FL> {
-    fn check_path<NL, EL>(
+    fn check_path<MPH, NL, EL>(
         path: &[usize],
-        gr: &GraphImpl<EQ, NL, EL, FL>,
+        gr: &GraphImpl<MPH, EQ, NL, EL, FL>,
         node: usize,
         next: usize,
     ) -> Option<usize> {
@@ -51,7 +51,7 @@ impl<EQ, FL> FaceImpl<EQ, FL> {
         }
     }
 
-    pub fn check<NL, EL>(&self, gr: &GraphImpl<EQ, NL, EL, FL>) -> bool {
+    pub fn check<MPH, NL, EL>(&self, gr: &GraphImpl<MPH, EQ, NL, EL, FL>) -> bool {
         self.start < gr.nodes.len()
             && self.end < gr.nodes.len()
             && FaceImpl::check_path(&self.left, gr, self.start, 0)
@@ -63,7 +63,7 @@ impl<EQ, FL> FaceImpl<EQ, FL> {
     }
 }
 
-impl<EQ, NL, EL, FL> GraphImpl<EQ, NL, EL, FL> {
+impl<MPH, EQ, NL, EL, FL> GraphImpl<MPH, EQ, NL, EL, FL> {
     pub fn new() -> Self {
         Self {
             nodes: Vec::new(),

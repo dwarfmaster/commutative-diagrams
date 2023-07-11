@@ -64,7 +64,7 @@ impl Remote for Mock {
                 .iter()
                 .map(|v| {
                     v.iter()
-                        .map(|(dst, (), m)| (*dst, Default::default(), m.clone()))
+                        .map(|(dst, (), m, ())| (*dst, Default::default(), m.clone(), ()))
                         .collect()
                 })
                 .collect(),

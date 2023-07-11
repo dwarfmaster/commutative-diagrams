@@ -9,7 +9,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         }
         for src in 0..self.graph.nodes.len() {
             for mph_id in 0..self.graph.edges[src].len() {
-                let (_, lbl, mph) = &mut self.graph.edges[src][mph_id];
+                let (_, lbl, mph, _) = &mut self.graph.edges[src][mph_id];
                 lbl.label = self.ctx.get_stored_label(*mph);
             }
         }

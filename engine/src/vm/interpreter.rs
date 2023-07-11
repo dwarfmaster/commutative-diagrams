@@ -86,8 +86,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.names.remove(prev);
                 self.names.insert(new.clone(), GraphId::Node(*nd));
             }
-            InsertMorphism(src, dst, mph) => {
-                self.graph.edges[*src].push((*dst, Default::default(), mph.clone()));
+            InsertMorphism(src, dst, mph, morph) => {
+                self.graph.edges[*src].push((*dst, Default::default(), mph.clone(), morph.clone()));
                 self.autoname_morphism(*src, self.graph.edges[*src].len() - 1);
                 self.eval_status.should_relayout = true;
                 self.eval_status.should_relabel = true;
@@ -200,7 +200,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.names.remove(new);
                 self.names.insert(prev.clone(), GraphId::Node(*nd));
             }
-            InsertMorphism(src, _, _) => {
+            InsertMorphism(src, _, _, _) => {
                 if let Some(mph) = self.graph.edges[*src].pop() {
                     self.names.remove(&mph.1.name);
                 }

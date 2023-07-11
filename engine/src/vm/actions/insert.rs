@@ -1,3 +1,4 @@
+use crate::normalizer::to_morphism;
 use crate::remote::Remote;
 use crate::vm::asm;
 use crate::vm::{Interactive, VM};
@@ -34,7 +35,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         let (src, dst) = self.ctx.is_mph(mph, cat).unwrap();
         assert_eq!(src, self.graph.nodes[node].0);
         let ndst = self.insert_node(dst, cat);
-        self.register_instruction(Ins::InsertMorphism(node, ndst, mph));
+        let morph = to_morphism(&mut self.ctx, cat, src, dst, mph);
+        self.register_instruction(Ins::InsertMorphism(node, ndst, mph, morph));
         (self.graph.edges[node].len() - 1, ndst)
     }
 
