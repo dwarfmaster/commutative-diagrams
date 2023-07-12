@@ -1,5 +1,6 @@
 use crate::graph::eq::Morphism;
 use crate::graph::Graph;
+use itertools::Itertools;
 use std::collections::HashMap;
 
 pub struct Enum {
@@ -21,6 +22,14 @@ impl Enum {
         match self.reverse.get(&(cat, mph.clone())) {
             Some(id) => Some(*id),
             None => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn debug_log(&self) {
+        for (id, (_, path)) in self.paths.iter().enumerate() {
+            let mph = path.comps.iter().map(|(_, _, mph)| mph).format(" >> ");
+            log::trace!("{} -> {}", id, mph);
         }
     }
 }

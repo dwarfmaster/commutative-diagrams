@@ -41,6 +41,13 @@ impl<R: TermEngine> UF<R> {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn debug_log(&self) {
+        for (id, cell) in self.cells.iter().enumerate() {
+            log::trace!("{} -> {}", id, cell.parent);
+        }
+    }
+
     pub fn register_hook<F>(&mut self, f: F)
     where
         F: Fn(&mut R, Eq, &mut Vec<Eq>) + 'static,
