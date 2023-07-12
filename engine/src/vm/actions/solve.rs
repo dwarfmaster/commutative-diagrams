@@ -13,9 +13,12 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             current = self.graph.faces[nxt].label.parent;
         }
 
-        let sigma = solve(&mut self.ctx, &self.graph, &mask, fce, max_size);
-        if let Some(sigma) = sigma {
-            self.refine(sigma);
+        let cat = self.graph.nodes[self.graph.faces[fce].start].1;
+        let solved = solve(&mut self.ctx, &self.graph, &mask, fce, max_size);
+        if let Some(eq) = solved {
+            let feq = self.graph.faces[fce].eq.clone();
+            self.unify_eq(cat, &feq, &eq);
+            // self.refine(sigma);
             true
         } else {
             false

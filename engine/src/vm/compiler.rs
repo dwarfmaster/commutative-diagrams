@@ -133,13 +133,12 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     result = ExecutionError;
                 }
             }
-            Solve(_size, f) => {
-                if let Some(GraphId::Face(_f)) = self.names.get(&f.value) {
-                    // if !self.solve_face(f, size.map(|a| a.value).unwrap_or(5)) {
-                    //     self.error_msg = format!("Couldn't solve face {}", f);
-                    //     result = ExecutionError;
-                    // }
-                    todo!()
+            Solve(size, f) => {
+                if let Some(GraphId::Face(f)) = self.names.get(&f.value).cloned() {
+                    if !self.solve_face(f, size.map(|a| a.value).unwrap_or(5)) {
+                        self.error_msg = format!("Couldn't solve face {}", f);
+                        result = ExecutionError;
+                    }
                 } else {
                     self.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;

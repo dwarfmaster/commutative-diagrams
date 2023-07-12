@@ -4,6 +4,6 @@ mod insert;
 // mod merge;
 // mod pushout;
 mod shrink;
-// mod solve;
+mod solve;
 mod split;
 mod unif_eq;
