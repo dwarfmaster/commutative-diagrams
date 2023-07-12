@@ -173,10 +173,22 @@ module Instantiate = struct
             let* env = env () in
             let* sigma = evars () in
             let name = match q.name with
-            | Some nm -> Namegen.IntroIdentifier (Names.Id.of_string nm)
+            | Some nm -> begin
+              let base_name = nm in
+              let name = ref base_name in
+              let count = ref 0 in
+              let () = try while true do
+                let _ = Evd.evar_key (Names.Id.of_string !name) sigma in
+                name := Printf.sprintf "%s%d" base_name !count;
+                count := !count  + 1;
+              done with Not_found -> () in
+              Namegen.IntroIdentifier (Names.Id.of_string !name)
+            end
             | None -> Namegen.IntroAnonymous in
-            let (sigma,evar) = Evarutil.new_evar ~naming:name env sigma tp in
-            let* _ = Hyps.setState sigma in
+            let* evar = 
+              Hyps.mapState 
+                (fun sigma -> let (sigma, evar) = Evarutil.new_evar ~naming:name env sigma tp
+                              in  (evar, sigma)) in
             ret evar in
         let* obj = Hyps.registerObj 0 vl tp q.name in
         bound (obj :: partial) (vl :: subst) left
