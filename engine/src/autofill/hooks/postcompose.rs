@@ -1,16 +1,10 @@
-use crate::data::{ActualEquality, Context, Equality, Morphism};
-use crate::dsl::{eq, mph};
-use crate::normalize;
+use crate::graph::eq::{Eq, Morphism};
+use crate::remote::TermEngine;
 
-pub fn hook(mph: Morphism, ctx: &mut Context, eq: Equality, opts: &mut Vec<Equality>) {
-    if mph.src(ctx) == eq.dst(ctx) {
-        let left = eq.left(ctx);
-        let right = eq.right(ctx);
-        let (_, eql) = normalize::morphism(ctx, mph!(ctx, left >> mph));
-        let (_, eqr) = normalize::morphism(ctx, mph!(ctx, right >> mph));
-        let eq = ctx.mk(ActualEquality::RAp(eq, mph.clone()));
-        let eq = eq!(ctx, (~eql) . (eq . eqr));
-        assert!(eq.check(ctx), "Invalid equality produced");
-        opts.push(eq)
+pub fn hook<R: TermEngine>(mph: &Morphism, _ctx: &mut R, eq: Eq, opts: &mut Vec<Eq>) {
+    if mph.src == eq.inp.dst {
+        let mut neq = eq.clone();
+        neq.rap(mph);
+        opts.push(neq);
     }
 }
