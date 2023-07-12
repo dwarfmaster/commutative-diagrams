@@ -89,13 +89,15 @@ impl<FL> FaceParsed<FL> {
 
         let left_path: Vec<usize> = self
             .left
-            .into_iter()
+            .iter()
+            .copied()
             .scan(self.start, nxt_mph)
             .filter_map(|(src, mph)| edge_map[src][mph])
             .collect();
         let right_path: Vec<usize> = self
             .right
-            .into_iter()
+            .iter()
+            .copied()
             .scan(self.start, nxt_mph)
             .filter_map(|(src, mph)| edge_map[src][mph])
             .collect();
@@ -103,7 +105,8 @@ impl<FL> FaceParsed<FL> {
         let left_mph = Morphism {
             src: nodes[self.start].0,
             dst: nodes[self.end].0,
-            comps: left_path
+            comps: self
+                .left
                 .iter()
                 .copied()
                 .scan(self.start, nxt_mph)
@@ -114,7 +117,8 @@ impl<FL> FaceParsed<FL> {
         let right_mph = Morphism {
             src: nodes[self.start].0,
             dst: nodes[self.end].0,
-            comps: right_path
+            comps: self
+                .right
                 .iter()
                 .copied()
                 .scan(self.start, nxt_mph)
