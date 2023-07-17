@@ -48,6 +48,15 @@ val mapState : (Evd.evar_map -> 'a * Evd.evar_map) -> 'a t
 (* Mark an evar as being handled by the plugin *)
 val handleEvar : EConstr.t -> unit t
 val handled : unit -> Evar.t list t
+(* Execute a monadic instruction, then returns the evar_map at the end and restore
+   the stateful evar_map to the one before the execution *)
+val evarsExcursion : 'a t -> ('a * Evd.evar_map) t
+(* In hidden state, registered objects are not de-duplicated, will not be used when
+   de-duplicating non-masked objects. A masked object remain masked for its entire
+   lifetime. This is used exclusively for the pattern protocol *)
+val enterHiddenState : unit -> unit t
+val leaveHiddenState : unit -> unit t
+val hiddenState : unit -> bool t
 
 (* The 0th namespace is pre-registered and always considered valid. It is also
    considered as a super-namespace for all other. When registering an object in a
@@ -60,7 +69,10 @@ val getObjValue : obj -> EConstr.t t
 val getObjType : obj -> EConstr.t t
 val getObjName : obj -> string option t
 val getObjMask : obj -> bool t
+val getObjHidden : obj -> bool t
 val getObjMtdt : obj -> metadata t
+val getObjEvars : obj -> Evd.evar_map t
+val setEvars : obj -> Evd.evar_map -> unit t
 val markAsCat : obj -> unit -> unit t
 val markAsFunct : obj -> obj * obj -> unit t
 val markAsElem : obj -> obj -> unit t

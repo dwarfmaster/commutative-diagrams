@@ -14,6 +14,7 @@ val unify : state -> Msgpack.t list -> result Hyps.t
 val equalify : state -> Msgpack.t list -> result Hyps.t
 val lemmas : state -> Msgpack.t list -> result Hyps.t
 val instantiate : state -> Msgpack.t list -> result Hyps.t
+val pattern : state -> Msgpack.t list -> result Hyps.t
 val query : state -> Msgpack.t list -> result Hyps.t
 val build : state -> Msgpack.t list -> result Hyps.t
 val parse : state -> Msgpack.t list -> result Hyps.t

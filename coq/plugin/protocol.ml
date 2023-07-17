@@ -14,7 +14,7 @@ let success m = Success m |> ret
 let failure m = Failure m |> ret
 let terminate (b,m) = Terminate (b,m) |> ret
 let global_ns = 0
-let global id = { Hyps.namespace = global_ns; Hyps.id = id; }
+let global id = Hyps.({ namespace = global_ns; id = id; })
 
 let goal st args =
   let* gr = Graph.Serde.pack st.goal in
@@ -31,7 +31,7 @@ let info st args =
       | None -> Nil in
       (* Label *)
       let* env = env () in
-      let* sigma = evars () in
+      let* sigma = Hyps.getObjEvars obj in
       let* vl = Hyps.getObjValue obj in
       let label = Pp.(Printer.pr_econstr_env env sigma vl |> string_of_ppcmds) in
       (* Evars *)
@@ -96,6 +96,18 @@ let instantiate st args =
       let* graph = Lemmas.instantiate st.lemmas.(lem) in
       success @<< Graph.Serde.pack graph
   | _ -> failure "Wrong arguments to instantiate"
+
+let pattern st args =
+  match args with
+  | [ Integer lem ] ->
+      let* () = Hyps.enterHiddenState () in
+      let* (graph,sigma) = Lemmas.instantiate st.lemmas.(lem)
+                           |> Hyps.evarsExcursion in
+      let* () = Hyps.leaveHiddenState () in
+      let* graph =
+        Graph.mapM (fun id -> let* () = Hyps.setEvars (global id) sigma in ret id) graph in
+      success @<< Graph.Serde.pack graph
+  | _ -> failure "Wrong arguments to pattern"
 
 let query st args =
   match args with

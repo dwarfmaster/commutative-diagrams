@@ -1,4 +1,5 @@
 
+(* TODO mask is not used anymore *)
 type obj =
   { namespace: int
   ; id: int
@@ -17,7 +18,9 @@ type obj_impl =
   ; tp: EConstr.t
   ; name: string option
   ; mask: bool
+  ; hidden: bool
   ; mtdt: metadata
+  ; evars: Evd.evar_map option
   }
 
 (* Masked elements are not included in the goal graph sent to the engine *)
@@ -27,6 +30,7 @@ type state =
   { ctx_stack  : evar_state list
   ; handled    : Evar.t list
   ; objects    : obj_impl array array
+  ; hiding     : bool
   }
 
 let evarStateFromEvarMap mask sigma =
@@ -35,7 +39,8 @@ let evarStateFromEvarMap mask sigma =
 let emptyState : state =
   { ctx_stack  = [ ]
   ; handled = [ ]
-  ; objects    = [| [| |] |]
+  ; objects = [| [| |] |]
+  ; hiding = false
   }
 
 type 'a t = 
@@ -151,6 +156,7 @@ let withMask mask act = { runState = fun env _ st -> act.runState env mask st }
 let withEnv env act = { runState = fun _ mask st -> act.runState env mask st }
 
 let stack () = get (fun st -> st.ctx_stack)
+let is_hiding () = get (fun st -> st.hiding)
 let saveState () =
   let* stack = stack () in
   let* sigma = evars () in
@@ -193,6 +199,16 @@ let handleEvar ev =
   | Evar (ev,_) -> set (fun st -> { st with handled = ev :: st.handled })
   | _ -> assert false (* The constr must be an evar *)
 let handled () = get (fun st -> st.handled)
+let evarsExcursion act =
+  let* sigma = evars () in
+  let* r = act in
+  let* rsigma = evars () in
+  let* () = setState sigma in
+  ret (r, rsigma)
+
+let enterHiddenState () = set (fun st -> { st with hiding = true })
+let leaveHiddenState () = set (fun st -> { st with hiding = false })
+let hiddenState () = get (fun st -> st.hiding)
 
 let registerNamespace () =
   let* id = get (fun st -> Array.length st.objects) in
@@ -202,7 +218,10 @@ let registerNamespace () =
 
 let objects ns = get (fun st -> st.objects.(ns))
 let find_object ns ec =
-  Option.map fst <$> arr_find_optM (fun o -> eqPred o.value ec) @<< objects ns
+  Option.map fst
+  <$> arr_find_optM 
+        (fun o -> if o.hidden then ret false else eqPred o.value ec) 
+        @<< objects ns
 let hasObject ns ec =
   let* in_ns = find_object ns ec in
   match in_ns with
@@ -211,7 +230,8 @@ let hasObject ns ec =
             then none () 
             else Option.map (fun id -> { namespace = 0; id = id; }) <$> find_object 0 ec
 let registerObj ns vl tp name =
-  let* id = hasObject ns vl in
+  let* hide = is_hiding () in
+  let* id = if hide then ret None else hasObject ns vl in
   let* mask = masked () in
   match id with
   | Some obj ->
@@ -219,18 +239,29 @@ let registerObj ns vl tp name =
       let id = obj.id in
       let* _ = set (fun st ->
         let objects = st.objects in
+        assert (not objects.(ns).(id).hidden);
         objects.(ns).(id) <- {
           value = vl;
           tp = tp;
           name = merge_option name objects.(ns).(id).name;
           mask = mask && objects.(ns).(id).mask;
+          hidden = false;
           mtdt = objects.(ns).(id).mtdt;
+          evars = objects.(ns).(id).evars;
         };
         { st with objects = objects }) in
       ret obj
   | None ->
       let* nid = Array.length <$> objects ns in
-      let obj = { value = vl; tp = tp; name = name; mask = mask; mtdt = emptyMtdt; } in
+      let obj = { 
+        value = vl; 
+        tp = tp; 
+        name = name; 
+        mask = mask; 
+        hidden = hide;
+        mtdt = emptyMtdt; 
+        evars = None; 
+      } in
       let* _ = set (fun st -> 
         let objects = st.objects in
         objects.(ns) <- push_back st.objects.(ns) obj;
@@ -240,7 +271,21 @@ let getObjValue obj = get (fun st -> st.objects.(obj.namespace).(obj.id).value)
 let getObjType obj = get (fun st -> st.objects.(obj.namespace).(obj.id).tp)
 let getObjName obj = get (fun st -> st.objects.(obj.namespace).(obj.id).name)
 let getObjMask obj = get (fun st -> st.objects.(obj.namespace).(obj.id).mask)
+let getObjHidden obj = get (fun st -> st.objects.(obj.namespace).(obj.id).hidden)
 let getObjMtdt obj = get (fun st -> st.objects.(obj.namespace).(obj.id).mtdt)
+let getObjEvars obj =
+  let* sigma = get (fun st -> st.objects.(obj.namespace).(obj.id).evars) in
+  match sigma with
+  | Some sigma -> ret sigma
+  | None -> evars ()
+
+let setEvars obj sigma =
+  set (fun st ->
+    let objects = st.objects in
+    objects.(obj.namespace).(obj.id) <-
+      { objects.(obj.namespace).(obj.id)
+        with evars = Some sigma };
+    { st with objects = objects })
 
 let markAsCat obj cat =
   set (fun st ->

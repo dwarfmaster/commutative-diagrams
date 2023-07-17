@@ -95,6 +95,7 @@ let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) Hyps.t =
     | "equalify" -> run Protocol.equalify
     | "lemmas" -> run Protocol.lemmas
     | "instantiate" -> run Protocol.instantiate
+    | "pattern" -> run Protocol.pattern
     | "query" -> run Protocol.query
     | "build" -> run Protocol.build
     | "parse" -> run Protocol.parse

@@ -174,7 +174,6 @@ module Make(O: Map.OrderedType) = struct
         let* dst = mk dst in
         let* left = mk_comp src dst left in
         let* right = mk_comp src dst right in
-        (* TODO split left and right *)
         add_face cat src dst left right obj builder |> ret
     | None -> ret builder in
     ret builder
