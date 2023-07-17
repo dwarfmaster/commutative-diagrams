@@ -23,6 +23,11 @@ pub trait Remote {
         NL: Default,
         EL: Default,
         FL: Default;
+    fn pattern<NL, EL, FL>(&mut self, lem: u64) -> Result<GraphParsed<NL, EL, FL>, Self::Error>
+    where
+        NL: Default,
+        EL: Default,
+        FL: Default;
     fn query(&mut self, obj: u64, tag: Tag) -> Result<Vec<Feature>, Self::Error>;
     fn build(&mut self, feat: Feature) -> Result<u64, Self::Error>;
     fn parse(&mut self, str: String) -> Result<Result<u64, String>, Self::Error>;

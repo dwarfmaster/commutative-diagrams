@@ -59,6 +59,16 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
         self.receive_msg(req)
     }
 
+    fn pattern<NL, EL, FL>(&mut self, lem: u64) -> Result<GraphParsed<NL, EL, FL>, Self::Error>
+    where
+        NL: Default,
+        EL: Default,
+        FL: Default,
+    {
+        let req = self.send_msg("pattern", [lem])?;
+        self.receive_msg(req)
+    }
+
     fn query(&mut self, obj: u64, tag: Tag) -> Result<Vec<Feature>, Self::Error> {
         let req = self.send_msg("query", (obj, tag))?;
         self.receive_msg(req)

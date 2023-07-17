@@ -117,6 +117,15 @@ impl Remote for Mock {
         Err(())
     }
 
+    fn pattern<NL, EL, FL>(&mut self, _lem: u64) -> Result<GraphParsed<NL, EL, FL>, ()>
+    where
+        NL: Default,
+        EL: Default,
+        FL: Default,
+    {
+        Err(())
+    }
+
     fn query(&mut self, obj: u64, tag: Tag) -> Result<Vec<Feature>, ()> {
         Ok(self.terms[obj as usize]
             .feats
