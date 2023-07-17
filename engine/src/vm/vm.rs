@@ -145,18 +145,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
         vm.recompute_face_statuses();
         vm.init_face_order();
         Self::layout(&mut vm.graph);
-        vm.prepare_lemmas();
         vm
-    }
-
-    fn prepare_lemmas(&mut self) {
-        self.lemmas.iter_mut().for_each(|lemma| {
-            if let Some(pattern) = &mut lemma.pattern {
-                Self::layout(pattern);
-            }
-            lemma.relabel(&mut self.ctx);
-            lemma.name(&mut self.ctx);
-        });
     }
 
     pub fn recompile_to(&mut self, to: usize) -> Option<ast::AST> {

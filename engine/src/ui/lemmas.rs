@@ -67,8 +67,9 @@ pub fn lemmas_window<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<
                                         .desired_width(f32::INFINITY),
                                 )
                                 .interact(egui::Sense::click())
-                                .on_hover_text(&lemma.name);
+                                .on_hover_text(&format!("{} > {}", lemma.namespace, lemma.name));
                             if resp.clicked() {
+                                vm.lemmas[lem].instantiate(&mut vm.ctx);
                                 vm.selected_lemma = Some(lem);
                             }
                         }

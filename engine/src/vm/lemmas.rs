@@ -103,4 +103,20 @@ impl Lemma {
             VM::<Mock, ()>::unshow_face_impl(pattern, fce);
         }
     }
+
+    pub fn instantiate<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>) {
+        if self.pattern.is_some() {
+            return;
+        }
+
+        let graph = ctx
+            .remote
+            .pattern::<NodeLabel, EdgeLabel, FaceLabel>(self.id)
+            .unwrap();
+        let mut graph = graph.prepare(ctx);
+        VM::<Mock, ()>::layout(&mut graph);
+        self.pattern = Some(graph);
+        self.relabel(ctx);
+        self.name(ctx);
+    }
 }
