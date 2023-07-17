@@ -42,7 +42,10 @@ let extract_hyp (env : Environ.env)
       let* tpobj = Hyps.registerObj global_ns tp tptp None in
       Graphbuilder.import obj.id tpobj.id bld
     else ret bld in
-  let* lem = Lemmas.extractFromVar name tp |> Hyps.withMask true in
+  let* lem =
+    if relevant
+    then ret None
+    else (Lemmas.extractFromVar name tp |> Hyps.withMask true) in
   ret (bld, lem)
 
 let name : string -> Names.Name.t = fun s -> Names.Name.mk_name (Names.Id.of_string s)
