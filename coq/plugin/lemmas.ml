@@ -125,13 +125,15 @@ let build_lemma ns lemma tp quantifiers =
   let pattern = Bld.build bld in
   match pattern with
   | Some pattern ->
-      some {
-        name = name;
-        namespace = namespace;
-        bound = qs;
-        pattern = pattern;
-        store = ns;
-      }
+      if List.length pattern.gr_nodes > 0
+      then some {
+             name = name;
+             namespace = namespace;
+             bound = qs;
+             pattern = pattern;
+             store = ns;
+           }
+      else none ()
   | None -> none ()
 
 let extractFromType (id: lemmaTerm) (tp: EConstr.t) : lemma option Hyps.t =
