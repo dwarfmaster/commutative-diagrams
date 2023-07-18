@@ -17,6 +17,7 @@ where
     input: Deserializer<ReadReader<In>>,
     output: Out,
     id: u32,
+    pub current_lem: u64,
 }
 
 #[derive(Debug)]
@@ -154,6 +155,7 @@ where
             input: Deserializer::new(input),
             output,
             id: 0,
+            current_lem: 0,
         }
     }
 

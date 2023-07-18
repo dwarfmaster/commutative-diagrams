@@ -34,4 +34,8 @@ pub trait Remote {
     fn save_state(&mut self) -> Result<u64, Self::Error>;
     fn restore_state(&mut self, state: u64) -> Result<(), Self::Error>;
     fn finish(&mut self, success: bool) -> Result<(), Self::Error>;
+
+    // Set the lemma context
+    fn set_lem_context(&mut self, lem: u64);
+    fn unset_lem_context(&mut self);
 }

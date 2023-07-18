@@ -26,7 +26,7 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
     }
 
     fn info(&mut self, obj: u64) -> Result<(String, Option<String>, EvarStatus), Self::Error> {
-        let req = self.send_msg("info", [obj])?;
+        let req = self.send_msg("info", (self.current_lem, obj))?;
         self.receive_msg(req)
     }
 
@@ -70,13 +70,13 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
     }
 
     fn query(&mut self, obj: u64, tag: Tag) -> Result<Vec<Feature>, Self::Error> {
-        let req = self.send_msg("query", (obj, tag))?;
+        let req = self.send_msg("query", (self.current_lem, obj, tag))?;
         self.receive_msg(req)
             .map(|v: VecWrapper<Feature>| v.wrapped_vec)
     }
 
     fn build(&mut self, feat: Feature) -> Result<u64, Self::Error> {
-        let req = self.send_msg("build", feat)?;
+        let req = self.send_msg("build", (self.current_lem, feat))?;
         self.receive_msg(req)
     }
 
@@ -99,5 +99,13 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
     fn finish(&mut self, success: bool) -> Result<(), Self::Error> {
         let req = self.send_msg("finish", [success])?;
         self.receive_msg(req)
+    }
+
+    fn set_lem_context(&mut self, lem: u64) {
+        self.current_lem = lem;
+    }
+
+    fn unset_lem_context(&mut self) {
+        self.current_lem = 0;
     }
 }

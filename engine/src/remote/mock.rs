@@ -156,4 +156,8 @@ impl Remote for Mock {
     fn finish(&mut self, _success: bool) -> Result<(), ()> {
         Ok(())
     }
+
+    fn set_lem_context(&mut self, _lem: u64) {}
+
+    fn unset_lem_context(&mut self) {}
 }
