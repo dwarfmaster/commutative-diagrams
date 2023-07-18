@@ -113,12 +113,12 @@ impl Lemma {
             .remote
             .pattern::<NodeLabel, EdgeLabel, FaceLabel>(self.id)
             .unwrap();
-        ctx.remote.set_lem_context(self.id);
+        ctx.set_lem_context(self.id);
         let mut graph = graph.prepare(ctx);
         VM::<Mock, ()>::layout(&mut graph);
         self.pattern = Some(graph);
         self.relabel(ctx);
         self.name(ctx);
-        ctx.remote.unset_lem_context();
+        ctx.unset_lem_context();
     }
 }
