@@ -140,7 +140,7 @@ module Make(O: Map.OrderedType) = struct
               }
     else if important then raise ImportantFailed else None
 
-  let import ns obj tp mk builder =
+  let import obj tp mk builder =
     let open Hyps.Combinators in
     let* mtdt = Hyps.getObjMtdt tp in
     let* builder = match mtdt.is_elem with
@@ -161,7 +161,7 @@ module Make(O: Map.OrderedType) = struct
         let rec mk_comp src dst mph =
           let* vl = Hyps.getObjValue mph in
           let* tp = Hyps.getObjType mph in
-          let* cmp = Query.query ns env Features.Tag.ComposeMph vl tp in
+          let* cmp = Query.query env Features.Tag.ComposeMph vl tp in
           match cmp with
           | Some (_, Features.ComposeMph (_,_,mid,_,m1,m2)) ->
               let* mid = mk mid in
@@ -217,10 +217,9 @@ let add_edge = MInt.add_edge
 let add_face = MInt.add_face
 let import obj tp bld = 
   MInt.import
-    0
     obj 
-    Hyps.({ id = tp; namespace = 0; })
-    (fun obj -> Hyps.Combinators.ret obj.Hyps.id) 
+    tp
+    (fun obj -> Hyps.Combinators.ret obj) 
     bld
 let build = MInt.build
 let build_unsafe = MInt.build_unsafe

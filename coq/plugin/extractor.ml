@@ -16,8 +16,6 @@ let runWithGoal goal act =
   let env = Proofview.Goal.env goal in
   run env act
 
-let global_ns = 0
-
 let extract_hyp (env : Environ.env)
                 (dec : EConstr.named_declaration) 
                 (bld : builder) 
@@ -27,25 +25,25 @@ let extract_hyp (env : Environ.env)
     | Context.Named.Declaration.LocalAssum (name,tp) -> (name.binder_name, tp)
     | Context.Named.Declaration.LocalDef (name,_,tp) -> (name.binder_name, tp) in
   let ec = EConstr.mkVar name in
-  let* is_cat = Query.query global_ns env Features.Tag.Category ec tp in
-  let* is_obj = Query.query global_ns env Features.Tag.Object ec tp in
-  let* is_mph = Query.query global_ns env Features.Tag.Morphism ec tp in
-  let* is_funct = Query.query global_ns env Features.Tag.Functor ec tp in
-  let* is_eq = Query.query global_ns env Features.Tag.Equality ec tp in
+  let* is_cat = Query.query env Features.Tag.Category ec tp in
+  let* is_obj = Query.query env Features.Tag.Object ec tp in
+  let* is_mph = Query.query env Features.Tag.Morphism ec tp in
+  let* is_funct = Query.query env Features.Tag.Functor ec tp in
+  let* is_eq = Query.query env Features.Tag.Equality ec tp in
   let relevant = List.exists Option.has_some [ is_cat; is_obj; is_mph; is_funct; is_eq ] in
   let* bld =
     if relevant 
     then
       let name = Names.Id.print name |> Pp.string_of_ppcmds in
-      let* obj = Hyps.registerObj global_ns ec tp (Some name) in 
-      let* tptp = Query.get_type global_ns env sigma tp in
-      let* tpobj = Hyps.registerObj global_ns tp tptp None in
-      Graphbuilder.import obj.id tpobj.id bld
+      let* obj = Hyps.registerObj ec tp (Some name) in 
+      let* tptp = Query.get_type env sigma tp in
+      let* tpobj = Hyps.registerObj tp tptp None in
+      Graphbuilder.import obj tpobj bld
     else ret bld in
   let* lem =
     if relevant
     then ret None
-    else (Lemmas.extractFromVar name tp |> Hyps.withMask true) in
+    else Lemmas.extractFromVar name tp in
   ret (bld, lem)
 
 let name : string -> Names.Name.t = fun s -> Names.Name.mk_name (Names.Id.of_string s)
@@ -71,16 +69,16 @@ let extract_hyps (goal : Proofview.Goal.t)
   let context = Proofview.Goal.hyps goal in
   let concl = Proofview.Goal.concl goal in
   let* goal = Build.mk_evar env concl in
-  let* is_eq = Query.query global_ns env Features.Tag.Equality goal concl in
+  let* is_eq = Query.query env Features.Tag.Equality goal concl in
   match is_eq with
   | Some _ ->
       let* sigma = evars () in
-      let* tptp = Query.get_type global_ns env sigma concl in
-      let* tpobj = Hyps.registerObj global_ns concl tptp None in
-      let* obj = Hyps.registerObj global_ns goal concl (Some "Goal") in
+      let* tptp = Query.get_type env sigma concl in
+      let* tpobj = Hyps.registerObj concl tptp None in
+      let* obj = Hyps.registerObj goal concl (Some "Goal") in
       let bld = Graphbuilder.empty () in
       let* (bld,lemmas) = scanM (extract_hyp env) context bld in
-      let* bld = Graphbuilder.import obj.id tpobj.id bld in
+      let* bld = Graphbuilder.import obj tpobj bld in
       bld |> Graphbuilder.build |> Option.map (fun gr -> (lemmas, gr, goal)) |> ret
   | None -> none ()
 
@@ -89,7 +87,7 @@ let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit
   match obj with
   | None -> fail "Goal is not a face"
   | Some (lemmas,graph,goal_term) ->
-      let* globalLemmas = Lemmas.extractAllConstants () |> Hyps.withMask true in
+      let* globalLemmas = Lemmas.extractAllConstants () in
       let lemmas = List.append lemmas globalLemmas in
       let* () = Hyps.mapState (fun sigma -> (), Evd.push_shelf sigma) in
       let* _ = Sv.run ~file:file ~force:force graph lemmas in

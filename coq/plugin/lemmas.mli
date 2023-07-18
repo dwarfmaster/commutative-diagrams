@@ -6,3 +6,4 @@ val extractAllConstants : unit -> t list Hyps.t
 val name : t -> string
 val namespace : t -> string
 val instantiate : t -> Graph.graph Hyps.t
+val context : t -> int

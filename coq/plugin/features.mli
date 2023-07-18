@@ -32,7 +32,7 @@ module Tag : sig
   module Eq : Map.OrderedType with type t = t
 end
 
-type obj = Hyps.obj
+type obj = int
 type t =
   (* Types *)
   | Category

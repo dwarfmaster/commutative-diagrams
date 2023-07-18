@@ -3,17 +3,13 @@
    context. It also offers a reader monad over the goal environment.
 *)
 
-type obj =
-  { namespace: int
-  ; id: int
-  }
-val compare_obj : obj -> obj -> int
+type obj = int
 type metadata =
   { is_cat: unit option
-  ; is_funct: (obj * obj) option
-  ; is_elem: obj option
-  ; is_mph: (obj * obj * obj) option
-  ; is_eq: (obj * obj * obj * obj * obj) option
+  ; is_funct: (int * int) option
+  ; is_elem: int option
+  ; is_mph: (int * int * int) option
+  ; is_eq: (int * int * int * int * int) option
   }
 type 'a t
 
@@ -39,7 +35,6 @@ module Combinators : sig
   val mapM    : ('a -> 'b t) -> 'a list -> 'b list t
 end
 
-val withMask : bool -> 'a t -> 'a t
 val withEnv : Environ.env -> 'a t -> 'a t
 val saveState : unit -> int t
 val restoreState : int -> unit t
@@ -48,34 +43,26 @@ val mapState : (Evd.evar_map -> 'a * Evd.evar_map) -> 'a t
 (* Mark an evar as being handled by the plugin *)
 val handleEvar : EConstr.t -> unit t
 val handled : unit -> Evar.t list t
-(* Execute a monadic instruction, then returns the evar_map at the end and restore
-   the stateful evar_map to the one before the execution *)
-val evarsExcursion : 'a t -> ('a * Evd.evar_map) t
-(* In hidden state, registered objects are not de-duplicated, will not be used when
-   de-duplicating non-masked objects. A masked object remain masked for its entire
-   lifetime. This is used exclusively for the pattern protocol *)
-val enterHiddenState : unit -> unit t
-val leaveHiddenState : unit -> unit t
-val hiddenState : unit -> bool t
 
 (* The 0th namespace is pre-registered and always considered valid. It is also
    considered as a super-namespace for all other. When registering an object in a
    namespace, it may add it to the 0th one if it was present in it. Same as with
    hasObject, which also search the Oth one. *)
 val registerNamespace : unit -> int t
-val registerObj : (* namespace *)int -> EConstr.t -> EConstr.t -> string option -> obj t
-val hasObject : int -> EConstr.t -> obj option t
-val getObjValue : obj -> EConstr.t t
-val getObjType : obj -> EConstr.t t
-val getObjName : obj -> string option t
-val getObjMask : obj -> bool t
-val getObjHidden : obj -> bool t
-val getObjMtdt : obj -> metadata t
-val getObjEvars : obj -> Evd.evar_map t
-val setEvars : obj -> Evd.evar_map -> unit t
-val markAsCat : obj -> unit -> unit t
-val markAsFunct : obj -> obj * obj -> unit t
-val markAsElem : obj -> obj -> unit t
-val markAsMph : obj -> obj * obj * obj -> unit t
-val markAsEq : obj -> obj * obj * obj * obj * obj -> unit t
+(* Execute a tactic in a specific namespace. A namespace stores a different evar map,
+   and a different view of objects. However, the state saving and restoring operations
+   are namespace independant and only operate on the evar map of the 0th aka global
+   namespace. If rollback is false, the global evar_map is not reverted at the end *)
+val inNamespace : ?rollback:bool -> int -> 'a t -> 'a t
+val registerObj : EConstr.t -> EConstr.t -> string option -> int t
+val hasObject : EConstr.t -> int option t
+val getObjValue : int -> EConstr.t t
+val getObjType : int -> EConstr.t t
+val getObjName : int -> string option t
+val getObjMtdt : int -> metadata t
+val markAsCat : int -> unit -> unit t
+val markAsFunct : int -> int * int -> unit t
+val markAsElem : int -> int -> unit t
+val markAsMph : int -> int * int * int -> unit t
+val markAsEq : int -> int * int * int * int * int -> unit t
 

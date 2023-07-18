@@ -113,7 +113,7 @@ module Tag = struct
   end
 end
 
-type obj = Hyps.obj
+type obj = int
 type t =
   (* Types *)
   | Category
@@ -248,6 +248,6 @@ module Eq = struct
   let compare x1 x2 =
     let cmp = Tag.Eq.compare (tag x1) (tag x2) in
     if cmp = 0
-    then List.compare Hyps.compare_obj (to_list x1) (to_list x2)
+    then List.compare Int.compare (to_list x1) (to_list x2)
     else cmp
 end
