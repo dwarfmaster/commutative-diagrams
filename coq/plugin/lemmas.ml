@@ -15,9 +15,9 @@ let ltcompare lt1 lt2 =
 
 type quantified =
   { name: string option
-  ; tp: obj
+  ; tp: EConstr.t
   (* If it has no value, it means it must be instantiated as an evar *)
-  ; value: obj option
+  ; value: EConstr.t option
   }
 
 type lemmaConstr =
@@ -28,8 +28,7 @@ type lemmaConstr =
   (* The first integer is an EConstr in the context, and the second one
      is the length of the prefix of the quantified variables that should act as
      a quantifier *)
-  (* TODO! can't there be collisions if the context is of different size ? *)
-  | Subst of obj * int
+  | Subst of obj
 
 type lemma =
   { name: string
@@ -58,7 +57,7 @@ module LCOrd = struct
     | App (tp1,lc1,lcs1), App (tp2,lc2,lcs2) -> 
         List.compare compare (tp1 :: lc1 :: lcs1) (tp2 :: lc2 :: lcs2)
     | Lemma lm1, Lemma lm2 -> ltcompare lm1 lm2
-    | Subst (ec1,_), Subst (ec2,_) -> Int.compare ec1 ec2
+    | Subst ec1, Subst ec2 -> Int.compare ec1 ec2
     | _ -> assert false
     end else cmp
 end
@@ -72,29 +71,25 @@ let mkName ltm =
 
 module Bld = Graphbuilder.Make(LCOrd)
 
-let add_to_builder lc tp dbindex bld =
+let add_to_builder lc tp bld =
   let to_lc obj =
-    let* vl = Hyps.getObjValue obj in
-    let* sigma = evars () in
-    match EConstr.kind sigma vl with
-    | Rel id -> ret (Var (id - 1))
-    | _ -> ret (Subst (obj,dbindex)) in
+    ret (Subst obj) in
   Bld.import lc tp to_lc bld
 
 (* dbindex is the index in the quantifiers list *)
-let handle_quantifier q dbindex lemma env bld =
+let handle_quantifier q n dbindex lemma env =
   match q.Query.kind with
   | Existential -> assert false
   | Universal ->
       let tp = q.Query.tp in
-      let lc = Var dbindex in
-      let* bld = add_to_builder lc tp dbindex bld |> Hyps.withEnv env in
+      let id = n - 1 - dbindex in
+      let lc = Var id in
+      let lctp = EConstr.Vars.lift (id + 1) tp in
       let nq = {
         name = Option.map (fun nm -> nm |> Names.Name.print |> Pp.string_of_ppcmds) q.Query.name;
         tp = tp;
         value = None;
       } in
-      let* tp = Hyps.getObjValue tp in
       let* sigma = evars () in
       let name = Context.({
         binder_name = Names.Name.Anonymous;
@@ -102,7 +97,7 @@ let handle_quantifier q dbindex lemma env bld =
       }) in
       let decl = Context.Rel.Declaration.LocalAssum (name,EConstr.to_constr sigma tp) in
       let env = Environ.push_rel decl env in
-      ret (env, bld, nq)
+      ret (env, (lc,lctp), nq)
   | LetIn v -> assert false
 
 let prepare_quantifier i q =
@@ -112,17 +107,34 @@ let prepare_quantifier i q =
   | LetIn _ -> None
 
 let build_lemma ns lemma tp quantifiers =
-  let rec handle_quantifiers env bld id = function
-    | [] -> ret (env,bld,[])
+  (* Process quantifiers *)
+  let rec handle_quantifiers env id = function
+    | [] -> ret (env,[],[])
     | q :: qs ->
-      let* (env,bld,q) = handle_quantifier q id lemma env bld in
-      let* (env,bld,qs) = handle_quantifiers env bld (id + 1) qs in
-      ret (env, bld, q::qs) in
+      let n = List.length quantifiers in
+      let* (env,lc,q) = handle_quantifier q n id lemma env in
+      let* (env,lcs,qs) = handle_quantifiers env (id + 1) qs in
+      ret (env, lc::lcs, q::qs) in
   let* env = env () in
-  let* (env,bld,qs) = handle_quantifiers env (Bld.empty ()) 0 quantifiers in
+  let* (env,lcs,qs) = handle_quantifiers env 0 quantifiers in
+
+  (* Add quantified elements to the graph *)
+  let rec fold_quantified bld = function
+    | [] -> ret bld
+    | (lc,tp) :: lcs ->
+        let* sigma = evars () in
+        let* tptp = Query.get_type env sigma tp in
+        let* tp = Hyps.registerObj tp tptp None in
+        let* bld = add_to_builder lc tp bld in
+        fold_quantified bld lcs in
+  let* bld = fold_quantified (Bld.empty ()) lcs |> Hyps.withEnv env in
+
+  (* Add the lemma to the graph *)
   let args = quantifiers |> List.mapi prepare_quantifier |> List.filter_map (fun x -> x) in
-  let lterm = App (Subst (tp,List.length quantifiers), Lemma lemma, args) in
-  let* bld = add_to_builder lterm tp (List.length quantifiers) bld |> Hyps.withEnv env in
+  let lterm = App (Subst tp, Lemma lemma, args) in
+  let* bld = add_to_builder lterm tp bld |> Hyps.withEnv env in
+
+  (* Finalize *)
   let name, namespace = mkName lemma in
   let pattern = Bld.build bld in
   match pattern with
@@ -172,9 +184,9 @@ module Instantiate = struct
     match left with
     | [] -> ret (partial,subst)
     | (q :: left) ->
-        let* tp = EConstr.Vars.substl subst <$> Hyps.getObjValue q.tp in
+        let tp = EConstr.Vars.substl subst q.tp in
         let* vl = match q.value with
-        | Some o -> EConstr.Vars.substl subst <$> Hyps.getObjValue o
+        | Some o -> EConstr.Vars.substl subst o |> ret
         | None -> 
             let* env = env () in
             let* sigma = evars () in
@@ -199,12 +211,6 @@ module Instantiate = struct
         let* obj = Hyps.registerObj vl tp q.name in
         bound (obj :: partial) (vl :: subst) left
 
-  let rec drop n = function
-    | [] -> []
-    | x :: l when n > 0 -> drop (n-1) l
-    | l -> l
-  let keep n l = drop (List.length l - n) l
-
   let rec lconstr subst lc =
     match lc with
     | Var id -> ret (List.nth subst id)
@@ -218,8 +224,7 @@ module Instantiate = struct
         | ConstLemma cst -> EConstr.mkConst cst
         | VarLemma var -> EConstr.mkVar var
         end
-    | Subst (obj,s) ->
-        let subst = keep s subst in
+    | Subst obj ->
         EConstr.Vars.substl subst <$> Hyps.getObjValue obj
 
   let obj_of_lconstr subst lc =

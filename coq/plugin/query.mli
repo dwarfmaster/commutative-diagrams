@@ -12,10 +12,10 @@ val query_infer_type : Environ.env
 type quantifiedKind =
   | Existential
   | Universal
-  | LetIn of Hyps.obj
+  | LetIn of EConstr.t
 type quantified =
   { name: Names.Name.t option
-  ; tp: Hyps.obj
+  ; tp: EConstr.t
   ; kind: quantifiedKind
   }
 val query_lemma : EConstr.t -> (quantified list * Hyps.obj) option Hyps.t
