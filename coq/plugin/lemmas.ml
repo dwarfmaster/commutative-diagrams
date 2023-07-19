@@ -83,8 +83,9 @@ let handle_quantifier q n dbindex lemma env =
   | Universal ->
       let tp = q.Query.tp in
       let id = n - 1 - dbindex in
-      let lc = Var id in
       let lctp = EConstr.Vars.lift (id + 1) tp in
+      let* lcid = Hyps.registerObj (EConstr.mkRel (id + 1)) lctp None in
+      let lc = Subst lcid in
       let nq = {
         name = Option.map (fun nm -> nm |> Names.Name.print |> Pp.string_of_ppcmds) q.Query.name;
         tp = tp;
@@ -99,12 +100,6 @@ let handle_quantifier q n dbindex lemma env =
       let env = Environ.push_rel decl env in
       ret (env, (lc,lctp), nq)
   | LetIn v -> assert false
-
-let prepare_quantifier i q =
-  match q.Query.kind with
-  | Existential -> None
-  | Universal -> Some (Var i)
-  | LetIn _ -> None
 
 let build_lemma ns lemma tp quantifiers =
   (* Process quantifiers *)
@@ -130,6 +125,11 @@ let build_lemma ns lemma tp quantifiers =
   let* bld = fold_quantified (Bld.empty ()) lcs |> Hyps.withEnv env in
 
   (* Add the lemma to the graph *)
+  let prepare_quantifier i q =
+    match q.Query.kind with
+    | Existential -> None
+    | Universal -> Some (Var i)
+    | LetIn _ -> None in
   let args = quantifiers |> List.mapi prepare_quantifier |> List.filter_map (fun x -> x) in
   let lterm = App (Subst tp, Lemma lemma, args) in
   let* bld = add_to_builder lterm tp bld |> Hyps.withEnv env in

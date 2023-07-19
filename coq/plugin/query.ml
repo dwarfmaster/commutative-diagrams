@@ -159,7 +159,7 @@ and query_eq env sigma tp =
   | App (eq, [| tp; left; right |]) ->
     begin match EConstr.kind sigma eq with
       | Ind (eq,_) when Env.is_eq eq ->
-          let* tp = Option.map snd <$> query_morphism_cached env sigma tp in 
+          let* tp = query_morphism env sigma tp in 
           begin match tp with
           | Some (cat,src,dst) -> some (cat,src,dst,left,right)
           | None -> none ()
@@ -171,12 +171,14 @@ and query_eq_cached env sigma tp =
   run_query_cached env sigma tp
     (query_eq env sigma)
     (fun (cat,src,dst,left,right) ->
-      let* left = ofst <$> query_impl env sigma Morphism left 
-                       @<< get_type env sigma left in
-      let* right = ofst <$> query_impl env sigma Morphism right 
-                        @<< get_type env sigma right in
-      match left, right with
-      | Some left, Some right -> some (cat, src, dst, left, right)
+      let query f x = ofst <$> query_impl env sigma f x @<< get_type env sigma x in
+      let* cat = query Category cat in
+      let* src = query Object src in
+      let* dst = query Object dst in
+      let* left = query Morphism left in
+      let* right = query Morphism right in
+      match cat, src, dst, left, right with
+      | Some cat, Some src, Some dst, Some left, Some right -> some (cat, src, dst, left, right)
       | _ -> none ())
     (fun mtdt -> mtdt.is_eq)
     Hyps.markAsEq
@@ -311,6 +313,12 @@ let query_infer_type env feat ec =
 (*  \__\_\\__,_|\__,_|_| |_|\__|_|_| |_|\___|\__,_| *)
 (*                                                  *)
 
+type property =
+  | Cat
+  | Funct of EConstr.t * EConstr.t
+  | Elem of EConstr.t
+  | Mph of EConstr.t * EConstr.t * EConstr.t
+  | Eq of EConstr.t * EConstr.t * EConstr.t * EConstr.t * EConstr.t
 type quantifiedKind =
   | Existential
   | Universal
@@ -318,6 +326,7 @@ type quantifiedKind =
 type quantified =
   { name: Names.Name.t option
   ; tp: EConstr.t
+  ; props: property list
   ; kind: quantifiedKind
   }
 
@@ -336,32 +345,68 @@ let is_some = function
   | Some _ -> true
   | None -> false
 
+let to_prop f = function
+  | Some x -> Some (f x)
+  | None -> None
+
 let is_relevant_type rctx sigma tp =
   let* env = build_env rctx sigma in
-  let* is_cat = is_some <$> query_cat env sigma tp in
-  let* is_obj = is_some <$> query_object env sigma tp in
-  let* is_mph = is_some <$> query_morphism env sigma tp in
-  let* is_fun = is_some <$> query_functor env sigma tp in
-  let* is_eq  = is_some <$> query_eq env sigma tp in
-  List.exists (fun b -> b) [is_cat; is_obj; is_mph; is_fun; is_eq] |> ret
+  let* is_cat = to_prop (fun x -> Cat) <$> query_cat env sigma tp in
+  let* is_obj = to_prop (fun x -> Elem x) <$> query_object env sigma tp in
+  let* is_mph = to_prop (fun (c,x,y) -> Mph (c,x,y)) <$> query_morphism env sigma tp in
+  let* is_fun = to_prop (fun (c,d) -> Funct (c,d)) <$> query_functor env sigma tp in
+  let* is_eq  = to_prop (fun (c,x,y,l,r) -> Eq (c,x,y,l,r)) <$> query_eq env sigma tp in
+  List.filter_map (fun x -> x) [is_cat; is_obj; is_mph; is_fun; is_eq] |> ret
+
+let apply_property_impl env sigma obj prop =
+  let reg x =
+    let* xt = get_type env sigma x in
+    Hyps.registerObj x xt None in
+  match prop with
+  | Cat -> Hyps.markAsCat obj ()
+  | Funct (c,d) ->
+      let* c = reg c in
+      let* d = reg d in
+      Hyps.markAsFunct obj (c,d)
+  | Elem c ->
+      let* c = reg c in
+      Hyps.markAsElem obj c
+  | Mph (c,x,y) ->
+      let* c = reg c in
+      let* x = reg x in
+      let* y = reg y in
+      Hyps.markAsMph obj (c,x,y)
+  | Eq (c,x,y,l,r) ->
+      let* c = reg c in
+      let* x = reg x in
+      let* y = reg y in
+      let* l = reg l in
+      let* r = reg r in
+      Hyps.markAsEq obj (c,x,y,l,r)
+
+let apply_property obj prop =
+  let* env = env () in
+  let* sigma = evars () in
+  apply_property_impl env sigma obj prop
 
 let rec query_lemma_impl rctx sigma tp =
   match EConstr.kind sigma tp with
   | Prod (name,arg,body) ->
-      let* rel = is_relevant_type rctx sigma arg in
-      if rel
+      let* props = is_relevant_type rctx sigma arg in
+      if List.length props > 0
       then
-        let q = { name = Some name.binder_name; tp = arg; kind = Universal } in
+        let q = { name = Some name.binder_name; tp = arg; props = props; kind = Universal } in
         query_lemma_impl (q :: rctx) sigma body
       else 
         none ()
   | _ ->
-      let* rel = is_relevant_type rctx sigma tp in
-      if rel
+      let* props = is_relevant_type rctx sigma tp in
+      if List.length props > 0
       then
         let* env = build_env rctx sigma in
         let* tptp = get_type env sigma tp in
         let* id = Hyps.registerObj tp tptp None in
+        let* _ = mapM (apply_property_impl env sigma id) props in
         some (List.rev rctx, id)
       else
         none ()
@@ -369,4 +414,13 @@ let rec query_lemma_impl rctx sigma tp =
 let query_lemma tp = 
   let* sigma = evars () in
   query_lemma_impl [] sigma tp
+
+let lift_property n prop =
+  let lift = EConstr.Vars.lift n in
+  match prop with
+  | Cat -> Cat
+  | Funct (c,d) -> Funct (lift c, lift d)
+  | Elem c -> Elem (lift c)
+  | Mph (c,x,y) -> Mph (lift c, lift x, lift y)
+  | Eq (c,x,y,l,r) -> Eq (lift c, lift x, lift y, lift l, lift r)
 
