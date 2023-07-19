@@ -55,7 +55,7 @@ pub fn code<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
             },
             ..Default::default()
         };
-        ui.fonts().layout_job(job)
+        ui.fonts(|f| f.layout_job(job))
     };
 
     ui.with_layout(egui::Layout::top_down_justified(egui::Align::RIGHT), |ui| {

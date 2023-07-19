@@ -18,7 +18,7 @@ use clap::{Parser, Subcommand};
 
 use bevy::app::AppExit;
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContext, EguiPlugin};
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
 type RPC = remote::RPC<std::io::Stdin, std::io::Stdout>;
 type VM = ui::VM<RPC>;
@@ -76,20 +76,20 @@ fn goal_graph(client: RPC, state: Option<String>) {
     log::info!("Running the ui");
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
-        .add_plugin(EguiPlugin)
-        .add_state(vm::EndStatus::Running)
+        .add_plugins(EguiPlugin)
+        .add_state::<vm::EndStatus>()
         .insert_resource(vm)
         .insert_resource(AppConfig { file: state })
-        .add_system_set(SystemSet::on_update(vm::EndStatus::Running).with_system(goal_ui_system))
-        .add_system_set(SystemSet::on_enter(vm::EndStatus::Success).with_system(success_system))
-        .add_system_set(SystemSet::on_enter(vm::EndStatus::Failure).with_system(failure_system));
+        .add_systems(Update, goal_ui_system)
+        .add_systems(OnEnter(vm::EndStatus::Success), success_system)
+        .add_systems(OnEnter(vm::EndStatus::Failure), failure_system);
     app.run();
 }
 
 fn goal_ui_system(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut vm: ResMut<VM>,
-    mut state: ResMut<State<vm::EndStatus>>,
+    mut state: ResMut<NextState<vm::EndStatus>>,
 ) {
     ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut());
     if let Some((last, mut interactive)) = vm.current_action.take() {
@@ -109,8 +109,8 @@ fn goal_ui_system(
     });
 
     match vm.end_status {
-        vm::EndStatus::Success => state.set(vm::EndStatus::Success).unwrap(),
-        vm::EndStatus::Failure => state.set(vm::EndStatus::Failure).unwrap(),
+        vm::EndStatus::Success => state.set(vm::EndStatus::Success),
+        vm::EndStatus::Failure => state.set(vm::EndStatus::Failure),
         _ => (),
     }
 }

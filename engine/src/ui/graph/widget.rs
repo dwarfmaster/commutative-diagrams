@@ -55,34 +55,34 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
     if response.has_focus() {
         // zoom
         // vm.zoom += ui.input().zoom_delta();
-        if ui.input().key_pressed(egui::Key::K) {
+        if ui.input(|i| i.key_pressed(egui::Key::K)) {
             *gr.zoom() *= 1.1;
         }
-        if ui.input().key_pressed(egui::Key::J) {
+        if ui.input(|i| i.key_pressed(egui::Key::J)) {
             *gr.zoom() /= 1.1;
         }
-        if ui.input().key_pressed(egui::Key::Num0) {
+        if ui.input(|i| i.key_pressed(egui::Key::Num0)) {
             *gr.zoom() = 1.0;
         }
 
         // offset
-        *gr.offset() += ui.input().scroll_delta;
+        *gr.offset() += ui.input(|i| i.scroll_delta);
         let offset_delta = 50.0;
-        if ui.input().key_pressed(egui::Key::ArrowUp) {
+        if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
             gr.offset().y -= offset_delta;
         }
-        if ui.input().key_pressed(egui::Key::ArrowDown) {
+        if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
             gr.offset().y += offset_delta;
         }
-        if ui.input().key_pressed(egui::Key::ArrowLeft) {
+        if ui.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
             gr.offset().x -= offset_delta;
         }
-        if ui.input().key_pressed(egui::Key::ArrowRight) {
+        if ui.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
             gr.offset().x += offset_delta;
         }
 
         // Reset
-        if ui.input().modifiers.ctrl && ui.input().key_pressed(egui::Key::Num0) {
+        if ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Num0)) {
             *gr.zoom() = 1.0;
             *gr.offset() = Vec2::ZERO;
         }

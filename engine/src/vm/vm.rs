@@ -7,12 +7,13 @@ use crate::vm::interpreter;
 use crate::vm::lemmas::Lemma;
 use crate::vm::parser;
 use crate::vm::store::Context;
+use bevy::ecs::schedule::States;
 use bevy::ecs::system::Resource;
 use core::ops::Range;
 use egui::Vec2;
 use std::collections::HashMap;
 
-#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq, Default)]
+#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq, Default, States)]
 pub enum EndStatus {
     Success,
     Failure,
