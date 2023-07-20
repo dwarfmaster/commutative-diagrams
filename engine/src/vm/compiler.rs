@@ -231,11 +231,10 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             for _ in 0..tail.len() {
                 self.pop_instruction()
             }
+            self.ctx.restore_state(*self.states.last().unwrap());
         } else {
             // Register the action as having been executed
             self.store_action(act, start);
-            let status = self.ctx.remote.save_state().unwrap();
-            self.states.push(status);
         }
         result
     }
@@ -249,6 +248,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             text: act.range,
             asm: from..self.instructions.len(),
         });
+        let status = self.ctx.save_state();
+        self.states.push(status);
     }
 
     fn clear_interactive(&mut self) {
@@ -258,6 +259,10 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             while self.instructions.len() > last_act {
                 self.pop_instruction();
             }
+            let state = *self.states.last().unwrap();
+            log::trace!("Restoring to {}", state);
+            self.ctx.restore_state(*self.states.last().unwrap());
+            self.change_state();
         }
     }
 
@@ -329,7 +334,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.pop_instruction();
             }
         }
-        self.ctx.remote.restore_state(status).unwrap();
+        self.ctx.restore_state(status);
         self.finalize_execution();
 
         // Update run_until

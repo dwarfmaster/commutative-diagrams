@@ -114,7 +114,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             .into_iter()
             .map(|(id, name, namespace)| Lemma::new(id, name, namespace))
             .collect();
-        let init_state = ctx.remote.save_state().unwrap();
+        let init_state = ctx.save_state();
         let mut vm = Self {
             ctx,
             prev_code: String::new(),
