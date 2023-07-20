@@ -211,12 +211,12 @@ module Instantiate = struct
         let* obj = Hyps.registerObj vl tp q.name in
         bound (obj :: partial) (vl :: subst) left
 
-  let rec lconstr subst lc =
+  let rec lconstr ns subst lc =
     match lc with
     | Var id -> ret (List.nth subst id)
     | App (tp,f,args) ->
-        let* f = lconstr subst f in
-        let* args = mapM (lconstr subst) args in
+        let* f = lconstr ns subst f in
+        let* args = mapM (lconstr ns subst) args in
         let* fapp = Env.app (Proofview.tclUNIT f) (Array.of_list args) |> lift in
         ret fapp
     | Lemma lm ->
@@ -225,10 +225,10 @@ module Instantiate = struct
         | VarLemma var -> EConstr.mkVar var
         end
     | Subst obj ->
-        EConstr.Vars.substl subst <$> Hyps.getObjValue obj
+        EConstr.Vars.substl subst <$> Hyps.inNamespace ns (Hyps.getObjValue obj)
 
-  let obj_of_lconstr subst lc =
-    let* ec = lconstr subst lc in
+  let obj_of_lconstr ns subst lc =
+    let* ec = lconstr ns subst lc in
     let* env = env () in
     let* sigma = evars () in
     let* tp = Query.get_type env sigma ec in
@@ -237,4 +237,4 @@ end
 
 let instantiate lm =
   let* (_,subst) = Instantiate.bound [] [] lm.bound in
-  Graph.mapM (fun lc -> Instantiate.obj_of_lconstr subst lc) lm.pattern
+  Graph.mapM (fun lc -> Instantiate.obj_of_lconstr lm.store subst lc) lm.pattern
