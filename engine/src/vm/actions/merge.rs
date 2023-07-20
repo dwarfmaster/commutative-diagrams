@@ -71,7 +71,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
     // Return the node that is kept
     pub fn merge_nodes(&mut self, mut nd1: usize, mut nd2: usize) -> usize {
-        if self.graph.nodes[nd2].1.name > self.graph.nodes[nd1].1.name {
+        if self.graph.nodes[nd2].2.name > self.graph.nodes[nd1].2.name {
             std::mem::swap(&mut nd1, &mut nd2);
         }
         // Update morphism starting at nd2
@@ -102,21 +102,61 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
 #[cfg(test)]
 mod tests {
-    use crate::data::Context;
-    use crate::dsl::{cat, eq, mph, obj};
-    use crate::graph::Face;
+    use crate::data::EvarStatus::Grounded;
+    use crate::data::Feature;
+    use crate::graph::{FaceParsed, GraphParsed};
     use crate::remote::Mock;
-    use crate::vm::{Graph, VM};
+    use crate::vm::VM;
 
     #[test]
     fn merging() {
-        let ctx = Context::new();
-        let cat = cat!(ctx, :0);
-        let x = obj!(ctx, (:1) in cat);
-        let m = mph!(ctx, (:2) : x -> x);
-        let eq = eq!(ctx, (:3) : m == (m >> m));
+        let mut ctx = Mock::new();
+        let cat = ctx.new_term("C".to_string(), None, Grounded);
+        ctx.add_feat(cat, Feature::Category);
+        let x = ctx.new_term("x".to_string(), None, Grounded);
+        ctx.add_feat(x, Feature::Object { cat });
+        let m = ctx.new_term("m".to_string(), None, Grounded);
+        ctx.add_feat(
+            m,
+            Feature::Morphism {
+                cat,
+                src: x,
+                dst: x,
+            },
+        );
+        let mm = ctx.new_term("m o m".to_string(), None, Grounded);
+        ctx.add_feat(
+            mm,
+            Feature::Morphism {
+                cat,
+                src: x,
+                dst: x,
+            },
+        );
+        ctx.add_feat(
+            mm,
+            Feature::ComposeMph {
+                cat,
+                src: x,
+                mid: x,
+                dst: x,
+                m1: m,
+                m2: m,
+            },
+        );
+        let eq = ctx.new_term("H".to_string(), None, Grounded);
+        ctx.add_feat(
+            eq,
+            Feature::Equality {
+                cat,
+                src: x,
+                dst: x,
+                left: m,
+                right: mm,
+            },
+        );
 
-        let face = Face {
+        let face = FaceParsed {
             start: 0,
             end: 2,
             left: vec![2],
@@ -124,24 +164,25 @@ mod tests {
             eq,
             label: Default::default(),
         };
-        let gr = Graph {
+        let gr = GraphParsed {
             nodes: vec![
-                (x.clone(), Default::default()),
-                (x.clone(), Default::default()),
-                (x.clone(), Default::default()),
+                (x, cat, Default::default()),
+                (x, cat, Default::default()),
+                (x, cat, Default::default()),
             ],
             edges: vec![
                 vec![
-                    (1, Default::default(), m.clone()),
-                    (1, Default::default(), m.clone()),
-                    (2, Default::default(), m.clone()),
+                    (1, Default::default(), m, ()),
+                    (1, Default::default(), m, ()),
+                    (2, Default::default(), m, ()),
                 ],
-                vec![(2, Default::default(), m)],
+                vec![(2, Default::default(), m, ())],
                 vec![],
             ],
             faces: vec![face],
         };
-        let mut vm = VM::<Mock, ()>::new(ctx, gr, Vec::new(), Vec::new());
+        ctx.set_graph(gr);
+        let mut vm = VM::<Mock, ()>::start(ctx);
 
         let rmph = vm.merge_edges(0, 0, 1);
         assert_eq!(rmph, 0);
