@@ -20,11 +20,10 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         if self.graph.edges[src][mph1].1.name > self.graph.edges[src][mph2].1.name {
             std::mem::swap(&mut mph1, &mut mph2);
         }
-        // We assume that in the proof assistant, the terms corresponding to the following are
-        // equal:
-        //  - self.graph.edges[src][mph1].2
-        //  - self.graph.edges[src][mph2].2
-        //  todo! call self.ctx.equalify to check ?
+        assert_eq!(
+            self.ctx.get_stored_repr(self.graph.edges[src][mph1].2),
+            self.ctx.get_stored_repr(self.graph.edges[src][mph2].2)
+        );
 
         // Update equalities using the replaced morphism
         for fce in 0..self.graph.faces.len() {

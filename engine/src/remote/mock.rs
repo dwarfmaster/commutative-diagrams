@@ -93,6 +93,10 @@ impl Remote for Mock {
         ))
     }
 
+    fn repr(&mut self, obj: u64) -> Result<u64, ()> {
+        Ok(obj)
+    }
+
     fn unify<I>(&mut self, mut pairs: I) -> Result<bool, Self::Error>
     where
         I: Iterator<Item = (u64, u64)> + ExactSizeIterator + Clone,

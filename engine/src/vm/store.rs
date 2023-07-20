@@ -85,6 +85,32 @@ impl<Rm: Remote> Context<Rm> {
         }
     }
 
+    pub fn get_stored_repr(&mut self, id: u64) -> u64 {
+        let data = self.store.get(&self.context).unwrap().get(id);
+        match data {
+            Some(obj) => match obj.repr {
+                Some(repr) => repr,
+                None => {
+                    let repr = self.remote.repr(id).unwrap();
+                    self.store
+                        .get_mut(&self.context)
+                        .unwrap()
+                        .register_repr(id, repr);
+                    repr
+                }
+            },
+            None => {
+                self.query_info(id);
+                let repr = self.remote.repr(id).unwrap();
+                self.store
+                    .get_mut(&self.context)
+                    .unwrap()
+                    .register_repr(id, repr);
+                repr
+            }
+        }
+    }
+
     fn do_query(&mut self, obj: u64, tag: Tag) -> Vec<Feature> {
         if self.store.get(&self.context).unwrap().get(obj).is_none() {
             self.query_info(obj);

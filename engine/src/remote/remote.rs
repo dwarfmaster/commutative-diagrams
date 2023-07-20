@@ -13,6 +13,7 @@ pub trait Remote {
         EL: Default,
         FL: Default;
     fn info(&mut self, obj: u64) -> Result<(String, Option<String>, EvarStatus), Self::Error>;
+    fn repr(&mut self, obj: u64) -> Result<u64, Self::Error>;
     fn unify<I>(&mut self, pairs: I) -> Result<bool, Self::Error>
     where
         I: Iterator<Item = (u64, u64)> + ExactSizeIterator + Clone;

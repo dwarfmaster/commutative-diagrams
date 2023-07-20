@@ -30,6 +30,11 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
         self.receive_msg(req)
     }
 
+    fn repr(&mut self, obj: u64) -> Result<u64, Self::Error> {
+        let req = self.send_msg("repr", [self.current_lem, obj])?;
+        self.receive_msg(req)
+    }
+
     fn unify<I>(&mut self, pairs: I) -> Result<bool, Self::Error>
     where
         I: Iterator<Item = (u64, u64)> + ExactSizeIterator + Clone,

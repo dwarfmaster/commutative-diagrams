@@ -13,6 +13,7 @@ pub struct Obj {
     pub label: String,
     pub name: Option<String>,
     pub status: EvarStatus,
+    pub repr: Option<u64>,
     pub cache: QueryCache,
 }
 
@@ -54,6 +55,7 @@ impl Store {
                     label: label.clone(),
                     name: name.clone(),
                     status,
+                    repr: None,
                     cache: QueryCache::new(),
                 });
             })
@@ -62,6 +64,7 @@ impl Store {
                     label,
                     name,
                     status,
+                    repr: None,
                     cache: QueryCache::new(),
                 })]
             })
@@ -69,6 +72,17 @@ impl Store {
             .unwrap()
             .as_ref()
             .unwrap()
+    }
+
+    pub fn register_repr(&mut self, id: u64, repr: u64) {
+        self.objects
+            .get_mut(&id)
+            .unwrap()
+            .last_mut()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .repr = Some(repr);
     }
 
     // Id must be present in the store
