@@ -33,16 +33,23 @@ impl<Rm: Remote> Context<Rm> {
         self.context = 0;
     }
 
-    pub fn save_state(&mut self) {
+    pub fn save_state(&mut self) -> u64 {
         let state = self.remote.save_state().unwrap();
         self.states.push(state);
+        self.store.get_mut(&0).unwrap().push_state();
+        state
     }
 
     pub fn restore_state(&mut self, state: u64) {
         self.remote.restore_state(state).unwrap();
         let pos = self.states.iter().position(|v| *v == state);
         if let Some(pos) = pos {
-            self.states.truncate(pos + 1)
+            let d = self.states.len() - pos;
+            self.states.truncate(pos + 1);
+            let store = self.store.get_mut(&0).unwrap();
+            for _ in 0..d {
+                store.pop_state();
+            }
         }
     }
 

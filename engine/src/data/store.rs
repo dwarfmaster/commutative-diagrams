@@ -18,7 +18,7 @@ pub struct Obj {
 
 #[derive(Debug, Clone)]
 pub struct Store {
-    pub objects: HashMap<u64, Vec<Obj>>,
+    pub objects: HashMap<u64, Vec<Option<Obj>>>,
 }
 
 impl Store {
@@ -28,14 +28,8 @@ impl Store {
         }
     }
 
-    pub fn push_state<F>(&mut self, mut f: F)
-    where
-        F: FnMut(u64, &Obj) -> Obj,
-    {
-        self.objects.iter_mut().for_each(|(id, v)| {
-            let obj = v.last().unwrap();
-            v.push(f(*id, obj))
-        })
+    pub fn push_state(&mut self) {
+        self.objects.iter_mut().for_each(|(_, v)| v.push(None))
     }
 
     pub fn pop_state(&mut self) {
@@ -56,36 +50,60 @@ impl Store {
             .entry(id)
             .and_modify(|v| {
                 let obj = v.last_mut().unwrap();
-                obj.label = label.clone();
-                obj.name = name.clone();
-                obj.status = status;
+                *obj = Some(Obj {
+                    label: label.clone(),
+                    name: name.clone(),
+                    status,
+                    cache: QueryCache::new(),
+                });
             })
             .or_insert_with(|| {
-                vec![Obj {
+                vec![Some(Obj {
                     label,
                     name,
                     status,
                     cache: QueryCache::new(),
-                }]
+                })]
             })
             .last()
+            .unwrap()
+            .as_ref()
             .unwrap()
     }
 
     // Id must be present in the store
     pub fn store(&mut self, id: u64, feat: Feature) {
-        let obj = self.objects.get_mut(&id).unwrap().last_mut().unwrap();
+        let obj = self
+            .objects
+            .get_mut(&id)
+            .unwrap()
+            .last_mut()
+            .unwrap()
+            .as_mut()
+            .unwrap();
         obj.cache.store(feat)
     }
 
     // Id must be present in the store
     pub fn store_none(&mut self, id: u64, tag: Tag) {
-        let obj = self.objects.get_mut(&id).unwrap().last_mut().unwrap();
+        let obj = self
+            .objects
+            .get_mut(&id)
+            .unwrap()
+            .last_mut()
+            .unwrap()
+            .as_mut()
+            .unwrap();
         obj.cache.store_none(tag)
     }
 
     pub fn get<'a>(&'a self, id: u64) -> Option<&'a Obj> {
-        self.objects.get(&id).map(|v| v.last()).flatten()
+        self.objects
+            .get(&id)
+            .map(|v| v.last())
+            .flatten()
+            .map(|o| o.as_ref())
+            .flatten()
     }
 
     pub fn query(&self, id: u64, tag: Tag) -> Option<Vec<Feature>> {
@@ -570,7 +588,7 @@ mod tests {
         assert_eq!(store.get(1).map(|o| &o.label[..]), Some("?x"));
         assert!(store.get(2).is_none());
 
-        store.push_state(|_, x| x.clone());
+        store.push_state();
         store.register(1, "a".to_string(), None, ES::Grounded);
         store.register(2, "1_a".to_string(), None, ES::Grounded);
         store.store(
@@ -585,7 +603,7 @@ mod tests {
         assert_eq!(store.get(1).map(|o| o.status), Some(ES::Grounded));
         assert_eq!(store.is_identity(2, 0), Some(Some(1)));
 
-        store.push_state(|_, x| x.clone());
+        store.push_state();
         store.register(1, "a".to_string(), Some("a".to_string()), ES::Grounded);
         assert_eq!(
             store.get(1).map(|o| o.name.clone()),
