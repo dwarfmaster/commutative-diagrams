@@ -10,6 +10,7 @@ type state =
 
 val goal : state -> Msgpack.t list -> result Hyps.t
 val info : state -> Msgpack.t list -> result Hyps.t
+val repr : state -> Msgpack.t list -> result Hyps.t
 val unify : state -> Msgpack.t list -> result Hyps.t
 val equalify : state -> Msgpack.t list -> result Hyps.t
 val lemmas : state -> Msgpack.t list -> result Hyps.t

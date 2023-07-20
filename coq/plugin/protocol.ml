@@ -50,6 +50,15 @@ let info st args =
       end
   | _ -> failure "Wrong arguments for info"
 
+let repr st args =
+  match args with
+  | [ Integer lem; Integer id ] ->
+      withNS st lem begin
+        let* r = Hyps.getObjRepr lem in
+        success (Integer r)
+      end
+  | _ -> failure "Wrong arguments for repr"
+
 let unify st args =
   let rec parse_pairs = function
     | [] -> Some []
@@ -65,16 +74,30 @@ let unify st args =
     Unification.w_unify env sigma Reduction.CONV ec1 ec2 in
   let pairs = parse_pairs args in
   match pairs with
-  | Some pairs -> begin try
+  | Some pairs -> begin 
+    try
       let* pairs = mapM (fun (o1,o2) ->
         let* ec1 = Hyps.getObjValue o1 in
         let* ec2 = Hyps.getObjValue o2 in
         ret (ec1,ec2)) pairs in
       let* sigma = evars () in
+      Feedback.msg_info Pp.(str "Unifying");
       let sigma = List.fold_left unify_pair sigma pairs in
-      let* _ = Hyps.setState sigma in
-      success (Boolean true)
-  with _ -> success (Boolean false) end
+      Feedback.msg_info Pp.(str "Unification returned");
+      if Evd.has_given_up sigma
+      then begin
+        Feedback.msg_info Pp.(str "Given up");
+        success (Boolean false)
+      end else begin
+        Feedback.msg_info Pp.(str "Success");
+        let* _ = Hyps.setState sigma in
+        success (Boolean true)
+      end
+    with 
+      e -> 
+        Feedback.msg_info Pp.(str "Exception caught");
+        success (Boolean false) 
+  end
   | None -> failure "Wrong arguments to unify"
 
 (* TODO equalify is broken *)

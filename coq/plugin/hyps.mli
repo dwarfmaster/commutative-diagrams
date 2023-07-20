@@ -60,6 +60,7 @@ val getObjValue : int -> EConstr.t t
 val getObjType : int -> EConstr.t t
 val getObjName : int -> string option t
 val getObjMtdt : int -> metadata t
+val getObjRepr : int -> int t
 val markAsCat : int -> unit -> unit t
 val markAsFunct : int -> int * int -> unit t
 val markAsElem : int -> int -> unit t

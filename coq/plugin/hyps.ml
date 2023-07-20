@@ -268,6 +268,12 @@ let getObjName obj =
 let getObjMtdt obj = 
   let* ns = getNS () in 
   get (fun st -> st.objects.(ns).(obj).mtdt)
+let getObjRepr obj =
+  let* vl = getObjValue obj in
+  let* r = hasObject vl in
+  match r with
+  | Some id -> ret id
+  | None -> assert false (* Shouldn't happen *)
 let markAsCat obj cat =
   let* ns = getNS () in 
   set (fun st ->

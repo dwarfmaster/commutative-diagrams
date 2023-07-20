@@ -91,6 +91,7 @@ let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) Hyps.t =
     begin match mtd with
     | "goal" -> run Protocol.goal
     | "info" -> run Protocol.info
+    | "repr" -> run Protocol.repr
     | "unify" -> run Protocol.unify
     | "equalify" -> run Protocol.equalify
     | "lemmas" -> run Protocol.lemmas
