@@ -74,9 +74,6 @@ let run_handler (rm : remote)
 let count = ref 0
 
 let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) Hyps.t =
-  Out_channel.with_open_text
-    (Printf.sprintf "received_%d.json" !count)
-    (fun out -> Msgpack.to_json out msg);
   count := !count + 1;
   match msg with
   | Msgpack.Array [ Msgpack.Integer 0
