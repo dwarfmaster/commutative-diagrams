@@ -2,7 +2,7 @@ mod hide;
 mod insert;
 mod lemma;
 mod merge;
-// mod pushout;
+mod pushout;
 mod shrink;
 mod solve;
 mod split;

@@ -134,13 +134,12 @@ impl LemmaApplicationState {
                         egui::Layout::right_to_left(egui::Align::Center),
                         |ui| {
                             if ui.button("Apply").clicked() {
-                                todo!();
-                                // should_close = true;
-                                // state
-                                //     .vm
-                                //     .pushout(&state.apply.graph, &state.apply.direct_mapping);
-                                // VM::<Rm>::layout(&mut state.vm.graph);
-                                // commit = true;
+                                should_close = true;
+                                state
+                                    .vm
+                                    .pushout(&state.apply.graph, &state.apply.direct_mapping);
+                                VM::<Rm>::layout(&mut state.vm.graph);
+                                commit = true;
                             };
                             if ui.button("Cancel").clicked() {
                                 should_close = true;

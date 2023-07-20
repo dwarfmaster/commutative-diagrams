@@ -24,8 +24,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             return false;
         }
 
-        // todo!
-        // self.pushout(&pattern, &direct);
+        self.pushout(&pattern, &direct);
         true
     }
 

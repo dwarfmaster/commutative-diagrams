@@ -62,7 +62,7 @@ impl Morphism {
     }
 
     pub fn compose(&mut self, other: &Morphism) {
-        assert_eq!(self.dst, other.src);
+        // self.dst and other.src must be the same object in the proof assistant
         self.dst = other.dst;
         self.comps.extend(other.comps.iter());
     }

@@ -193,7 +193,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             if map.nodes[nd].is_some() {
                 continue;
             }
-            self.register_instruction(Ins::InsertNode(other.nodes[nd].0.clone()));
+            self.register_instruction(Ins::InsertNode(other.nodes[nd].0, other.nodes[nd].1));
             map.nodes[nd] = Some(self.graph.nodes.len() - 1);
         }
 
@@ -209,7 +209,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.register_instruction(Ins::InsertMorphism(
                     nsrc,
                     ndst,
-                    other.edges[src][mph].2.clone(),
+                    other.edges[src][mph].2,
+                    other.edges[src][mph].3.clone(),
                 ));
                 map.edges[src][mph] = Some((nsrc, self.graph.edges[nsrc].len() - 1));
             }
