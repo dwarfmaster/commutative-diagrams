@@ -1,6 +1,6 @@
 mod hide;
 mod insert;
-// mod lemma;
+mod lemma;
 // mod merge;
 // mod pushout;
 mod shrink;

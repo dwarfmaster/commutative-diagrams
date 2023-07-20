@@ -1,13 +1,13 @@
 use super::ActionResult;
-use crate::data;
 use crate::graph::{Graph, GraphId};
 use crate::remote::Remote;
 use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
 use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
 use crate::ui::graph::widget;
 use crate::ui::VM;
-use crate::vm::{EdgeLabel, FaceLabel, NodeLabel};
-use egui::{Context, Stroke, Style, Ui, Vec2};
+use crate::vm::{Context, EdgeLabel, FaceLabel, NodeLabel};
+use egui;
+use egui::{Stroke, Style, Ui, Vec2};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -56,9 +56,10 @@ struct DisplayState<'a, Rm: Remote + Sync + Send> {
 
 impl LemmaApplicationState {
     pub fn new<Rm: Remote + Sync + Send>(vm: &mut VM<Rm>, lemma: usize) -> Self {
+        let graph = vm.lemmas[lemma].instantiate(&mut vm.ctx);
         let mut r = Self {
             lemma,
-            graph: vm.prepare_lemma_graph(lemma),
+            graph,
             direct_mapping: HashMap::new(),
             selected: None,
             error_msg: None,
@@ -68,14 +69,14 @@ impl LemmaApplicationState {
             focused: None,
             hovered: None,
         };
-        r.relabel(&vm.ctx);
+        r.relabel(&mut vm.ctx);
         r
     }
 
     fn get_name<'a>(&'a self, id: GraphId) -> &'a str {
         use GraphId::*;
         match id {
-            Node(nd) => &self.graph.nodes[nd].1.name,
+            Node(nd) => &self.graph.nodes[nd].2.name,
             Morphism(src, mph) => &self.graph.edges[src][mph].1.name,
             Face(fce) => &self.graph.faces[fce].label.name,
         }
@@ -96,7 +97,7 @@ impl LemmaApplicationState {
     pub fn display<Rm: Remote + Sync + Send>(
         &mut self,
         vm: &mut VM<Rm>,
-        ui: &Context,
+        ui: &egui::Context,
     ) -> ActionResult {
         // Display error message in window
         if let Some(errmsg) = &mut self.error_msg {
@@ -133,12 +134,13 @@ impl LemmaApplicationState {
                         egui::Layout::right_to_left(egui::Align::Center),
                         |ui| {
                             if ui.button("Apply").clicked() {
-                                should_close = true;
-                                state
-                                    .vm
-                                    .pushout(&state.apply.graph, &state.apply.direct_mapping);
-                                VM::<Rm>::layout(&mut state.vm.graph);
-                                commit = true;
+                                todo!();
+                                // should_close = true;
+                                // state
+                                //     .vm
+                                //     .pushout(&state.apply.graph, &state.apply.direct_mapping);
+                                // VM::<Rm>::layout(&mut state.vm.graph);
+                                // commit = true;
                             };
                             if ui.button("Cancel").clicked() {
                                 should_close = true;
@@ -224,41 +226,47 @@ impl LemmaApplicationState {
         VM::<Rm>::unshow_face_impl(&mut self.graph, fce);
     }
 
-    fn relabel(&mut self, ctx: &data::Context) {
+    fn relabel<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>) {
         for nd in 0..self.graph.nodes.len() {
-            self.graph.nodes[nd].1.label = self.graph.nodes[nd].0.render(ctx, 100);
+            self.graph.nodes[nd].2.label = ctx.get_stored_label(self.graph.nodes[nd].0);
         }
         for src in 0..self.graph.nodes.len() {
             for mph in 0..self.graph.edges[src].len() {
-                self.graph.edges[src][mph].1.label = self.graph.edges[src][mph].2.render(ctx, 100);
+                self.graph.edges[src][mph].1.label =
+                    ctx.get_stored_label(self.graph.edges[src][mph].2);
             }
         }
         for fce in 0..self.graph.faces.len() {
-            self.graph.faces[fce].label.label = self.graph.faces[fce].eq.render(ctx, 100);
+            self.graph.faces[fce].label.label = "{{todo!}}".to_string();
         }
     }
 
     fn do_match<Rm: Remote + Sync + Send>(&mut self, vm: &mut VM<Rm>, lem: GraphId, goal: GraphId) {
-        let mut unif = UnifState::new();
-        if !vm.lemma_add_matching(&self.graph, lem, goal, &mut unif) {
+        // Complete matching
+        let mut matching = Vec::new();
+        let r = vm.lemma_complete_matching(&self.graph, lem, goal, &mut matching);
+        if !r {
             self.error_msg = Some("Matching incompatible graph objects".to_string());
             return;
         }
-        let sigma = unif.solve();
-        if let Some(sigma) = sigma {
-            self.graph.subst_in_place(&vm.ctx, &sigma);
-            self.relabel(&vm.ctx);
-            vm.lemma_connect_sides(
-                &self.graph,
-                lem,
-                goal,
-                &mut self.direct_mapping,
-                &mut self.reverse_mapping,
-            );
-            vm.refine(sigma);
-        } else {
-            self.error_msg = Some("Unification failed".to_string());
+
+        // State checkpoint
+        let state = vm.ctx.save_state();
+        let r = vm.lemma_unify_matching(&self.graph, &matching);
+        if let Some(errmsg) = r {
+            self.error_msg = Some(errmsg);
+            vm.ctx.restore_state(state);
+            return;
         }
+
+        // Relabel and connect
+        self.relabel(&mut vm.ctx);
+        vm.relabel();
+        VM::<Rm>::lemma_extend_hash_matching(
+            &matching,
+            &mut self.direct_mapping,
+            &mut self.reverse_mapping,
+        );
     }
 }
 
@@ -272,8 +280,8 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
         // Draw nodes
         for nd in 0..self.apply.graph.nodes.len() {
             let drawable = Drawable::Text(
-                self.apply.graph.nodes[nd].1.pos,
-                &self.apply.graph.nodes[nd].1.label,
+                self.apply.graph.nodes[nd].2.pos,
+                &self.apply.graph.nodes[nd].2.label,
             );
             let mut modifier = if self.apply.hovered == Some(GraphId::Node(nd)) {
                 Modifier::Highlight

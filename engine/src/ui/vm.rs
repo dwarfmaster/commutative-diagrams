@@ -4,8 +4,7 @@ use crate::graph::GraphId;
 use crate::remote::Remote;
 use crate::vm;
 
-// todo!
-// mod apply;
+mod apply;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Modifier {
@@ -31,7 +30,7 @@ pub fn apply_modifier(md: Modifier, color: &mut egui::Color32, modifier: &mut Md
 }
 
 pub enum InteractiveAction {
-    // LemmaApplication(apply::LemmaApplicationState),
+    LemmaApplication(apply::LemmaApplicationState),
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ContextMenuResult {
@@ -48,10 +47,10 @@ pub enum ActionResult {
 }
 
 impl vm::Interactive for InteractiveAction {
-    fn compile<R: Remote + Sync + Send>(self, _vm: &VM<R>) -> String {
-        // use InteractiveAction::*;
+    fn compile<R: Remote + Sync + Send>(self, vm: &VM<R>) -> String {
+        use InteractiveAction::*;
         match self {
-            // LemmaApplication(apply) => apply.compile(vm),
+            LemmaApplication(apply) => apply.compile(vm),
         }
     }
     fn terminate(self) {}
@@ -60,54 +59,50 @@ impl vm::Interactive for InteractiveAction {
 pub type VM<R> = vm::VM<R, InteractiveAction>;
 
 impl InteractiveAction {
-    // pub fn apply<R: Remote + Sync + Send>(vm: &mut VM<R>, lemma: usize) -> Self {
-    //     let state = apply::LemmaApplicationState::new(vm, lemma);
-    //     InteractiveAction::LemmaApplication(state)
-    // }
+    pub fn apply<R: Remote + Sync + Send>(vm: &mut VM<R>, lemma: usize) -> Self {
+        let state = apply::LemmaApplicationState::new(vm, lemma);
+        InteractiveAction::LemmaApplication(state)
+    }
 
     pub fn display<R: Remote + Sync + Send>(
         &mut self,
-        _vm: &mut VM<R>,
-        _ui: &Context,
+        vm: &mut VM<R>,
+        ui: &Context,
     ) -> ActionResult {
-        // use InteractiveAction::*;
+        use InteractiveAction::*;
         match self {
-            // LemmaApplication(state) => state.display(vm, ui),
-            _ => todo!(),
+            LemmaApplication(state) => state.display(vm, ui),
         }
     }
 
     pub fn context_menu<R: Remote + Sync + Send>(
         &mut self,
-        _vm: &mut VM<R>,
-        _on: GraphId,
-        _ui: &mut Ui,
+        vm: &mut VM<R>,
+        on: GraphId,
+        ui: &mut Ui,
     ) -> ContextMenuResult {
-        // use InteractiveAction::*;
+        use InteractiveAction::*;
         match self {
-            // LemmaApplication(state) => state.context_menu(vm, on, ui),
-            _ => todo!(),
+            LemmaApplication(state) => state.context_menu(vm, on, ui),
         }
     }
 
     pub fn action<R: Remote + Sync + Send>(
         &mut self,
-        _vm: &mut VM<R>,
-        _act: Action,
-        _ui: &mut Ui,
+        vm: &mut VM<R>,
+        act: Action,
+        ui: &mut Ui,
     ) -> bool {
-        // use InteractiveAction::*;
+        use InteractiveAction::*;
         match self {
-            // LemmaApplication(state) => state.action(vm, act, ui),
-            _ => todo!(),
+            LemmaApplication(state) => state.action(vm, act, ui),
         }
     }
 
-    pub fn modifier<R: Remote + Sync + Send>(&self, _vm: &VM<R>, _on: GraphId) -> Modifier {
-        // use InteractiveAction::*;
+    pub fn modifier<R: Remote + Sync + Send>(&self, vm: &VM<R>, on: GraphId) -> Modifier {
+        use InteractiveAction::*;
         match self {
-            // LemmaApplication(state) => state.modifier(vm, on),
-            _ => todo!(),
+            LemmaApplication(state) => state.modifier(vm, on),
         }
     }
 }

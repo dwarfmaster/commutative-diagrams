@@ -4,7 +4,7 @@ use crate::lemmas;
 use crate::remote::Mock;
 use crate::remote::Remote;
 use crate::vm::store::Context;
-use crate::vm::VM;
+use crate::vm::{Graph, VM};
 use egui::Vec2;
 use std::collections::HashMap;
 
@@ -104,7 +104,7 @@ impl Lemma {
         }
     }
 
-    pub fn instantiate<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>) {
+    pub fn get_pattern<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>) {
         if self.pattern.is_some() {
             return;
         }
@@ -120,5 +120,32 @@ impl Lemma {
         self.relabel(ctx);
         self.name(ctx);
         ctx.unset_lem_context();
+    }
+
+    pub fn instantiate<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>) -> Graph {
+        self.get_pattern(ctx);
+
+        let graph = ctx
+            .remote
+            .instantiate::<NodeLabel, EdgeLabel, FaceLabel>(self.id)
+            .unwrap();
+        let mut graph = graph.prepare(ctx);
+
+        // Copy labels
+        let pattern = self.pattern.as_ref().unwrap();
+        for nd in 0..graph.nodes.len() {
+            graph.nodes[nd].2 = pattern.nodes[nd].2.clone();
+        }
+        for src in 0..graph.nodes.len() {
+            for mph in 0..graph.edges[src].len() {
+                graph.edges[src][mph].1 = pattern.edges[src][mph].1.clone();
+            }
+        }
+        for fce in 0..graph.faces.len() {
+            graph.faces[fce].label = pattern.faces[fce].label.clone();
+        }
+        // TODO unselect face
+
+        graph
     }
 }
