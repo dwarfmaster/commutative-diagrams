@@ -54,7 +54,7 @@ let repr st args =
   match args with
   | [ Integer lem; Integer id ] ->
       withNS st lem begin
-        let* r = Hyps.getObjRepr lem in
+        let* r = Hyps.getObjRepr id in
         success (Integer r)
       end
   | _ -> failure "Wrong arguments for repr"
