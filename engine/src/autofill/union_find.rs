@@ -270,13 +270,13 @@ mod tests {
             faces: Vec::new(),
         };
 
-        let e = gr.enumerate(1);
+        let mut ctx = Context::new(ctx);
+        let e = gr.enumerate(&mut ctx, 1);
         let id1 = e.get(cat, &mph1).unwrap();
         let id2 = e.get(cat, &mph2).unwrap();
         let id3 = e.get(cat, &mph3).unwrap();
         let id4 = e.get(cat, &mph4).unwrap();
         let id5 = e.get(cat, &mph5).unwrap();
-        let mut ctx = Context::new(ctx);
         let mut uf = UF::new(&e.paths);
         let c1 = uf.connect(&mut ctx, &e, eq12);
         let c2 = uf.connect(&mut ctx, &e, eq13);

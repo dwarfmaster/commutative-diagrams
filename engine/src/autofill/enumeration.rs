@@ -1,5 +1,6 @@
 use crate::graph::eq::Morphism;
 use crate::graph::Graph;
+use crate::remote::TermEngine;
 use itertools::Itertools;
 use std::collections::HashMap;
 
@@ -36,26 +37,45 @@ impl Enum {
 
 impl<NL, EL, FL> Graph<NL, EL, FL> {
     /// Enumerate paths on graph
-    pub fn enumerate(&self, iters: usize) -> Enum {
-        let nnodes = self.nodes.len();
+    pub fn enumerate<R: TermEngine>(&self, ctx: &mut R, iters: usize) -> Enum {
+        // Compute nodes mapping
+        let mut nodes_map = vec![0; self.nodes.len()];
+        let mut reprs = Vec::new();
+        {
+            let mut map = HashMap::new();
+            for i in 0..self.nodes.len() {
+                let rp = ctx.get_repr(self.nodes[i].0);
+                match map.get(&rp) {
+                    Some(id) => nodes_map[i] = *id,
+                    None => {
+                        map.insert(rp, reprs.len());
+                        nodes_map[i] = reprs.len();
+                        reprs.push((rp, self.nodes[i].1));
+                    }
+                }
+            }
+        }
+        let nnodes = reprs.len();
+
         // First indice is the endpoint of the vector
         let mut paths: Vec<Vec<(u64, Morphism)>> = vec![Vec::new(); nnodes];
         // Map from morphisms uids to the associated path id
         let mut rev: HashMap<(u64, Morphism), (usize, usize)> = HashMap::new();
         // Add identities
         for n in 0..nnodes {
-            let cat = self.nodes[n].1;
-            let mph = Morphism::id(self.nodes[n].0);
+            let cat = reprs[n].1;
+            let mph = Morphism::id(reprs[n].0);
             rev.insert((cat, mph.clone()), (n, paths[n].len()));
             paths[n].push((cat, mph));
         }
 
         // Add simple morphisms
-        for src in 0..nnodes {
+        for src in 0..self.nodes.len() {
             for mph_id in 0..self.edges[src].len() {
                 let cat = self.nodes[src].1;
-                let dst = self.edges[src][mph_id].0;
-                let norm = &self.edges[src][mph_id].3;
+                let dst = nodes_map[self.edges[src][mph_id].0];
+                let norm = self.edges[src][mph_id].3.get_repr(ctx);
+
                 if rev.get(&(cat, norm.clone())).is_none() {
                     rev.insert((cat, norm.clone()), (dst, paths[dst].len()));
                     paths[dst].push((cat, norm.clone()));
@@ -72,17 +92,21 @@ impl<NL, EL, FL> Graph<NL, EL, FL> {
 
         // Add compositions
         for _ in 2..(iters + 1) {
-            for src in 0..nnodes {
+            for src in 0..self.nodes.len() {
                 let cat = self.nodes[src].1;
                 for mph_id in 0..self.edges[src].len() {
                     let (dst, _, _, mph) = &self.edges[src][mph_id];
+                    let src = nodes_map[src];
+                    let dst = nodes_map[*dst];
+                    let mph = mph.get_repr(ctx);
+
                     for nxt in (ranges[src].0)..(ranges[src].1) {
                         let path = &paths[src][nxt];
                         let mut nmph = path.1.clone();
                         nmph.compose(&mph);
                         if rev.get(&(cat, nmph.clone())).is_none() {
-                            rev.insert((cat, nmph.clone()), (*dst, paths[*dst].len()));
-                            paths[*dst].push((cat, nmph));
+                            rev.insert((cat, nmph.clone()), (dst, paths[dst].len()));
+                            paths[dst].push((cat, nmph));
                         }
                     }
                 }
@@ -118,6 +142,7 @@ mod tests {
     use crate::graph::eq::Morphism;
     use crate::graph::Graph;
     use crate::remote::Mock;
+    use crate::vm::Context;
 
     #[test]
     pub fn count_transitive_closure() {
@@ -180,8 +205,9 @@ mod tests {
             faces: Vec::new(),
         };
 
-        let enum1 = gr.enumerate(2);
-        let enum2 = gr.enumerate(3);
+        let mut ctx = Context::new(ctx);
+        let enum1 = gr.enumerate(&mut ctx, 2);
+        let enum2 = gr.enumerate(&mut ctx, 3);
 
         assert_eq!(enum1.paths.len(), 11, "Number of paths of length at most 2");
         assert_eq!(enum2.paths.len(), 15, "Number of paths of length at most 3");
@@ -265,7 +291,8 @@ mod tests {
             faces: vec![],
         };
 
-        let enm = gr.enumerate(2);
+        let mut ctx = Context::new(ctx);
+        let enm = gr.enumerate(&mut ctx, 2);
         assert_eq!(
             enm.paths.len(),
             6,

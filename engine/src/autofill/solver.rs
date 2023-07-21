@@ -17,21 +17,20 @@ pub fn solve<NL, EL, FL, R: TermEngine>(
 ) -> Option<Eq> {
     assert_eq!(mask.len(), gr.faces.len());
     let cat = gr.nodes[gr.faces[face].start].1;
-    let paths = gr.enumerate(max_size);
+    let paths = gr.enumerate(ctx, max_size);
     let mut uf = UF::new(&paths.paths);
     setup_hooks(&mut uf, ctx, gr);
     for fce in 0..gr.faces.len() {
         if !mask[fce] {
             continue;
         }
-        let eq = gr.faces[fce].eq.clone();
+        let eq = gr.faces[fce].eq.get_repr(ctx);
         uf.connect(ctx, &paths, eq);
     }
 
-    // TODO guide solution along shape of face equality
     let face = &gr.faces[face].eq;
-    let m1 = paths.get(cat, &face.inp);
-    let m2 = paths.get(cat, &face.outp);
+    let m1 = paths.get(cat, &face.inp.get_repr(ctx));
+    let m2 = paths.get(cat, &face.outp.get_repr(ctx));
     match (m1, m2) {
         (Some(m1), Some(m2)) => uf.query(m1, m2),
         _ => {
@@ -46,12 +45,12 @@ pub fn solve<NL, EL, FL, R: TermEngine>(
     }
 }
 
-fn setup_hooks<NL, EL, FL, R: TermEngine>(uf: &mut UF<R>, _ctx: &mut R, gr: &Graph<NL, EL, FL>) {
+fn setup_hooks<NL, EL, FL, R: TermEngine>(uf: &mut UF<R>, ctx: &mut R, gr: &Graph<NL, EL, FL>) {
     for src in 0..gr.nodes.len() {
         for m in 0..gr.edges[src].len() {
-            let mph = gr.edges[src][m].3.clone();
+            let mph = gr.edges[src][m].3.get_repr(ctx);
             uf.register_hook(move |ctx, eq, opts| hooks::precompose::hook(&mph, ctx, eq, opts));
-            let mph = gr.edges[src][m].3.clone();
+            let mph = gr.edges[src][m].3.get_repr(ctx);
             uf.register_hook(move |ctx, eq, opts| hooks::postcompose::hook(&mph, ctx, eq, opts));
         }
     }
