@@ -213,7 +213,9 @@ module Instantiate = struct
 
   let rec lconstr ns subst lc =
     match lc with
-    | Var id -> ret (List.nth subst id)
+    | Var id -> 
+        (* Subst is in reverse order *)
+        ret (List.nth subst (List.length subst - 1 - id))
     | App (tp,f,args) ->
         let* f = lconstr ns subst f in
         let* args = mapM (lconstr ns subst) args in
