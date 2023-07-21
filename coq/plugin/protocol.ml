@@ -70,34 +70,37 @@ let unify st args =
         end
     | _ -> None in
   let* env = env () in
-  let unify_pair sigma (ec1,ec2) =
-    Unification.w_unify env sigma Reduction.CONV ec1 ec2 in
+  let flags =
+    Evarsolve.({
+      modulo_betaiota = true;
+      open_ts = TransparentState.full;
+      closed_ts = TransparentState.full;
+      subterm_ts = TransparentState.empty;
+      allowed_evars = AllowedEvars.all;
+      with_cs = true;
+      allow_K_at_toplevel = true;
+    }) in
+  let kind = Evarsolve.TermUnification in
+  let unify_pair result (ec1,ec2) =
+    match result with
+    | Evarsolve.Success sigma ->
+        Evarconv.conv_fun Evarconv.evar_conv_x flags kind env sigma Reduction.CONV ec1 ec2
+    | _ -> result in
   let pairs = parse_pairs args in
   match pairs with
   | Some pairs -> begin 
-    try
       let* pairs = mapM (fun (o1,o2) ->
         let* ec1 = Hyps.getObjValue o1 in
         let* ec2 = Hyps.getObjValue o2 in
         ret (ec1,ec2)) pairs in
       let* sigma = evars () in
-      Feedback.msg_info Pp.(str "Unifying");
-      let sigma = List.fold_left unify_pair sigma pairs in
-      Feedback.msg_info Pp.(str "Unification returned");
-      if Evd.has_given_up sigma
-      then begin
-        Feedback.msg_info Pp.(str "Given up");
-        success (Boolean false)
-      end else begin
-        Feedback.msg_info Pp.(str "Success");
-        let* _ = Hyps.setState sigma in
-        success (Boolean true)
-      end
-    with 
-      e -> 
-        Feedback.msg_info Pp.(str "Exception caught");
-        success (Boolean false) 
-  end
+      let result = List.fold_left unify_pair (Evarsolve.Success sigma) pairs in
+      match result with
+      | Evarsolve.Success sigma ->
+          let* () = Hyps.setState sigma in
+          success (Boolean true)
+      | _ -> success (Boolean false)
+    end
   | None -> failure "Wrong arguments to unify"
 
 (* TODO equalify is broken *)
