@@ -16,7 +16,8 @@ type obj_impl =
 
 (* Masked elements are not included in the goal graph sent to the engine *)
 module IntMap = Map.Make(struct type t = int let compare = compare end)
-type evar_state = (Evar.t * Evd.evar_info) list
+module ESet = Set.Make(Evar)
+type evar_state = (Evar.t * Evd.evar_info) list * ESet.t
 type state =
   { ctx_stack  : evar_state list
   ; handled    : Evar.t list
@@ -25,8 +26,21 @@ type state =
   }
 
 let evarStateFromEvarMap mask sigma =
-  Evd.fold (fun ev info acc -> (ev,info) :: acc) sigma []
-  |> List.filter (fun (ev,_) -> List.exists (fun ev2 -> Evar.compare ev ev2 = 0) mask)
+  let einfos = Evd.fold (fun ev info acc -> (ev,info) :: acc) sigma [] in
+  let state =
+    List.filter (fun (ev,_) -> List.exists (fun ev2 -> Evar.compare ev ev2 = 0) mask) einfos in
+  let undefined =
+    List.filter_map
+      (fun (ev,info) -> 
+        if List.for_all (fun ev2 -> Evar.compare ev ev2 != 0) mask
+           && match Evd.evar_body info with 
+           | Evd.Evar_defined _ -> false
+           | Evd.Evar_empty -> true
+        then Some ev
+        else None)
+      einfos 
+    |> ESet.of_list in
+  (state, undefined)
 let emptyState sigma : state =
   { ctx_stack  = [ ]
   ; handled = [ ]
@@ -155,14 +169,26 @@ let saveState () =
   let state = evarStateFromEvarMap handled sigma in
   let* _ = set (fun st -> { st with ctx_stack = state :: stack }) in
   List.length stack |> ret
+let undefineEvar ev sigma =
+  let evi = Evd.find sigma ev in
+  match Evd.evar_body evi with
+  | Evar_empty -> sigma
+  | Evar_defined _ ->
+      let evi = Evd.({ evi with
+        evar_body = Evar_empty;
+        evar_abstract_arguments = Abstraction.identity;
+      }) in
+      Evd.add (Evd.remove sigma ev) ev evi
 let applyState sigma handled state =
   (* A bit brutal *)
+  let prev = fst state in
   let evars = Evd.fold (fun evar _ acc -> evar :: acc) sigma []
             |> List.filter (fun ev -> List.exists (fun ev2 -> Evar.compare ev ev2 = 0) handled) in
   let sigma = Evd.unshelve sigma evars in
   let sigma = List.fold_left (fun sigma ev -> Evd.remove sigma ev) sigma evars in
-  let sigma = List.fold_left (fun sigma (ev,info) -> Evd.add sigma ev info) sigma state in
-  let sigma = List.fold_left (fun sigma (ev,_) -> Evd.declare_future_goal ev sigma) sigma state in
+  let sigma = List.fold_left (fun sigma (ev,info) -> Evd.add sigma ev info) sigma prev in
+  let sigma = List.fold_left (fun sigma (ev,_) -> Evd.declare_future_goal ev sigma) sigma prev in
+  let sigma = ESet.fold undefineEvar (snd state) sigma in
   sigma
 let restoreState state =
   let* stack = stack () in
@@ -175,7 +201,7 @@ let restoreState state =
   let handled = handled 
               |> List.filter (fun ev -> List.exists 
                                           (fun (ev2,_) -> Evar.compare ev ev2 = 0)
-                                          state) in
+                                          (fst state)) in
   set (fun st -> { st with ctx_stack = nstack; handled = handled })
 let setState sigma =
   Proofview.Unsafe.tclEVARS sigma |> lift
