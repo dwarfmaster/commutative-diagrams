@@ -23,9 +23,9 @@ impl LemmaTree {
         } else {
             &lemmas[lem].name
         };
-        let insert_point = tree.binary_search_by_key(&(rec, key), |node| match node.as_ref() {
-            Node(name, _) => (true, name),
-            Leaf(lem) => (false, &lemmas[*lem].name),
+        let insert_point = tree.binary_search_by_key(&(!rec, key), |node| match node.as_ref() {
+            Node(name, _) => (false, name),
+            Leaf(lem) => (true, &lemmas[*lem].name),
         });
 
         match (insert_point, rec) {
