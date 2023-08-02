@@ -4,7 +4,7 @@ use crate::vm::asm;
 use crate::vm::ast;
 use crate::vm::graph::Graph;
 use crate::vm::interpreter;
-use crate::vm::lemmas::Lemma;
+use crate::vm::lemmas::{Lemma, LemmaTree};
 use crate::vm::parser;
 use crate::vm::store::Context;
 use bevy::ecs::schedule::States;
@@ -53,6 +53,7 @@ pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     pub graph: Graph,
     pub names: HashMap<String, GraphId>,
     pub lemmas: Vec<Lemma>,
+    pub lemma_tree: Vec<Box<LemmaTree>>,
     pub end_status: EndStatus,
 
     // Execution
@@ -104,7 +105,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             panic!()
         });
         let graph = graph_parsed.prepare(&mut ctx);
-        let lemmas = ctx
+        let lemmas: Vec<Lemma> = ctx
             .remote
             .lemmas()
             .unwrap_or_else(|err| {
@@ -112,8 +113,9 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
                 panic!()
             })
             .into_iter()
-            .map(|(id, name, namespace)| Lemma::new(id, name, namespace))
+            .map(|(id, name, namespace)| Lemma::new(id, name, vec![namespace]))
             .collect();
+        let lemma_tree = LemmaTree::new(&lemmas[..]);
         let init_state = ctx.save_state();
         let mut vm = Self {
             ctx,
@@ -138,6 +140,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             face_hyps_order: Vec::new(),
             end_status: EndStatus::Running,
             lemmas,
+            lemma_tree,
             selected_lemma: None,
             lemma_window_open: false,
         };

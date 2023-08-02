@@ -8,6 +8,9 @@ use crate::vm::{Graph, VM};
 use egui::Vec2;
 use std::collections::HashMap;
 
+mod tree;
+pub use tree::LemmaTree;
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct LemmaState {
     pub zoom: f32,
