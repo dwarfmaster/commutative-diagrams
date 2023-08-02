@@ -18,7 +18,7 @@ pub trait Remote {
     where
         I: Iterator<Item = (u64, u64)> + ExactSizeIterator + Clone;
     fn equalify(&mut self, obj1: u64, obj2: u64) -> Result<bool, Self::Error>;
-    fn lemmas(&mut self) -> Result<Vec<(u64, String, String)>, Self::Error>;
+    fn lemmas(&mut self) -> Result<Vec<(u64, String, Vec<String>)>, Self::Error>;
     fn instantiate<NL, EL, FL>(&mut self, lem: u64) -> Result<GraphParsed<NL, EL, FL>, Self::Error>
     where
         NL: Default,

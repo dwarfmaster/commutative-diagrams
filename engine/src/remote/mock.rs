@@ -108,7 +108,7 @@ impl Remote for Mock {
         Ok(obj1 == obj2)
     }
 
-    fn lemmas(&mut self) -> Result<Vec<(u64, String, String)>, ()> {
+    fn lemmas(&mut self) -> Result<Vec<(u64, String, Vec<String>)>, ()> {
         Ok(Vec::new())
     }
 

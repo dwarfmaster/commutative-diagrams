@@ -113,7 +113,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
                 panic!()
             })
             .into_iter()
-            .map(|(id, name, namespace)| Lemma::new(id, name, vec![namespace]))
+            .map(|(id, name, namespace)| Lemma::new(id, name, namespace))
             .collect();
         let lemma_tree = LemmaTree::new(&lemmas[..]);
         let init_state = ctx.save_state();

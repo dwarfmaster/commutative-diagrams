@@ -48,10 +48,10 @@ impl<In: std::io::Read, Out: std::io::Write> Remote for RPC<In, Out> {
         self.receive_msg(req)
     }
 
-    fn lemmas(&mut self) -> Result<Vec<(u64, String, String)>, Self::Error> {
+    fn lemmas(&mut self) -> Result<Vec<(u64, String, Vec<String>)>, Self::Error> {
         let req = self.send_msg("lemmas", ())?;
         self.receive_msg(req)
-            .map(|v: VecWrapper<(u64, String, String)>| v.wrapped_vec)
+            .map(|v: VecWrapper<(u64, String, Vec<String>)>| v.wrapped_vec)
     }
 
     fn instantiate<NL, EL, FL>(&mut self, lem: u64) -> Result<GraphParsed<NL, EL, FL>, Self::Error>
