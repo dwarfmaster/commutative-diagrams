@@ -119,7 +119,7 @@ let lemmas st args =
   let prep_lem id lem =
     Array [ Integer (pack_lem_id id)
           ; String (Lemmas.name lem)
-          ; String (Lemmas.namespace lem)
+          ; Array (Lemmas.namespace lem |> List.map (fun s -> String s))
           ] in
   let lms = List.mapi prep_lem (Array.to_list st.lemmas) in
   success (Array lms)

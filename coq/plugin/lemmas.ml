@@ -32,7 +32,7 @@ type lemmaConstr =
 
 type lemma =
   { name: string
-  ; namespace: string
+  ; namespace: string list
   ; bound: quantified list
   ; pattern: lemmaConstr Graph.graph_impl
   ; store: int (* The namespace in the store *)
@@ -65,9 +65,20 @@ end
 let mkName ltm =
   match ltm with
   | ConstLemma cst -> 
+      let rec list_of_modpath acc = function
+        | Names.ModPath.MPdot (md,lbl) ->
+            list_of_modpath (Names.Label.to_string lbl :: acc) md
+        | Names.ModPath.MPbound id ->
+            Names.MBId.to_string id :: acc
+        | Names.ModPath.MPfile path ->
+            let rec list_of_path acc = function
+              | [] -> acc
+              | id :: path -> 
+                  list_of_path (Names.Id.to_string id :: acc) path in
+            list_of_path acc (Names.DirPath.repr path) in
       cst |> Names.Constant.label |> Names.Label.to_string,
-      cst |> Names.Constant.modpath |> Names.ModPath.to_string
-  | VarLemma id -> Names.Id.to_string id, ""
+      cst |> Names.Constant.modpath |> list_of_modpath []
+  | VarLemma id -> Names.Id.to_string id, []
 
 module Bld = Graphbuilder.Make(LCOrd)
 
