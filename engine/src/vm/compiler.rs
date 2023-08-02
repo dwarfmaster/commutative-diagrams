@@ -177,49 +177,41 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     result = ExecutionError;
                 }
             }
-            Lemma(_lem, _matching) => {
-                todo!()
-                // let lemma = self.find_lemma(&lem.value);
-                // if let Some(lemma) = lemma {
-                //     let matching = matching
-                //         .iter()
-                //         .map(|(lem, goal)| {
-                //             let lemid = match &lem.value {
-                //                 ast::Id::Name(name) => {
-                //                     self.lemmas[lemma].graphical_state.names.get(name)
-                //                 }
-                //                 ast::Id::Id(_) => None,
-                //             };
-                //             let goalid = match &goal.value {
-                //                 ast::Id::Name(name) => self.names.get(name),
-                //                 ast::Id::Id(_) => None,
-                //             };
-                //             match (lemid, goalid) {
-                //                 (Some(lem), Some(goal)) => Ok((lem.clone(), goal.clone())),
-                //                 (None, _) => {
-                //                     Err(format!("Couldn't find {:#?} in lemma", lem.value))
-                //                 }
-                //                 _ => Err(format!("Couldn't find {:#?} in goal", goal.value)),
-                //             }
-                //         })
-                //         .collect::<Result<Vec<_>, String>>();
-                //     match matching {
-                //         Ok(matching) => {
-                //             if !self.apply_lemma(lemma, &matching[..]) {
-                //                 self.error_msg =
-                //                     "Couldn't compute the lemma application".to_string();
-                //                 result = ExecutionError;
-                //             }
-                //         }
-                //         Err(msg) => {
-                //             self.error_msg = msg;
-                //             result = ExecutionError;
-                //         }
-                //     }
-                // } else {
-                //     self.error_msg = format!("Couldn't find lemma {}", lem.value);
-                //     result = ExecutionError;
-                // }
+            Lemma(lem, matching) => {
+                let lemma = self.find_lemma(&lem.value);
+                if let Some(lemma) = lemma {
+                    self.lemmas[lemma].get_pattern(&mut self.ctx);
+                    let matching = matching
+                        .iter()
+                        .map(|(lem, goal)| {
+                            let lemid = self.lemmas[lemma].graphical_state.names.get(&lem.value);
+                            let goalid = self.names.get(&goal.value);
+                            match (lemid, goalid) {
+                                (Some(lem), Some(goal)) => Ok((lem.clone(), goal.clone())),
+                                (None, _) => {
+                                    Err(format!("Couldn't find {:#?} in lemma", lem.value))
+                                }
+                                _ => Err(format!("Couldn't find {:#?} in goal", goal.value)),
+                            }
+                        })
+                        .collect::<Result<Vec<_>, String>>();
+                    match matching {
+                        Ok(matching) => {
+                            if !self.apply_lemma(lemma, &matching[..]) {
+                                self.error_msg =
+                                    "Couldn't compute the lemma application".to_string();
+                                result = ExecutionError;
+                            }
+                        }
+                        Err(msg) => {
+                            self.error_msg = msg;
+                            result = ExecutionError;
+                        }
+                    }
+                } else {
+                    self.error_msg = format!("Couldn't find lemma {}", lem.value);
+                    result = ExecutionError;
+                }
             }
             Refine(_, _) => todo!(),
             Succeed => result = Success,
