@@ -24,27 +24,23 @@ pub fn lemmas_window<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<
             vm.selected_lemma = None;
         }
     }
+}
 
-    if vm.lemma_window_open {
-        egui::Window::new("Lemmas")
-            .open(&mut vm.lemma_window_open)
-            .show(ctx, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    let mut selected = None;
-                    display_lemma_tree(
-                        ui,
-                        &vm.lemma_tree,
-                        &vm.lemmas,
-                        &vm.selected_lemma,
-                        &mut selected,
-                    );
-                    if let Some(lem) = selected {
-                        vm.lemmas[lem].get_pattern(&mut vm.ctx);
-                        vm.selected_lemma = Some(lem);
-                    }
-                });
-            });
-    }
+pub fn lemmas_menu<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        let mut selected = None;
+        display_lemma_tree(
+            ui,
+            &vm.lemma_tree,
+            &vm.lemmas,
+            &vm.selected_lemma,
+            &mut selected,
+        );
+        if let Some(lem) = selected {
+            vm.lemmas[lem].get_pattern(&mut vm.ctx);
+            vm.selected_lemma = Some(lem);
+        }
+    });
 }
 
 fn display_lemma_tree(

@@ -93,7 +93,7 @@ pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     pub face_goal_order: Vec<usize>,
     pub face_hyps_order: Vec<usize>,
     pub selected_lemma: Option<usize>,
-    pub lemma_window_open: bool,
+    pub code_window_open: bool,
 }
 
 impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
@@ -142,7 +142,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             lemmas,
             lemma_tree,
             selected_lemma: None,
-            lemma_window_open: false,
+            code_window_open: false,
         };
         vm.relabel();
         vm.autoname();

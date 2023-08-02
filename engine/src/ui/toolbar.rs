@@ -13,8 +13,8 @@ pub fn toolbar<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
                 vm.insert_and_run("fail");
                 ui.close_menu();
             }
-            if ui.button("Open lemmas").clicked() {
-                vm.lemma_window_open = true;
+            if ui.button("View script").clicked() {
+                vm.code_window_open = true;
                 ui.close_menu();
             }
         });
