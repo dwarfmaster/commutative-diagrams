@@ -40,7 +40,7 @@ let info st args =
         let* env = env () in
         let* sigma = evars () in
         let* vl = Hyps.getObjValue id in
-        let label = Pp.(Printer.pr_econstr_env env sigma vl |> string_of_ppcmds) in
+        let label = Pp.(Printer.pr_leconstr_env env sigma vl |> string_of_ppcmds) in
         (* Evars *)
         let evar = if EConstr.isEvar sigma vl then 0 (* Evar *)
           else if EConstr.fold sigma (fun b ec -> b || EConstr.isEvar sigma ec) false vl
