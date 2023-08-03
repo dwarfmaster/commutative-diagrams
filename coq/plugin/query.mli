@@ -21,7 +21,7 @@ type quantified =
   ; kind: quantifiedKind
   }
 val query_lemma : EConstr.t -> (quantified list * Hyps.obj) option Hyps.t
-val apply_property : Hyps.obj -> property -> unit Hyps.t
-val lift_property : int -> property -> property
+val apply_property : lift:(int option) -> Hyps.obj -> property -> unit Hyps.t
 
 val get_type : Environ.env -> Evd.evar_map -> EConstr.t -> EConstr.t Hyps.t
+val get_type_uncached : Environ.env -> Evd.evar_map -> EConstr.t -> EConstr.t Hyps.t

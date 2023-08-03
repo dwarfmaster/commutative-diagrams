@@ -18,14 +18,14 @@ let isInd sigma pred t =
 let ofst opt = Option.map fst opt
 
 (* TODO will break in case of coq evars in ctx *)
-let getType env sigma e : EConstr.t Hyps.t =
+let get_type_uncached env sigma e : EConstr.t Hyps.t =
   Retyping.get_type_of env sigma e |> ret
 
 let get_type env sigma e =
   let* id = Hyps.hasObject e in
   match id with
   | Some id -> Hyps.getObjType id
-  | None -> getType env sigma e
+  | None -> get_type_uncached env sigma e
 
 
 (*   ___                         *)
@@ -129,6 +129,7 @@ and query_morphism_cached env sigma tp =
     (query_morphism env sigma)
     (fun (cat, src, dst) ->
       let* cat = ofst <$> query_impl env sigma Category cat @<< get_type env sigma cat in
+      let* tp = get_type env sigma src in
       let* src = ofst <$> query_impl env sigma Object src @<< get_type env sigma src in
       let* dst = ofst <$> query_impl env sigma Object dst @<< get_type env sigma dst in
       match cat, src, dst with
@@ -240,6 +241,7 @@ and query_compose_mph env sigma ec tp =
   | _ -> none ()
   with E.Ret (cat, mid, msi) ->
     let* cat = ofst <$> query_impl env sigma Category cat @<< get_type env sigma cat in
+    let* tp = get_type env sigma msi in
     let* msi = query_impl env sigma Morphism msi @<< get_type env sigma msi in
     let* mid = query_impl env sigma Morphism mid @<< get_type env sigma mid in
     match cat, msi, mid with
@@ -358,10 +360,16 @@ let is_relevant_type rctx sigma tp =
   let* is_eq  = to_prop (fun (c,x,y,l,r) -> Eq (c,x,y,l,r)) <$> query_eq env sigma tp in
   List.filter_map (fun x -> x) [is_cat; is_obj; is_mph; is_fun; is_eq] |> ret
 
-let apply_property_impl env sigma obj prop =
+let apply_property_impl ~lift env sigma obj prop =
+  let do_lift x =
+    match lift with
+    | Some l -> EConstr.Vars.lift l x 
+    | None -> x in
   let reg x =
-    let* xt = get_type env sigma x in
-    Hyps.registerObj x xt None in
+    let* xt = get_type_uncached env sigma x in
+    let x_l = do_lift x in
+    let xt_l = do_lift xt in
+    Hyps.registerObj x_l xt_l None in
   match prop with
   | Cat -> Hyps.markAsCat obj ()
   | Funct (c,d) ->
@@ -384,10 +392,10 @@ let apply_property_impl env sigma obj prop =
       let* r = reg r in
       Hyps.markAsEq obj (c,x,y,l,r)
 
-let apply_property obj prop =
+let apply_property ~lift obj prop =
   let* env = env () in
   let* sigma = evars () in
-  apply_property_impl env sigma obj prop
+  apply_property_impl ~lift env sigma obj prop
 
 let rec query_lemma_impl rctx sigma tp =
   match EConstr.kind sigma tp with
@@ -406,7 +414,7 @@ let rec query_lemma_impl rctx sigma tp =
         let* env = build_env rctx sigma in
         let* tptp = get_type env sigma tp in
         let* id = Hyps.registerObj tp tptp None in
-        let* _ = mapM (apply_property_impl env sigma id) props in
+        let* _ = mapM (apply_property_impl ~lift:None env sigma id) props in
         some (List.rev rctx, id)
       else
         none ()
@@ -414,13 +422,4 @@ let rec query_lemma_impl rctx sigma tp =
 let query_lemma tp = 
   let* sigma = evars () in
   query_lemma_impl [] sigma tp
-
-let lift_property n prop =
-  let lift = EConstr.Vars.lift n in
-  match prop with
-  | Cat -> Cat
-  | Funct (c,d) -> Funct (lift c, lift d)
-  | Elem c -> Elem (lift c)
-  | Mph (c,x,y) -> Mph (lift c, lift x, lift y)
-  | Eq (c,x,y,l,r) -> Eq (lift c, lift x, lift y, lift l, lift r)
 

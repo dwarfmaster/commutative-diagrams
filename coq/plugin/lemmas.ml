@@ -93,9 +93,17 @@ let handle_quantifier q n dbindex lemma env =
   | Existential -> assert false
   | Universal ->
       let tp = q.Query.tp in
+      let* sigma = evars () in
+      let* tptp = Query.get_type_uncached env sigma tp in
       let id = n - 1 - dbindex in
       let lctp = EConstr.Vars.lift (id + 1) tp in
+      let lctptp = EConstr.Vars.lift (id + 1) tptp in
       let* lcid = Hyps.registerObj (EConstr.mkRel (id + 1)) lctp None in
+      let* lctpid = Hyps.registerObj lctp lctptp None in
+      let* _ =
+        mapM (fun prop -> prop |> Query.apply_property ~lift:(Some (id + 1)) lctpid) 
+             q.Query.props 
+        |> Hyps.withEnv env in
       let lc = Subst lcid in
       let nq = {
         name = Option.map (fun nm -> nm |> Names.Name.print |> Pp.string_of_ppcmds) q.Query.name;
@@ -109,7 +117,7 @@ let handle_quantifier q n dbindex lemma env =
       }) in
       let decl = Context.Rel.Declaration.LocalAssum (name,EConstr.to_constr sigma tp) in
       let env = Environ.push_rel decl env in
-      ret (env, (lc,lctp), nq)
+      ret (env, (lc,lctpid), nq)
   | LetIn v -> assert false
 
 let build_lemma ns lemma tp quantifiers =
@@ -128,9 +136,6 @@ let build_lemma ns lemma tp quantifiers =
   let rec fold_quantified bld = function
     | [] -> ret bld
     | (lc,tp) :: lcs ->
-        let* sigma = evars () in
-        let* tptp = Query.get_type env sigma tp in
-        let* tp = Hyps.registerObj tp tptp None in
         let* bld = add_to_builder lc tp bld in
         fold_quantified bld lcs in
   let* bld = fold_quantified (Bld.empty ()) lcs |> Hyps.withEnv env in
