@@ -208,7 +208,7 @@ let setState sigma =
 let mapState fn =
   let* sigma = evars () in
   let r, sigma = fn sigma in
-  let* () = Proofview.Unsafe.tclEVARS sigma |> lift in
+  let* () = setState sigma in
   ret r
 let handleEvar ev =
   let* sigma = evars () in

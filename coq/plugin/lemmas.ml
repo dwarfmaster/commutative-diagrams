@@ -3,12 +3,12 @@ open Hyps.Combinators
 type obj = Hyps.obj
 
 type lemmaTerm =
-  | ConstLemma of Names.Constant.t
+  | ConstLemma of Names.Constant.t * EConstr.t
   | VarLemma of Names.Id.t
 
 let ltcompare lt1 lt2 =
   match lt1, lt2 with
-  | ConstLemma cst1, ConstLemma cst2 -> Names.Constant.CanOrd.compare cst1 cst2
+  | ConstLemma (cst1,_), ConstLemma (cst2,_) -> Names.Constant.CanOrd.compare cst1 cst2
   | ConstLemma _, VarLemma _ -> -1
   | VarLemma _, ConstLemma _ -> 1
   | VarLemma v1, VarLemma v2 -> Names.Id.compare v1 v2
@@ -64,7 +64,7 @@ end
 
 let mkName ltm =
   match ltm with
-  | ConstLemma cst -> 
+  | ConstLemma (cst,_) -> 
       let rec list_of_modpath acc = function
         | Names.ModPath.MPdot (md,lbl) ->
             list_of_modpath (Names.Label.to_string lbl :: acc) md
@@ -175,10 +175,13 @@ let extractFromType (id: lemmaTerm) (tp: EConstr.t) : lemma option Hyps.t =
     | None -> none ()
   end
 
-let extractConstant name decl : lemma option Hyps.t =
+let extractConstant name cst : lemma option Hyps.t =
+  let* env = env () in
+  let* sigma = evars () in
+  let* tp = Query.get_type_uncached env sigma cst in
   extractFromType
-    (ConstLemma name)
-    (EConstr.of_constr Declarations.(decl.const_type))
+    (ConstLemma (name,cst))
+    tp
 
 let extractFromVar name tp =
   extractFromType (VarLemma name) tp
@@ -186,11 +189,15 @@ let extractFromVar name tp =
 let extractAllConstants () : lemma list Hyps.t =
   let* env = env () in
   Environ.fold_constants
-    (fun name decl mnd ->
+    (fun name _ mnd ->
       let* lst = mnd in
-      let* cst = extractConstant name decl in
+      let* cst =
+        Hyps.mapState
+          (fun sigma -> let sigma, ec = Evd.fresh_global env sigma (Names.GlobRef.ConstRef name)
+                        in  ec, sigma) in
+      let* cst = extractConstant name cst in
       match cst with
-      | Some(cst) -> ret (cst :: lst)
+      | Some cst -> ret (cst :: lst)
       | None -> ret lst)
     env
     (ret [])
@@ -238,9 +245,9 @@ module Instantiate = struct
         let* fapp = Env.app (Proofview.tclUNIT f) (Array.of_list args) |> lift in
         ret fapp
     | Lemma lm ->
-        ret begin match lm with
-        | ConstLemma cst -> EConstr.mkConst cst
-        | VarLemma var -> EConstr.mkVar var
+        begin match lm with
+        | ConstLemma (_,cst) -> ret cst
+        | VarLemma var -> EConstr.mkVar var |> ret
         end
     | Subst obj ->
         EConstr.Vars.substl subst <$> Hyps.inNamespace ns (Hyps.getObjValue obj)
