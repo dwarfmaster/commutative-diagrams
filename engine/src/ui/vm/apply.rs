@@ -5,7 +5,7 @@ use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
 use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
 use crate::ui::graph::widget;
 use crate::ui::VM;
-use crate::vm::{Context, EdgeLabel, FaceLabel, NodeLabel};
+use crate::vm::{Context, EdgeLabel, FaceLabel, FaceStatus, NodeLabel};
 use egui;
 use egui::{Stroke, Style, Ui, Vec2};
 use std::collections::HashMap;
@@ -366,7 +366,15 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
             };
             let folded = self.apply.graph.faces[fce].label.folded;
 
-            let mut border = style.noninteractive().bg_stroke;
+            let border_color = match self.apply.graph.faces[fce].label.status {
+                FaceStatus::Goal => egui::Color32::GOLD,
+                FaceStatus::Refined => egui::Color32::GREEN,
+                FaceStatus::Hypothesis => style.noninteractive().bg_stroke.color,
+            };
+            let mut border = Stroke {
+                color: border_color,
+                ..style.noninteractive().bg_stroke
+            };
             let mut modifier = Modifier::None;
             let md = self.apply.self_modifier(id);
             super::apply_modifier(md, &mut border.color, &mut modifier);

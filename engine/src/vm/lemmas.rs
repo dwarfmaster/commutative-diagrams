@@ -56,6 +56,13 @@ impl Lemma {
         }
     }
 
+    pub fn recompute_face_statuses<Rm: Remote>(&mut self, ctx: &mut Context<Rm>) {
+        let pattern = self.pattern.as_mut().unwrap();
+        for fce in 0..pattern.faces.len() {
+            pattern.faces[fce].label.status = ctx.compute_eq_status(&pattern.faces[fce].eq);
+        }
+    }
+
     pub fn name<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>) {
         if let Some(pattern) = &mut self.pattern {
             for nd in 0..pattern.nodes.len() {
@@ -122,6 +129,7 @@ impl Lemma {
         self.pattern = Some(graph);
         self.relabel(ctx);
         self.name(ctx);
+        self.recompute_face_statuses(ctx);
         ctx.unset_lem_context();
     }
 

@@ -217,6 +217,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             assert_eq!(ast.len(), 1);
             let act = ast.into_iter().next().unwrap();
             self.store_action(act, last);
+            self.finalize_execution();
         }
     }
 }

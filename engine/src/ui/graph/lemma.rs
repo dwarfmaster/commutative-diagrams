@@ -1,7 +1,7 @@
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
-use crate::vm::Lemma;
+use crate::vm::{FaceStatus, Lemma};
 use egui::{Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
 
@@ -93,16 +93,34 @@ impl UiGraph for Lemma {
                 };
                 let folded = pattern.faces[fce].label.folded;
 
+                let border_color = match pattern.faces[fce].label.status {
+                    FaceStatus::Goal => egui::Color32::GOLD,
+                    FaceStatus::Refined => egui::Color32::GREEN,
+                    FaceStatus::Hypothesis => {
+                        if self.graphical_state.selected_face == Some(fce) {
+                            style.noninteractive().fg_stroke.color
+                        } else {
+                            style.noninteractive().bg_stroke.color
+                        }
+                    }
+                };
+
                 let style = if self.graphical_state.selected_face == Some(fce) {
                     FaceStyle {
-                        border: style.noninteractive().fg_stroke,
+                        border: Stroke {
+                            color: border_color,
+                            ..style.noninteractive().fg_stroke
+                        },
                         sep: style.noninteractive().fg_stroke,
                         fill: style.visuals.widgets.active.bg_fill,
                         text: style.visuals.widgets.active.fg_stroke.color,
                     }
                 } else {
                     FaceStyle {
-                        border: style.noninteractive().bg_stroke,
+                        border: Stroke {
+                            color: border_color,
+                            ..style.noninteractive().fg_stroke
+                        },
                         sep: style.noninteractive().bg_stroke,
                         fill: style.noninteractive().bg_fill,
                         text: style.noninteractive().fg_stroke.color,

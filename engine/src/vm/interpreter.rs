@@ -49,6 +49,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     // After executing potentially multiple instruction, finish the evaluation
     // and prepare the vm for display
     pub fn finalize_execution(&mut self) {
+        self.ctx.save_state();
         if self.eval_status.should_relabel {
             self.relabel()
         }
@@ -58,6 +59,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         if let Some(face) = self.selected_face {
             self.show_face(face)
         }
+        self.recompute_face_statuses();
     }
 
     // Execute one instruction
