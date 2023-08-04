@@ -88,6 +88,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         }
 
         // Unify equalities
+        self.ctx.save_state(); // Necessary to clear cached representations
         let eqs = matching
             .iter()
             .filter_map(|(id1, id2)| match (id1, id2) {
