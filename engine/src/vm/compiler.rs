@@ -198,8 +198,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     match matching {
                         Ok(matching) => {
                             if !self.apply_lemma(lemma, &matching[..]) {
-                                self.error_msg =
-                                    "Couldn't compute the lemma application".to_string();
+                                // error_msg is set by apply_lemma
                                 result = ExecutionError;
                             }
                         }

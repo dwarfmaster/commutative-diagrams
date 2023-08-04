@@ -11,7 +11,10 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         let pattern = self.lemmas[lemma].instantiate(&mut self.ctx);
         let matchings = match self.lemma_complete_matchings(&pattern, matching) {
             Some(matching) => matching,
-            None => return false,
+            None => {
+                self.error_msg = "Couldn't complete matching".to_string();
+                return false;
+            }
         };
 
         let mut direct = HashMap::new();
@@ -97,7 +100,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             .collect::<Vec<_>>();
         for (eq1, eq2) in eqs {
             if !self.unify_eq(eq1.cat, &eq1, &eq2) {
-                return Some("Unification failed".to_string());
+                return Some("Unification of equalities failed".to_string());
             }
         }
 
