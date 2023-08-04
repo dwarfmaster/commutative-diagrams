@@ -109,7 +109,12 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
     pub fn find_lemma(&self, name: &str) -> Option<usize> {
         for lem in 0..self.lemmas.len() {
-            if self.lemmas[lem].name == name {
+            let parts = name.split('.');
+            if parts.eq(self.lemmas[lem]
+                .namespace
+                .iter()
+                .chain(std::iter::once(&self.lemmas[lem].name)))
+            {
                 return Some(lem);
             }
         }

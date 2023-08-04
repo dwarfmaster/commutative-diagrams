@@ -83,7 +83,13 @@ impl LemmaApplicationState {
     }
 
     pub fn compile<Rm: Remote + Sync + Send>(self, vm: &VM<Rm>) -> String {
-        let mut cmd = format!("apply {}", vm.lemmas[self.lemma].name);
+        let mut name = String::new();
+        for nms in &vm.lemmas[self.lemma].namespace {
+            name.push_str(nms);
+            name.push_str(".");
+        }
+        name.push_str(&vm.lemmas[self.lemma].name);
+        let mut cmd = format!("apply {}", name);
         for (lem, goals) in self.direct_mapping.iter() {
             let lname = self.get_name(*lem);
             for goal in goals.iter() {
