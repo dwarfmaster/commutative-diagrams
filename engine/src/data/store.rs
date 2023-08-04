@@ -85,89 +85,23 @@ impl Store {
             .repr = Some(repr);
     }
 
-    // Id must be present in the store
-    pub fn store(&mut self, id: u64, feat: Feature) {
-        let obj = self
-            .objects
-            .get_mut(&id)
-            .unwrap()
-            .last_mut()
-            .unwrap()
-            .as_mut()
-            .unwrap();
-        obj.cache.store(feat)
-    }
-
-    // Id must be present in the store
-    pub fn store_none(&mut self, id: u64, tag: Tag) {
-        let obj = self
-            .objects
-            .get_mut(&id)
-            .unwrap()
-            .last_mut()
-            .unwrap()
-            .as_mut()
-            .unwrap();
-        obj.cache.store_none(tag)
-    }
-
     pub fn get<'a>(&'a self, id: u64) -> Option<&'a Obj> {
         self.objects
             .get(&id)
-            .map(|v| v.last())
-            .flatten()
-            .map(|o| o.as_ref())
-            .flatten()
+            .and_then(|v| v.last())
+            .and_then(|o| o.as_ref())
+    }
+
+    pub fn get_mut<'a>(&'a mut self, id: u64) -> Option<&'a mut Obj> {
+        self.objects
+            .get_mut(&id)
+            .and_then(|v| v.last_mut())
+            .and_then(|o| o.as_mut())
     }
 
     pub fn query(&self, id: u64, tag: Tag) -> Option<Vec<Feature>> {
         let obj = self.get(id)?;
         obj.cache.query(tag)
-    }
-
-    pub fn is_cat(&self, id: u64) -> Option<Option<()>> {
-        let obj = self.get(id)?;
-        obj.cache.is_cat()
-    }
-
-    pub fn is_obj(&self, id: u64, cat: u64) -> Option<Option<()>> {
-        let obj = self.get(id)?;
-        obj.cache.is_obj(cat)
-    }
-
-    pub fn is_funct(&self, id: u64, cat: u64) -> Option<Option<u64>> {
-        let obj = self.get(id)?;
-        obj.cache.is_funct(cat)
-    }
-
-    pub fn is_mph(&self, id: u64, cat: u64) -> Option<Option<(u64, u64)>> {
-        let obj = self.get(id)?;
-        obj.cache.is_mph(cat)
-    }
-
-    pub fn is_eq(&self, id: u64, cat: u64) -> Option<Option<(u64, u64, u64, u64)>> {
-        let obj = self.get(id)?;
-        obj.cache.is_eq(cat)
-    }
-
-    pub fn is_funct_obj(&self, id: u64, cat: u64) -> Option<Option<(u64, u64, u64)>> {
-        let obj = self.get(id)?;
-        obj.cache.is_funct_obj(cat)
-    }
-
-    pub fn is_identity(&self, id: u64, cat: u64) -> Option<Option<u64>> {
-        let obj = self.get(id)?;
-        obj.cache.is_identity(cat)
-    }
-
-    pub fn is_comp(&self, id: u64, cat: u64) -> Option<Option<(u64, u64, u64, u64, u64)>> {
-        let obj = self.get(id)?;
-        obj.cache.is_comp(cat)
-    }
-
-    pub fn is_funct_mph(&self, id: u64, cat: u64) -> Option<Option<(u64, u64, u64, u64, u64)>> {
-        let obj = self.get(id)?;
-        obj.cache.is_funct_mph(cat)
     }
 }
 
@@ -287,7 +221,7 @@ macro_rules! do_query {
 }
 
 impl QueryCache {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             categories: None,
             objects: None,
@@ -313,7 +247,7 @@ impl QueryCache {
         }
     }
 
-    fn store_none(&mut self, tag: Tag) {
+    pub fn store_none(&mut self, tag: Tag) {
         use Tag::*;
         match tag {
             Category => get_store!(self, Category) = Some(Vec::new()),
@@ -340,7 +274,7 @@ impl QueryCache {
         }
     }
 
-    fn store(&mut self, feat: Feature) {
+    pub fn store(&mut self, feat: Feature) {
         use Tag::*;
         match feat.tag() {
             Category => do_store!(self, Category, feat),
@@ -367,7 +301,7 @@ impl QueryCache {
         }
     }
 
-    fn query(&self, tag: Tag) -> Option<Vec<Feature>> {
+    pub fn query(&self, tag: Tag) -> Option<Vec<Feature>> {
         use Tag::*;
         match tag {
             Category => do_query!(self, Category),
@@ -394,7 +328,7 @@ impl QueryCache {
         }
     }
 
-    fn is_cat(&self) -> Option<Option<()>> {
+    pub fn is_cat(&self) -> Option<Option<()>> {
         let v = self.query(Tag::Category)?;
         Some(v.into_iter().find_map(|feat| {
             if let Feature::Category = feat {
@@ -405,11 +339,14 @@ impl QueryCache {
         }))
     }
 
-    fn is_obj(&self, qcat: u64) -> Option<Option<()>> {
+    pub fn is_obj<F>(&self, qcat: u64, mut repr: F) -> Option<Option<()>>
+    where
+        F: FnMut(u64) -> u64,
+    {
         let v = self.query(Tag::Object)?;
         Some(v.into_iter().find_map(|feat| {
             if let Feature::Object { cat } = feat {
-                if cat == qcat {
+                if repr(cat) == repr(qcat) {
                     Some(())
                 } else {
                     None
@@ -420,11 +357,14 @@ impl QueryCache {
         }))
     }
 
-    fn is_funct(&self, qdcat: u64) -> Option<Option<u64>> {
+    pub fn is_funct<F>(&self, qdcat: u64, mut repr: F) -> Option<Option<u64>>
+    where
+        F: FnMut(u64) -> u64,
+    {
         let v = self.query(Tag::Functor)?;
         Some(v.into_iter().find_map(|feat| {
             if let Feature::Functor { scat, dcat } = feat {
-                if dcat == qdcat {
+                if repr(dcat) == repr(qdcat) {
                     Some(scat)
                 } else {
                     None
@@ -435,11 +375,14 @@ impl QueryCache {
         }))
     }
 
-    fn is_mph(&self, qcat: u64) -> Option<Option<(u64, u64)>> {
+    pub fn is_mph<F>(&self, qcat: u64, mut repr: F) -> Option<Option<(u64, u64)>>
+    where
+        F: FnMut(u64) -> u64,
+    {
         let v = self.query(Tag::Morphism)?;
         Some(v.into_iter().find_map(|feat| {
             if let Feature::Morphism { cat, src, dst } = feat {
-                if cat == qcat {
+                if repr(cat) == repr(qcat) {
                     Some((src, dst))
                 } else {
                     None
@@ -450,7 +393,10 @@ impl QueryCache {
         }))
     }
 
-    fn is_eq(&self, qcat: u64) -> Option<Option<(u64, u64, u64, u64)>> {
+    pub fn is_eq<F>(&self, qcat: u64, mut repr: F) -> Option<Option<(u64, u64, u64, u64)>>
+    where
+        F: FnMut(u64) -> u64,
+    {
         let v = self.query(Tag::Equality)?;
         Some(v.into_iter().find_map(|feat| {
             if let Feature::Equality {
@@ -461,7 +407,7 @@ impl QueryCache {
                 right,
             } = feat
             {
-                if cat == qcat {
+                if repr(cat) == repr(qcat) {
                     Some((src, dst, left, right))
                 } else {
                     None
@@ -472,7 +418,10 @@ impl QueryCache {
         }))
     }
 
-    fn is_funct_obj(&self, qdcat: u64) -> Option<Option<(u64, u64, u64)>> {
+    pub fn is_funct_obj<F>(&self, qdcat: u64, mut repr: F) -> Option<Option<(u64, u64, u64)>>
+    where
+        F: FnMut(u64) -> u64,
+    {
         let v = self.query(Tag::AppliedFunctObj)?;
         Some(v.into_iter().find_map(|feat| {
             if let Feature::AppliedFunctObj {
@@ -482,7 +431,7 @@ impl QueryCache {
                 obj,
             } = feat
             {
-                if qdcat == dcat {
+                if repr(qdcat) == repr(dcat) {
                     Some((scat, funct, obj))
                 } else {
                     None
@@ -493,11 +442,14 @@ impl QueryCache {
         }))
     }
 
-    fn is_identity(&self, qcat: u64) -> Option<Option<u64>> {
+    pub fn is_identity<F>(&self, qcat: u64, mut repr: F) -> Option<Option<u64>>
+    where
+        F: FnMut(u64) -> u64,
+    {
         let v = self.query(Tag::Identity)?;
         Some(v.into_iter().find_map(|feat| {
             if let Feature::Identity { cat, obj } = feat {
-                if qcat == cat {
+                if repr(qcat) == repr(cat) {
                     Some(obj)
                 } else {
                     None
@@ -508,7 +460,10 @@ impl QueryCache {
         }))
     }
 
-    fn is_comp(&self, qcat: u64) -> Option<Option<(u64, u64, u64, u64, u64)>> {
+    pub fn is_comp<F>(&self, qcat: u64, mut repr: F) -> Option<Option<(u64, u64, u64, u64, u64)>>
+    where
+        F: FnMut(u64) -> u64,
+    {
         let v = self.query(Tag::ComposeMph)?;
         Some(v.into_iter().find_map(|feat| {
             if let Feature::ComposeMph {
@@ -520,7 +475,7 @@ impl QueryCache {
                 m2,
             } = feat
             {
-                if qcat == cat {
+                if repr(qcat) == repr(cat) {
                     Some((src, mid, dst, m1, m2))
                 } else {
                     None
@@ -531,7 +486,14 @@ impl QueryCache {
         }))
     }
 
-    fn is_funct_mph(&self, qdcat: u64) -> Option<Option<(u64, u64, u64, u64, u64)>> {
+    pub fn is_funct_mph<F>(
+        &self,
+        qdcat: u64,
+        mut repr: F,
+    ) -> Option<Option<(u64, u64, u64, u64, u64)>>
+    where
+        F: FnMut(u64) -> u64,
+    {
         let v = self.query(Tag::AppliedFunctMph)?;
         Some(v.into_iter().find_map(|feat| {
             if let Feature::AppliedFunctMph {
@@ -543,7 +505,7 @@ impl QueryCache {
                 mph,
             } = feat
             {
-                if qdcat == dcat {
+                if repr(qdcat) == repr(dcat) {
                     Some((scat, funct, src, dst, mph))
                 } else {
                     None
@@ -562,6 +524,7 @@ mod tests {
 
     #[test]
     fn cache() {
+        let repr = |id: u64| -> u64 { id };
         let mut cache = QueryCache::new();
         cache.store(Feature::ComposeMph {
             cat: 0,
@@ -582,21 +545,26 @@ mod tests {
         cache.store_none(Tag::AppliedFunctMph);
         assert_eq!(cache.query(Tag::Category), None);
         assert_eq!(cache.query(Tag::ComposeMph).map(|v| v.len()), Some(2));
-        assert_eq!(cache.is_comp(0), Some(Some((1, 2, 3, 4, 5))));
-        assert_eq!(cache.is_comp(3), Some(None));
-        assert_eq!(cache.is_comp(6), Some(Some((1, 2, 3, 4, 5))));
-        assert_eq!(cache.is_identity(0), None);
-        assert_eq!(cache.is_funct_mph(0), Some(None));
+        assert_eq!(cache.is_comp(0, repr), Some(Some((1, 2, 3, 4, 5))));
+        assert_eq!(cache.is_comp(3, repr), Some(None));
+        assert_eq!(cache.is_comp(6, repr), Some(Some((1, 2, 3, 4, 5))));
+        assert_eq!(cache.is_identity(0, repr), None);
+        assert_eq!(cache.is_funct_mph(0, repr), Some(None));
     }
 
     #[test]
     fn store() {
         type ES = super::EvarStatus;
+        let repr = |id: u64| -> u64 { id };
         let mut store = Store::new();
         store.register(0, "C".to_string(), None, ES::Grounded);
-        store.store(0, Feature::Category);
+        store.get_mut(0).unwrap().cache.store(Feature::Category);
         store.register(1, "?x".to_string(), None, ES::Evar);
-        store.store(1, Feature::Object { cat: 0 });
+        store
+            .get_mut(1)
+            .unwrap()
+            .cache
+            .store(Feature::Object { cat: 0 });
         assert!(store.get(0).is_some());
         assert_eq!(store.get(1).map(|o| o.status), Some(ES::Evar));
         assert_eq!(store.get(1).map(|o| &o.label[..]), Some("?x"));
@@ -605,17 +573,21 @@ mod tests {
         store.push_state();
         store.register(1, "a".to_string(), None, ES::Grounded);
         store.register(2, "1_a".to_string(), None, ES::Grounded);
-        store.store(
-            2,
-            Feature::Morphism {
-                cat: 0,
-                src: 1,
-                dst: 1,
-            },
-        );
-        store.store(2, Feature::Identity { cat: 0, obj: 1 });
+        store.get_mut(2).unwrap().cache.store(Feature::Morphism {
+            cat: 0,
+            src: 1,
+            dst: 1,
+        });
+        store
+            .get_mut(2)
+            .unwrap()
+            .cache
+            .store(Feature::Identity { cat: 0, obj: 1 });
         assert_eq!(store.get(1).map(|o| o.status), Some(ES::Grounded));
-        assert_eq!(store.is_identity(2, 0), Some(Some(1)));
+        assert_eq!(
+            store.get(2).unwrap().cache.is_identity(0, repr),
+            Some(Some(1))
+        );
 
         store.push_state();
         store.register(1, "a".to_string(), Some("a".to_string()), ES::Grounded);
@@ -626,7 +598,10 @@ mod tests {
 
         store.pop_state();
         assert_eq!(store.get(1).map(|o| o.name.clone()), Some(None));
-        assert_eq!(store.is_identity(2, 0), Some(Some(1)));
+        assert_eq!(
+            store.get(2).unwrap().cache.is_identity(0, repr),
+            Some(Some(1))
+        );
 
         store.pop_state();
         assert_eq!(store.get(1).map(|o| o.status), Some(ES::Evar));

@@ -1,4 +1,4 @@
-use crate::data::{EvarStatus, Feature, Obj, Store, Tag};
+use crate::data::{EvarStatus, Feature, Obj, QueryCache, Store, Tag};
 use crate::remote::Remote;
 use std::collections::HashMap;
 
@@ -8,6 +8,18 @@ pub struct Context<Rm: Remote> {
     pub store: HashMap<u64, Store>,
     pub states: Vec<u64>,
     pub context: u64,
+}
+
+macro_rules! is_feat {
+    ($ctx:expr, $cat:expr, $obj:expr, $tag:expr, $f:ident) => {{
+        $ctx.do_query($obj, $tag);
+        let mut cache = QueryCache::new();
+        $ctx.swap_cache($obj, &mut cache);
+        let repr = |id: u64| -> u64 { $ctx.get_stored_repr(id) };
+        let r = cache.$f($cat, repr).unwrap();
+        $ctx.swap_cache($obj, &mut cache);
+        r
+    }};
 }
 
 impl<Rm: Remote> Context<Rm> {
@@ -115,173 +127,86 @@ impl<Rm: Remote> Context<Rm> {
         if self.store.get(&self.context).unwrap().get(obj).is_none() {
             self.query_info(obj);
         }
-        let feats = self.remote.query(obj, tag).unwrap();
-        if feats.is_empty() {
-            self.store
-                .get_mut(&self.context)
-                .unwrap()
-                .store_none(obj, tag);
-        } else {
-            feats.iter().for_each(|feat| {
-                self.store
-                    .get_mut(&self.context)
-                    .unwrap()
-                    .store(obj, feat.clone())
-            });
+        let cache = &mut self
+            .store
+            .get_mut(&self.context)
+            .unwrap()
+            .get_mut(obj)
+            .unwrap()
+            .cache;
+        match cache.query(tag) {
+            Some(feats) => feats,
+            None => {
+                let feats = self.remote.query(obj, tag).unwrap();
+                if feats.is_empty() {
+                    cache.store_none(tag);
+                } else {
+                    feats.iter().for_each(|feat| cache.store(feat.clone()));
+                }
+                feats
+            }
         }
-        feats
     }
 
     pub fn get_stored_query(&mut self, obj: u64, tag: Tag) -> Vec<Feature> {
-        let data = self.store.get(&self.context).unwrap().query(obj, tag);
-        match data {
-            Some(feats) => feats,
-            None => self.do_query(obj, tag),
-        }
+        self.do_query(obj, tag)
+    }
+
+    fn swap_cache(&mut self, obj: u64, cache: &mut QueryCache) {
+        std::mem::swap(
+            cache,
+            &mut self
+                .store
+                .get_mut(&self.context)
+                .unwrap()
+                .get_mut(obj)
+                .unwrap()
+                .cache,
+        );
     }
 
     pub fn is_cat(&mut self, obj: u64) -> bool {
-        let data = self.store.get(&self.context).unwrap().is_cat(obj);
-        match data {
-            Some(cat) => cat.is_some(),
-            None => {
-                self.do_query(obj, Tag::Category);
-                self.store
-                    .get(&self.context)
-                    .unwrap()
-                    .is_cat(obj)
-                    .unwrap()
-                    .is_some()
-            }
-        }
+        self.do_query(obj, Tag::Category);
+        self.store
+            .get(&self.context)
+            .unwrap()
+            .get(obj)
+            .unwrap()
+            .cache
+            .is_cat()
+            .unwrap()
+            .is_some()
     }
 
     pub fn is_obj(&mut self, obj: u64, cat: u64) -> bool {
-        let data = self.store.get(&self.context).unwrap().is_obj(obj, cat);
-        match data {
-            Some(obj) => obj.is_some(),
-            None => {
-                self.do_query(obj, Tag::Object);
-                self.store
-                    .get(&self.context)
-                    .unwrap()
-                    .is_obj(obj, cat)
-                    .unwrap()
-                    .is_some()
-            }
-        }
+        is_feat!(self, cat, obj, Tag::Object, is_funct).is_some()
     }
 
     pub fn is_funct(&mut self, obj: u64, cat: u64) -> Option<u64> {
-        let data = self.store.get(&self.context).unwrap().is_funct(obj, cat);
-        match data {
-            Some(f) => f,
-            None => {
-                self.do_query(obj, Tag::Functor);
-                self.store
-                    .get(&self.context)
-                    .unwrap()
-                    .is_funct(obj, cat)
-                    .unwrap()
-            }
-        }
+        is_feat!(self, cat, obj, Tag::Functor, is_funct)
     }
 
     pub fn is_mph(&mut self, obj: u64, cat: u64) -> Option<(u64, u64)> {
-        let data = self.store.get(&self.context).unwrap().is_mph(obj, cat);
-        match data {
-            Some(mph) => mph,
-            None => {
-                self.do_query(obj, Tag::Morphism);
-                self.store
-                    .get(&self.context)
-                    .unwrap()
-                    .is_mph(obj, cat)
-                    .unwrap()
-            }
-        }
+        is_feat!(self, cat, obj, Tag::Morphism, is_mph)
     }
 
     pub fn is_eq(&mut self, obj: u64, cat: u64) -> Option<(u64, u64, u64, u64)> {
-        let data = self.store.get(&self.context).unwrap().is_eq(obj, cat);
-        match data {
-            Some(eq) => eq,
-            None => {
-                self.do_query(obj, Tag::Equality);
-                self.store
-                    .get(&self.context)
-                    .unwrap()
-                    .is_eq(obj, cat)
-                    .unwrap()
-            }
-        }
+        is_feat!(self, cat, obj, Tag::Equality, is_eq)
     }
 
     pub fn is_funct_obj(&mut self, obj: u64, cat: u64) -> Option<(u64, u64, u64)> {
-        let data = self
-            .store
-            .get(&self.context)
-            .unwrap()
-            .is_funct_obj(obj, cat);
-        match data {
-            Some(fobj) => fobj,
-            None => {
-                self.do_query(obj, Tag::AppliedFunctObj);
-                self.store
-                    .get(&self.context)
-                    .unwrap()
-                    .is_funct_obj(obj, cat)
-                    .unwrap()
-            }
-        }
+        is_feat!(self, cat, obj, Tag::AppliedFunctObj, is_funct_obj)
     }
 
     pub fn is_identity(&mut self, obj: u64, cat: u64) -> Option<u64> {
-        let data = self.store.get(&self.context).unwrap().is_identity(obj, cat);
-        match data {
-            Some(id) => id,
-            None => {
-                self.do_query(obj, Tag::Identity);
-                self.store
-                    .get(&self.context)
-                    .unwrap()
-                    .is_identity(obj, cat)
-                    .unwrap()
-            }
-        }
+        is_feat!(self, cat, obj, Tag::Identity, is_identity)
     }
 
     pub fn is_comp(&mut self, obj: u64, cat: u64) -> Option<(u64, u64, u64, u64, u64)> {
-        let data = self.store.get(&self.context).unwrap().is_comp(obj, cat);
-        match data {
-            Some(comp) => comp,
-            None => {
-                self.do_query(obj, Tag::ComposeMph);
-                self.store
-                    .get(&self.context)
-                    .unwrap()
-                    .is_comp(obj, cat)
-                    .unwrap()
-            }
-        }
+        is_feat!(self, cat, obj, Tag::ComposeMph, is_comp)
     }
 
     pub fn is_funct_mph(&mut self, obj: u64, cat: u64) -> Option<(u64, u64, u64, u64, u64)> {
-        let data = self
-            .store
-            .get(&self.context)
-            .unwrap()
-            .is_funct_mph(obj, cat);
-        match data {
-            Some(fmph) => fmph,
-            None => {
-                self.do_query(obj, Tag::AppliedFunctMph);
-                self.store
-                    .get(&self.context)
-                    .unwrap()
-                    .is_funct_mph(obj, cat)
-                    .unwrap()
-            }
-        }
+        is_feat!(self, cat, obj, Tag::AppliedFunctMph, is_funct_mph)
     }
 }
