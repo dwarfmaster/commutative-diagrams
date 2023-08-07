@@ -1,6 +1,9 @@
 // Render to graphviz using unique identifiers as labels, export to json, read
 // json, and use it to layout the graph
 
+mod engine;
+pub use engine::LayoutEngine;
+
 use crate::remote::Remote;
 use crate::vm::{Graph, Interactive, VM};
 use egui::Pos2;

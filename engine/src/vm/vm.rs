@@ -7,6 +7,7 @@ use crate::vm::interpreter;
 use crate::vm::lemmas::{Lemma, LemmaTree};
 use crate::vm::parser;
 use crate::vm::store::Context;
+use crate::vm::layout::LayoutEngine;
 use bevy::ecs::schedule::States;
 use bevy::ecs::system::Resource;
 use core::ops::Range;
@@ -94,6 +95,7 @@ pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     pub face_hyps_order: Vec<usize>,
     pub selected_lemma: Option<usize>,
     pub code_window_open: bool,
+    pub layout: LayoutEngine,
 }
 
 impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
@@ -143,6 +145,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             lemma_tree,
             selected_lemma: None,
             code_window_open: false,
+            layout: LayoutEngine::new(),
         };
         vm.relabel();
         vm.autoname();
