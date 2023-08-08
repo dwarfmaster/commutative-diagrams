@@ -4,10 +4,10 @@ use crate::vm::asm;
 use crate::vm::ast;
 use crate::vm::graph::Graph;
 use crate::vm::interpreter;
+use crate::vm::layout::LayoutEngine;
 use crate::vm::lemmas::{Lemma, LemmaTree};
 use crate::vm::parser;
 use crate::vm::store::Context;
-use crate::vm::layout::LayoutEngine;
 use bevy::ecs::schedule::States;
 use bevy::ecs::system::Resource;
 use core::ops::Range;
@@ -151,7 +151,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
         vm.autoname();
         vm.recompute_face_statuses();
         vm.init_face_order();
-        Self::layout(&mut vm.graph);
+        vm.layout.particles_for_graph(&mut vm.graph);
         vm
     }
 

@@ -3,6 +3,7 @@ use crate::graph::GraphId;
 use crate::lemmas;
 use crate::remote::Mock;
 use crate::remote::Remote;
+use crate::vm::layout::LayoutEngine;
 use crate::vm::store::Context;
 use crate::vm::{Graph, VM};
 use egui::Vec2;
@@ -11,7 +12,7 @@ use std::collections::HashMap;
 mod tree;
 pub use tree::LemmaTree;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub struct LemmaState {
     pub zoom: f32,
     pub offset: Vec2,
@@ -20,6 +21,7 @@ pub struct LemmaState {
     pub selected_face: Option<usize>,
     pub selected: bool,
     pub names: HashMap<String, GraphId>,
+    pub layout: LayoutEngine,
 }
 
 impl Default for LemmaState {
@@ -32,6 +34,7 @@ impl Default for LemmaState {
             selected_face: None,
             selected: false,
             names: HashMap::new(),
+            layout: LayoutEngine::new(),
         }
     }
 }
@@ -125,7 +128,8 @@ impl Lemma {
             .unwrap();
         ctx.set_lem_context(self.id);
         let mut graph = graph.prepare(ctx);
-        VM::<Mock, ()>::layout(&mut graph);
+        // TODO! layout the graph
+        // VM::<Mock, ()>::layout(&mut graph);
         self.pattern = Some(graph);
         self.relabel(ctx);
         self.name(ctx);

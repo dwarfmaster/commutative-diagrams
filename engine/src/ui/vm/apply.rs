@@ -144,7 +144,6 @@ impl LemmaApplicationState {
                                 state
                                     .vm
                                     .pushout(&state.apply.graph, &state.apply.direct_mapping);
-                                VM::<Rm>::layout(&mut state.vm.graph);
                                 commit = true;
                             };
                             if ui.button("Cancel").clicked() {
@@ -284,20 +283,23 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
 
         // Draw nodes
         for nd in 0..self.apply.graph.nodes.len() {
-            let drawable = Drawable::Text(
-                self.apply.graph.nodes[nd].2.pos,
-                &self.apply.graph.nodes[nd].2.label,
-            );
-            let mut modifier = if self.apply.hovered == Some(GraphId::Node(nd)) {
-                Modifier::Highlight
-            } else {
-                Modifier::None
-            };
-            let md = self.apply.self_modifier(GraphId::Node(nd));
-            super::apply_modifier(md, &mut stroke.color, &mut modifier);
+            if let Some(pos_id) = self.apply.graph.nodes[nd].2.pos {
+                let pos = self.vm.lemmas[self.apply.lemma]
+                    .graphical_state
+                    .layout
+                    .get_pos(pos_id);
+                let drawable = Drawable::Text(pos, &self.apply.graph.nodes[nd].2.label);
+                let mut modifier = if self.apply.hovered == Some(GraphId::Node(nd)) {
+                    Modifier::Highlight
+                } else {
+                    Modifier::None
+                };
+                let md = self.apply.self_modifier(GraphId::Node(nd));
+                super::apply_modifier(md, &mut stroke.color, &mut modifier);
 
-            f(drawable, stroke, modifier, GraphId::Node(nd));
-            stroke.color = style.noninteractive().fg_stroke.color;
+                f(drawable, stroke, modifier, GraphId::Node(nd));
+                stroke.color = style.noninteractive().fg_stroke.color;
+            }
         }
 
         // Draw edges

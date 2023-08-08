@@ -54,7 +54,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             self.relabel()
         }
         if self.eval_status.should_relayout {
-            Self::layout(&mut self.graph);
+            // TODO!
         }
         if let Some(face) = self.selected_face {
             self.show_face(face)

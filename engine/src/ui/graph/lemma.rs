@@ -15,14 +15,17 @@ impl UiGraph for Lemma {
         if let Some(pattern) = &self.pattern {
             // Draw nodes
             for nd in 0..pattern.nodes.len() {
-                // There will be no hidden nodes
-                let drawable = Drawable::Text(pattern.nodes[nd].2.pos, &pattern.nodes[nd].2.label);
-                let modifier = if self.graphical_state.hovered == Some(GraphId::Node(nd)) {
-                    Modifier::Highlight
-                } else {
-                    Modifier::None
-                };
-                f(drawable, stroke, modifier, GraphId::Node(nd));
+                if let Some(pos_id) = pattern.nodes[nd].2.pos {
+                    // There will be no hidden nodes
+                    let pos = self.graphical_state.layout.get_pos(pos_id);
+                    let drawable = Drawable::Text(pos, &pattern.nodes[nd].2.label);
+                    let modifier = if self.graphical_state.hovered == Some(GraphId::Node(nd)) {
+                        Modifier::Highlight
+                    } else {
+                        Modifier::None
+                    };
+                    f(drawable, stroke, modifier, GraphId::Node(nd));
+                }
             }
 
             // Draw edges

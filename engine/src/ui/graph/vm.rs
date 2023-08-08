@@ -21,83 +21,107 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                 continue;
             }
 
-            let drawable =
-                Drawable::Text(self.graph.nodes[nd].2.pos, &self.graph.nodes[nd].2.label);
-            let mut modifier = if self.hovered_object == Some(GraphId::Node(nd)) {
-                Modifier::Highlight
-            } else {
-                Modifier::None
-            };
-            let id = GraphId::Node(nd);
-
-            if let Some((_, interactive)) = &self.current_action {
-                let md = interactive.modifier(self, GraphId::Node(nd));
-                crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
-            }
-
-            f(drawable, stroke, modifier, id);
-            stroke.color = style.noninteractive().fg_stroke.color;
-        }
-
-        // Draw edges
-        for src in 0..self.graph.nodes.len() {
-            for mph in 0..self.graph.edges[src].len() {
-                if self.graph.edges[src][mph].1.hidden {
-                    continue;
-                }
-
-                let mut modifier = if self.hovered_object == Some(GraphId::Morphism(src, mph)) {
+            if let Some(pos_id) = self.graph.nodes[nd].2.pos {
+                let pos = self.layout.get_pos(pos_id);
+                let drawable = Drawable::Text(pos, &self.graph.nodes[nd].2.label);
+                let mut modifier = if self.hovered_object == Some(GraphId::Node(nd)) {
                     Modifier::Highlight
                 } else {
                     Modifier::None
                 };
-                let id = GraphId::Morphism(src, mph);
+                let id = GraphId::Node(nd);
 
                 if let Some((_, interactive)) = &self.current_action {
-                    let md = interactive.modifier(self, id);
+                    let md = interactive.modifier(self, GraphId::Node(nd));
                     crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
                 }
 
-                // Label
+                f(drawable, stroke, modifier, id);
+                stroke.color = style.noninteractive().fg_stroke.color;
+
+                // Debug force
+                let drawable = Drawable::Curve(
+                    [
+                        pos,
+                        pos + 0.25 * self.layout.particles[pos_id].force,
+                        pos + 0.75 * self.layout.particles[pos_id].force,
+                        pos + self.layout.particles[pos_id].force,
+                    ],
+                    CurveStyle::Simple,
+                    ArrowStyle::Simple,
+                );
                 f(
-                    Drawable::Text(
-                        self.graph.edges[src][mph].1.label_pos,
-                        &self.graph.edges[src][mph].1.label,
-                    ),
-                    stroke,
+                    drawable,
+                    Stroke {
+                        width: stroke.width / self.zoom,
+                        ..stroke
+                    },
                     modifier,
                     id,
                 );
-
-                // Curve
-                for part in 0..self.graph.edges[src][mph].1.shape.len() {
-                    let arrow = if part == self.graph.edges[src][mph].1.shape.len() - 1 {
-                        ArrowStyle::Simple
-                    } else {
-                        ArrowStyle::None
-                    };
-                    let drawable = Drawable::Curve(
-                        self.graph.edges[src][mph].1.shape[part],
-                        CurveStyle::Simple,
-                        arrow,
-                    );
-
-                    let stl = self.graph.edges[src][mph].1.style;
-                    stroke.color = if stl.left && stl.right {
-                        egui::Color32::GOLD
-                    } else if stl.left {
-                        egui::Color32::RED
-                    } else if stl.right {
-                        egui::Color32::GREEN
-                    } else {
-                        stroke.color
-                    };
-
-                    f(drawable, stroke, modifier, id);
-                }
-                stroke.color = style.noninteractive().fg_stroke.color
             }
         }
+
+        // Draw edges
+        // todo!
+        // for src in 0..self.graph.nodes.len() {
+        //     for mph in 0..self.graph.edges[src].len() {
+        //         if self.graph.edges[src][mph].1.hidden {
+        //             continue;
+        //         }
+        //
+        //         let mut modifier = if self.hovered_object == Some(GraphId::Morphism(src, mph)) {
+        //             Modifier::Highlight
+        //         } else {
+        //             Modifier::None
+        //         };
+        //         let id = GraphId::Morphism(src, mph);
+        //
+        //         if let Some((_, interactive)) = &self.current_action {
+        //             let md = interactive.modifier(self, id);
+        //             crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
+        //         }
+        //
+        //         // Label
+        //         f(
+        //             Drawable::Text(
+        //                 self.graph.edges[src][mph].1.label_pos,
+        //                 &self.graph.edges[src][mph].1.label,
+        //             ),
+        //             stroke,
+        //             modifier,
+        //             id,
+        //         );
+        //
+        //         // Curve
+        //         for part in 0..self.graph.edges[src][mph].1.shape.len() {
+        //             let arrow = if part == self.graph.edges[src][mph].1.shape.len() - 1 {
+        //                 ArrowStyle::Simple
+        //             } else {
+        //                 ArrowStyle::None
+        //             };
+        //             let drawable = Drawable::Curve(
+        //                 self.graph.edges[src][mph].1.shape[part],
+        //                 CurveStyle::Simple,
+        //                 arrow,
+        //             );
+        //
+        //             let stl = self.graph.edges[src][mph].1.style;
+        //             stroke.color = if stl.left && stl.right {
+        //                 egui::Color32::GOLD
+        //             } else if stl.left {
+        //                 egui::Color32::RED
+        //             } else if stl.right {
+        //                 egui::Color32::GREEN
+        //             } else {
+        //                 stroke.color
+        //             };
+        //
+        //             f(drawable, stroke, modifier, id);
+        //         }
+        //         stroke.color = style.noninteractive().fg_stroke.color
+        //     }
+        // }
     }
 
     fn faces<'a, F>(&'a self, style: &Arc<Style>, mut f: F)

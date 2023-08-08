@@ -2,7 +2,8 @@ use crate::graph;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct NodeLabel {
-    pub pos: egui::Pos2,
+    // Refers to position in the layout engine
+    pub pos: Option<usize>,
     pub name: String,
     pub label: String,
     // Invariant: when a node is hidden, all in/out-going edges must be hidden too
@@ -12,7 +13,7 @@ pub struct NodeLabel {
 impl NodeLabel {
     pub fn new() -> Self {
         Self {
-            pos: egui::Pos2::ZERO,
+            pos: None,
             name: "".to_string(),
             label: String::new(),
             hidden: false,

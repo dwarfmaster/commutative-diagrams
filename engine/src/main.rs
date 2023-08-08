@@ -91,6 +91,12 @@ fn goal_ui_system(
     mut vm: ResMut<VM>,
     mut state: ResMut<NextState<vm::EndStatus>>,
 ) {
+    // Do one layout step
+    {
+        let vm = vm.as_mut();
+        vm.layout.apply_forces(&vm.graph);
+    }
+
     ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut());
     ui::code(egui_context.ctx_mut(), &mut vm.as_mut());
     if let Some((last, mut interactive)) = vm.current_action.take() {
@@ -116,6 +122,8 @@ fn goal_ui_system(
         vm::EndStatus::Failure => state.set(vm::EndStatus::Failure),
         _ => (),
     }
+
+    vm.layout.update();
 }
 
 fn save_code_on_exit(path: &str, vm: &VM) {
