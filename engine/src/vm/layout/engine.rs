@@ -27,7 +27,7 @@ impl LayoutEngine {
         Self {
             particles: Vec::new(),
             time: Instant::now(),
-            ideal_distance: 100.0f32,
+            ideal_distance: 200.0f32,
             time_elapsed: 0f32,
         }
     }
