@@ -1,3 +1,4 @@
+use super::graph::bezier_quadratic_to_cubic;
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
@@ -32,6 +33,7 @@ impl UiGraph for Lemma {
             for src in 0..pattern.nodes.len() {
                 for mph in 0..pattern.edges[src].len() {
                     // There will be no hidden edges
+                    let dst = pattern.edges[src][mph].0;
                     let id = GraphId::Morphism(src, mph);
                     let modifier = if self.graphical_state.hovered == Some(id) {
                         Modifier::Highlight
@@ -51,31 +53,32 @@ impl UiGraph for Lemma {
                     );
 
                     // Curve
-                    for part in 0..pattern.edges[src][mph].1.shape.len() {
-                        let arrow = if part == pattern.edges[src][mph].1.shape.len() - 1 {
-                            ArrowStyle::Simple
-                        } else {
-                            ArrowStyle::None
-                        };
-                        let drawable = Drawable::Curve(
-                            pattern.edges[src][mph].1.shape[part],
-                            CurveStyle::Simple,
-                            arrow,
-                        );
+                    let arrow = ArrowStyle::Simple;
+                    let curve = bezier_quadratic_to_cubic(
+                        self.graphical_state
+                            .layout
+                            .get_pos(pattern.nodes[src].2.pos.unwrap()),
+                        self.graphical_state
+                            .layout
+                            .get_pos(pattern.edges[src][mph].1.control.unwrap()),
+                        self.graphical_state
+                            .layout
+                            .get_pos(pattern.nodes[dst].2.pos.unwrap()),
+                    );
+                    let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
-                        let stl = pattern.edges[src][mph].1.style;
-                        stroke.color = if stl.left && stl.right {
-                            egui::Color32::GOLD
-                        } else if stl.left {
-                            egui::Color32::RED
-                        } else if stl.right {
-                            egui::Color32::GREEN
-                        } else {
-                            style.noninteractive().fg_stroke.color
-                        };
+                    let stl = pattern.edges[src][mph].1.style;
+                    stroke.color = if stl.left && stl.right {
+                        egui::Color32::GOLD
+                    } else if stl.left {
+                        egui::Color32::RED
+                    } else if stl.right {
+                        egui::Color32::GREEN
+                    } else {
+                        style.noninteractive().fg_stroke.color
+                    };
 
-                        f(drawable, stroke, modifier, id);
-                    }
+                    f(drawable, stroke, modifier, id);
                     stroke.color = style.noninteractive().fg_stroke.color
                 }
             }

@@ -1,6 +1,7 @@
 use super::ActionResult;
 use crate::graph::{Graph, GraphId};
 use crate::remote::Remote;
+use crate::ui::graph::graph::bezier_quadratic_to_cubic;
 use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
 use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
 use crate::ui::graph::widget;
@@ -305,6 +306,7 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
         // Draw edges
         for src in 0..self.apply.graph.nodes.len() {
             for mph in 0..self.apply.graph.edges[src].len() {
+                let dst = self.apply.graph.edges[src][mph].0;
                 let id = GraphId::Morphism(src, mph);
                 let mut modifier = if self.apply.hovered == Some(id) {
                     Modifier::Highlight
@@ -326,31 +328,35 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
                 );
 
                 // Curve
-                for part in 0..self.apply.graph.edges[src][mph].1.shape.len() {
-                    let arrow = if part == self.apply.graph.edges[src][mph].1.shape.len() - 1 {
-                        ArrowStyle::Simple
-                    } else {
-                        ArrowStyle::None
-                    };
-                    let drawable = Drawable::Curve(
-                        self.apply.graph.edges[src][mph].1.shape[part],
-                        CurveStyle::Simple,
-                        arrow,
-                    );
+                let arrow = ArrowStyle::Simple;
+                let curve = bezier_quadratic_to_cubic(
+                    self.vm.lemmas[self.apply.lemma]
+                        .graphical_state
+                        .layout
+                        .get_pos(self.apply.graph.nodes[src].2.pos.unwrap()),
+                    self.vm.lemmas[self.apply.lemma]
+                        .graphical_state
+                        .layout
+                        .get_pos(self.apply.graph.edges[src][mph].1.control.unwrap()),
+                    self.vm.lemmas[self.apply.lemma]
+                        .graphical_state
+                        .layout
+                        .get_pos(self.apply.graph.nodes[dst].2.pos.unwrap()),
+                );
+                let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
-                    let stl = self.apply.graph.edges[src][mph].1.style;
-                    stroke.color = if stl.left && stl.right {
-                        egui::Color32::GOLD
-                    } else if stl.left {
-                        egui::Color32::RED
-                    } else if stl.right {
-                        egui::Color32::GREEN
-                    } else {
-                        stroke.color
-                    };
+                let stl = self.apply.graph.edges[src][mph].1.style;
+                stroke.color = if stl.left && stl.right {
+                    egui::Color32::GOLD
+                } else if stl.left {
+                    egui::Color32::RED
+                } else if stl.right {
+                    egui::Color32::GREEN
+                } else {
+                    stroke.color
+                };
 
-                    f(drawable, stroke, modifier, id);
-                }
+                f(drawable, stroke, modifier, id);
                 stroke.color = style.noninteractive().fg_stroke.color;
             }
         }

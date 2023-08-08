@@ -31,7 +31,9 @@ pub struct EdgeStyle {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct EdgeLabel {
-    pub shape: Vec<[egui::Pos2; 4]>,
+    // Start and end are given by source and destination, so we only need the
+    // control point, which is handled by the layouting engine
+    pub control: Option<usize>,
     pub name: String,
     pub label: String,
     pub label_pos: egui::Pos2,
@@ -42,7 +44,7 @@ pub struct EdgeLabel {
 impl EdgeLabel {
     pub fn new() -> Self {
         Self {
-            shape: Vec::new(),
+            control: None,
             name: "".to_string(),
             label: String::new(),
             label_pos: egui::Pos2::ZERO,

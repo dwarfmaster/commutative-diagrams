@@ -1,3 +1,4 @@
+use super::graph::bezier_quadratic_to_cubic;
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
@@ -38,90 +39,66 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
 
                 f(drawable, stroke, modifier, id);
                 stroke.color = style.noninteractive().fg_stroke.color;
-
-                // Debug force
-                let drawable = Drawable::Curve(
-                    [
-                        pos,
-                        pos + 0.25 * self.layout.particles[pos_id].force,
-                        pos + 0.75 * self.layout.particles[pos_id].force,
-                        pos + self.layout.particles[pos_id].force,
-                    ],
-                    CurveStyle::Simple,
-                    ArrowStyle::Simple,
-                );
-                f(
-                    drawable,
-                    Stroke {
-                        width: stroke.width / self.zoom,
-                        ..stroke
-                    },
-                    modifier,
-                    id,
-                );
             }
         }
 
         // Draw edges
-        // todo!
-        // for src in 0..self.graph.nodes.len() {
-        //     for mph in 0..self.graph.edges[src].len() {
-        //         if self.graph.edges[src][mph].1.hidden {
-        //             continue;
-        //         }
-        //
-        //         let mut modifier = if self.hovered_object == Some(GraphId::Morphism(src, mph)) {
-        //             Modifier::Highlight
-        //         } else {
-        //             Modifier::None
-        //         };
-        //         let id = GraphId::Morphism(src, mph);
-        //
-        //         if let Some((_, interactive)) = &self.current_action {
-        //             let md = interactive.modifier(self, id);
-        //             crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
-        //         }
-        //
-        //         // Label
-        //         f(
-        //             Drawable::Text(
-        //                 self.graph.edges[src][mph].1.label_pos,
-        //                 &self.graph.edges[src][mph].1.label,
-        //             ),
-        //             stroke,
-        //             modifier,
-        //             id,
-        //         );
-        //
-        //         // Curve
-        //         for part in 0..self.graph.edges[src][mph].1.shape.len() {
-        //             let arrow = if part == self.graph.edges[src][mph].1.shape.len() - 1 {
-        //                 ArrowStyle::Simple
-        //             } else {
-        //                 ArrowStyle::None
-        //             };
-        //             let drawable = Drawable::Curve(
-        //                 self.graph.edges[src][mph].1.shape[part],
-        //                 CurveStyle::Simple,
-        //                 arrow,
-        //             );
-        //
-        //             let stl = self.graph.edges[src][mph].1.style;
-        //             stroke.color = if stl.left && stl.right {
-        //                 egui::Color32::GOLD
-        //             } else if stl.left {
-        //                 egui::Color32::RED
-        //             } else if stl.right {
-        //                 egui::Color32::GREEN
-        //             } else {
-        //                 stroke.color
-        //             };
-        //
-        //             f(drawable, stroke, modifier, id);
-        //         }
-        //         stroke.color = style.noninteractive().fg_stroke.color
-        //     }
-        // }
+        for src in 0..self.graph.nodes.len() {
+            for mph in 0..self.graph.edges[src].len() {
+                if self.graph.edges[src][mph].1.hidden {
+                    continue;
+                }
+                let dst = self.graph.edges[src][mph].0;
+
+                let mut modifier = if self.hovered_object == Some(GraphId::Morphism(src, mph)) {
+                    Modifier::Highlight
+                } else {
+                    Modifier::None
+                };
+                let id = GraphId::Morphism(src, mph);
+
+                if let Some((_, interactive)) = &self.current_action {
+                    let md = interactive.modifier(self, id);
+                    crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
+                }
+
+                // Label
+                // todo!
+                // f(
+                //     Drawable::Text(
+                //         self.graph.edges[src][mph].1.label_pos,
+                //         &self.graph.edges[src][mph].1.label,
+                //     ),
+                //     stroke,
+                //     modifier,
+                //     id,
+                // );
+
+                // Curve
+                let arrow = ArrowStyle::Simple;
+                let curve = bezier_quadratic_to_cubic(
+                    self.layout.get_pos(self.graph.nodes[src].2.pos.unwrap()),
+                    self.layout
+                        .get_pos(self.graph.edges[src][mph].1.control.unwrap()),
+                    self.layout.get_pos(self.graph.nodes[dst].2.pos.unwrap()),
+                );
+                let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
+
+                let stl = self.graph.edges[src][mph].1.style;
+                stroke.color = if stl.left && stl.right {
+                    egui::Color32::GOLD
+                } else if stl.left {
+                    egui::Color32::RED
+                } else if stl.right {
+                    egui::Color32::GREEN
+                } else {
+                    stroke.color
+                };
+
+                f(drawable, stroke, modifier, id);
+                stroke.color = style.noninteractive().fg_stroke.color
+            }
+        }
     }
 
     fn faces<'a, F>(&'a self, style: &Arc<Style>, mut f: F)

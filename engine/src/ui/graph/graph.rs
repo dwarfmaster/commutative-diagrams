@@ -66,3 +66,14 @@ pub trait UiGraph {
     // Setup right-click menu. Must returns false when the menu is closed
     fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool;
 }
+
+// Helpers
+pub fn bezier_quadratic_to_cubic(q0: Pos2, q1: Pos2, q2: Pos2) -> [Pos2; 4] {
+    // Taken from
+    // https://stackoverflow.com/questions/3162645/convert-a-quadratic-bezier-to-a-cubic-one
+    let c0 = q0;
+    let c1 = q0 + (2f32 / 3f32) * (q1 - q0);
+    let c2 = q2 + (2f32 / 3f32) * (q1 - q2);
+    let c3 = q2;
+    [c0, c1, c2, c3]
+}
