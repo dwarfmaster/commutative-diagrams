@@ -445,6 +445,19 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
                     }
                 }
             }
+            Action::Drag(GraphId::Node(nd), pos, _) => {
+                if let Some(part) = self.apply.graph.nodes[nd].2.pos {
+                    let layout = &mut self.vm.lemmas[self.apply.lemma].graphical_state.layout;
+                    layout.set_pos(part, pos);
+                }
+            }
+            Action::Drag(GraphId::Morphism(src, mph), _, vec) => {
+                if let Some(part) = self.apply.graph.edges[src][mph].1.control {
+                    let layout = &mut self.vm.lemmas[self.apply.lemma].graphical_state.layout;
+                    let pos = layout.get_pos(part) + vec;
+                    layout.set_pos(part, pos);
+                }
+            }
             _ => (),
         }
     }

@@ -171,6 +171,21 @@ impl UiGraph for Lemma {
                     self.show_face(fce);
                 }
             }
+            Action::Drag(GraphId::Node(nd), pos, _) => {
+                if let Some(pattern) = &self.pattern {
+                    if let Some(part) = pattern.nodes[nd].2.pos {
+                        self.graphical_state.layout.set_pos(part, pos);
+                    }
+                }
+            }
+            Action::Drag(GraphId::Morphism(src, mph), _, vec) => {
+                if let Some(pattern) = &self.pattern {
+                    if let Some(part) = pattern.edges[src][mph].1.control {
+                        let pos = self.graphical_state.layout.get_pos(part) + vec;
+                        self.graphical_state.layout.set_pos(part, pos);
+                    }
+                }
+            }
             _ => (),
         }
     }
