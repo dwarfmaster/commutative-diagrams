@@ -45,6 +45,8 @@ pub enum Action {
     Hover(GraphId),
     Click(GraphId),
     DoubleClick(GraphId),
+    Drag(GraphId, Pos2),
+    DragRelease(GraphId),
 }
 
 pub trait UiGraph {
@@ -60,6 +62,7 @@ pub trait UiGraph {
     fn zoom<'a>(&'a mut self) -> &'a mut f32;
     fn offset<'a>(&'a mut self) -> &'a mut Vec2;
     fn focused<'a>(&'a mut self) -> &'a mut Option<GraphId>;
+    fn dragged<'a>(&'a mut self) -> &'a mut Option<GraphId>;
     fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool;
     // Called at every frame
     fn action(&mut self, act: Action, ui: &mut Ui);

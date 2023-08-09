@@ -154,6 +154,10 @@ impl UiGraph for Lemma {
         &mut self.graphical_state.focused
     }
 
+    fn dragged<'a>(&'a mut self) -> &'a mut Option<GraphId> {
+        &mut self.graphical_state.dragged
+    }
+
     fn action(&mut self, act: Action, _ui: &mut Ui) {
         self.graphical_state.hovered = None;
         match act {

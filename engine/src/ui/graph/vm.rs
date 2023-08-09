@@ -192,6 +192,10 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
         &mut self.focused_object
     }
 
+    fn dragged<'a>(&'a mut self) -> &'a mut Option<GraphId> {
+        &mut self.dragged_object
+    }
+
     fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
         &mut self.graph.faces[fce].label.folded
     }

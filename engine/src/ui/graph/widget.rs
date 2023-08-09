@@ -44,11 +44,6 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
         *gr.focused() = None;
         response.request_focus();
     }
-    if response.dragged() {
-        *gr.focused() = None;
-        *gr.offset() += response.drag_delta();
-        response.request_focus();
-    }
     if response.lost_focus() {
         *gr.focused() = None;
     }
@@ -212,6 +207,26 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                 ui.close_menu();
             }
         });
+    }
+
+    if response.drag_started() && closest_distance < 20.0 {
+        *gr.dragged() = Some(closest_object);
+        response.request_focus();
+    } else if response.drag_released() {
+        if let Some(id) = *gr.dragged() {
+            gr.action(Action::DragRelease(id), ui);
+        }
+        *gr.dragged() = None;
+    }
+    if response.dragged() {
+        if let Some(id) = *gr.dragged() {
+            if let Some(ppos) = pointer_pos {
+                gr.action(Action::Drag(id, ppos), ui);
+            }
+        } else {
+            *gr.focused() = None;
+            *gr.offset() += response.drag_delta();
+        }
     }
 
     response

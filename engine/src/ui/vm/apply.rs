@@ -38,6 +38,7 @@ pub struct LemmaApplicationState {
     pub offset: Vec2,
     pub focused: Option<GraphId>,
     pub hovered: Option<GraphId>,
+    pub dragged: Option<GraphId>,
 }
 
 fn same_nature(id1: GraphId, id2: GraphId) -> bool {
@@ -69,6 +70,7 @@ impl LemmaApplicationState {
             offset: Vec2::ZERO,
             focused: None,
             hovered: None,
+            dragged: None,
         };
         r.relabel(&mut vm.ctx);
         r
@@ -418,6 +420,10 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
 
     fn focused<'a>(&'a mut self) -> &'a mut Option<GraphId> {
         &mut self.apply.focused
+    }
+
+    fn dragged<'a>(&'a mut self) -> &'a mut Option<GraphId> {
+        &mut self.apply.dragged
     }
 
     fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
