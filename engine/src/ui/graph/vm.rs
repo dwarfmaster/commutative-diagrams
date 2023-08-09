@@ -1,4 +1,4 @@
-use super::graph::bezier_quadratic_to_cubic;
+use super::graph::{bezier_quadratic_to_cubic, edge_label_pos};
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
@@ -62,26 +62,27 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                     crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
                 }
 
+                // Positions
+                let psrc = self.layout.get_pos(self.graph.nodes[src].2.pos.unwrap());
+                let pdst = self.layout.get_pos(self.graph.nodes[dst].2.pos.unwrap());
+                let control = self
+                    .layout
+                    .get_pos(self.graph.edges[src][mph].1.control.unwrap());
+
                 // Label
-                // todo!
-                // f(
-                //     Drawable::Text(
-                //         self.graph.edges[src][mph].1.label_pos,
-                //         &self.graph.edges[src][mph].1.label,
-                //     ),
-                //     stroke,
-                //     modifier,
-                //     id,
-                // );
+                f(
+                    Drawable::Text(
+                        edge_label_pos(psrc, pdst, control),
+                        &self.graph.edges[src][mph].1.label,
+                    ),
+                    stroke,
+                    modifier,
+                    id,
+                );
 
                 // Curve
                 let arrow = ArrowStyle::Simple;
-                let curve = bezier_quadratic_to_cubic(
-                    self.layout.get_pos(self.graph.nodes[src].2.pos.unwrap()),
-                    self.layout
-                        .get_pos(self.graph.edges[src][mph].1.control.unwrap()),
-                    self.layout.get_pos(self.graph.nodes[dst].2.pos.unwrap()),
-                );
+                let curve = bezier_quadratic_to_cubic(psrc, control, pdst);
                 let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
                 let stl = self.graph.edges[src][mph].1.style;

@@ -1,4 +1,4 @@
-use super::graph::bezier_quadratic_to_cubic;
+use super::graph::{bezier_quadratic_to_cubic, edge_label_pos};
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
@@ -41,10 +41,24 @@ impl UiGraph for Lemma {
                         Modifier::None
                     };
 
+                    // Positions
+                    let psrc = self
+                        .graphical_state
+                        .layout
+                        .get_pos(pattern.nodes[src].2.pos.unwrap());
+                    let pdst = self
+                        .graphical_state
+                        .layout
+                        .get_pos(pattern.nodes[dst].2.pos.unwrap());
+                    let control = self
+                        .graphical_state
+                        .layout
+                        .get_pos(pattern.edges[src][mph].1.control.unwrap());
+
                     // Label
                     f(
                         Drawable::Text(
-                            pattern.edges[src][mph].1.label_pos,
+                            edge_label_pos(psrc, pdst, control),
                             &pattern.edges[src][mph].1.label,
                         ),
                         stroke,
@@ -54,17 +68,7 @@ impl UiGraph for Lemma {
 
                     // Curve
                     let arrow = ArrowStyle::Simple;
-                    let curve = bezier_quadratic_to_cubic(
-                        self.graphical_state
-                            .layout
-                            .get_pos(pattern.nodes[src].2.pos.unwrap()),
-                        self.graphical_state
-                            .layout
-                            .get_pos(pattern.edges[src][mph].1.control.unwrap()),
-                        self.graphical_state
-                            .layout
-                            .get_pos(pattern.nodes[dst].2.pos.unwrap()),
-                    );
+                    let curve = bezier_quadratic_to_cubic(psrc, control, pdst);
                     let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
                     let stl = pattern.edges[src][mph].1.style;

@@ -1,7 +1,7 @@
 use super::ActionResult;
 use crate::graph::{Graph, GraphId};
 use crate::remote::Remote;
-use crate::ui::graph::graph::bezier_quadratic_to_cubic;
+use crate::ui::graph::graph::{bezier_quadratic_to_cubic, edge_label_pos};
 use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
 use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
 use crate::ui::graph::widget;
@@ -316,10 +316,24 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
                 let md = self.apply.self_modifier(id);
                 super::apply_modifier(md, &mut stroke.color, &mut modifier);
 
+                // Positions
+                let psrc = self.vm.lemmas[self.apply.lemma]
+                    .graphical_state
+                    .layout
+                    .get_pos(self.apply.graph.nodes[src].2.pos.unwrap());
+                let pdst = self.vm.lemmas[self.apply.lemma]
+                    .graphical_state
+                    .layout
+                    .get_pos(self.apply.graph.nodes[dst].2.pos.unwrap());
+                let control = self.vm.lemmas[self.apply.lemma]
+                    .graphical_state
+                    .layout
+                    .get_pos(self.apply.graph.edges[src][mph].1.control.unwrap());
+
                 // label
                 f(
                     Drawable::Text(
-                        self.apply.graph.edges[src][mph].1.label_pos,
+                        edge_label_pos(psrc, pdst, control),
                         &self.apply.graph.edges[src][mph].1.label,
                     ),
                     stroke,
@@ -329,20 +343,7 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
 
                 // Curve
                 let arrow = ArrowStyle::Simple;
-                let curve = bezier_quadratic_to_cubic(
-                    self.vm.lemmas[self.apply.lemma]
-                        .graphical_state
-                        .layout
-                        .get_pos(self.apply.graph.nodes[src].2.pos.unwrap()),
-                    self.vm.lemmas[self.apply.lemma]
-                        .graphical_state
-                        .layout
-                        .get_pos(self.apply.graph.edges[src][mph].1.control.unwrap()),
-                    self.vm.lemmas[self.apply.lemma]
-                        .graphical_state
-                        .layout
-                        .get_pos(self.apply.graph.nodes[dst].2.pos.unwrap()),
-                );
+                let curve = bezier_quadratic_to_cubic(psrc, control, pdst);
                 let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
                 let stl = self.apply.graph.edges[src][mph].1.style;

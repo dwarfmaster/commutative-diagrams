@@ -36,7 +36,6 @@ pub struct EdgeLabel {
     pub control: Option<usize>,
     pub name: String,
     pub label: String,
-    pub label_pos: egui::Pos2,
     pub style: EdgeStyle,
     pub hidden: bool,
 }
@@ -47,7 +46,6 @@ impl EdgeLabel {
             control: None,
             name: "".to_string(),
             label: String::new(),
-            label_pos: egui::Pos2::ZERO,
             style: EdgeStyle::default(),
             hidden: false,
         }

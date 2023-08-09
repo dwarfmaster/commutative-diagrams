@@ -77,3 +77,21 @@ pub fn bezier_quadratic_to_cubic(q0: Pos2, q1: Pos2, q2: Pos2) -> [Pos2; 4] {
     let c3 = q2;
     [c0, c1, c2, c3]
 }
+
+pub fn compute_quadratic_at(q0: Pos2, q1: Pos2, q2: Pos2, t: f32) -> Pos2 {
+    let v = (1f32 - t) * (1f32 - t) * q0.to_vec2()
+        + 2f32 * (1f32 - t) * t * q1.to_vec2()
+        + t * t * q2.to_vec2();
+    v.to_pos2()
+}
+
+pub fn edge_label_pos(src: Pos2, dst: Pos2, control: Pos2) -> Pos2 {
+    let center = src + 0.5f32 * (dst - src);
+    let v = compute_quadratic_at(src, control, dst, 0.5f32) - center;
+    let dist_to_edge = 30.0f32;
+    if v.length_sq() >= 25.0f32 {
+        center + v + dist_to_edge * v.normalized()
+    } else {
+        center + dist_to_edge * (dst - src).normalized().rot90()
+    }
+}
