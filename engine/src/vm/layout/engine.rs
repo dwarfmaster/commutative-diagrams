@@ -46,13 +46,25 @@ impl LayoutEngine {
         self.particles[part].pos
     }
 
+    pub fn set_pos(&mut self, part: usize, pos: Pos2) {
+        self.particles[part].pos = pos;
+    }
+
     pub fn add_force(&mut self, part: usize, force: Vec2) {
         self.particles[part].force += force;
     }
 
-    fn step(&mut self, step: f32) {
+    fn step<F>(&mut self, step: f32, fixed: F)
+    where
+        F: Fn(usize) -> bool,
+    {
         let temperature = temp_of_time(self.time_elapsed);
-        for part in self.particles.iter_mut() {
+        for id in 0..self.particles.len() {
+            let part = &mut self.particles[id];
+            if fixed(id) {
+                part.force = Vec2::ZERO;
+                continue;
+            }
             let f = step * temperature * part.force;
             part.force = Vec2::ZERO;
 
@@ -63,20 +75,24 @@ impl LayoutEngine {
     }
 
     // Update position and speed according to forces and the time since last
-    // round. Also clear forces.
-    pub fn update(&mut self) {
+    // round. Also clear forces. fixed allow to prevent some particles from
+    // moving.
+    pub fn update<F>(&mut self, fixed: F)
+    where
+        F: Fn(usize) -> bool,
+    {
         let elapsed = self.time.elapsed().as_secs_f32();
         self.time_elapsed += elapsed;
         let t = 10.0f32 * elapsed;
         self.time = Instant::now();
-        self.step(t);
+        self.step(t, fixed);
     }
 
     // Run many times to approximate convergence
     pub fn run(&mut self) {
         let count = 1000;
         for _ in 0..count {
-            self.step(0.1);
+            self.step(0.1, |_: usize| false);
         }
     }
 }

@@ -45,7 +45,7 @@ pub enum Action {
     Hover(GraphId),
     Click(GraphId),
     DoubleClick(GraphId),
-    Drag(GraphId, Pos2),
+    Drag(GraphId, Pos2, Vec2),
     DragRelease(GraphId),
 }
 

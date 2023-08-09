@@ -95,7 +95,15 @@ fn goal_ui_system(
     {
         let vm = vm.as_mut();
         vm.layout.apply_forces(&vm.graph);
-        vm.layout.update();
+        let dragged = vm.dragged_object;
+        vm.layout.update(|id: usize| {
+            use crate::graph::GraphId::*;
+            match dragged {
+                Some(Node(n)) => Some(id) == vm.graph.nodes[n].2.pos,
+                Some(Morphism(s, m)) => Some(id) == vm.graph.edges[s][m].1.control,
+                _ => false,
+            }
+        });
 
         if let Some(lem) = vm.selected_lemma {
             if vm.lemmas[lem].pattern.is_some() {
@@ -103,7 +111,7 @@ fn goal_ui_system(
                 lem.graphical_state
                     .layout
                     .apply_forces(lem.pattern.as_ref().unwrap());
-                lem.graphical_state.layout.update();
+                lem.graphical_state.layout.update(|_: usize| false);
             }
         }
         {
@@ -115,7 +123,10 @@ fn goal_ui_system(
                             .graphical_state
                             .layout
                             .apply_forces(&state.graph);
-                        vm.lemmas[state.lemma].graphical_state.layout.update();
+                        vm.lemmas[state.lemma]
+                            .graphical_state
+                            .layout
+                            .update(|_: usize| false);
                     }
                 }
                 None => (),

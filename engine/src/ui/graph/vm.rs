@@ -245,6 +245,17 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
             Action::DoubleClick(GraphId::Face(fce)) => {
                 self.insert_and_run(&format!("solve {}", self.graph.faces[fce].label.name))
             }
+            Action::Drag(GraphId::Node(nd), pos, _) => {
+                if let Some(part) = self.graph.nodes[nd].2.pos {
+                    self.layout.set_pos(part, pos);
+                }
+            }
+            Action::Drag(GraphId::Morphism(src, mph), _, vec) => {
+                if let Some(part) = self.graph.edges[src][mph].1.control {
+                    let pos = self.layout.get_pos(part) + vec;
+                    self.layout.set_pos(part, pos);
+                }
+            }
             _ => (),
         }
     }

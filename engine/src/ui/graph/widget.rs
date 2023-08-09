@@ -83,8 +83,12 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
         }
     }
 
+    let offset = rect.left_top().add(*gr.offset()).to_vec2();
+    let zoom = *gr.zoom();
+    let project_pos = |p: Pos2| -> Pos2 { (zoom * p.to_vec2()).to_pos2().add(offset) };
+    let abstract_pos = |p: Pos2| -> Pos2 { (p.add(-offset).to_vec2() / zoom).to_pos2() };
+
     if ui.is_rect_visible(rect) {
-        let offset = rect.left_top().add(*gr.offset()).to_vec2();
         let visuals = ui.style().noninteractive();
         let rect = rect.expand(visuals.expansion);
         let stroke = if response.has_focus() {
@@ -93,10 +97,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
             visuals.bg_stroke
         };
         ui.painter().rect(rect, 3.0, visuals.bg_fill, stroke);
-
         let painter = ui.painter().with_clip_rect(rect);
-        let zoom = *gr.zoom();
-        let setup_pos = |p: Pos2| -> Pos2 { (zoom * p.to_vec2()).to_pos2().add(offset) };
 
         // Paint graph
         gr.draw(ui.style(), |dr, mut stroke, md, id| {
@@ -108,7 +109,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
             match dr {
                 Drawable::Text(p, label) => {
                     let rect = painter.text(
-                        setup_pos(p),
+                        project_pos(p),
                         egui::Align2::CENTER_CENTER,
                         label,
                         egui::FontId::proportional(14.0),
@@ -125,7 +126,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
 
                 Drawable::Curve(curve, _, arrow) => {
                     let curve = egui::epaint::CubicBezierShape {
-                        points: curve.clone().map(setup_pos),
+                        points: curve.clone().map(project_pos),
                         closed: false,
                         fill: egui::Color32::TRANSPARENT,
                         stroke,
@@ -221,7 +222,10 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
     if response.dragged() {
         if let Some(id) = *gr.dragged() {
             if let Some(ppos) = pointer_pos {
-                gr.action(Action::Drag(id, ppos), ui);
+                gr.action(
+                    Action::Drag(id, abstract_pos(ppos), response.drag_delta()),
+                    ui,
+                );
             }
         } else {
             *gr.focused() = None;
