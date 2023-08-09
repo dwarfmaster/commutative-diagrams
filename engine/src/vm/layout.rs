@@ -3,10 +3,12 @@ use crate::vm::Graph;
 mod edges;
 mod engine;
 mod nodes;
+mod precompute;
 pub use engine::LayoutEngine;
 
 impl LayoutEngine {
     pub fn particles_for_graph(&mut self, graph: &mut Graph) {
+        self.compute_structure(graph);
         self.particles_for_nodes(graph);
         self.particles_for_edges(graph);
     }

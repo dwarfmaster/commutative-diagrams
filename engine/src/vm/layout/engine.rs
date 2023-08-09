@@ -1,3 +1,5 @@
+use crate::vm::Graph;
+use super::precompute::GraphStructure;
 use egui::{Pos2, Vec2};
 use std::time::Instant;
 
@@ -14,6 +16,8 @@ pub struct LayoutEngine {
     pub ideal_distance: f32,
     // Time in second elapsed since the start
     time_elapsed: f32,
+    // Additional information about the graph
+    structure: GraphStructure,
 }
 
 // Using a decreasing function would allow to simulate annealing, which hasn't
@@ -29,6 +33,7 @@ impl LayoutEngine {
             time: Instant::now(),
             ideal_distance: 200.0f32,
             time_elapsed: 0f32,
+            structure: GraphStructure::new(),
         }
     }
 
@@ -40,6 +45,10 @@ impl LayoutEngine {
         let id = self.particles.len();
         self.particles.push(part);
         id
+    }
+
+    pub fn compute_structure(&mut self, graph: &Graph) {
+        self.structure = GraphStructure::from_graph(graph);
     }
 
     pub fn get_pos(&self, part: usize) -> Pos2 {
