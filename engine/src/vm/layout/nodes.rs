@@ -27,8 +27,23 @@ impl LayoutEngine {
     }
 
     pub fn apply_nodes_forces(&mut self, graph: &Graph) {
-        self.apply_nodes_attractive(graph);
-        self.apply_nodes_repulsive(graph);
+        self.apply_nodes_barycenter(graph);
+        // self.apply_nodes_attractive(graph);
+        // self.apply_nodes_repulsive(graph);
+    }
+
+    fn apply_nodes_barycenter(&mut self, graph: &Graph) {
+        let c = 2f32;
+        for i in 0..graph.nodes.len() {
+            let id = graph.nodes[i].2.pos.unwrap();
+            let mut bary = Vec2::ZERO;
+            for n in self.structure.neighbours[i].iter() {
+                bary += self.particles[graph.nodes[*n].2.pos.unwrap()].pos.to_vec2();
+            }
+            let bary = (bary / (self.structure.neighbours[i].len() as f32)).to_pos2();
+            let f = c * (bary - self.particles[id].pos);
+            self.add_force(id, f);
+        }
     }
 
     // Spread nodes

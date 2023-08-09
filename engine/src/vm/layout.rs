@@ -11,6 +11,7 @@ impl LayoutEngine {
         self.compute_structure(graph);
         self.particles_for_nodes(graph);
         self.particles_for_edges(graph);
+        self.init_fixed(graph);
     }
 
     pub fn apply_forces(&mut self, graph: &Graph) {

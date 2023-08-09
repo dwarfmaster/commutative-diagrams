@@ -3,9 +3,9 @@ use std::collections::HashSet;
 
 #[derive(Clone, Debug)]
 pub struct GraphStructure {
-    ccs: Vec<HashSet<usize>>,        // List of connected components
-    nodes_component: Vec<usize>,     // For each node, its connected component
-    neighbours: Vec<HashSet<usize>>, // For each node, its immediate neighbours
+    pub ccs: Vec<HashSet<usize>>,        // List of connected components
+    pub nodes_component: Vec<usize>,     // For each node, its connected component
+    pub neighbours: Vec<HashSet<usize>>, // For each node, its immediate neighbours
 }
 
 impl GraphStructure {
@@ -65,8 +65,10 @@ impl GraphStructure {
                         continue;
                     }
                     let dst = graph.edges[nd][mph].0;
-                    neighbours[nd].insert(dst);
-                    neighbours[dst].insert(nd);
+                    if dst != nd {
+                        neighbours[nd].insert(dst);
+                        neighbours[dst].insert(nd);
+                    }
                     explore(graph, nodes_cc, ccs, neighbours, dst, cc);
                 }
             }
@@ -81,9 +83,9 @@ impl GraphStructure {
         }
 
         // Rework structures to make them more useful to the layouting algorithm
-        let mut final_ccs : Vec<HashSet<usize>> = Vec::new();
-        let mut final_nodes_cc : Vec<usize> = graph.nodes.iter().map(|_| 0).collect();
-        let mut ccs_mapping : Vec<Option<usize>> = ccs.iter().map(|_| None).collect();
+        let mut final_ccs: Vec<HashSet<usize>> = Vec::new();
+        let mut final_nodes_cc: Vec<usize> = graph.nodes.iter().map(|_| 0).collect();
+        let mut ccs_mapping: Vec<Option<usize>> = ccs.iter().map(|_| None).collect();
         for nd in 0..graph.nodes.len() {
             if graph.nodes[nd].2.hidden {
                 continue;
