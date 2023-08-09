@@ -16,28 +16,28 @@ type Mod = crate::ui::vm::Modifier;
 type CMR = super::ContextMenuResult;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum AppId {
+pub enum AppId {
     Lemma(GraphId),
     Goal(GraphId),
 }
 
 #[derive(Clone, Debug)]
 pub struct LemmaApplicationState {
-    lemma: usize,
-    graph: Graph<NodeLabel, EdgeLabel, FaceLabel>,
+    pub lemma: usize,
+    pub graph: Graph<NodeLabel, EdgeLabel, FaceLabel>,
     // The mapping is considered to be lemma -> state graph
-    direct_mapping: HashMap<GraphId, Vec<GraphId>>,
-    reverse_mapping: HashMap<GraphId, Vec<GraphId>>,
+    pub direct_mapping: HashMap<GraphId, Vec<GraphId>>,
+    pub reverse_mapping: HashMap<GraphId, Vec<GraphId>>,
 
     // Action state
-    selected: Option<AppId>,
-    error_msg: Option<String>,
+    pub selected: Option<AppId>,
+    pub error_msg: Option<String>,
 
     // Graphical state
-    zoom: f32,
-    offset: Vec2,
-    focused: Option<GraphId>,
-    hovered: Option<GraphId>,
+    pub zoom: f32,
+    pub offset: Vec2,
+    pub focused: Option<GraphId>,
+    pub hovered: Option<GraphId>,
 }
 
 fn same_nature(id1: GraphId, id2: GraphId) -> bool {

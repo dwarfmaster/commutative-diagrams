@@ -4,7 +4,7 @@ use crate::graph::GraphId;
 use crate::remote::Remote;
 use crate::vm;
 
-mod apply;
+pub mod apply;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Modifier {

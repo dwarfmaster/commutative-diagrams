@@ -95,6 +95,32 @@ fn goal_ui_system(
     {
         let vm = vm.as_mut();
         vm.layout.apply_forces(&vm.graph);
+        vm.layout.update();
+
+        if let Some(lem) = vm.selected_lemma {
+            if vm.lemmas[lem].pattern.is_some() {
+                let lem = &mut vm.lemmas[lem];
+                lem.graphical_state
+                    .layout
+                    .apply_forces(lem.pattern.as_ref().unwrap());
+                lem.graphical_state.layout.update();
+            }
+        }
+        {
+            use crate::ui::InteractiveAction::*;
+            match &vm.current_action {
+                Some((_, LemmaApplication(state))) => {
+                    if vm.selected_lemma != Some(state.lemma) {
+                        vm.lemmas[state.lemma]
+                            .graphical_state
+                            .layout
+                            .apply_forces(&state.graph);
+                        vm.lemmas[state.lemma].graphical_state.layout.update();
+                    }
+                }
+                None => (),
+            }
+        }
     }
 
     ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut());
@@ -122,8 +148,6 @@ fn goal_ui_system(
         vm::EndStatus::Failure => state.set(vm::EndStatus::Failure),
         _ => (),
     }
-
-    vm.layout.update();
 }
 
 fn save_code_on_exit(path: &str, vm: &VM) {

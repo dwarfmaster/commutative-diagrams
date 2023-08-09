@@ -128,8 +128,8 @@ impl Lemma {
             .unwrap();
         ctx.set_lem_context(self.id);
         let mut graph = graph.prepare(ctx);
-        // TODO! layout the graph
-        // VM::<Mock, ()>::layout(&mut graph);
+        self.graphical_state.layout.particles_for_graph(&mut graph);
+        self.graphical_state.layout.run();
         self.pattern = Some(graph);
         self.relabel(ctx);
         self.name(ctx);

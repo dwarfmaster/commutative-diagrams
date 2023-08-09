@@ -50,6 +50,18 @@ impl LayoutEngine {
         self.particles[part].force += force;
     }
 
+    fn step(&mut self, step: f32) {
+        let temperature = temp_of_time(self.time_elapsed);
+        for part in self.particles.iter_mut() {
+            let f = step * temperature * part.force;
+            part.force = Vec2::ZERO;
+
+            if f.length() >= 1e-6 {
+                part.pos += f;
+            }
+        }
+    }
+
     // Update position and speed according to forces and the time since last
     // round. Also clear forces.
     pub fn update(&mut self) {
@@ -57,17 +69,14 @@ impl LayoutEngine {
         self.time_elapsed += elapsed;
         let t = 10.0f32 * elapsed;
         self.time = Instant::now();
+        self.step(t);
+    }
 
-        // We assume a mass of one for all particles, so the force is exactly
-        // the acceleration. Actually the integration is very stupid.
-        let temperature = temp_of_time(self.time_elapsed);
-        for part in self.particles.iter_mut() {
-            let f = t * temperature * part.force;
-            part.force = Vec2::ZERO;
-
-            if f.length() >= 1e-6 {
-                part.pos += f;
-            }
+    // Run many times to approximate convergence
+    pub fn run(&mut self) {
+        let count = 1000;
+        for _ in 0..count {
+            self.step(0.1);
         }
     }
 }
