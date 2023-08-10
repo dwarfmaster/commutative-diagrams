@@ -87,6 +87,12 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
     let zoom = *gr.zoom();
     let project_pos = |p: Pos2| -> Pos2 { (zoom * p.to_vec2()).to_pos2().add(offset) };
     let abstract_pos = |p: Pos2| -> Pos2 { (p.add(-offset).to_vec2() / zoom).to_pos2() };
+    let abstract_rect = |r: Rect| -> Rect {
+        Rect {
+            min: abstract_pos(r.min),
+            max: abstract_pos(r.max),
+        }
+    };
 
     if ui.is_rect_visible(rect) {
         let visuals = ui.style().noninteractive();
@@ -123,7 +129,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                         }
                     }
 
-                    rect
+                    abstract_rect(rect)
                 }
 
                 Drawable::Curve(curve, _, arrow) => {
@@ -162,7 +168,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                         }
                     }
 
-                    rect
+                    abstract_rect(rect)
                 }
             }
         });

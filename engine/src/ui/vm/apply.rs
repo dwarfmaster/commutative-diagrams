@@ -1,7 +1,7 @@
 use super::ActionResult;
 use crate::graph::{Graph, GraphId};
 use crate::remote::Remote;
-use crate::ui::graph::graph::edge_label_pos;
+use crate::ui::graph::graph::{edge_label_pos, ray_rect};
 use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
 use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
 use crate::ui::graph::widget;
@@ -284,6 +284,8 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
         let mut stroke = style.noninteractive().fg_stroke;
 
         // Draw nodes
+        let mut nodes_rect: Vec<Rect> = Vec::new();
+        nodes_rect.reserve(self.apply.graph.nodes.len());
         for nd in 0..self.apply.graph.nodes.len() {
             if let Some(pos_id) = self.apply.graph.nodes[nd].2.pos {
                 let pos = self.vm.lemmas[self.apply.lemma]
@@ -299,7 +301,8 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
                 let md = self.apply.self_modifier(GraphId::Node(nd));
                 super::apply_modifier(md, &mut stroke.color, &mut modifier);
 
-                f(drawable, stroke, modifier, GraphId::Node(nd));
+                let rect = f(drawable, stroke, modifier, GraphId::Node(nd));
+                nodes_rect.push(rect);
                 stroke.color = style.noninteractive().fg_stroke.color;
             }
         }
@@ -344,7 +347,9 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
 
                 // Curve
                 let arrow = ArrowStyle::Simple;
-                let curve = [psrc, control, pdst];
+                let csrc = ray_rect(control - psrc, nodes_rect[src]);
+                let cdst = ray_rect(control - pdst, nodes_rect[dst]);
+                let curve = [csrc, control, cdst];
                 let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
                 let stl = self.apply.graph.edges[src][mph].1.style;

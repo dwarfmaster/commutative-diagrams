@@ -89,3 +89,16 @@ pub fn edge_label_pos(src: Pos2, dst: Pos2, control: Pos2) -> Pos2 {
         center + dist_to_edge * (dst - src).normalized().rot90()
     }
 }
+
+// Given a rectangle and a vector, give the intersection of the ray starting
+// from the center of the rectangle in the direction of the vector with the
+// rectangle. Inspired by:
+//   https://gamedev.stackexchange.com/questions/203608/find-where-two-mirrored-2d-vectors-intersect-a-rectangle-bounds
+pub fn ray_rect(ray: Vec2, rect: Rect) -> Pos2 {
+    let w = rect.width() / 2f32;
+    let h = rect.height() / 2f32;
+    let v1 = (w / ray.x).abs();
+    let v2 = (h / ray.y).abs();
+    let v = v1.min(v2);
+    rect.center() + v * ray
+}

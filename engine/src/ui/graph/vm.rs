@@ -1,4 +1,4 @@
-use super::graph::edge_label_pos;
+use super::graph::{edge_label_pos, ray_rect};
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
@@ -17,8 +17,11 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
         let mut stroke = style.noninteractive().fg_stroke;
 
         // Draw nodes
+        let mut nodes_rect: Vec<Rect> = Vec::new();
+        nodes_rect.reserve(self.graph.nodes.len());
         for nd in 0..self.graph.nodes.len() {
             if self.graph.nodes[nd].2.hidden {
+                nodes_rect.push(Rect::NOTHING);
                 continue;
             }
 
@@ -37,7 +40,8 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                     crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
                 }
 
-                f(drawable, stroke, modifier, id);
+                let rect = f(drawable, stroke, modifier, id);
+                nodes_rect.push(rect);
                 stroke.color = style.noninteractive().fg_stroke.color;
             }
         }
@@ -82,7 +86,9 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
 
                 // Curve
                 let arrow = ArrowStyle::Simple;
-                let curve = [psrc, control, pdst];
+                let csrc = ray_rect(control - psrc, nodes_rect[src]);
+                let cdst = ray_rect(control - pdst, nodes_rect[dst]);
+                let curve = [csrc, control, cdst];
                 let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
                 let stl = self.graph.edges[src][mph].1.style;

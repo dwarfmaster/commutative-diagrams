@@ -1,4 +1,4 @@
-use super::graph::edge_label_pos;
+use super::graph::{edge_label_pos, ray_rect};
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
@@ -15,6 +15,8 @@ impl UiGraph for Lemma {
 
         if let Some(pattern) = &self.pattern {
             // Draw nodes
+            let mut nodes_rect: Vec<Rect> = Vec::new();
+            nodes_rect.reserve(pattern.nodes.len());
             for nd in 0..pattern.nodes.len() {
                 if let Some(pos_id) = pattern.nodes[nd].2.pos {
                     // There will be no hidden nodes
@@ -25,7 +27,8 @@ impl UiGraph for Lemma {
                     } else {
                         Modifier::None
                     };
-                    f(drawable, stroke, modifier, GraphId::Node(nd));
+                    let rect = f(drawable, stroke, modifier, GraphId::Node(nd));
+                    nodes_rect.push(rect);
                 }
             }
 
@@ -68,7 +71,9 @@ impl UiGraph for Lemma {
 
                     // Curve
                     let arrow = ArrowStyle::Simple;
-                    let curve = [psrc, control, pdst];
+                    let csrc = ray_rect(control - psrc, nodes_rect[src]);
+                    let cdst = ray_rect(control - pdst, nodes_rect[dst]);
+                    let curve = [csrc, control, cdst];
                     let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
                     let stl = pattern.edges[src][mph].1.style;
