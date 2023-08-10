@@ -1,6 +1,7 @@
 use super::LayoutEngine;
+use crate::graph::GraphId;
 use crate::vm::Graph;
-use egui::{Vec2,Pos2};
+use egui::{Pos2, Vec2};
 
 // We precomputed the graph-theoretic distance between any two pair of nodes, so
 // now we can use it to set spring force between connected nodes, with the ideal
@@ -18,12 +19,18 @@ impl LayoutEngine {
         }
     }
 
-    pub fn apply_nodes_forces(&mut self, graph: &Graph) {
-        self.apply_nodes_graph_distance(graph);
+    pub fn apply_nodes_forces<F>(&mut self, graph: &Graph, fixed: &F)
+    where
+        F: Fn(GraphId) -> bool,
+    {
+        self.apply_nodes_graph_distance(graph, fixed);
     }
 
     // Apply spring forces proportional to graph theoretic distance
-    fn apply_nodes_graph_distance(&mut self, graph: &Graph) {
+    fn apply_nodes_graph_distance<F>(&mut self, graph: &Graph, fixed: &F)
+    where
+        F: Fn(GraphId) -> bool,
+    {
         let c = 1f32;
         for i in 0..graph.nodes.len() {
             for j in (i + 1)..graph.nodes.len() {
@@ -45,8 +52,12 @@ impl LayoutEngine {
                     } else {
                         (j_pos - i_pos).normalized()
                     };
-                    self.add_force(i_id, f * dir);
-                    self.add_force(j_id, -f * dir);
+                    if !fixed(GraphId::Node(i)) {
+                        self.add_force(i_id, f * dir);
+                    }
+                    if !fixed(GraphId::Node(j)) {
+                        self.add_force(j_id, -f * dir);
+                    }
                 }
             }
         }

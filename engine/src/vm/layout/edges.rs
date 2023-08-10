@@ -1,4 +1,5 @@
 use super::LayoutEngine;
+use crate::graph::GraphId;
 use crate::vm::Graph;
 use egui::Vec2;
 use rand::distributions::Uniform;
@@ -28,12 +29,18 @@ impl LayoutEngine {
         }
     }
 
-    pub fn apply_edge_forces(&mut self, graph: &Graph) {
-        self.apply_edge_attract(graph);
-        self.apply_edge_repulse_edge(graph);
+    pub fn apply_edge_forces<F>(&mut self, graph: &Graph, fixed: &F)
+    where
+        F: Fn(GraphId) -> bool,
+    {
+        self.apply_edge_attract(graph, fixed);
+        self.apply_edge_repulse_edge(graph, fixed);
     }
 
-    fn apply_edge_attract(&mut self, graph: &Graph) {
+    fn apply_edge_attract<F>(&mut self, graph: &Graph, fixed: &F)
+    where
+        F: Fn(GraphId) -> bool,
+    {
         let c = 2.0f32;
         for src in 0..graph.nodes.len() {
             for mph in 0..graph.edges[src].len() {
@@ -50,12 +57,17 @@ impl LayoutEngine {
                     (1f32 + dist).ln()
                 };
                 let f = c * f * (center - pos).normalized();
-                self.add_force(control_id, f);
+                if !fixed(GraphId::Morphism(src, mph)) {
+                    self.add_force(control_id, f);
+                }
             }
         }
     }
 
-    fn apply_edge_repulse_edge(&mut self, graph: &Graph) {
+    fn apply_edge_repulse_edge<F>(&mut self, graph: &Graph, fixed: &F)
+    where
+        F: Fn(GraphId) -> bool,
+    {
         let c = 5e4f32;
         for src1 in 0..graph.nodes.len() {
             for mph1 in 0..graph.edges[src1].len() {
@@ -71,6 +83,13 @@ impl LayoutEngine {
                         let c2_id = graph.edges[src2][mph2].1.control.unwrap();
                         let c2 = self.particles[c2_id].pos;
                         if src1 == src2 && dst1 == dst2 {
+                            // If any of the two morphism is fixed, we dont push
+                            // the other away
+                            if fixed(GraphId::Morphism(src1, mph1))
+                                || fixed(GraphId::Morphism(src2, mph2))
+                            {
+                                continue;
+                            }
                             // If the morphisms are parallel, only spread them
                             // along the direction of the mediatrice of the
                             // endpoints
@@ -92,8 +111,12 @@ impl LayoutEngine {
                             if dist > 1e-6f32 {
                                 let dir = (c2 - c1).normalized();
                                 let f = (c / dist) * dir;
-                                self.add_force(c1_id, -f);
-                                self.add_force(c2_id, f);
+                                if !fixed(GraphId::Morphism(src1, mph1)) {
+                                    self.add_force(c1_id, -f);
+                                }
+                                if !fixed(GraphId::Morphism(src2, mph2)) {
+                                    self.add_force(c2_id, f);
+                                }
                             }
                         }
                     }

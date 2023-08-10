@@ -1,3 +1,4 @@
+use crate::graph::GraphId;
 use crate::vm::Graph;
 
 mod edges;
@@ -11,11 +12,13 @@ impl LayoutEngine {
         self.compute_structure(graph);
         self.particles_for_nodes(graph);
         self.particles_for_edges(graph);
-        self.init_fixed(graph);
     }
 
-    pub fn apply_forces(&mut self, graph: &Graph) {
-        self.apply_nodes_forces(graph);
-        self.apply_edge_forces(graph);
+    pub fn apply_forces<F>(&mut self, graph: &Graph, fixed: &F)
+    where
+        F: Fn(GraphId) -> bool,
+    {
+        self.apply_nodes_forces(graph, fixed);
+        self.apply_edge_forces(graph, fixed);
     }
 }
