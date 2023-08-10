@@ -1,5 +1,5 @@
 use crate::graph::GraphId;
-use egui::{Color32, Pos2, Stroke, Style, Ui, Vec2};
+use egui::{Color32, Pos2, Rect, Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
 
 #[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Debug)]
@@ -53,7 +53,7 @@ pub trait UiGraph {
     // Draw the graph
     fn draw<'a, F>(&'a self, style: &Arc<Style>, f: F)
     where
-        F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId);
+        F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId) -> Rect;
     // Draw the faces
     fn faces<'a, F>(&'a self, style: &Arc<Style>, f: F)
     where

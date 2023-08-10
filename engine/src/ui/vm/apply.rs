@@ -7,8 +7,7 @@ use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
 use crate::ui::graph::widget;
 use crate::ui::VM;
 use crate::vm::{Context, EdgeLabel, FaceLabel, FaceStatus, NodeLabel};
-use egui;
-use egui::{Stroke, Style, Ui, Vec2};
+use egui::{Rect, Stroke, Style, Ui, Vec2};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -280,7 +279,7 @@ impl LemmaApplicationState {
 impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
-        F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId),
+        F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId) -> Rect,
     {
         let mut stroke = style.noninteractive().fg_stroke;
 

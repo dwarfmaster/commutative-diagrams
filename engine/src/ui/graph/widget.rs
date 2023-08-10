@@ -122,6 +122,8 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                             closest_object = id;
                         }
                     }
+
+                    rect
                 }
 
                 Drawable::Curve(curve, _, arrow) => {
@@ -131,6 +133,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                         fill: egui::Color32::TRANSPARENT,
                         stroke,
                     };
+                    let rect = curve.logical_bounding_rect();
                     painter.add(curve);
 
                     if arrow != ArrowStyle::None {
@@ -158,6 +161,8 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                             }
                         }
                     }
+
+                    rect
                 }
             }
         });

@@ -3,13 +3,13 @@ use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
 use crate::vm::{FaceStatus, Lemma};
-use egui::{Stroke, Style, Ui, Vec2};
+use egui::{Rect, Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
 
 impl UiGraph for Lemma {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
-        F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId),
+        F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId) -> Rect,
     {
         let mut stroke = style.noninteractive().fg_stroke;
 

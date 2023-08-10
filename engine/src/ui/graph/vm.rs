@@ -5,14 +5,14 @@ use crate::graph::GraphId;
 use crate::remote::Remote;
 use crate::ui::vm::VM;
 use crate::vm::FaceStatus;
-use egui::{Stroke, Style, Ui, Vec2};
+use egui::{Rect, Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
 type CMR = crate::ui::vm::ContextMenuResult;
 
 impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
-        F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId),
+        F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId) -> Rect,
     {
         let mut stroke = style.noninteractive().fg_stroke;
 
