@@ -9,12 +9,15 @@ use egui::{Pos2, Vec2};
 
 impl LayoutEngine {
     pub fn particles_for_nodes(&mut self, graph: &mut Graph) {
-        for node in graph.nodes.iter_mut() {
-            if node.2.hidden {
+        for node in 0..graph.nodes.len() {
+            if graph.nodes[node].2.hidden {
                 continue;
             }
-            if node.2.pos.is_none() {
-                node.2.pos = Some(self.new_particle(Pos2::ZERO));
+            if let Some(id) = graph.nodes[node].2.pos {
+                self.particles[id].cc = self.structure.nodes_component[node];
+            } else {
+                graph.nodes[node].2.pos =
+                    Some(self.new_particle(Pos2::ZERO, self.structure.nodes_component[node]));
             }
         }
     }

@@ -7,6 +7,7 @@ use std::time::Instant;
 pub struct Particle {
     pub pos: Pos2,
     pub force: Vec2,
+    pub cc: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -37,10 +38,11 @@ impl LayoutEngine {
         }
     }
 
-    pub fn new_particle(&mut self, pos: Pos2) -> usize {
+    pub fn new_particle(&mut self, pos: Pos2, cc: usize) -> usize {
         let part = Particle {
             pos,
             force: Vec2::ZERO,
+            cc,
         };
         let id = self.particles.len();
         self.particles.push(part);

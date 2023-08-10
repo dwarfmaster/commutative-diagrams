@@ -11,14 +11,19 @@ impl LayoutEngine {
     pub fn particles_for_edges(&mut self, graph: &mut Graph) {
         for src in 0..graph.nodes.len() {
             for mph in 0..graph.edges[src].len() {
-                if graph.edges[src][mph].1.control.is_some() {
+                if graph.edges[src][mph].1.hidden {
                     continue;
                 }
-                let dst = graph.edges[src][mph].0;
-                let src_pos = self.get_pos(graph.nodes[src].2.pos.unwrap());
-                let dst_pos = self.get_pos(graph.nodes[dst].2.pos.unwrap());
-                let pos = src_pos + 0.5f32 * (dst_pos - src_pos);
-                graph.edges[src][mph].1.control = Some(self.new_particle(pos));
+                let cc = self.structure.nodes_component[src];
+                if let Some(id) = graph.edges[src][mph].1.control {
+                    self.particles[id].cc = cc;
+                } else {
+                    let dst = graph.edges[src][mph].0;
+                    let src_pos = self.get_pos(graph.nodes[src].2.pos.unwrap());
+                    let dst_pos = self.get_pos(graph.nodes[dst].2.pos.unwrap());
+                    let pos = src_pos + 0.5f32 * (dst_pos - src_pos);
+                    graph.edges[src][mph].1.control = Some(self.new_particle(pos, cc));
+                }
             }
         }
     }
