@@ -1,21 +1,41 @@
 use super::precompute::GraphStructure;
 use crate::vm::Graph;
-use egui::{Pos2, Vec2};
+use egui::{Pos2, Rect, Vec2};
 use std::time::Instant;
 
 #[derive(Clone, Debug, Default)]
 pub struct Particle {
     pub pos: Pos2,
     pub force: Vec2,
-    pub cc: usize,
+    pub cc: Option<usize>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ConnectedComponent {
+    // The bounding rect of the connected component particles, before the offset
+    // if applied
+    pub rect: Rect,
+    pub offset: Vec2,
+}
+
+impl ConnectedComponent {
+    pub fn new() -> Self {
+        Self {
+            rect: Rect::NOTHING,
+            offset: Vec2::ZERO,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct LayoutEngine {
     pub particles: Vec<Particle>,
-    time: Instant,
+    // The bounding rect of each connected component
+    pub components_rect: Vec<ConnectedComponent>,
+    // Config
     pub ideal_distance: f32,
     // Time in second elapsed since the start
+    time: Instant,
     time_elapsed: f32,
     // Additional information about the graph
     pub structure: GraphStructure,
@@ -31,14 +51,15 @@ impl LayoutEngine {
     pub fn new() -> Self {
         Self {
             particles: Vec::new(),
-            time: Instant::now(),
+            components_rect: Vec::new(),
             ideal_distance: 200.0f32,
+            time: Instant::now(),
             time_elapsed: 0f32,
             structure: GraphStructure::new(),
         }
     }
 
-    pub fn new_particle(&mut self, pos: Pos2, cc: usize) -> usize {
+    pub fn new_particle(&mut self, pos: Pos2, cc: Option<usize>) -> usize {
         let part = Particle {
             pos,
             force: Vec2::ZERO,
@@ -66,6 +87,9 @@ impl LayoutEngine {
     }
 
     fn step(&mut self, step: f32) {
+        self.components_rect
+            .resize(self.structure.ccs.len(), ConnectedComponent::new());
+        self.components_rect.fill(ConnectedComponent::new());
         let temperature = temp_of_time(self.time_elapsed);
         for id in 0..self.particles.len() {
             let part = &mut self.particles[id];
@@ -74,6 +98,9 @@ impl LayoutEngine {
 
             if f.length() >= 1e-6 {
                 part.pos += f;
+            }
+            if let Some(cc) = part.cc {
+                self.components_rect[cc].rect.extend_with(part.pos);
             }
         }
     }

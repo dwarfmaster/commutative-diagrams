@@ -14,10 +14,10 @@ impl LayoutEngine {
                 continue;
             }
             if let Some(id) = graph.nodes[node].2.pos {
-                self.particles[id].cc = self.structure.nodes_component[node];
+                self.particles[id].cc = Some(self.structure.nodes_component[node]);
             } else {
                 graph.nodes[node].2.pos =
-                    Some(self.new_particle(Pos2::ZERO, self.structure.nodes_component[node]));
+                    Some(self.new_particle(Pos2::ZERO, Some(self.structure.nodes_component[node])));
             }
         }
     }

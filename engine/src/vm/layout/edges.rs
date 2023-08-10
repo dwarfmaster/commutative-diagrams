@@ -16,13 +16,13 @@ impl LayoutEngine {
                 }
                 let cc = self.structure.nodes_component[src];
                 if let Some(id) = graph.edges[src][mph].1.control {
-                    self.particles[id].cc = cc;
+                    self.particles[id].cc = Some(cc);
                 } else {
                     let dst = graph.edges[src][mph].0;
                     let src_pos = self.get_pos(graph.nodes[src].2.pos.unwrap());
                     let dst_pos = self.get_pos(graph.nodes[dst].2.pos.unwrap());
                     let pos = src_pos + 0.5f32 * (dst_pos - src_pos);
-                    graph.edges[src][mph].1.control = Some(self.new_particle(pos, cc));
+                    graph.edges[src][mph].1.control = Some(self.new_particle(pos, Some(cc)));
                 }
             }
         }
