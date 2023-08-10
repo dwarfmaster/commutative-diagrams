@@ -1,19 +1,14 @@
 use super::LayoutEngine;
 use crate::graph::GraphId;
 use crate::vm::Graph;
-use egui::Vec2;
-use rand::distributions::Uniform;
-use rand::{thread_rng, Rng};
 
-// We want three forces on edges:
+// We want two forces on edges:
 // - one that try to keep them aligned by attracting the control point to the
 //   mean of its extremities
 // - one that push them away from other control points and nodes
 
 impl LayoutEngine {
     pub fn particles_for_edges(&mut self, graph: &mut Graph) {
-        let mut rng = thread_rng();
-        let dist = Uniform::new(0.0f32, std::f32::consts::TAU);
         for src in 0..graph.nodes.len() {
             for mph in 0..graph.edges[src].len() {
                 if graph.edges[src][mph].1.control.is_some() {
@@ -22,8 +17,7 @@ impl LayoutEngine {
                 let dst = graph.edges[src][mph].0;
                 let src_pos = self.get_pos(graph.nodes[src].2.pos.unwrap());
                 let dst_pos = self.get_pos(graph.nodes[dst].2.pos.unwrap());
-                let var = 10.0f32 * Vec2::angled(rng.sample(dist));
-                let pos = src_pos + 0.5f32 * (dst_pos - src_pos) + var;
+                let pos = src_pos + 0.5f32 * (dst_pos - src_pos);
                 graph.edges[src][mph].1.control = Some(self.new_particle(pos));
             }
         }
@@ -100,15 +94,21 @@ impl LayoutEngine {
                             let coeff1 = norm.dot(c1 - center);
                             let coeff2 = norm.dot(c2 - center);
                             let dist = (coeff2 - coeff1).abs();
-                            if dist > 1e-6f32 {
+                            if dist > 10f32 {
                                 let dir = ((coeff2 - coeff1) * norm) / dist;
                                 let f = (c / (dist * dist)) * dir;
                                 self.add_force(c1_id, -f);
                                 self.add_force(c2_id, f);
+                            } else {
+                                // If they are too close, we just push them appart
+                                let c = 15.0f32;
+                                let f = if mph1 < mph2 { -c } else { c };
+                                self.add_force(c1_id, f * norm);
+                                self.add_force(c2_id, -f * norm);
                             }
                         } else {
                             let dist = c1.distance_sq(c2);
-                            if dist > 1e-6f32 {
+                            if dist > 100f32 {
                                 let dir = (c2 - c1).normalized();
                                 let f = (c / dist) * dir;
                                 if !fixed(GraphId::Morphism(src1, mph1)) {
