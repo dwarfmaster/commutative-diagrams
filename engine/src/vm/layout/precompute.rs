@@ -6,6 +6,24 @@ pub struct GraphStructure {
     pub ccs: Vec<HashSet<usize>>,        // List of connected components
     pub nodes_component: Vec<usize>,     // For each node, its connected component
     pub neighbours: Vec<HashSet<usize>>, // For each node, its immediate neighbours
+    pub distances: Vec<Vec<Option<u64>>>, // A matrix of nodes, distances[i][j] gives the lentgth
+                                         // of the shortest path from i to j
+}
+
+// min and plus with None being +infinity
+fn omin(o1: Option<u64>, o2: Option<u64>) -> Option<u64> {
+    match (o1, o2) {
+        (Some(n1), Some(n2)) => Some(n1.min(n2)),
+        (None, _) => o2,
+        _ => o1,
+    }
+}
+
+fn oplus(o1: Option<u64>, o2: Option<u64>) -> Option<u64> {
+    match (o1, o2) {
+        (Some(n1), Some(n2)) => Some(n1.saturating_add(n2)),
+        _ => None,
+    }
 }
 
 impl GraphStructure {
@@ -14,12 +32,64 @@ impl GraphStructure {
             ccs: Vec::new(),
             nodes_component: Vec::new(),
             neighbours: Vec::new(),
+            distances: Vec::new(),
         }
     }
 
     pub fn from_graph(graph: &Graph) -> Self {
-        // Union find on connected components
-        let mut ccs: Vec<(usize, usize)> = Vec::new();
+        // Floyd warshall algorithm
+        let mut distances: Vec<Vec<Option<u64>>> = graph
+            .nodes
+            .iter()
+            .map(|_| graph.nodes.iter().map(|_| None).collect())
+            .collect();
+        let mut neighbours: Vec<HashSet<usize>> =
+            graph.nodes.iter().map(|_| HashSet::new()).collect();
+        // Init the distances. Use this loop to also fill the neighbours information
+        for src in 0..graph.nodes.len() {
+            if graph.nodes[src].2.hidden {
+                continue;
+            }
+            for mph in 0..graph.edges[src].len() {
+                if graph.edges[src][mph].1.hidden {
+                    continue;
+                }
+                let dst = graph.edges[src][mph].0;
+                distances[src][dst] = Some(1);
+                distances[dst][src] = Some(1);
+                neighbours[src].insert(dst);
+                neighbours[dst].insert(src);
+            }
+        }
+        // Iterate
+        {
+            let mut tmp = distances.clone();
+            let current = &mut distances;
+            let previous = &mut tmp;
+            for k in 0..graph.nodes.len() {
+                std::mem::swap(current, previous);
+                for i in 0..graph.nodes.len() {
+                    // Not necessary, but avoid unnecessary loop
+                    if graph.nodes[i].2.hidden {
+                        continue;
+                    }
+                    for j in 0..graph.nodes.len() {
+                        current[i][j] = omin(previous[i][j], oplus(previous[i][k], previous[k][j]));
+                    }
+                }
+            }
+            if graph.nodes.len() % 2 == 1 {
+                // previous actually points to distances
+                for i in 0..graph.nodes.len() {
+                    for j in 0..graph.nodes.len() {
+                        previous[i][j] = current[i][j];
+                    }
+                }
+            }
+        }
+
+        // Union find on nodes
+        let mut nodes_cc: Vec<(usize, usize)> = (0..graph.nodes.len()).map(|i| (i, 0)).collect();
         fn parent(ccs: &mut Vec<(usize, usize)>, cc: usize) -> usize {
             if ccs[cc].0 != cc {
                 ccs[cc].0 = parent(ccs, ccs[cc].0)
@@ -42,56 +112,25 @@ impl GraphStructure {
             }
         }
 
-        // DFS to find the connected component. Since the graph is directed, we
-        // may encounter already defined components, in which case we merge them
-        // together. Use this exploration to populate neighboors.
-        let mut nodes_cc: Vec<Option<usize>> = graph.nodes.iter().map(|_| None).collect();
-        let mut neighbours: Vec<HashSet<usize>> =
-            graph.nodes.iter().map(|_| HashSet::new()).collect();
-        fn explore(
-            graph: &Graph,
-            nodes_cc: &mut Vec<Option<usize>>,
-            ccs: &mut Vec<(usize, usize)>,
-            neighbours: &mut Vec<HashSet<usize>>,
-            nd: usize,
-            cc: usize,
-        ) {
-            if let Some(ncc) = nodes_cc[nd] {
-                connect(ccs, cc, ncc);
-            } else {
-                nodes_cc[nd] = Some(cc);
-                for mph in 0..graph.edges[nd].len() {
-                    if graph.edges[nd][mph].1.hidden {
-                        continue;
-                    }
-                    let dst = graph.edges[nd][mph].0;
-                    if dst != nd {
-                        neighbours[nd].insert(dst);
-                        neighbours[dst].insert(nd);
-                    }
-                    explore(graph, nodes_cc, ccs, neighbours, dst, cc);
+        // Compute the connected components
+        for i in 0..graph.nodes.len() {
+            for j in (i + 1)..graph.nodes.len() {
+                if distances[i][j].is_some() {
+                    connect(&mut nodes_cc, i, j);
                 }
             }
-        }
-        for nd in 0..graph.nodes.len() {
-            if nodes_cc[nd].is_some() || graph.nodes[nd].2.hidden {
-                continue;
-            }
-            let cc = ccs.len();
-            ccs.push((cc, 0));
-            explore(graph, &mut nodes_cc, &mut ccs, &mut neighbours, nd, cc);
         }
 
         // Rework structures to make them more useful to the layouting algorithm
         let mut final_ccs: Vec<HashSet<usize>> = Vec::new();
         let mut final_nodes_cc: Vec<usize> = graph.nodes.iter().map(|_| 0).collect();
-        let mut ccs_mapping: Vec<Option<usize>> = ccs.iter().map(|_| None).collect();
+        let mut ccs_mapping: Vec<Option<usize>> = graph.nodes.iter().map(|_| None).collect();
         for nd in 0..graph.nodes.len() {
             if graph.nodes[nd].2.hidden {
                 continue;
             }
 
-            let cc = parent(&mut ccs, nodes_cc[nd].unwrap());
+            let cc = parent(&mut nodes_cc, nd);
             let final_cc = if let Some(final_cc) = ccs_mapping[cc] {
                 final_cc
             } else {
@@ -109,6 +148,7 @@ impl GraphStructure {
             ccs: final_ccs,
             nodes_component: final_nodes_cc,
             neighbours,
+            distances,
         }
     }
 }
