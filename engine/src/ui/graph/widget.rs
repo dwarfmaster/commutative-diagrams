@@ -127,7 +127,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                 }
 
                 Drawable::Curve(curve, _, arrow) => {
-                    let curve = egui::epaint::CubicBezierShape {
+                    let curve = egui::epaint::QuadraticBezierShape {
                         points: curve.clone().map(project_pos),
                         closed: false,
                         fill: egui::Color32::TRANSPARENT,
@@ -138,8 +138,8 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
 
                     if arrow != ArrowStyle::None {
                         use egui::emath::*;
-                        let tip = curve.points[3];
-                        let dir = (curve.points[3] - curve.points[2]).normalized();
+                        let tip = curve.points[2];
+                        let dir = (curve.points[2] - curve.points[1]).normalized();
                         let rot = Rot2::from_angle(std::f32::consts::TAU / 12.0);
                         let length = 5.0 * zoom;
                         painter.line_segment([tip, tip - length * (rot * dir)], stroke);
@@ -147,7 +147,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                     }
 
                     if let Some(ppos) = pointer_pos {
-                        if curve.visual_bounding_rect().expand(10.0).contains(ppos) {
+                        if rect.expand(15.0).contains(ppos) {
                             let mut dist = f32::INFINITY;
                             curve.for_each_flattened_with_t(5.0, &mut |p: Pos2, _: f32| {
                                 let d = p.distance(ppos);

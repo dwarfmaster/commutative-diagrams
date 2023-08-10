@@ -1,4 +1,4 @@
-use super::graph::{bezier_quadratic_to_cubic, edge_label_pos};
+use super::graph::edge_label_pos;
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
@@ -82,7 +82,7 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
 
                 // Curve
                 let arrow = ArrowStyle::Simple;
-                let curve = bezier_quadratic_to_cubic(psrc, control, pdst);
+                let curve = [psrc, control, pdst];
                 let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
                 let stl = self.graph.edges[src][mph].1.style;
