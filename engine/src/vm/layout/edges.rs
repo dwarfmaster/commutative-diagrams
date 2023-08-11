@@ -1,6 +1,7 @@
 use super::LayoutEngine;
 use crate::graph::GraphId;
 use crate::vm::Graph;
+use egui::Vec2;
 
 // We want two forces on edges:
 // - one that try to keep them aligned by attracting the control point to the
@@ -73,6 +74,19 @@ impl LayoutEngine {
                 let dst1 = graph.edges[src1][mph1].0;
                 let c1_id = graph.edges[src1][mph1].1.control.unwrap();
                 let c1 = self.particles[c1_id].pos;
+                let psrc = self.particles[graph.nodes[src1].2.pos.unwrap()].pos;
+                // If it is a loop, we push it away from the node
+                if src1 == dst1 {
+                    let dir = c1 - psrc;
+                    let dist = dir.length_sq();
+                    let f = if dist < 1f32 {
+                        c * Vec2::X
+                    } else {
+                        (c / dist) * dir.normalized()
+                    };
+                    self.add_force(c1_id, f);
+                }
+
                 for src2 in 0..graph.nodes.len() {
                     for mph2 in 0..graph.edges[src2].len() {
                         if src1 == src2 && mph1 == mph2 {
@@ -81,7 +95,8 @@ impl LayoutEngine {
                         let dst2 = graph.edges[src2][mph2].0;
                         let c2_id = graph.edges[src2][mph2].1.control.unwrap();
                         let c2 = self.particles[c2_id].pos;
-                        if src1 == src2 && dst1 == dst2 {
+                        let pdst = self.particles[graph.nodes[dst1].2.pos.unwrap()].pos;
+                        if src1 == src2 && dst1 == dst2 && src1 != dst1 {
                             // If any of the two morphism is fixed, we dont push
                             // the other away
                             if fixed(GraphId::Morphism(src1, mph1))
@@ -92,8 +107,6 @@ impl LayoutEngine {
                             // If the morphisms are parallel, only spread them
                             // along the direction of the mediatrice of the
                             // endpoints
-                            let psrc = self.particles[graph.nodes[src1].2.pos.unwrap()].pos;
-                            let pdst = self.particles[graph.nodes[dst1].2.pos.unwrap()].pos;
                             let center = psrc + 0.5f32 * (pdst - psrc);
                             let norm = (pdst - psrc).rot90().normalized();
                             let coeff1 = norm.dot(c1 - center);
@@ -111,18 +124,22 @@ impl LayoutEngine {
                                 self.add_force(c1_id, f * norm);
                                 self.add_force(c2_id, -f * norm);
                             }
-                        } else {
+                        } else if self.particles[c1_id].cc == self.particles[c2_id].cc {
                             let dist = c1.distance_sq(c2);
-                            if dist > 100f32 && self.particles[c1_id].cc == self.particles[c2_id].cc
-                            {
+                            let f = if dist > 100f32 {
                                 let dir = (c2 - c1).normalized();
-                                let f = (c / dist) * dir;
-                                if !fixed(GraphId::Morphism(src1, mph1)) {
-                                    self.add_force(c1_id, -f);
-                                }
-                                if !fixed(GraphId::Morphism(src2, mph2)) {
-                                    self.add_force(c2_id, f);
-                                }
+                                (c / dist) * dir
+                            } else {
+                                let seed = (((src1 + mph1 + src2 + mph2) * 17) % 31) as f32;
+                                let angle = (seed / 31f32) * std::f32::consts::TAU;
+                                let sign = if mph1 < mph2 { -1f32 } else { 1f32 };
+                                sign * 1e1f32 * Vec2::angled(angle)
+                            };
+                            if !fixed(GraphId::Morphism(src1, mph1)) {
+                                self.add_force(c1_id, -f);
+                            }
+                            if !fixed(GraphId::Morphism(src2, mph2)) {
+                                self.add_force(c2_id, f);
                             }
                         }
                     }
