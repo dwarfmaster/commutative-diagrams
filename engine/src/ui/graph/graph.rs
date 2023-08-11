@@ -1,5 +1,5 @@
 use crate::graph::GraphId;
-use egui::{Color32, Pos2, Rect, Stroke, Style, Ui, Vec2};
+use egui::{Color32, Pos2, Rect, Rounding, Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
 
 #[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Debug)]
@@ -13,11 +13,13 @@ pub enum ArrowStyle {
     Simple,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Drawable<'a> {
     Text(Pos2, &'a str),
     // Quadratic bezier curve
     Curve([Pos2; 3], CurveStyle, ArrowStyle),
+    // The color is the background color
+    Rect(Rect, Rounding, Color32),
 }
 
 #[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Debug)]

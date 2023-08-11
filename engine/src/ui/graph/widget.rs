@@ -170,6 +170,21 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
 
                     abstract_rect(rect)
                 }
+
+                Drawable::Rect(rect, rounding, fill) => {
+                    let draw_rect = Rect {
+                        min: project_pos(rect.min),
+                        max: project_pos(rect.max),
+                    };
+                    let shape = egui::epaint::RectShape {
+                        rect: draw_rect,
+                        rounding,
+                        fill,
+                        stroke,
+                    };
+                    painter.add(shape);
+                    rect
+                }
             }
         });
 
