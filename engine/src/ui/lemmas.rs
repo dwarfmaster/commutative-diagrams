@@ -37,7 +37,7 @@ pub fn lemmas_menu<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>)
             &mut selected,
         );
         if let Some(lem) = selected {
-            vm.lemmas[lem].get_pattern(&mut vm.ctx);
+            vm.lemmas[lem].get_pattern(&mut vm.ctx, &vm.config);
             vm.selected_lemma = Some(lem);
         }
     });

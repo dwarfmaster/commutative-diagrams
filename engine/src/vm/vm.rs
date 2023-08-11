@@ -1,3 +1,4 @@
+use super::config::Config;
 use crate::graph::GraphId;
 use crate::remote::Remote;
 use crate::vm::asm;
@@ -56,6 +57,7 @@ pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     pub lemmas: Vec<Lemma>,
     pub lemma_tree: Vec<Box<LemmaTree>>,
     pub end_status: EndStatus,
+    pub config: Config,
 
     // Execution
     pub instructions: Vec<asm::Instruction>,
@@ -122,6 +124,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
         let init_state = ctx.save_state();
         let mut vm = Self {
             ctx,
+            config: Config::new(),
             prev_code: String::new(),
             code: String::new(),
             ast: Vec::new(),
@@ -153,7 +156,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
         vm.autoname();
         vm.recompute_face_statuses();
         vm.init_face_order();
-        vm.layout.particles_for_graph(&mut vm.graph);
+        vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
         vm
     }
 

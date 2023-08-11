@@ -57,7 +57,7 @@ struct DisplayState<'a, Rm: Remote + Sync + Send> {
 
 impl LemmaApplicationState {
     pub fn new<Rm: Remote + Sync + Send>(vm: &mut VM<Rm>, lemma: usize) -> Self {
-        let graph = vm.lemmas[lemma].instantiate(&mut vm.ctx);
+        let graph = vm.lemmas[lemma].instantiate(&mut vm.ctx, &vm.config);
         let mut r = Self {
             lemma,
             graph,

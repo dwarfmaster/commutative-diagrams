@@ -1,3 +1,4 @@
+use super::super::config::Config;
 use super::LayoutEngine;
 use crate::graph::GraphId;
 use crate::vm::Graph;
@@ -9,7 +10,7 @@ use egui::Vec2;
 // - one that push them away from other control points and nodes
 
 impl LayoutEngine {
-    pub fn particles_for_edges(&mut self, graph: &mut Graph) {
+    pub fn particles_for_edges(&mut self, _cfg: &Config, graph: &mut Graph) {
         for src in 0..graph.nodes.len() {
             for mph in 0..graph.edges[src].len() {
                 if graph.edges[src][mph].1.hidden {
@@ -29,12 +30,12 @@ impl LayoutEngine {
         }
     }
 
-    pub fn apply_edge_forces<F>(&mut self, graph: &Graph, fixed: &F)
+    pub fn apply_edge_forces<F>(&mut self, cfg: &Config, graph: &Graph, fixed: &F)
     where
         F: Fn(GraphId) -> bool,
     {
         self.apply_edge_attract(graph, fixed);
-        self.apply_edge_repulse_edge(graph, fixed);
+        self.apply_edge_repulse_edge(cfg, graph, fixed);
     }
 
     fn apply_edge_attract<F>(&mut self, graph: &Graph, fixed: &F)
@@ -64,7 +65,7 @@ impl LayoutEngine {
         }
     }
 
-    fn apply_edge_repulse_edge<F>(&mut self, graph: &Graph, fixed: &F)
+    fn apply_edge_repulse_edge<F>(&mut self, cfg: &Config, graph: &Graph, fixed: &F)
     where
         F: Fn(GraphId) -> bool,
     {
@@ -127,8 +128,12 @@ impl LayoutEngine {
                         } else if self.particles[c1_id].cc == self.particles[c2_id].cc {
                             let dist = c1.distance_sq(c2);
                             let f = if dist > 100f32 {
-                                let dir = (c2 - c1).normalized();
-                                (c / dist) * dir
+                                if cfg.layout.edge_repulse {
+                                    let dir = (c2 - c1).normalized();
+                                    (c / dist) * dir
+                                } else {
+                                    Vec2::ZERO
+                                }
                             } else {
                                 let seed = (((src1 + mph1 + src2 + mph2) * 17) % 31) as f32;
                                 let angle = (seed / 31f32) * std::f32::consts::TAU;

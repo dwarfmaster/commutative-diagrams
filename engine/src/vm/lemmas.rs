@@ -1,3 +1,4 @@
+use super::config::Config;
 use super::graph::{EdgeLabel, FaceLabel, NodeLabel};
 use crate::graph::GraphId;
 use crate::lemmas;
@@ -119,7 +120,7 @@ impl Lemma {
         }
     }
 
-    pub fn get_pattern<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>) {
+    pub fn get_pattern<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>, cfg: &Config) {
         if self.pattern.is_some() {
             return;
         }
@@ -130,7 +131,9 @@ impl Lemma {
             .unwrap();
         ctx.set_lem_context(self.id);
         let mut graph = graph.prepare(ctx);
-        self.graphical_state.layout.particles_for_graph(&mut graph);
+        self.graphical_state
+            .layout
+            .particles_for_graph(cfg, &mut graph);
         self.pattern = Some(graph);
         self.relabel(ctx);
         self.name(ctx);
@@ -138,8 +141,12 @@ impl Lemma {
         ctx.unset_lem_context();
     }
 
-    pub fn instantiate<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>) -> Graph {
-        self.get_pattern(ctx);
+    pub fn instantiate<Rm: Remote + Sync + Send>(
+        &mut self,
+        ctx: &mut Context<Rm>,
+        cfg: &Config,
+    ) -> Graph {
+        self.get_pattern(ctx, cfg);
 
         let graph = ctx
             .remote

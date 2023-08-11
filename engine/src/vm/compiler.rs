@@ -180,7 +180,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             Lemma(lem, matching) => {
                 let lemma = self.find_lemma(&lem.value);
                 if let Some(lemma) = lemma {
-                    self.lemmas[lemma].get_pattern(&mut self.ctx);
+                    self.lemmas[lemma].get_pattern(&mut self.ctx, &self.config);
                     let matching = matching
                         .iter()
                         .map(|(lem, goal)| {

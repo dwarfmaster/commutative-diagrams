@@ -8,7 +8,7 @@ type Mapping = HashMap<GraphId, Vec<GraphId>>;
 impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     // Returns true on success and false on failure
     pub fn apply_lemma(&mut self, lemma: usize, matching: &[(GraphId, GraphId)]) -> bool {
-        let pattern = self.lemmas[lemma].instantiate(&mut self.ctx);
+        let pattern = self.lemmas[lemma].instantiate(&mut self.ctx, &self.config);
         let matchings = match self.lemma_complete_matchings(&pattern, matching) {
             Some(matching) => matching,
             None => {

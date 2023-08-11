@@ -2,6 +2,7 @@ mod actions;
 mod asm;
 mod ast;
 mod compiler;
+mod config;
 mod engine;
 mod graph;
 mod interpreter;

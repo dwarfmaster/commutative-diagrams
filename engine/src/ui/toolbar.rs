@@ -18,5 +18,17 @@ pub fn toolbar<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
                 ui.close_menu();
             }
         });
+        ui.menu_button("Layout", |ui| {
+            if ui
+                .checkbox(&mut vm.config.layout.edge_repulse, "Repulse edges")
+                .clicked()
+            {
+                ui.close_menu();
+            }
+            ui.horizontal(|ui| {
+                ui.label("Speed");
+                ui.add(egui::Slider::new(&mut vm.config.layout.speed, 0.0..=2.0))
+            });
+        });
     });
 }

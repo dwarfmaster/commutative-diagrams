@@ -1,3 +1,4 @@
+use super::super::config::Config;
 use super::LayoutEngine;
 use crate::graph::GraphId;
 use crate::vm::Graph;
@@ -8,7 +9,7 @@ use egui::{Pos2, Vec2};
 // length of the pring proportional to the graph distance.
 
 impl LayoutEngine {
-    pub fn particles_for_nodes(&mut self, graph: &mut Graph) {
+    pub fn particles_for_nodes(&mut self, _cfg: &Config, graph: &mut Graph) {
         for node in 0..graph.nodes.len() {
             if graph.nodes[node].2.hidden {
                 continue;
@@ -22,15 +23,15 @@ impl LayoutEngine {
         }
     }
 
-    pub fn apply_nodes_forces<F>(&mut self, graph: &Graph, fixed: &F)
+    pub fn apply_nodes_forces<F>(&mut self, cfg: &Config, graph: &Graph, fixed: &F)
     where
         F: Fn(GraphId) -> bool,
     {
-        self.apply_nodes_graph_distance(graph, fixed);
+        self.apply_nodes_graph_distance(cfg, graph, fixed);
     }
 
     // Apply spring forces proportional to graph theoretic distance
-    fn apply_nodes_graph_distance<F>(&mut self, graph: &Graph, fixed: &F)
+    fn apply_nodes_graph_distance<F>(&mut self, cfg: &Config, graph: &Graph, fixed: &F)
     where
         F: Fn(GraphId) -> bool,
     {
@@ -44,7 +45,7 @@ impl LayoutEngine {
                     let i_pos = self.particles[i_id].pos;
                     let j_pos = self.particles[j_id].pos;
                     let k = c / (dij * dij);
-                    let l = self.ideal_distance * dij;
+                    let l = cfg.layout.ideal_distance * dij;
                     let actual_dist = (i_pos - j_pos).length();
                     let f = k * (actual_dist - l);
                     let dir = if actual_dist < 1e-6f32 {

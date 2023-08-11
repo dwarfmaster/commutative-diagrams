@@ -1,9 +1,10 @@
+use super::super::config::Config;
 use super::engine::ConnectedComponent;
 use super::LayoutEngine;
 use egui::{Pos2, Vec2};
 
 impl LayoutEngine {
-    pub fn reset_components(&mut self) {
+    pub fn reset_components(&mut self, _cfg: &Config) {
         self.components
             .resize(self.structure.ccs.len(), ConnectedComponent::new());
         for cc in 0..self.components.len() {
@@ -13,7 +14,7 @@ impl LayoutEngine {
         }
     }
 
-    pub fn apply_cc_forces(&mut self) {
+    pub fn apply_cc_forces(&mut self, _cfg: &Config) {
         self.apply_cc_forces_repulse();
     }
 

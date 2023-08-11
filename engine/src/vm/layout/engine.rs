@@ -1,3 +1,4 @@
+use super::super::config::Config;
 use super::precompute::GraphStructure;
 use crate::vm::Graph;
 use egui::{Pos2, Rect, Vec2};
@@ -70,7 +71,7 @@ impl LayoutEngine {
         id
     }
 
-    pub fn compute_structure(&mut self, graph: &Graph) {
+    pub fn compute_structure(&mut self, _cfg: &Config, graph: &Graph) {
         self.structure = GraphStructure::from_graph(graph);
     }
 
@@ -123,10 +124,10 @@ impl LayoutEngine {
 
     // Update position and speed according to forces and the time since last
     // round. Also clear forces.
-    pub fn update(&mut self) {
+    pub fn update(&mut self, cfg: &Config) {
         let elapsed = self.time.elapsed().as_secs_f32();
         self.time_elapsed += elapsed;
-        let t = 10.0f32 * elapsed;
+        let t = cfg.layout.speed * 10.0f32 * elapsed;
         self.time = Instant::now();
         self.step(t);
     }
