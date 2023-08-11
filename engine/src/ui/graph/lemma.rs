@@ -1,4 +1,4 @@
-use super::graph::{bezier_quadratic_to_cubic, edge_label_pos, ray_rect};
+use super::graph::{edge_label_pos, prepare_edge};
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
@@ -71,9 +71,7 @@ impl UiGraph for Lemma {
 
                     // Curve
                     let arrow = ArrowStyle::Simple;
-                    let csrc = ray_rect(control - psrc, nodes_rect[src]);
-                    let cdst = ray_rect(control - pdst, nodes_rect[dst]);
-                    let curve = bezier_quadratic_to_cubic(csrc, control, cdst);
+                    let curve = prepare_edge(psrc, nodes_rect[src], control, pdst, nodes_rect[dst]);
                     let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
                     let stl = pattern.edges[src][mph].1.style;

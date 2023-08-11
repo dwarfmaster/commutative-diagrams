@@ -115,3 +115,26 @@ pub fn ray_rect(ray: Vec2, rect: Rect) -> Pos2 {
     let v = v1.min(v2);
     rect.center() + v * ray
 }
+
+// Given a quadratic bezier and rectangle at the start and end, create an
+// appropriate cubic that is the same at the bezier, but not cropping on the
+// edge rects. It handle the src == dst by making a loop instead of a linear
+// cubic.
+pub fn prepare_edge(
+    src: Pos2,
+    src_rect: Rect,
+    control: Pos2,
+    dst: Pos2,
+    dst_rect: Rect,
+) -> [Pos2; 4] {
+    let [q0, q1, q2, q3] = bezier_quadratic_to_cubic(src, control, dst);
+    let (q1, q2) = if q1.distance_sq(q2) <= 1f32 && q1.distance_sq(q0) >= 1f32 {
+        let v = 0.5f32 * (control - src).rot90();
+        (q1 + v, q2 - v)
+    } else {
+        (q1, q2)
+    };
+    let q0 = ray_rect(q1 - q0, src_rect);
+    let q3 = ray_rect(q2 - q3, dst_rect);
+    [q0, q1, q2, q3]
+}

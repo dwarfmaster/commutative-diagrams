@@ -1,7 +1,7 @@
 use super::ActionResult;
 use crate::graph::{Graph, GraphId};
 use crate::remote::Remote;
-use crate::ui::graph::graph::{bezier_quadratic_to_cubic, edge_label_pos, ray_rect};
+use crate::ui::graph::graph::{edge_label_pos, prepare_edge};
 use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
 use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
 use crate::ui::graph::widget;
@@ -347,9 +347,7 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
 
                 // Curve
                 let arrow = ArrowStyle::Simple;
-                let csrc = ray_rect(control - psrc, nodes_rect[src]);
-                let cdst = ray_rect(control - pdst, nodes_rect[dst]);
-                let curve = bezier_quadratic_to_cubic(csrc, control, cdst);
+                let curve = prepare_edge(psrc, nodes_rect[src], control, pdst, nodes_rect[dst]);
                 let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
                 let stl = self.apply.graph.edges[src][mph].1.style;
