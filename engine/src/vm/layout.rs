@@ -23,6 +23,6 @@ impl LayoutEngine {
     {
         self.apply_nodes_forces(cfg, graph, fixed);
         self.apply_edge_forces(cfg, graph, fixed);
-        self.apply_cc_forces(cfg);
+        self.apply_cc_forces(cfg, graph, fixed);
     }
 }

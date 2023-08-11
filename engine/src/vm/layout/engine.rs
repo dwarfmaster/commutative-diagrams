@@ -13,17 +13,16 @@ pub struct Particle {
 
 #[derive(Clone, Debug)]
 pub struct ConnectedComponent {
-    // The bounding rect of the connected component particles, before the offset
-    // if applied
+    // The bounding rect of the connected component particles
     pub rect: Rect,
-    pub part: Option<usize>,
+    pub force: Vec2,
 }
 
 impl ConnectedComponent {
     pub fn new() -> Self {
         Self {
             rect: Rect::NOTHING,
-            part: None,
+            force: Vec2::ZERO,
         }
     }
 }
@@ -75,28 +74,12 @@ impl LayoutEngine {
         self.structure = GraphStructure::from_graph(graph);
     }
 
-    // Apply the offset of the connected component when accessing position
     pub fn get_pos(&self, part: usize) -> Pos2 {
-        if let Some(cc) = self.particles[part].cc {
-            self.particles[part].pos
-                + self.particles[self.components[cc].part.unwrap()]
-                    .pos
-                    .to_vec2()
-        } else {
-            self.particles[part].pos
-        }
+        self.particles[part].pos
     }
 
-    // Undo the connected component offset when setting the position
     pub fn set_pos(&mut self, part: usize, pos: Pos2) {
-        if let Some(cc) = self.particles[part].cc {
-            self.particles[part].pos = pos
-                - self.particles[self.components[cc].part.unwrap()]
-                    .pos
-                    .to_vec2();
-        } else {
-            self.particles[part].pos = pos;
-        }
+        self.particles[part].pos = pos;
     }
 
     pub fn add_force(&mut self, part: usize, force: Vec2) {
