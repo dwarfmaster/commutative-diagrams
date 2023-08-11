@@ -15,14 +15,14 @@ pub struct ConnectedComponent {
     // The bounding rect of the connected component particles, before the offset
     // if applied
     pub rect: Rect,
-    pub offset: Vec2,
+    pub part: Option<usize>,
 }
 
 impl ConnectedComponent {
     pub fn new() -> Self {
         Self {
             rect: Rect::NOTHING,
-            offset: Vec2::ZERO,
+            part: None,
         }
     }
 }
@@ -31,7 +31,7 @@ impl ConnectedComponent {
 pub struct LayoutEngine {
     pub particles: Vec<Particle>,
     // The bounding rect of each connected component
-    pub components_rect: Vec<ConnectedComponent>,
+    pub components: Vec<ConnectedComponent>,
     // Config
     pub ideal_distance: f32,
     // Time in second elapsed since the start
@@ -51,7 +51,7 @@ impl LayoutEngine {
     pub fn new() -> Self {
         Self {
             particles: Vec::new(),
-            components_rect: Vec::new(),
+            components: Vec::new(),
             ideal_distance: 200.0f32,
             time: Instant::now(),
             time_elapsed: 0f32,
@@ -74,12 +74,28 @@ impl LayoutEngine {
         self.structure = GraphStructure::from_graph(graph);
     }
 
+    // Apply the offset of the connected component when accessing position
     pub fn get_pos(&self, part: usize) -> Pos2 {
-        self.particles[part].pos
+        if let Some(cc) = self.particles[part].cc {
+            self.particles[part].pos
+                + self.particles[self.components[cc].part.unwrap()]
+                    .pos
+                    .to_vec2()
+        } else {
+            self.particles[part].pos
+        }
     }
 
+    // Undo the connected component offset when setting the position
     pub fn set_pos(&mut self, part: usize, pos: Pos2) {
-        self.particles[part].pos = pos;
+        if let Some(cc) = self.particles[part].cc {
+            self.particles[part].pos = pos
+                - self.particles[self.components[cc].part.unwrap()]
+                    .pos
+                    .to_vec2();
+        } else {
+            self.particles[part].pos = pos;
+        }
     }
 
     pub fn add_force(&mut self, part: usize, force: Vec2) {
@@ -87,9 +103,9 @@ impl LayoutEngine {
     }
 
     fn step(&mut self, step: f32) {
-        self.components_rect
-            .resize(self.structure.ccs.len(), ConnectedComponent::new());
-        self.components_rect.fill(ConnectedComponent::new());
+        self.components
+            .iter_mut()
+            .for_each(|cc| cc.rect = Rect::NOTHING);
         let temperature = temp_of_time(self.time_elapsed);
         for id in 0..self.particles.len() {
             let part = &mut self.particles[id];
@@ -100,7 +116,7 @@ impl LayoutEngine {
                 part.pos += f;
             }
             if let Some(cc) = part.cc {
-                self.components_rect[cc].rect.extend_with(part.pos);
+                self.components[cc].rect.extend_with(part.pos);
             }
         }
     }
@@ -117,9 +133,9 @@ impl LayoutEngine {
 
     // Run many times to approximate convergence
     pub fn run(&mut self) {
-        let count = 1000;
+        let count = 10000;
         for _ in 0..count {
-            self.step(0.1);
+            self.step(0.01);
         }
     }
 }

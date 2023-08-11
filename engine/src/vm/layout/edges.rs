@@ -19,8 +19,8 @@ impl LayoutEngine {
                     self.particles[id].cc = Some(cc);
                 } else {
                     let dst = graph.edges[src][mph].0;
-                    let src_pos = self.get_pos(graph.nodes[src].2.pos.unwrap());
-                    let dst_pos = self.get_pos(graph.nodes[dst].2.pos.unwrap());
+                    let src_pos = self.particles[graph.nodes[src].2.pos.unwrap()].pos;
+                    let dst_pos = self.particles[graph.nodes[dst].2.pos.unwrap()].pos;
                     let pos = src_pos + 0.5f32 * (dst_pos - src_pos);
                     graph.edges[src][mph].1.control = Some(self.new_particle(pos, Some(cc)));
                 }
@@ -45,8 +45,8 @@ impl LayoutEngine {
             for mph in 0..graph.edges[src].len() {
                 let control_id = graph.edges[src][mph].1.control.unwrap();
                 let dst = graph.edges[src][mph].0;
-                let src_pos = self.get_pos(graph.nodes[src].2.pos.unwrap());
-                let dst_pos = self.get_pos(graph.nodes[dst].2.pos.unwrap());
+                let src_pos = self.particles[graph.nodes[src].2.pos.unwrap()].pos;
+                let dst_pos = self.particles[graph.nodes[dst].2.pos.unwrap()].pos;
                 let center = src_pos + 0.5f32 * (dst_pos - src_pos);
                 let pos = self.particles[control_id].pos;
                 let dist = pos.distance(center);
@@ -113,7 +113,8 @@ impl LayoutEngine {
                             }
                         } else {
                             let dist = c1.distance_sq(c2);
-                            if dist > 100f32 {
+                            if dist > 100f32 && self.particles[c1_id].cc == self.particles[c2_id].cc
+                            {
                                 let dir = (c2 - c1).normalized();
                                 let f = (c / dist) * dir;
                                 if !fixed(GraphId::Morphism(src1, mph1)) {
