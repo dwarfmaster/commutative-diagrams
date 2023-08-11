@@ -212,7 +212,6 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     result = ExecutionError;
                 }
             }
-            Refine(_, _) => todo!(),
             Succeed => result = Success,
             Fail => result = Failure,
         }

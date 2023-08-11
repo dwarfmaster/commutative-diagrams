@@ -50,8 +50,6 @@ pub enum Action {
     ShrinkFace(Annot<String>),
     // Apply lemma
     Lemma(Annot<String>, Vec<(Annot<String>, Annot<String>)>),
-    // Unify the two terms as equalities
-    Refine(Annot<String>, Annot<String>),
     // End the interface with a success
     Succeed,
     // End the interface with a failure

@@ -105,7 +105,6 @@ impl<'a> Parser<'a> {
             "pull" => self.act_pull(input),
             "push" => self.act_push(input),
             "shrink" => self.act_shrink(input),
-            "refine" => self.act_refine(input),
             "apply" => self.act_lemma(input),
             "hide" => self.act_hide(true, input),
             "reveal" => self.act_hide(false, input),
@@ -150,14 +149,6 @@ impl<'a> Parser<'a> {
             ),
             map(|i| self.name(i), |desc| ast::Action::Solve(None, desc)),
         ))(input)
-    }
-
-    fn act_refine(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
-        let (input, _) = space1(input)?;
-        let (input, d1) = self.name(input)?;
-        let (input, _) = sep(input)?;
-        let (input, d2) = self.name(input)?;
-        success(ast::Action::Refine(d1, d2))(input)
     }
 
     fn act_hide(&'a self, hide: bool, input: &'a str) -> IResult<&'a str, ast::Action> {
@@ -284,19 +275,6 @@ mod tests {
                 Annot {
                     value: "fce1".to_string(),
                     range: 10..14,
-                },
-            ),
-        );
-        test(
-            "refine xxx, yyy",
-            Refine(
-                Annot {
-                    value: "xxx".to_string(),
-                    range: 7..10,
-                },
-                Annot {
-                    value: "yyy".to_string(),
-                    range: 12..15,
                 },
             ),
         );
