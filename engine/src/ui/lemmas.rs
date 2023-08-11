@@ -7,8 +7,8 @@ pub fn lemmas_window<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<
     if let Some(lem) = vm.selected_lemma {
         let mut open = true;
         let mut should_close = false;
-        egui::Window::new(vm.lemmas[lem].name.clone())
-            .id(egui::Id::new("Lemma graph"))
+        egui::Window::new(vm.lemmas[lem].complete_name.clone())
+            .id(egui::Id::new(vm.lemmas[lem].complete_name.as_str()))
             .open(&mut open)
             .show(ctx, |ui| {
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {

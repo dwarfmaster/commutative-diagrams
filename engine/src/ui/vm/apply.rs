@@ -65,8 +65,8 @@ impl LemmaApplicationState {
             selected: None,
             error_msg: None,
             reverse_mapping: HashMap::new(),
-            zoom: 1.0,
-            offset: Vec2::ZERO,
+            zoom: vm.lemmas[lemma].graphical_state.zoom,
+            offset: vm.lemmas[lemma].graphical_state.offset,
             focused: None,
             hovered: None,
             dragged: None,
@@ -130,9 +130,11 @@ impl LemmaApplicationState {
         let mut state = DisplayState { apply: self, vm };
         egui::Window::new(format!(
             "Applying {}",
-            state.vm.lemmas[state.apply.lemma].name
+            state.vm.lemmas[state.apply.lemma].complete_name
         ))
-        .id(egui::Id::new("Apply lemma"))
+        .id(egui::Id::new(
+            state.vm.lemmas[state.apply.lemma].complete_name.as_str(),
+        ))
         .open(&mut open)
         .show(ui, |ui| {
             ui.add_enabled_ui(state.apply.error_msg.is_none(), |ui| {
