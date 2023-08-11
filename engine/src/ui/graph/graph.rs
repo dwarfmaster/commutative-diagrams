@@ -18,7 +18,7 @@ pub enum ArrowStyle {
 pub enum Drawable<'a> {
     Text(Pos2, &'a str),
     // Quadratic bezier curve
-    Curve([Pos2; 3], CurveStyle, ArrowStyle),
+    Curve([Pos2; 4], CurveStyle, ArrowStyle),
     // The color is the background color
     Rect(Rect, Rounding, Color32),
 }
@@ -75,6 +75,16 @@ pub trait UiGraph {
 }
 
 // Helpers
+pub fn bezier_quadratic_to_cubic(q0: Pos2, q1: Pos2, q2: Pos2) -> [Pos2; 4] {
+    // Taken from
+    // https://stackoverflow.com/questions/3162645/convert-a-quadratic-bezier-to-a-cubic-one
+    let c0 = q0;
+    let c1 = q0 + (2f32 / 3f32) * (q1 - q0);
+    let c2 = q2 + (2f32 / 3f32) * (q1 - q2);
+    let c3 = q2;
+    [c0, c1, c2, c3]
+}
+
 pub fn compute_quadratic_at(q0: Pos2, q1: Pos2, q2: Pos2, t: f32) -> Pos2 {
     let v = (1f32 - t) * (1f32 - t) * q0.to_vec2()
         + 2f32 * (1f32 - t) * t * q1.to_vec2()
