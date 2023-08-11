@@ -401,12 +401,8 @@ let rec query_lemma_impl rctx sigma tp =
   match EConstr.kind sigma tp with
   | Prod (name,arg,body) ->
       let* props = is_relevant_type rctx sigma arg in
-      if List.length props > 0
-      then
-        let q = { name = Some name.binder_name; tp = arg; props = props; kind = Universal } in
-        query_lemma_impl (q :: rctx) sigma body
-      else 
-        none ()
+      let q = { name = Some name.binder_name; tp = arg; props = props; kind = Universal } in
+      query_lemma_impl (q :: rctx) sigma body
   | _ ->
       let* props = is_relevant_type rctx sigma tp in
       if List.length props > 0
