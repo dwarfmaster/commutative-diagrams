@@ -131,7 +131,6 @@ impl Lemma {
         ctx.set_lem_context(self.id);
         let mut graph = graph.prepare(ctx);
         self.graphical_state.layout.particles_for_graph(&mut graph);
-        self.graphical_state.layout.run();
         self.pattern = Some(graph);
         self.relabel(ctx);
         self.name(ctx);
