@@ -83,7 +83,12 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
         }
     }
 
-    let offset = rect.left_top().add(*gr.offset()).to_vec2();
+    let faces_rect = set_width_right(rect.shrink(10.0), 210.0_f32.min(rect.width() / 2.0));
+    let offset = rect
+        .center()
+        .add(*gr.offset())
+        .add(-(faces_rect.width() / 2f32) * Vec2::X)
+        .to_vec2();
     let zoom = *gr.zoom();
     let project_pos = |p: Pos2| -> Pos2 { (zoom * p.to_vec2()).to_pos2().add(offset) };
     let abstract_pos = |p: Pos2| -> Pos2 { (p.add(-offset).to_vec2() / zoom).to_pos2() };
@@ -189,7 +194,6 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
         });
 
         // Faces
-        let faces_rect = set_width_right(rect.shrink(10.0), 210.0_f32.min(rect.width() / 2.0));
         painter.rect(faces_rect, 3.0, visuals.bg_fill, visuals.bg_stroke);
         let faces_rect = faces_rect.shrink(5.0);
         faces_in_rect(
