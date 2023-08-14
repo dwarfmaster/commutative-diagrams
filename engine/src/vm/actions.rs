@@ -1,4 +1,4 @@
-mod decompose;
+pub mod decompose;
 mod hide;
 mod insert;
 mod lemma;

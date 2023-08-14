@@ -1,6 +1,7 @@
 use crate::data::{Feature, Tag};
 use crate::graph::GraphId;
 use crate::remote::Remote;
+use crate::vm::actions::decompose;
 use crate::vm::ast;
 use crate::vm::ast::Action;
 use crate::vm::vm;
@@ -212,7 +213,51 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     result = ExecutionError;
                 }
             }
-            Decompose(..) => todo!(),
+            Decompose(fce, steps) => {
+                if let Some(GraphId::Face(face)) = self.names.get(&fce.value) {
+                    let deref_names =
+                        |v: Vec<ast::Annot<String>>| -> Result<Vec<(usize, usize)>, String> {
+                            v.into_iter()
+                                .map(|name| {
+                                    if let Some(GraphId::Morphism(src, mph)) =
+                                        self.names.get(&name.value)
+                                    {
+                                        Ok((*src, *mph))
+                                    } else {
+                                        Err(format!("Couldn't find {}", name.value))
+                                    }
+                                })
+                                .collect()
+                        };
+                    let steps: Result<Vec<decompose::Step>, String> = steps
+                        .into_iter()
+                        .map(|step| {
+                            let r = decompose::Step {
+                                start: deref_names(step.start)?,
+                                middle_left: deref_names(step.middle_left)?,
+                                middle_right: deref_names(step.middle_right)?,
+                                end: deref_names(step.end)?,
+                            };
+                            Ok(r)
+                        })
+                        .collect();
+                    match steps {
+                        Ok(steps) => {
+                            if !self.decompose_face(*face, steps) {
+                                self.error_msg = format!("Couldn't decompose face {}", fce.value);
+                                result = ExecutionError;
+                            }
+                        }
+                        Err(msg) => {
+                            self.error_msg = msg;
+                            result = ExecutionError;
+                        }
+                    }
+                } else {
+                    self.error_msg = format!("Coudn't find face {}", fce.value);
+                    result = ExecutionError;
+                }
+            }
             Succeed => result = Success,
             Fail => result = Failure,
         }
