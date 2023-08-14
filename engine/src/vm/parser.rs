@@ -17,7 +17,7 @@ fn integer(input: &str) -> IResult<&str, usize> {
 // Inspired by:
 //   https://docs.rs/nom/latest/nom/recipes/index.html#rust-style-identifiers
 fn ident(input: &str) -> IResult<&str, &str> {
-    let extra = recognize(one_of("_.!/"));
+    let extra = recognize(one_of("_.!/-"));
     recognize(pair(alpha1, many0_count(alt((alphanumeric1, extra)))))(input)
 }
 
