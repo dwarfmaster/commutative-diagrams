@@ -5,8 +5,8 @@ use nom::character::complete::{
 };
 use nom::combinator::{eof, fail, map, map_res, recognize, success, value};
 use nom::error::ParseError;
-use nom::multi::{many0, many0_count, many1_count, many_till};
-use nom::sequence::{delimited, pair, preceded, terminated, tuple};
+use nom::multi::{many0, many0_count, many1_count, many_till, separated_list0, separated_list1};
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 use nom::{IResult, Offset};
 
 fn integer(input: &str) -> IResult<&str, usize> {
@@ -17,7 +17,7 @@ fn integer(input: &str) -> IResult<&str, usize> {
 // Inspired by:
 //   https://docs.rs/nom/latest/nom/recipes/index.html#rust-style-identifiers
 fn ident(input: &str) -> IResult<&str, &str> {
-    let extra = recognize(one_of("_.!/;"));
+    let extra = recognize(one_of("_.!/"));
     recognize(pair(alpha1, many0_count(alt((alphanumeric1, extra)))))(input)
 }
 
@@ -108,6 +108,7 @@ impl<'a> Parser<'a> {
             "apply" => self.act_lemma(input),
             "hide" => self.act_hide(true, input),
             "reveal" => self.act_hide(false, input),
+            "decompose" => self.act_decompose(input),
             "succeed" => success(ast::Action::Succeed)(input),
             "fail" => success(ast::Action::Fail)(input),
             _ => fail(input),
@@ -187,6 +188,75 @@ impl<'a> Parser<'a> {
         let (input, _) = space1(input)?;
         let (input, fce) = self.name(input)?;
         success(ast::Action::ShrinkFace(fce))(input)
+    }
+
+    fn act_decompose(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
+        let parse_middle = |input: &'a str| -> IResult<
+            &'a str,
+            (Vec<ast::Annot<String>>, Vec<ast::Annot<String>>),
+        > {
+            let label = |i| self.name(i);
+            separated_pair(
+                separated_list0(char(':'), label),
+                char(';'),
+                separated_list0(char(':'), label),
+            )(input)
+        };
+
+        let parse_step_atom = |input: &'a str| -> IResult<
+            &'a str,
+            Result<ast::Annot<String>, (Vec<ast::Annot<String>>, Vec<ast::Annot<String>>)>,
+        > {
+            alt((
+                map(delimited(char('<'), parse_middle, char('>')), Err),
+                map(|i| self.name(i), Ok),
+            ))(input)
+        };
+
+        let parse_step = |input: &'a str| -> IResult<&'a str, ast::DecomposeStep> {
+            let (input, atoms) = separated_list1(char(':'), parse_step_atom)(input)?;
+
+            let mut step = ast::DecomposeStep {
+                start: Vec::new(),
+                middle_left: Vec::new(),
+                middle_right: Vec::new(),
+                end: Vec::new(),
+            };
+            let mut seen_middle = false;
+            let mut failed = false;
+            for atom in atoms.into_iter() {
+                match atom {
+                    Ok(mph) => {
+                        if seen_middle {
+                            step.end.push(mph);
+                        } else {
+                            step.start.push(mph);
+                        }
+                    }
+                    Err((left, right)) => {
+                        if seen_middle {
+                            failed = true;
+                            break;
+                        } else {
+                            step.middle_left = left;
+                            step.middle_right = right;
+                            seen_middle = true;
+                        }
+                    }
+                }
+            }
+            if failed {
+                fail(input)
+            } else {
+                success(step)(input)
+            }
+        };
+
+        let (input, _) = space1(input)?;
+        let (input, fce) = self.name(input)?;
+        let (input, _) = space1(input)?;
+        let (input, steps) = separated_list1(char(';'), parse_step)(input)?;
+        success(ast::Action::Decompose(fce, steps))(input)
     }
 
     fn act_lemma(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
@@ -337,6 +407,72 @@ mod tests {
                             range: 37..38,
                         },
                     ),
+                ],
+            ),
+        );
+
+        test(
+            "decompose H m0:<m1:t1;t1:f1>;<m0:t1;t0:f0>:f1",
+            Decompose(
+                Annot {
+                    value: "H".to_string(),
+                    range: 10..11,
+                },
+                vec![
+                    ast::DecomposeStep {
+                        start: vec![Annot {
+                            value: "m0".to_string(),
+                            range: 12..14,
+                        }],
+                        middle_left: vec![
+                            Annot {
+                                value: "m1".to_string(),
+                                range: 16..18,
+                            },
+                            Annot {
+                                value: "t1".to_string(),
+                                range: 19..21,
+                            },
+                        ],
+                        middle_right: vec![
+                            Annot {
+                                value: "t1".to_string(),
+                                range: 22..24,
+                            },
+                            Annot {
+                                value: "f1".to_string(),
+                                range: 25..27,
+                            },
+                        ],
+                        end: Vec::new(),
+                    },
+                    ast::DecomposeStep {
+                        start: Vec::new(),
+                        middle_left: vec![
+                            Annot {
+                                value: "m0".to_string(),
+                                range: 30..32,
+                            },
+                            Annot {
+                                value: "t1".to_string(),
+                                range: 33..35,
+                            },
+                        ],
+                        middle_right: vec![
+                            Annot {
+                                value: "t0".to_string(),
+                                range: 36..38,
+                            },
+                            Annot {
+                                value: "f0".to_string(),
+                                range: 39..41,
+                            },
+                        ],
+                        end: vec![Annot {
+                            value: "f1".to_string(),
+                            range: 43..45,
+                        }],
+                    },
                 ],
             ),
         );

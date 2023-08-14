@@ -212,6 +212,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     result = ExecutionError;
                 }
             }
+            Decompose(..) => todo!(),
             Succeed => result = Success,
             Fail => result = Failure,
         }

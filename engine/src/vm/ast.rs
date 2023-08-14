@@ -20,6 +20,15 @@ impl<T> Annot<T> {
 
 pub type AST = Vec<Annot<Action>>;
 
+// An intermediate step of a planar decomposition of an equality
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecomposeStep {
+    pub start: Vec<Annot<String>>,
+    pub middle_left: Vec<Annot<String>>,
+    pub middle_right: Vec<Annot<String>>,
+    pub end: Vec<Annot<String>>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     // Interpret the term as an object, and try to insert it into the graph
@@ -50,6 +59,8 @@ pub enum Action {
     ShrinkFace(Annot<String>),
     // Apply lemma
     Lemma(Annot<String>, Vec<(Annot<String>, Annot<String>)>),
+    // Decompose a lemma into sub-faces
+    Decompose(Annot<String>, Vec<DecomposeStep>),
     // End the interface with a success
     Succeed,
     // End the interface with a failure
