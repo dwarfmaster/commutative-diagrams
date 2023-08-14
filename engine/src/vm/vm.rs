@@ -153,8 +153,8 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             layout: LayoutEngine::new(),
         };
         vm.relabel();
-        vm.autoname();
         vm.recompute_face_statuses();
+        vm.autoname();
         vm.init_face_order();
         vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
         vm

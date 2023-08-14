@@ -159,11 +159,11 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
         // We name goals Goal{count}
         if graph.faces[fce].label.status == FaceStatus::Goal {
-            let mut name = format!("{}0", base);
+            let mut name = format!("{}-0", base);
             let mut count = 0;
             while names.get(&name).is_some() {
                 count += 1;
-                name = format!("{}{}", base, count);
+                name = format!("{}-{}", base, count);
             }
             return name;
         }
@@ -180,19 +180,25 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
     pub fn autoname_face(&mut self, fce: usize) {
         assert!(self.graph.faces[fce].label.name.is_empty());
+        let mut base = "Goal";
 
         // If the name of the parent is not empty (ie we're the first children of the parent),
-        // we copy the name
+        // and the parent is hidden, we copy the name. If the parent isn't hidden, we use its name
+        // as base.
         if let Some(parent) = self.graph.faces[fce].label.parent {
             if !self.graph.faces[parent].label.name.is_empty() {
-                let parent_name = self.graph.faces[parent].label.name.clone();
-                self.set_name(GraphId::Face(parent), "".to_string());
-                self.set_name(GraphId::Face(fce), parent_name);
-                return;
+                if self.graph.faces[parent].label.hidden {
+                    let parent_name = self.graph.faces[parent].label.name.clone();
+                    self.set_name(GraphId::Face(parent), "".to_string());
+                    self.set_name(GraphId::Face(fce), parent_name);
+                    return;
+                } else {
+                    base = self.graph.faces[parent].label.name.as_str();
+                }
             }
         }
 
-        let name = Self::name_compute_face(&mut self.ctx, &self.graph, &self.names, "Goal", fce);
+        let name = Self::name_compute_face(&mut self.ctx, &self.graph, &self.names, base, fce);
         self.set_name(GraphId::Face(fce), name);
     }
 
