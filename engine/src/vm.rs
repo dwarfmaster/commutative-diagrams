@@ -12,6 +12,7 @@ mod lemmas;
 mod namer;
 mod order;
 mod parser;
+mod planar;
 mod sides;
 mod status;
 mod store;

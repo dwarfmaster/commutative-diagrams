@@ -289,6 +289,11 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                         ui.close_menu();
                         return false;
                     }
+                    if ui.button("Decompose").clicked() {
+                        self.planar_split(fce);
+                        ui.close_menu();
+                        return false;
+                    }
                     if ui.button("Shrink").clicked() {
                         self.insert_and_run(&format!(
                             "shrink {}",
