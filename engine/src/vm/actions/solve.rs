@@ -18,7 +18,6 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         if let Some(eq) = solved {
             let feq = self.graph.faces[fce].eq.clone();
             self.unify_eq(cat, &feq, &eq);
-            // self.refine(sigma);
             true
         } else {
             false
