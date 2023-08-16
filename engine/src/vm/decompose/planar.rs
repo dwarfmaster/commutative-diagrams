@@ -141,8 +141,12 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         in_actual: &Vec<Option<usize>>,
         out_angles: &mut Vec<Option<Vec<(f32, usize)>>>,
         max_angles: &Vec<Option<f32>>,
+        seen: &mut Vec<bool>,
     ) -> Option<usize> {
-        // TODO fix loop case
+        if seen[node] {
+            return None;
+        }
+        seen[node] = true;
         if !first {
             if let Some(id) = in_actual[node] {
                 if id <= starting {
@@ -167,6 +171,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             path.push((node, mph));
             if let Some(id) = self.find_parallel_path(
                 false, starting, dst, in_angle, max_angle, path, in_actual, out_angles, max_angles,
+                seen,
             ) {
                 return Some(id);
             }
@@ -220,8 +225,10 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             self.graph.edges[src][mph].1.control.unwrap(),
         );
         let mut path = Vec::new();
+        let mut seen = vec![false; self.graph.nodes.len()];
         if let Some(end) = self.find_parallel_path(
             true, pos, src, min_angle, max_angle, &mut path, in_actual, out_angles, max_angles,
+            &mut seen,
         ) {
             step.middle_left = (&actual[pos..end])
                 .iter()
