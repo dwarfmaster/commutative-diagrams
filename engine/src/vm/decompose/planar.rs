@@ -1,24 +1,6 @@
+use super::step::Step;
 use crate::remote::Remote;
 use crate::vm::{Interactive, VM};
-
-// Store a step
-struct Step {
-    start: Vec<(usize, usize)>,
-    middle_left: Vec<(usize, usize)>,
-    middle_right: Vec<(usize, usize)>,
-    end: Vec<(usize, usize)>,
-}
-
-impl Step {
-    fn new() -> Step {
-        Step {
-            start: Vec::new(),
-            middle_left: Vec::new(),
-            middle_right: Vec::new(),
-            end: Vec::new(),
-        }
-    }
-}
 
 // Given a starting (exclusive) and end (inclusive) angle,
 // compute a range of ids in the out_angles vector that corresponds to the
@@ -49,31 +31,21 @@ fn range_for_angles(
 }
 
 impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
-    // Given a face, decompose it along its planar faces using the layout. If
-    // the layout is not planar, results may be unexpected, but not false. If
-    // the layout is planar but the orientation of edges prevent a complete
-    // decomposition, the decomposition should be a best-effort.
-    pub fn planar_split(&mut self, face: usize) {
-        // TODO decide to swap left and right depending on the orientation of
-        // the face
-        // TODO decide what to do if there are loops on thee target and
-        // destination paths. We probably want to add goal to trivialize them,
-        // and then keep going with the decomposition as follows.
-
+    // Given two parallel pathes delimiting a face, decompose it along its
+    // planar faces using the layout. If the layout is not planar, results may
+    // be unexpected, but not false. If the layout is planar but the orientation
+    // of edges prevent a complete decomposition, the decomposition should be a
+    // best-effort. Assumes left and right are in the right orientation (ie left
+    // . right^-1 turns in the direct orientation).
+    pub fn planar_split_impl<ItLeft, ItRight>(&self, left: ItLeft, right: ItRight) -> Vec<Step>
+    where
+        ItLeft: Iterator<Item = (usize, usize)>,
+        ItRight: Iterator<Item = (usize, usize)>,
+    {
         // The path is triplets of src, dst and mph ids. The dst of an entry
         // should be the src of the next one.
-        let mut actual: Vec<(usize, usize, usize)> = self.graph.faces[face]
-            .left
-            .iter()
-            .scan(
-                self.graph.faces[face].start,
-                |st: &mut usize, mph: &usize| {
-                    let src = *st;
-                    let dst = self.graph.edges[src][*mph].0;
-                    *st = dst;
-                    Some((src, dst, *mph))
-                },
-            )
+        let mut actual: Vec<(usize, usize, usize)> = left
+            .map(|(src, mph)| (src, self.graph.edges[src][mph].0, mph))
             .collect();
 
         // For each node in the right sides, we remember the angle corresponding
@@ -81,13 +53,11 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         // sure we do not leave the face
         let mut max_angles: Vec<Option<f32>> = vec![None; self.graph.nodes.len()];
         {
-            let mut src = self.graph.faces[face].start;
-            for mph in &self.graph.faces[face].right {
+            for (src, mph) in right {
                 max_angles[src] = Some(self.compute_angle(
                     self.graph.nodes[src].2.pos.unwrap(),
-                    self.graph.edges[src][*mph].1.control.unwrap(),
+                    self.graph.edges[src][mph].1.control.unwrap(),
                 ));
-                src = self.graph.edges[src][*mph].0;
             }
         }
 
@@ -130,44 +100,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             }
         }
 
-        // Realize steps as string
-        let steps: String = itertools::Itertools::intersperse(
-            steps.into_iter().map(|step| {
-                let get_name = |(src, mph): &(usize, usize)| -> &str {
-                    self.graph.edges[*src][*mph].1.name.as_str()
-                };
-                let middle: String = std::iter::once("<")
-                    .chain(itertools::Itertools::intersperse(
-                        step.middle_left.iter().map(get_name),
-                        ":",
-                    ))
-                    .chain(std::iter::once(";"))
-                    .chain(itertools::Itertools::intersperse(
-                        step.middle_right.iter().map(get_name),
-                        ":",
-                    ))
-                    .chain(std::iter::once(">"))
-                    .collect();
-                let step = itertools::Itertools::intersperse(
-                    step.start
-                        .iter()
-                        .map(get_name)
-                        .chain(std::iter::once(middle.as_str()))
-                        .chain(step.end.iter().map(get_name)),
-                    ":",
-                )
-                .collect();
-                step
-            }),
-            ";".to_string(),
-        )
-        .collect();
-
-        // Register action
-        self.insert_and_run(&format!(
-            "decompose {} {}",
-            self.graph.faces[face].label.name, steps
-        ));
+        steps
     }
 
     fn compute_angle(&self, pt: usize, control: usize) -> f32 {
