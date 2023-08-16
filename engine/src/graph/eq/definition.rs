@@ -320,9 +320,13 @@ impl Slice {
     // Test if the block is compatible with the slice (assumes well typedness).
     // start is assumed to be relative to output.
     fn block_compatible(&self, start: usize, blk: &Block) -> bool {
-        (0..blk.inp.comps.len())
-            .map(|x| x + start)
-            .all(|output| self.output_source(output).is_ok())
+        let input = self.output_source(start);
+        match input {
+            Ok(input) => self.blocks.iter().all(|(ins, _, iblk)| {
+                *ins + iblk.inp.comps.len() <= input || input + blk.inp.comps.len() <= *ins
+            }),
+            Err(..) => false,
+        }
     }
 
     // Given an input index, indicates which output it connects to or if it goes
