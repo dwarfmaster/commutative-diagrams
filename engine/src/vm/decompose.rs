@@ -4,6 +4,7 @@ mod trivialize;
 
 use crate::remote::Remote;
 use crate::vm::{Interactive, VM};
+use step::Step;
 
 impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     pub fn planar_split(&mut self, face: usize) -> bool {
@@ -34,21 +35,25 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
         // Compute the steps
         let steps = self.planar_split_impl(left.into_iter(), right.into_iter());
-        if steps.is_empty() {
+        let steps: Vec<Step> = left_steps
+            .into_iter()
+            .chain(steps.into_iter())
+            .chain(right_steps.into_iter().rev().map(|step| step.inv()))
+            .collect();
+        if steps.is_empty()
+            || (steps.len() == 1 && steps[0].start.is_empty() && steps[0].end.is_empty())
+        {
             return false;
         }
 
         // Realize steps as string
-        let steps = left_steps
-            .into_iter()
-            .chain(steps.into_iter())
-            .chain(right_steps.into_iter().rev().map(|step| step.inv()));
         let steps: String = itertools::Itertools::intersperse(
-            steps.map(|step| self.decompose_step_to_string(step)),
+            steps
+                .into_iter()
+                .map(|step| self.decompose_step_to_string(step)),
             ";".to_string(),
         )
         .collect();
-        log::trace!("Decomposing with {}", steps);
 
         // Register action
         self.insert_and_run(&format!(
