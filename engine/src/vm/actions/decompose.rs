@@ -39,9 +39,27 @@ fn real_mph<Rm: Remote>(rm: &mut Rm, cat: u64, mph: &Morphism) -> u64 {
 }
 
 impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+    // Look all visible faces for one with the right sides. If found, returns its equality
+    // (potentially inverted).
+    fn decompose_lookup(&self, left: &Morphism, right: &Morphism) -> Option<Eq> {
+        for face in &self.graph.faces {
+            if face.label.hidden {
+                continue;
+            }
+            if face.eq.inp == *left && face.eq.outp == *right {
+                return Some(face.eq.clone());
+            } else if face.eq.outp == *left && face.eq.inp == *right {
+                let mut eq = face.eq.clone();
+                eq.inv();
+                return Some(eq);
+            }
+        }
+        None
+    }
+
     // Convert a step into a equality, and returns it. Also return the equality
     // consisting only of the existential.
-    fn decompose_step_to_eq(&mut self, parent: usize, step: Step) -> (Eq, Face<FaceLabel>) {
+    fn decompose_step_to_eq(&mut self, parent: usize, step: Step) -> (Eq, Option<Face<FaceLabel>>) {
         assert!(step.middle_left.len() > 0 || step.middle_right.len() > 0);
 
         // Information about the existential part
@@ -117,6 +135,12 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             comps: step.middle_right.iter().copied().map(mk_comp).collect(),
         };
         let out_mph_val = real_mph(&mut self.ctx.remote, cat, &out_mph);
+
+        // Reuse existing face if found
+        if let Some(face_eq) = self.decompose_lookup(&in_mph, &out_mph) {
+            eq.append_at(step.start.len(), face_eq);
+            return (eq, None);
+        }
         let ex = self
             .ctx
             .remote
@@ -150,7 +174,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         };
 
         // Finalizing the equality
-        (eq, face)
+        (eq, Some(face))
     }
 
     pub fn decompose_face(&mut self, fce: usize, steps: Vec<Step>) -> bool {
@@ -158,7 +182,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         let cat = self.graph.nodes[self.graph.faces[fce].start].1;
 
         // Realize all the steps
-        let (steps, exs): (Vec<Eq>, Vec<Face<FaceLabel>>) = steps
+        let (steps, exs): (Vec<Eq>, Vec<Option<Face<FaceLabel>>>) = steps
             .into_iter()
             .map(|step| self.decompose_step_to_eq(fce, step))
             .unzip();
@@ -180,7 +204,9 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
         // Create new faces for all new existentials
         for ex in exs {
-            self.register_instruction(asm::Instruction::InsertFace(ex));
+            if let Some(ex) = ex {
+                self.register_instruction(asm::Instruction::InsertFace(ex));
+            }
         }
         true
     }
