@@ -97,7 +97,9 @@ impl LayoutEngine {
                         let c2_id = graph.edges[src2][mph2].1.control.unwrap();
                         let c2 = self.particles[c2_id].pos;
                         let pdst = self.particles[graph.nodes[dst1].2.pos.unwrap()].pos;
-                        if src1 == src2 && dst1 == dst2 && src1 != dst1 {
+                        if ((src1 == src2 && dst1 == dst2) || (src1 == dst2 && dst1 == src2))
+                            && src1 != dst1
+                        {
                             // If any of the two morphism is fixed, we dont push
                             // the other away
                             if fixed(GraphId::Morphism(src1, mph1))
