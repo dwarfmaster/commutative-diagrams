@@ -18,6 +18,15 @@ impl Step {
             end: Vec::new(),
         }
     }
+
+    pub fn inv(self) -> Step {
+        Step {
+            start: self.start,
+            middle_left: self.middle_right,
+            middle_right: self.middle_left,
+            end: self.end,
+        }
+    }
 }
 
 impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {

@@ -1,5 +1,6 @@
 mod planar;
 mod step;
+mod trivialize;
 
 use crate::remote::Remote;
 use crate::vm::{Interactive, VM};
@@ -24,26 +25,30 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             },
         );
 
+        // Remove loops
+        let (left, left_steps) = self.decompose_trivialize_path(left);
+        let (right, right_steps) = self.decompose_trivialize_path(right);
+
         // TODO decide to swap left and right depending on the orientation of
         // the face
-        // TODO decide what to do if there are loops on thee target and
-        // destination paths. We probably want to add goal to trivialize them,
-        // and then keep going with the decomposition as follows.
 
         // Compute the steps
-        let steps = self.planar_split_impl(left, right);
+        let steps = self.planar_split_impl(left.into_iter(), right.into_iter());
         if steps.is_empty() {
             return false;
         }
 
         // Realize steps as string
+        let steps = left_steps
+            .into_iter()
+            .chain(steps.into_iter())
+            .chain(right_steps.into_iter().rev().map(|step| step.inv()));
         let steps: String = itertools::Itertools::intersperse(
-            steps
-                .into_iter()
-                .map(|step| self.decompose_step_to_string(step)),
+            steps.map(|step| self.decompose_step_to_string(step)),
             ";".to_string(),
         )
         .collect();
+        log::trace!("Decomposing with {}", steps);
 
         // Register action
         self.insert_and_run(&format!(
