@@ -181,6 +181,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         let mut r = self.graph.edges[nd]
             .iter()
             .enumerate()
+            .filter(|(_, (_, lbl, _, _))| !lbl.hidden)
             .map(|(mph, (_, lbl, _, _))| {
                 (
                     self.compute_angle(self.graph.nodes[nd].2.pos.unwrap(), lbl.control.unwrap()),
