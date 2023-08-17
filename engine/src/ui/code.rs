@@ -51,9 +51,21 @@ fn code_impl<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
         .collect::<Vec<_>>();
     let mut layouter = |ui: &egui::Ui, string: &str, _width: f32| {
         // TODO memoize to avoid to realloc on each frame
-        let mut sections = sections.clone();
-        // When the layouter is called, string may not be vm.code
-        sections.last_mut().unwrap().byte_range.end = string.len();
+        let sections = sections
+            .iter()
+            .filter_map(|sec| {
+                if sec.byte_range.start >= string.len() {
+                    None
+                } else if sec.byte_range.end > string.len() {
+                    Some(egui::text::LayoutSection {
+                        byte_range: sec.byte_range.start..string.len(),
+                        ..sec.clone()
+                    })
+                } else {
+                    Some(sec.clone())
+                }
+            })
+            .collect();
         let job = egui::text::LayoutJob {
             text: string.to_string(),
             sections,
