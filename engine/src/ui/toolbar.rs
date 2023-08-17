@@ -1,3 +1,5 @@
+use super::vm::insert::InsertKind::*;
+use super::InteractiveAction;
 use crate::remote::Remote;
 use crate::ui::VM;
 use egui::menu;
@@ -15,6 +17,20 @@ pub fn toolbar<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
             }
             if ui.button("View script").clicked() {
                 vm.code_window_open = true;
+                ui.close_menu();
+            }
+        });
+        ui.menu_button("Insert", |ui| {
+            if ui.button("Object").clicked() {
+                vm.start_interactive(InteractiveAction::insert(Object));
+                ui.close_menu();
+            }
+            if ui.button("Morphism").clicked() {
+                vm.start_interactive(InteractiveAction::insert(Morphism));
+                ui.close_menu();
+            }
+            if ui.button("Equality").clicked() {
+                vm.start_interactive(InteractiveAction::insert(Equality));
                 ui.close_menu();
             }
         });

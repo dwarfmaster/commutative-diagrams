@@ -129,6 +129,7 @@ fn goal_ui_system(
                     }
                 }
                 Some((_, Merge(..))) => (),
+                Some((_, Insert(..))) => (),
                 None => (),
             }
         }

@@ -5,6 +5,7 @@ use crate::remote::Remote;
 use crate::vm;
 
 pub mod apply;
+pub mod insert;
 pub mod merge;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -33,6 +34,7 @@ pub fn apply_modifier(md: Modifier, color: &mut egui::Color32, modifier: &mut Md
 pub enum InteractiveAction {
     LemmaApplication(apply::LemmaApplicationState),
     Merge(merge::MergeState),
+    Insert(insert::InsertState),
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ContextMenuResult {
@@ -54,6 +56,7 @@ impl vm::Interactive for InteractiveAction {
         match self {
             LemmaApplication(apply) => apply.compile(vm),
             Merge(merge) => merge.compile(vm),
+            Insert(insert) => insert.compile(vm),
         }
     }
     fn terminate(self) {}
@@ -72,6 +75,11 @@ impl InteractiveAction {
         InteractiveAction::Merge(state)
     }
 
+    pub fn insert(kind: insert::InsertKind) -> Self {
+        let state = insert::InsertState::new(kind);
+        InteractiveAction::Insert(state)
+    }
+
     pub fn display<R: Remote + Sync + Send>(
         &mut self,
         vm: &mut VM<R>,
@@ -81,6 +89,7 @@ impl InteractiveAction {
         match self {
             LemmaApplication(state) => state.display(vm, ui),
             Merge(state) => state.display(vm, ui),
+            Insert(state) => state.display(vm, ui),
         }
     }
 
@@ -94,6 +103,7 @@ impl InteractiveAction {
         match self {
             LemmaApplication(state) => state.context_menu(vm, on, ui),
             Merge(state) => state.context_menu(vm, on, ui),
+            Insert(state) => state.context_menu(vm, on, ui),
         }
     }
 
@@ -107,6 +117,7 @@ impl InteractiveAction {
         match self {
             LemmaApplication(state) => state.action(vm, act, ui),
             Merge(state) => state.action(vm, act, ui),
+            Insert(state) => state.action(vm, act, ui),
         }
     }
 
@@ -115,6 +126,7 @@ impl InteractiveAction {
         match self {
             LemmaApplication(state) => state.modifier(vm, on),
             Merge(state) => state.modifier(vm, on),
+            Insert(state) => state.modifier(vm, on),
         }
     }
 }
