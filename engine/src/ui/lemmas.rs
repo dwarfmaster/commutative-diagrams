@@ -12,7 +12,7 @@ pub fn lemmas_window<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<
             .open(&mut open)
             .show(ctx, |ui| {
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
-                    if ui.button("Apply").clicked() {
+                    if ui.button("Start matching").clicked() {
                         let apply = InteractiveAction::apply(vm, lem);
                         vm.start_interactive(apply);
                         should_close = true;
