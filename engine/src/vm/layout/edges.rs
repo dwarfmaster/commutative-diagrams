@@ -45,6 +45,9 @@ impl LayoutEngine {
         let c = 2.0f32;
         for src in 0..graph.nodes.len() {
             for mph in 0..graph.edges[src].len() {
+                if graph.edges[src][mph].1.hidden {
+                    continue;
+                }
                 let control_id = graph.edges[src][mph].1.control.unwrap();
                 let dst = graph.edges[src][mph].0;
                 let src_pos = self.particles[graph.nodes[src].2.pos.unwrap()].pos;
@@ -72,6 +75,9 @@ impl LayoutEngine {
         let c = 5e4f32;
         for src1 in 0..graph.nodes.len() {
             for mph1 in 0..graph.edges[src1].len() {
+                if graph.edges[src1][mph1].1.hidden {
+                    continue;
+                }
                 let dst1 = graph.edges[src1][mph1].0;
                 let c1_id = graph.edges[src1][mph1].1.control.unwrap();
                 let c1 = self.particles[c1_id].pos;
@@ -90,6 +96,9 @@ impl LayoutEngine {
 
                 for src2 in 0..graph.nodes.len() {
                     for mph2 in 0..graph.edges[src2].len() {
+                        if graph.edges[src2][mph2].1.hidden {
+                            continue;
+                        }
                         if src1 == src2 && mph1 == mph2 {
                             continue;
                         }
