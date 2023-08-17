@@ -108,6 +108,7 @@ impl<'a> Parser<'a> {
             "apply" => self.act_lemma(input),
             "hide" => self.act_hide(true, input),
             "reveal" => self.act_hide(false, input),
+            "merge" => self.act_merge(input),
             "decompose" => self.act_decompose(input),
             "succeed" => success(ast::Action::Succeed)(input),
             "fail" => success(ast::Action::Fail)(input),
@@ -188,6 +189,14 @@ impl<'a> Parser<'a> {
         let (input, _) = space1(input)?;
         let (input, fce) = self.name(input)?;
         success(ast::Action::ShrinkFace(fce))(input)
+    }
+
+    fn act_merge(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
+        let (input, _) = space1(input)?;
+        let (input, id1) = self.name(input)?;
+        let (input, _) = space1(input)?;
+        let (input, id2) = self.name(input)?;
+        success(ast::Action::Merge(id1, id2))(input)
     }
 
     fn act_decompose(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
@@ -408,6 +417,20 @@ mod tests {
                         },
                     ),
                 ],
+            ),
+        );
+
+        test(
+            "merge m1 t0-1",
+            Merge(
+                Annot {
+                    value: "m1".to_string(),
+                    range: 6..8,
+                },
+                Annot {
+                    value: "t0-1".to_string(),
+                    range: 9..13,
+                },
             ),
         );
 

@@ -10,20 +10,17 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         if self.graph.faces[fce1].label.name > self.graph.faces[fce2].label.name {
             std::mem::swap(&mut fce1, &mut fce2);
         }
-        assert!(self.graph.faces[fce1].eq == self.graph.faces[fce2].eq);
         self.hide(GraphId::Face(fce2));
         fce1
     }
 
     // Returns the edge that is kept
     pub fn merge_edges(&mut self, src: usize, mut mph1: usize, mut mph2: usize) -> usize {
+        assert_eq!(self.graph.edges[src][mph1].0, self.graph.edges[src][mph2].0);
+
         if self.graph.edges[src][mph1].1.name > self.graph.edges[src][mph2].1.name {
             std::mem::swap(&mut mph1, &mut mph2);
         }
-        assert_eq!(
-            self.ctx.get_stored_repr(self.graph.edges[src][mph1].2),
-            self.ctx.get_stored_repr(self.graph.edges[src][mph2].2)
-        );
 
         // Update equalities using the replaced morphism
         for fce in 0..self.graph.faces.len() {
@@ -92,7 +89,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         // Update faces starting/ending at nd2
         for fce in 0..self.graph.faces.len() {
             if self.graph.faces[fce].start == nd2 {
-                self.register_instruction(Ins::RelocateFaceDst(fce, nd2, nd1));
+                self.register_instruction(Ins::RelocateFaceSrc(fce, nd2, nd1));
             }
             if self.graph.faces[fce].end == nd2 {
                 self.register_instruction(Ins::RelocateFaceDst(fce, nd2, nd1));
@@ -100,6 +97,87 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         }
         self.hide(GraphId::Node(nd2));
         nd1
+    }
+
+    // Returns true if the two ids could be merged
+    pub fn merge_dwim(&mut self, id1: GraphId, id2: GraphId) -> bool {
+        use GraphId::*;
+        match (id1, id2) {
+            (Node(n1), Node(n2)) => {
+                if self
+                    .ctx
+                    .remote
+                    .unify(std::iter::once((
+                        self.graph.nodes[n1].0,
+                        self.graph.nodes[n2].0,
+                    )))
+                    .unwrap()
+                {
+                    self.merge_nodes(n1, n2);
+                    true
+                } else {
+                    false
+                }
+            }
+            (Morphism(src1, mph1), Morphism(src2, mph2)) => {
+                if self
+                    .ctx
+                    .remote
+                    .unify(std::iter::once((
+                        self.graph.edges[src1][mph1].2,
+                        self.graph.edges[src2][mph2].2,
+                    )))
+                    .unwrap()
+                {
+                    let mut src = src1;
+                    let mut mph1 = mph1;
+                    let mut mph2 = mph2;
+                    if src1 != src2 {
+                        let nmphs = self.graph.edges[src1].len() + self.graph.edges[src2].len();
+                        let msrc = self.merge_nodes(src1, src2);
+                        src = msrc;
+                        if src == src1 {
+                            mph2 = nmphs - mph2 - 1;
+                        } else {
+                            mph1 = nmphs - mph1 - 1;
+                        }
+                    }
+                    let dst1 = self.graph.edges[src][mph1].0;
+                    let dst2 = self.graph.edges[src][mph2].0;
+                    if dst1 != dst2 {
+                        self.merge_nodes(dst1, dst2);
+                    }
+                    self.merge_edges(src, mph1, mph2);
+                    true
+                } else {
+                    false
+                }
+            }
+            (Face(f1), Face(f2)) => {
+                let fce1 = &self.graph.faces[f1];
+                let fce2 = &self.graph.faces[f2];
+                if fce1.start == fce2.start
+                    && fce1.end == fce2.end
+                    && (fce1.left == fce2.left && fce1.right == fce2.right
+                        || fce1.left == fce2.right && fce1.right == fce2.left)
+                {
+                    let eq1 = fce1.eq.clone();
+                    let mut eq2 = fce2.eq.clone();
+                    if fce1.left == fce2.right {
+                        eq2.inv();
+                    }
+                    if self.unify_eq(fce1.eq.cat, &eq1, &eq2) {
+                        self.merge_faces(f1, f2);
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
     }
 }
 

@@ -213,6 +213,23 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     result = ExecutionError;
                 }
             }
+            Merge(name1, name2) => {
+                if let Some(id1) = self.names.get(&name1.value) {
+                    if let Some(id2) = self.names.get(&name2.value) {
+                        if !self.merge_dwim(*id1, *id2) {
+                            self.error_msg =
+                                format!("Couldn't merge {} with {}", name1.value, name2.value);
+                            result = ExecutionError;
+                        }
+                    } else {
+                        self.error_msg = format!("Couldn't find {}", name2.value);
+                        result = ExecutionError;
+                    }
+                } else {
+                    self.error_msg = format!("Couldn't find {}", name1.value);
+                    result = ExecutionError;
+                }
+            }
             Decompose(fce, steps) => {
                 if let Some(GraphId::Face(face)) = self.names.get(&fce.value) {
                     let deref_names =

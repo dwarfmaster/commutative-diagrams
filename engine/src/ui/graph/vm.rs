@@ -3,7 +3,7 @@ use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
 use super::graph::{FaceContent, FaceStyle};
 use crate::graph::GraphId;
 use crate::remote::Remote;
-use crate::ui::vm::VM;
+use crate::ui::vm::{InteractiveAction, VM};
 use crate::vm::FaceStatus;
 use egui::{Rect, Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
@@ -265,18 +265,32 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
     }
 
     fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool {
-        let mut r = CMR::Nothing;
         if let Some((last, mut interactive)) = self.current_action.take() {
-            r = interactive.context_menu(self, on, ui);
+            let r = interactive.context_menu(self, on, ui);
             self.current_action = Some((last, interactive));
             if r == CMR::Closed {
                 return false;
             }
         }
         match on {
+            GraphId::Node(n) => {
+                if ui.button("Merge with").clicked() {
+                    let merge = InteractiveAction::merge(GraphId::Node(n));
+                    self.start_interactive(merge);
+                    ui.close_menu();
+                    return false;
+                }
+                true
+            }
             GraphId::Morphism(src, dst) => {
                 if ui.button("Split").clicked() {
                     self.insert_and_run(&format!("split {}", self.graph.edges[src][dst].1.name));
+                    ui.close_menu();
+                    return false;
+                }
+                if ui.button("Merge with").clicked() {
+                    let merge = InteractiveAction::merge(GraphId::Morphism(src, dst));
+                    self.start_interactive(merge);
                     ui.close_menu();
                     return false;
                 }
@@ -299,6 +313,12 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                             "shrink {}",
                             self.graph.faces[fce].label.name
                         ));
+                        ui.close_menu();
+                        return false;
+                    }
+                    if ui.button("Merge with").clicked() {
+                        let merge = InteractiveAction::merge(GraphId::Face(fce));
+                        self.start_interactive(merge);
                         ui.close_menu();
                         return false;
                     }
@@ -333,14 +353,6 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                     }
                 }
                 true
-            }
-            _ => {
-                if r == CMR::Nothing {
-                    ui.close_menu();
-                    false
-                } else {
-                    true
-                }
             }
         }
     }

@@ -128,6 +128,7 @@ fn goal_ui_system(
                             .update(&vm.config);
                     }
                 }
+                Some((_, Merge(..))) => (),
                 None => (),
             }
         }

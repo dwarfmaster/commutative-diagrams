@@ -33,6 +33,18 @@ pub enum GraphId {
     Face(usize),
 }
 
+impl GraphId {
+    pub fn same_nature(&self, other: &GraphId) -> bool {
+        use GraphId::*;
+        match (self, other) {
+            (Node(..), Node(..)) => true,
+            (Morphism(..), Morphism(..)) => true,
+            (Face(..), Face(..)) => true,
+            _ => false,
+        }
+    }
+}
+
 impl<EQ, FL> FaceImpl<EQ, FL> {
     fn check_path<MPH, NL, EL>(
         path: &[usize],

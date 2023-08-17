@@ -69,6 +69,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         .collect();
 
         // Register action
+        log::trace!("Decomposing with steps {}", steps);
         self.insert_and_run(&format!(
             "decompose {} {}",
             self.graph.faces[face].label.name, steps
