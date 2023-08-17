@@ -1,7 +1,10 @@
+use crate::graph::eq::Eq;
+use crate::graph::Face;
+use crate::normalizer;
 use crate::normalizer::to_morphism;
 use crate::remote::Remote;
 use crate::vm::asm;
-use crate::vm::{Interactive, VM};
+use crate::vm::{FaceLabel, FaceStatus, Interactive, VM};
 
 type Ins = asm::Instruction;
 
@@ -33,7 +36,6 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         }
         let cat = self.graph.nodes[node].1;
         let (src, dst) = self.ctx.is_mph(mph, cat).unwrap();
-        assert_eq!(src, self.graph.nodes[node].0);
         let ndst = self.insert_node(dst, cat);
         let morph = to_morphism(&mut self.ctx, cat, src, dst, mph);
         self.register_instruction(Ins::InsertMorphism(node, ndst, mph, morph));
@@ -48,6 +50,57 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         let nsrc = self.insert_node(src, cat);
         let (nmph, ndst) = self.insert_mph_at(nsrc, mph);
         (nsrc, nmph, ndst)
+    }
+
+    /// Insert a new equality as a new face. Starts by normalizing its sides and
+    /// adding all parts.
+    pub fn insert_eq(&mut self, eq: u64, cat: u64) -> usize {
+        let (src, dst, left, right) = self.ctx.is_eq(eq, cat).unwrap();
+        let nsrc = self.insert_node(src, cat);
+        let ndst = self.insert_node(dst, cat);
+        let left_mph = normalizer::to_morphism(&mut self.ctx, cat, src, dst, left);
+        let right_mph = normalizer::to_morphism(&mut self.ctx, cat, src, dst, right);
+
+        let left_path = {
+            let mut path = Vec::new();
+            let mut src = nsrc;
+            for (_, _, cmph) in left_mph.comps.iter() {
+                let (nmph, nsrc) = self.insert_mph_at(src, *cmph);
+                path.push(nmph);
+                src = nsrc;
+            }
+            path
+        };
+        let right_path = {
+            let mut path = Vec::new();
+            let mut src = nsrc;
+            for (_, _, cmph) in right_mph.comps.iter() {
+                let (nmph, nsrc) = self.insert_mph_at(src, *cmph);
+                path.push(nmph);
+                src = nsrc;
+            }
+            path
+        };
+
+        let face = Face {
+            start: nsrc,
+            end: ndst,
+            left: left_path,
+            right: right_path,
+            eq: Eq::atomic(cat, left_mph, right_mph, eq),
+            label: FaceLabel {
+                folded: false,
+                hidden: false,
+                parent: None,
+                children: Vec::new(),
+                label: self.ctx.get_stored_label(eq),
+                name: "".to_string(),
+                status: FaceStatus::Refined,
+            },
+        };
+        let id = self.graph.faces.len();
+        self.register_instruction(Ins::InsertFace(face));
+        id
     }
 }
 

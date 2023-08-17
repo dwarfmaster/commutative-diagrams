@@ -35,6 +35,8 @@ pub enum Action {
     InsertNode(Annot<String>),
     // Interpret the term as a morphism, and try to insert it into the graph
     InsertMorphism(Annot<String>),
+    // Interpret the term as a face, and try to insert it into the graph
+    InsertFace(Annot<String>),
     // Insert the second argument as a morphism rooted at the first
     InsertMorphismAt(Annot<String>, Annot<String>),
     // Normalise and split an edge in the graph

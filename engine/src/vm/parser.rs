@@ -138,7 +138,7 @@ impl<'a> Parser<'a> {
         match sub {
             "node" => success(ast::Action::InsertNode(desc))(input),
             "morphism" => success(ast::Action::InsertMorphism(desc))(input),
-            // "equality" => success(ast::Action::InsertEquality(desc))(input),
+            "equality" => success(ast::Action::InsertFace(desc))(input),
             _ => fail(input),
         }
     }

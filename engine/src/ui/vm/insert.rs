@@ -43,9 +43,9 @@ impl InsertState {
                     for tp in tps {
                         if let Feature::Object { cat } = tp {
                             vm.insert_node(id, cat);
-                            vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
                         }
                     }
+                    vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
                     self.finished = true;
                 }
                 Morphism => {
@@ -57,12 +57,25 @@ impl InsertState {
                     for tp in tps {
                         if let Feature::Morphism { cat, .. } = tp {
                             vm.insert_mph(id, cat);
-                            vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
                         }
                     }
+                    vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
                     self.finished = true;
                 }
-                Equality => todo!(),
+                Equality => {
+                    let tps = vm.ctx.get_stored_query(id, Tag::Equality);
+                    if tps.is_empty() {
+                        self.error_msg = Some(format!("\"{}\" is not an equality", self.text));
+                        return;
+                    }
+                    for tp in tps {
+                        if let Feature::Equality { cat, .. } = tp {
+                            vm.insert_eq(id, cat);
+                        }
+                    }
+                    vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
+                    self.finished = true;
+                }
             },
             Err(msg) => self.error_msg = Some(format!("Couldn't parse \"{}\": {}", self.text, msg)),
         }

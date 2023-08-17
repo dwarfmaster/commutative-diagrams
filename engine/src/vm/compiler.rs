@@ -45,18 +45,30 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     Ok(mph) => {
                         let tps = self.ctx.get_stored_query(mph, Tag::Morphism);
                         for tp in tps {
-                            if let Feature::Morphism {
-                                cat,
-                                src: _,
-                                dst: _,
-                            } = tp
-                            {
+                            if let Feature::Morphism { cat, .. } = tp {
                                 self.insert_mph(mph, cat);
                             }
                         }
                     }
                     Err(err) => {
                         self.error_msg = format!("Couldn't parse morphism: {:#?}", err);
+                        result = ExecutionError;
+                    }
+                }
+            }
+            InsertFace(eq) => {
+                let eq = self.ctx.remote.parse(eq.value.clone()).unwrap();
+                match eq {
+                    Ok(eq) => {
+                        let tps = self.ctx.get_stored_query(eq, Tag::Equality);
+                        for tp in tps {
+                            if let Feature::Equality { cat, .. } = tp {
+                                self.insert_eq(eq, cat);
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        self.error_msg = format!("Couldn't parse equality: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
