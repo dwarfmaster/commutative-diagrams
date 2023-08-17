@@ -193,11 +193,6 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 eq1
             })
             .unwrap();
-        if self.graph.faces[fce].eq.inp != to_unify.inp
-            || self.graph.faces[fce].eq.outp != to_unify.outp
-        {
-            return false;
-        }
         if !self.unify_eq(cat, &self.graph.faces[fce].eq.clone(), &to_unify) {
             return false;
         }
