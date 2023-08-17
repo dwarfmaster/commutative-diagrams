@@ -101,7 +101,14 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.eval_status.should_relabel = true;
             }
             RelocateMorphismSrc(old_src, new_src, mph) => {
+                self.names.insert(
+                    self.graph.edges[*old_src].last().unwrap().1.name.clone(),
+                    GraphId::Morphism(*old_src, *mph),
+                );
                 let edge = self.graph.edges[*old_src].swap_remove(*mph);
+                let new_mph = self.graph.edges[*new_src].len();
+                self.names
+                    .insert(edge.1.name.clone(), GraphId::Morphism(*new_src, new_mph));
                 self.graph.edges[*new_src].push(edge);
                 self.eval_status.should_relayout = true;
             }
@@ -216,8 +223,14 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             }
             RelocateMorphismSrc(old_src, new_src, mph) => {
                 let mut edge = self.graph.edges[*new_src].pop().unwrap();
+                self.names
+                    .insert(edge.1.name.clone(), GraphId::Morphism(*old_src, *mph));
                 if *mph < self.graph.edges[*old_src].len() {
                     std::mem::swap(&mut edge, &mut self.graph.edges[*old_src][*mph]);
+                    self.names.insert(
+                        edge.1.name.clone(),
+                        GraphId::Morphism(*old_src, self.graph.edges[*old_src].len()),
+                    );
                 }
                 self.graph.edges[*old_src].push(edge);
                 self.eval_status.should_relayout = true;
