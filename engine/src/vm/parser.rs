@@ -1,5 +1,6 @@
 use crate::vm::ast;
 use nom::branch::alt;
+use nom::bytes::complete::is_not;
 use nom::character::complete::{
     alpha1, alphanumeric1, char, digit1, newline, one_of, space0, space1,
 };
@@ -35,6 +36,11 @@ fn spaces(input: &str) -> IResult<&str, ()> {
 
 fn sep(input: &str) -> IResult<&str, ()> {
     value((), delimited(spaces, char(','), spaces))(input)
+}
+
+fn string<'a>(input: &'a str) -> IResult<&'a str, String> {
+    let (input, str) = delimited(char('"'), many0(is_not("\"")), char('"'))(input)?;
+    success(str.join(""))(input)
 }
 
 pub struct Parser<'a> {
@@ -80,6 +86,13 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn string(&'a self, input: &'a str) -> IResult<&'a str, ast::Annot<String>> {
+        let (input, mut r) = self.with_annot(string)(input)?;
+        r.range.start += 1;
+        r.range.end -= 1;
+        success(r)(input)
+    }
+
     fn name(&'a self, input: &'a str) -> IResult<&'a str, ast::Annot<String>> {
         self.with_annot(map(ident, |id| id.to_string()))(input)
     }
@@ -120,11 +133,12 @@ impl<'a> Parser<'a> {
     fn act_insert(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
         let (input, _) = space1(input)?;
         let (input, sub) = ident(input)?;
-        let (input, _) = sep(input)?;
-        let (input, desc) = self.name(input)?;
+        let (input, _) = space1(input)?;
+        let (input, desc) = self.string(input)?;
         match sub {
             "node" => success(ast::Action::InsertNode(desc))(input),
             "morphism" => success(ast::Action::InsertMorphism(desc))(input),
+            // "equality" => success(ast::Action::InsertEquality(desc))(input),
             _ => fail(input),
         }
     }
@@ -132,8 +146,8 @@ impl<'a> Parser<'a> {
     fn act_insert_at(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
         let (input, _) = space1(input)?;
         let (input, at) = self.name(input)?;
-        let (input, _) = sep(input)?;
-        let (input, mph) = self.name(input)?;
+        let (input, _) = space1(input)?;
+        let (input, mph) = self.string(input)?;
         success(ast::Action::InsertMorphismAt(at, mph))(input)
     }
 
@@ -287,7 +301,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use crate::vm::ast;
-    use crate::vm::parser::Parser;
+    use crate::vm::parser::{string, Parser};
 
     #[test]
     fn action() {
@@ -300,22 +314,24 @@ mod tests {
             assert_eq!(p.action(input), Ok(("", expected)))
         }
 
+        assert_eq!(string("\"toto\""), Ok(("", "toto".to_string())));
+
         test(
-            "insert node, toto",
+            "insert node \"toto\"",
             InsertNode(Annot {
                 value: "toto".to_string(),
                 range: 13..17,
             }),
         );
         test(
-            "insert morphism, x",
+            "insert morphism \"x\"",
             InsertMorphism(Annot {
                 value: "x".to_string(),
                 range: 17..18,
             }),
         );
         test(
-            "insert_at x, toto",
+            "insert_at x \"toto\"",
             InsertMorphismAt(
                 Annot {
                     value: "x".to_string(),
@@ -375,7 +391,7 @@ mod tests {
         test("fail", Fail);
 
         test(
-            "  insert_at\tx        ,   xxx",
+            "  insert_at\tx           \"xxx\"",
             InsertMorphismAt(
                 Annot {
                     value: "x".to_string(),
