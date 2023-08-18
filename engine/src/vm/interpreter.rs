@@ -261,7 +261,11 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     }
                     self.names.remove(&fce.label.name);
                     if let Some(parent) = fce.label.parent {
-                        self.set_name(GraphId::Face(parent), fce.label.name);
+                        if self.graph.faces[parent].label.name.is_empty()
+                            && self.graph.faces[parent].label.hidden
+                        {
+                            self.set_name(GraphId::Face(parent), fce.label.name);
+                        }
                         self.graph.faces[parent].label.children.pop();
                     }
                     self.order_rm_face(self.graph.faces.len());
