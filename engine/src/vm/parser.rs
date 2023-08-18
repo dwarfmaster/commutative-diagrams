@@ -1,6 +1,6 @@
 use crate::vm::ast;
 use nom::branch::alt;
-use nom::bytes::complete::is_not;
+use nom::bytes::complete::{is_not, take_till};
 use nom::character::complete::{
     alpha1, alphanumeric1, char, digit1, newline, one_of, space0, space1,
 };
@@ -98,16 +98,39 @@ impl<'a> Parser<'a> {
     }
 
     fn script(&'a self, input: &'a str) -> IResult<&'a str, Vec<ast::Annot<ast::Action>>> {
-        preceded(
+        let (input, (acts, _)) = preceded(
             alt((endl, spaces)),
-            map(
-                many_till(terminated(self.with_annot(|i| self.action(i)), endl), eof),
-                |(acts, _)| acts,
+            many_till(
+                terminated(
+                    self.with_annot(alt((|i| self.comment(i), |i| self.action(i)))),
+                    endl,
+                ),
+                eof,
             ),
-        )(input)
+        )(input)?;
+        let acts = acts
+            .into_iter()
+            .filter_map(|act| {
+                if let Some(v) = act.value {
+                    Some(ast::Annot {
+                        range: act.range,
+                        value: v,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+        success(acts)(input)
     }
 
-    fn action(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
+    fn comment(&'a self, input: &'a str) -> IResult<&'a str, Option<ast::Action>> {
+        let (input, _) = char('#')(input)?;
+        let (input, _) = take_till(|c| c == '\n')(input)?;
+        success(None)(input)
+    }
+
+    fn action(&'a self, input: &'a str) -> IResult<&'a str, Option<ast::Action>> {
         let (input, _) = spaces(input)?;
         let (input, cmd) = ident(input)?;
         let (input, act) = match cmd {
@@ -127,7 +150,7 @@ impl<'a> Parser<'a> {
             "fail" => success(ast::Action::Fail)(input),
             _ => fail(input),
         }?;
-        success(act)(input)
+        success(Some(act))(input)
     }
 
     fn act_insert(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
@@ -311,10 +334,16 @@ mod tests {
         // Successes
         fn test(input: &str, expected: ast::Action) {
             let p = Parser::new(0, input);
-            assert_eq!(p.action(input), Ok(("", expected)))
+            assert_eq!(p.action(input), Ok(("", Some(expected))))
         }
 
         assert_eq!(string("\"toto\""), Ok(("", "toto".to_string())));
+
+        {
+            let input = "# Comment";
+            let p = Parser::new(0, input);
+            assert_eq!(p.comment(input), Ok(("", None)));
+        }
 
         test(
             "insert node \"toto\"",
