@@ -197,12 +197,18 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
 
     // Insert new code the last executed instruction and parse it
     fn insert_and_parse(&mut self, code: &str) -> Option<ast::AST> {
-        if self.run_until == 0 {
-            self.code.insert_str(self.run_until, code);
-        } else {
-            self.code.insert_str(self.run_until, &format!("\n{}", code));
-        }
+        let start = self.run_until + (if self.run_until == 0 { 0 } else { 1 });
         let end = self.run_until + code.len() + (if self.run_until == 0 { 0 } else { 1 });
+        if !(self.code.len() > end
+            && &self.code[start..end] == code
+            && (self.code.len() == end || self.code.chars().nth(end) == Some('\n')))
+        {
+            if self.run_until == 0 {
+                self.code.insert_str(self.run_until, &format!("{}\n", code));
+            } else {
+                self.code.insert_str(self.run_until, &format!("\n{}", code));
+            }
+        }
         self.recompile_to(end)
     }
 
