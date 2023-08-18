@@ -30,9 +30,12 @@ impl MergeState {
 
     fn target<R: Remote + Sync + Send>(&mut self, vm: &mut VM<R>, target: GraphId) {
         let result = (vm.get_name(self.merging), vm.get_name(target));
+        let state = vm.ctx.save_state();
         if vm.merge_dwim(self.merging, target) {
             self.result = Some(result);
+            vm.relabel();
         } else {
+            vm.ctx.restore_state(state);
             self.error_msg = Some(format!(
                 "Couldn't merge {} with {}",
                 vm.get_name(self.merging),

@@ -113,6 +113,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     )))
                     .unwrap()
                 {
+                    self.change_state();
                     self.merge_nodes(n1, n2);
                     true
                 } else {
@@ -129,6 +130,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                     )))
                     .unwrap()
                 {
+                    self.change_state();
                     let mut src = src1;
                     let mut mph1 = mph1;
                     let mut mph2 = mph2;
