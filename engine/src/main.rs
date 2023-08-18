@@ -18,7 +18,7 @@ use clap::{Parser, Subcommand};
 
 use bevy::app::AppExit;
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
+use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiSettings};
 
 type RPC = remote::RPC<std::io::Stdin, std::io::Stdout>;
 type VM = ui::VM<RPC>;
@@ -88,6 +88,7 @@ fn goal_graph(client: RPC, state: Option<String>) {
 
 fn goal_ui_system(
     mut egui_context: EguiContexts,
+    mut settings: ResMut<EguiSettings>,
     mut vm: ResMut<VM>,
     mut state: ResMut<NextState<vm::EndStatus>>,
 ) {
@@ -159,6 +160,10 @@ fn goal_ui_system(
         vm::EndStatus::Success => state.set(vm::EndStatus::Success),
         vm::EndStatus::Failure => state.set(vm::EndStatus::Failure),
         _ => (),
+    }
+
+    if let Some(ppp) = vm.ppp {
+        settings.scale_factor = ppp as f64;
     }
 }
 

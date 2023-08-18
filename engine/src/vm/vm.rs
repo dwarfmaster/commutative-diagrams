@@ -99,6 +99,8 @@ pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     pub selected_lemma: Option<usize>,
     pub code_window_open: bool,
     pub layout: LayoutEngine,
+    pub init_ppp: Option<f32>,
+    pub ppp: Option<f32>,
 }
 
 impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
@@ -151,6 +153,8 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
             selected_lemma: None,
             code_window_open: false,
             layout: LayoutEngine::new(),
+            init_ppp: None,
+            ppp: None,
         };
         vm.relabel();
         vm.recompute_face_statuses();
