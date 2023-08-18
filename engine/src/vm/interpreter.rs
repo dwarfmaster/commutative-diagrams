@@ -35,7 +35,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
 
     // Must be called everytime the proof assistant state is changed by the execution
     pub fn change_state(&mut self) {
-        self.eval_status.should_relabel = true;
+        self.register_instruction(Instruction::DirtyState);
     }
 
     // Setup to do before executing instructions
@@ -181,6 +181,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.names.remove(prev);
                 self.names.insert(new.clone(), GraphId::Face(*fce));
             }
+            DirtyState => self.eval_status.should_relabel = true,
         }
     }
 
@@ -303,6 +304,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
                 self.names.remove(new);
                 self.names.insert(prev.clone(), GraphId::Face(*fce));
             }
+            DirtyState => self.eval_status.should_relabel = true,
         }
     }
 }

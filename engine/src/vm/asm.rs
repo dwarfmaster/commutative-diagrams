@@ -53,4 +53,5 @@ pub enum Instruction {
     RelocateFaceRight(usize, Vec<usize>, Vec<usize>),
     UpdateFaceLabel(usize, Updater<FaceLabel>),
     RenameFace(usize, String, String),
+    DirtyState, // Indicate state has been changed, so the graph should be relabeled
 }
