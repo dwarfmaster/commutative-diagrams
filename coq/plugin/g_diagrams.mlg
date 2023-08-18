@@ -8,13 +8,13 @@ open Stdarg
 }
 
 TACTIC EXTEND diagram
-| [ "diagram" "server" string(file) ] ->
+| [ "diagram" "run" string(file) ] ->
   { Extractor.server (Some file) ~force:false }
-| [ "diagram" "server" ] ->
+| [ "diagram" "run" ] ->
   { Extractor.server None ~force:false }
-| [ "diagram" "force" string(file) ] ->
+| [ "diagram" "edit" string(file) ] ->
   { Extractor.server (Some file) ~force:true }
-| [ "diagram" "force" ] ->
+| [ "diagram" "edit" ] ->
   { Extractor.server None ~force:true }
 END
 

@@ -21,12 +21,12 @@ type remote =
   }
 
 let start_remote (gl : goal) : remote Hyps.t =
-  (* TODO handle force *)
   let args = List.concat [
     [ "embed" ];
     (match gl.file with
     | Some file -> [ "--state"; file ]
     | None -> [ ]);
+    (if gl.force then [ "--edit" ] else []);
   ] in
   let engine_path = Sys.getenv_opt "COMDIAG_ENGINE" in
   match engine_path with
