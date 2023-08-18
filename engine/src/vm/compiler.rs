@@ -388,10 +388,15 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
             return;
         }
 
+        self.undo_until(first_modified);
+    }
+
+    // Keep the first keep actions, undoing all the others
+    pub fn undo_until(&mut self, keep: usize) {
         // Undo all these actions and remove them from the ast
-        let tail = self.ast.split_off(first_modified);
-        let status = self.states[first_modified];
-        self.states.truncate(first_modified + 1);
+        let tail = self.ast.split_off(keep);
+        let status = self.states[keep];
+        self.states.truncate(keep + 1);
         self.initialize_execution();
         self.clear_interactive();
         for act in tail.iter().rev() {

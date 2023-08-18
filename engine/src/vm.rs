@@ -17,6 +17,7 @@ mod sides;
 mod status;
 mod store;
 mod style;
+mod undo;
 mod vm;
 
 pub use asm::Instruction;

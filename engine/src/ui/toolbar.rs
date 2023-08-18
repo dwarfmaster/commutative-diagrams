@@ -20,19 +20,29 @@ pub fn toolbar<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
                 ui.close_menu();
             }
         });
-        ui.menu_button("Insert", |ui| {
-            if ui.button("Object").clicked() {
-                vm.start_interactive(InteractiveAction::insert(Object));
+        ui.menu_button("Edit", |ui| {
+            if ui.button("Undo").clicked() {
+                vm.undo();
                 ui.close_menu();
             }
-            if ui.button("Morphism").clicked() {
-                vm.start_interactive(InteractiveAction::insert(Morphism));
+            if ui.button("Redo").clicked() {
+                vm.redo();
                 ui.close_menu();
             }
-            if ui.button("Equality").clicked() {
-                vm.start_interactive(InteractiveAction::insert(Equality));
-                ui.close_menu();
-            }
+            ui.menu_button("Insert", |ui| {
+                if ui.button("Object").clicked() {
+                    vm.start_interactive(InteractiveAction::insert(Object));
+                    ui.close_menu();
+                }
+                if ui.button("Morphism").clicked() {
+                    vm.start_interactive(InteractiveAction::insert(Morphism));
+                    ui.close_menu();
+                }
+                if ui.button("Equality").clicked() {
+                    vm.start_interactive(InteractiveAction::insert(Equality));
+                    ui.close_menu();
+                }
+            });
         });
         ui.menu_button("Layout", |ui| {
             if ui
