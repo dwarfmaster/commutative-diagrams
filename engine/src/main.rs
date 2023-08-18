@@ -29,7 +29,7 @@ struct AppConfig {
 }
 
 // Return true if the code has succeeded, ie no ui should be started
-fn init_vm_code(vm: &mut VM, path: &str) -> bool {
+fn init_vm_code(vm: &mut VM, path: &str, edit: bool) -> bool {
     let file = File::open(path);
     if file.is_err() {
         return false;
@@ -39,6 +39,10 @@ fn init_vm_code(vm: &mut VM, path: &str) -> bool {
     if file.read_to_string(&mut vm.code).is_err() {
         return false;
     }
+    if edit {
+        return false;
+    }
+
     let ast = vm.recompile();
     if ast.is_none() {
         return false;
@@ -59,14 +63,14 @@ fn init_vm_code(vm: &mut VM, path: &str) -> bool {
     }
 }
 
-fn goal_graph(client: RPC, state: Option<String>) {
+fn goal_graph(client: RPC, state: Option<String>, edit: bool) {
     // Open the vm
     let mut vm = vm::VM::start(client);
 
     // Open the file
     if let Some(path) = &state {
         log::info!("Reading code from file");
-        if init_vm_code(&mut vm, path) {
+        if init_vm_code(&mut vm, path, edit) {
             log::info!("Ending without opening the ui");
             return;
         }
@@ -174,6 +178,17 @@ fn save_code_on_exit(path: &str, vm: &VM) {
     let mut file = File::create(path).unwrap();
     file.write_all(&vm.code[0..vm.run_until].as_bytes())
         .unwrap();
+    for line in vm.code[vm.run_until..].split("\n") {
+        if line.is_empty() {
+            continue;
+        }
+        if line.chars().nth(0) == Some('#') {
+            file.write_all(b"\n").unwrap();
+        } else {
+            file.write_all(b"\n# ").unwrap();
+        }
+        file.write_all(line.as_bytes()).unwrap();
+    }
 }
 
 fn on_failure(client: &mut RPC) {
@@ -208,7 +223,7 @@ fn success_system(mut exit: EventWriter<AppExit>, mut vm: ResMut<VM>, cfg: Res<A
     exit.send(AppExit)
 }
 
-fn embed(state: Option<String>) {
+fn embed(state: Option<String>, edit: bool) {
     simplelog::WriteLogger::init(
         simplelog::LevelFilter::max(),
         simplelog::ConfigBuilder::new()
@@ -226,7 +241,7 @@ fn embed(state: Option<String>) {
     log_panics::init();
 
     let client = RPC::new(std::io::stdin(), std::io::stdout());
-    goal_graph(client, state)
+    goal_graph(client, state, edit)
 }
 
 #[derive(Parser, Debug)]
@@ -240,6 +255,8 @@ enum Commands {
     Embed {
         #[arg(long)]
         state: Option<String>,
+        #[arg(long)]
+        edit: bool,
     },
 }
 
@@ -247,6 +264,6 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Embed { state } => embed(state),
+        Commands::Embed { state, edit } => embed(state, edit),
     }
 }
