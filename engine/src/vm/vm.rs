@@ -164,9 +164,9 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
         vm
     }
 
-    pub fn recompile_to(&mut self, to: usize) -> Option<ast::AST> {
+    fn recompile_to(&mut self, to: usize, one: bool) -> Option<ast::AST> {
         let p = parser::Parser::new(self.run_until, &self.code[self.run_until..to]);
-        let r = p.parse();
+        let r = if one { p.parse_one() } else { p.parse() };
         match r {
             Ok((_, ast)) => {
                 self.error_msg.clear();
@@ -192,7 +192,10 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
 
     // Compile the code, but do not run it
     pub fn recompile(&mut self) -> Option<ast::AST> {
-        self.recompile_to(self.code.len())
+        self.recompile_to(self.code.len(), false)
+    }
+    pub fn recompile_one(&mut self) -> Option<ast::AST> {
+        self.recompile_to(self.code.len(), true)
     }
 
     // Insert new code the last executed instruction and parse it
@@ -209,7 +212,7 @@ impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
                 self.code.insert_str(self.run_until, &format!("\n{}", code));
             }
         }
-        self.recompile_to(end)
+        self.recompile_to(end, false)
     }
 
     // Insert new code after the last executed instruction, parse it and run it

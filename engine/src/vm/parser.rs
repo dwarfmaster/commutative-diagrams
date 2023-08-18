@@ -60,6 +60,10 @@ impl<'a> Parser<'a> {
         self.script(self.complete)
     }
 
+    pub fn parse_one(&self) -> IResult<&str, ast::AST> {
+        map(|i| self.script_one(i), |act| vec![act])(self.complete)
+    }
+
     fn with_annot<O, E: ParseError<&'a str>, F>(
         &self,
         mut parser: F,
@@ -122,6 +126,21 @@ impl<'a> Parser<'a> {
             })
             .collect();
         success(acts)(input)
+    }
+
+    fn script_one(&'a self, input: &'a str) -> IResult<&'a str, ast::Annot<ast::Action>> {
+        let (input, (_, act)) = preceded(
+            alt((endl, spaces)),
+            many_till(
+                terminated(self.with_annot(|i| self.comment(i)), endl),
+                terminated(self.with_annot(|i| self.action(i)), endl),
+            ),
+        )(input)?;
+        let act = ast::Annot {
+            value: act.value.unwrap(),
+            range: act.range,
+        };
+        success(act)(input)
     }
 
     fn comment(&'a self, input: &'a str) -> IResult<&'a str, Option<ast::Action>> {

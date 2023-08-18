@@ -11,6 +11,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     }
 
     pub fn redo(&mut self) {
-        todo!()
+        if let Some(ast) = self.recompile_one() {
+            self.run(ast);
+        }
     }
 }
