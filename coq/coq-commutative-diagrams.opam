@@ -7,9 +7,10 @@ license: "MIT"
 homepage: "https://github.com/dwarfmaster/commutative-diagrams"
 bug-reports: "https://github.com/dwarfmaster/commutative-diagrams/issues"
 depends: [
-  "dune" {>= "2.9"}
+  "dune" {>= "3.8"}
   "ocaml" {>= "4.08"}
-  "coq-core" {>= "8.15" & < "8.16~"}
+  "coq-core" {>= "8.16" & < "8.17~"}
+  "coq-unimath-category-theory" {= "20230321"}
   "vcaml" {>= "0.15" & < "0.16~"}
   "odoc" {with-doc}
 ]
@@ -22,11 +23,9 @@ build: [
     name
     "-j"
     jobs
-    "--promote-install-files=false"
     "@install"
     "@runtest" {with-test}
     "@doc" {with-doc}
   ]
-  ["dune" "install" "-p" name "--create-install-files" name]
 ]
 dev-repo: "git+https://github.com/dwarfmaster/commutative-diagrams.git"

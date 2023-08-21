@@ -1,7 +1,7 @@
 {
   description="Coq plugin to automate commutative diagrams";
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-22.11";
+    nixpkgs.url = "nixpkgs/nixos-23.05";
     rust = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -21,11 +21,12 @@
       customOCamlPackages = ocamlPackages;
     };
     coqPackages = pkgs.mkCoqPackages coq;
-    hott = coqPackages.callPackage ./hott.nix {};
+    # unimath = coqPackages.callPackage ./unimath.nix {};
+    unimath = coqPackages.callPackage ./hott.nix {};
 
     pkg = ocamlPackages.callPackage ./coq {
       coq_8_16 = coq;
-      coq-hott_8_16 = hott;
+      coq-unimath_8_16 = unimath;
     };
 
     shell-coq = pkgs.mkShell {
@@ -34,7 +35,7 @@
         inherit (ocamlPackages)
           ocaml 
           findlib
-          dune_2
+          dune_3
           # ocaml-lsp
           merlin
           ;
@@ -93,6 +94,7 @@
     };
     packages.x86_64-linux = {
       commutative-diagrams = pkg;
+      unimath = coqPackages.callPackage ./unimath.nix {};
       default = pkg;
     };
   };

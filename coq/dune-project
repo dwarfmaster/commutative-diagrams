@@ -1,6 +1,6 @@
-(lang dune 2.9)
+(lang dune 3.8)
 (name coq-commutative-diagrams)
-(using coq 0.3)
+(using coq 0.8)
 (generate_opam_files true)
 
 (source (github dwarfmaster/commutative-diagrams))
@@ -14,5 +14,6 @@
  (synopsis "A Coq plugin to deal with commutative diagrams")
  (depends
    (ocaml (>= 4.08))
-   (coq-core (and (>= 8.15) (< 8.16~)))
+   (coq-core (and (>= 8.16) (< 8.17~)))
+   (coq-unimath-category-theory (= 20230321))
    (vcaml (and (>= 0.15) (< 0.16~)))))
