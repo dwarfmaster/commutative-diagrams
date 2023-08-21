@@ -8,10 +8,9 @@ homepage: "https://github.com/dwarfmaster/commutative-diagrams"
 bug-reports: "https://github.com/dwarfmaster/commutative-diagrams/issues"
 depends: [
   "dune" {>= "3.8"}
-  "ocaml" {>= "4.08"}
-  "coq-core" {>= "8.16" & < "8.17~"}
-  "coq-unimath-category-theory" {= "20230321"}
-  "vcaml" {>= "0.15" & < "0.16~"}
+  "ocaml" {>= "4.14"}
+  "coq" {>= "8.16" & < "8.17~"}
+  "coq-unimath" {= "20230321"}
   "odoc" {with-doc}
 ]
 build: [
