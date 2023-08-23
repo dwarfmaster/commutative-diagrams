@@ -15,14 +15,15 @@
       overlays = [ rust.overlays.default ];
     };
     ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_14;
-    coq = pkgs.coq.override {
+    coq = (pkgs.coq.override {
       version = "8.16";
       coq-version = "8.16";
       customOCamlPackages = ocamlPackages;
-    };
+    }).overrideAttrs (final: prev: {
+      patches = (prev.patches or [ ]) ++ [ ./fix-coqmakefile.patch ];
+    });
     coqPackages = pkgs.mkCoqPackages coq;
-    # unimath = coqPackages.callPackage ./unimath.nix {};
-    unimath = coqPackages.callPackage ./hott.nix {};
+    unimath = coqPackages.callPackage ./unimath.nix {};
 
     pkg = ocamlPackages.callPackage ./coq {
       coq_8_16 = coq;

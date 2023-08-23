@@ -1,8 +1,8 @@
 
-(coq.theory
-  (name CommutativeDiagrams)
-  (package coq-commutative-diagrams)
-  (modules Loader)
-  (plugins coq-commutative-diagrams.plugin)
-  (theories HoTT)
-  (flags -noinit -indices-matter))
+; (coq.theory
+;   (name CommutativeDiagrams)
+;   (package coq-commutative-diagrams)
+;   (modules Loader)
+;   (plugins coq-commutative-diagrams.plugin)
+;   (theories HoTT)
+;   (flags -noinit -indices-matter -type-in-type))
