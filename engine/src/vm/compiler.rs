@@ -293,8 +293,8 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
         if result == ExecutionError {
             // Undo all new instructions
             let tail = self.instructions.split_off(start);
-            for _ in 0..tail.len() {
-                self.pop_instruction()
+            for ins in tail.into_iter().rev() {
+                self.undo_instruction(&ins)
             }
             self.ctx.restore_state(*self.states.last().unwrap());
         } else {

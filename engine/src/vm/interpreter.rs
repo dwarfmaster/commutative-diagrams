@@ -186,7 +186,7 @@ impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
     }
 
     // Undo one instruction
-    fn undo_instruction(&mut self, ins: &Instruction) {
+    pub fn undo_instruction(&mut self, ins: &Instruction) {
         use Instruction::*;
         match ins {
             InsertNode(..) => {
