@@ -84,17 +84,25 @@ let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string ->
 (* | (__/ _` |  _| *)
 (*  \___\__,_|\__| *)
 (* cat *)
-let g_coq_cat : Names.inductive array ref = ref [| |]
+let g_coq_cat : Names.Constant.t array ref = ref [| |]
 let g_coq_cat_names : string array =
-  [| "HoTT.Categories.Category.Core.PreCategory"
-   ; "HoTT.Categories.Category.PreCategory"
-   ; "HoTT.Categories.PreCategory"
-   ; "Categories.Category.PreCategory"
-   ; "Categories.PreCategory"
+  [| "UniMath.CategoryTheory.Core.Categories.precategory" 
   |]
-let get_cat = fun _ -> perform_locate g_coq_cat g_coq_cat_names locate_inductive
-let is_cat : Names.inductive -> bool = is_ind g_coq_cat g_coq_cat_names
-let mk_cat = fun _ -> mk_ind (get_cat ())
+let get_cat = fun _ -> perform_locate g_coq_cat g_coq_cat_names locate_const
+let is_cat : Names.Constant.t -> bool = is_const g_coq_cat g_coq_cat_names
+let mk_cat = fun _ -> mk_const (get_cat ())
+let g_coq_cat_ob_mor_from_data : Names.Constant.t array ref = ref [| |]
+let g_coq_cat_ob_mor_from_data_names : string array =
+  [| "UniMath.CategoryTheory.Core.Categories.precategory_ob_mor_from_precategory_data"
+  |]
+let get_cat_ob_mor_from_data = fun _ -> perform_locate g_coq_cat_ob_mor_from_data g_coq_cat_ob_mor_from_data_names locate_const
+let is_cat_ob_mor_from_data = is_const g_coq_cat_ob_mor_from_data g_coq_cat_ob_mor_from_data_names
+let g_coq_cat_data_from_precat : Names.Constant.t array ref = ref [| |]
+let g_coq_cat_data_from_precat_names : string array =
+  [| "UniMath.CategoryTheory.Core.Categories.precategory_data_from_precategory"
+  |]
+let get_cat_data_from_precat = fun _ -> perform_locate g_coq_cat_data_from_precat g_coq_cat_data_from_precat_names locate_const
+let is_cat_data_from_precat = is_const g_coq_cat_data_from_precat g_coq_cat_data_from_precat_names
 
 
 
@@ -104,36 +112,35 @@ let mk_cat = fun _ -> mk_ind (get_cat ())
 (* |_| \_,_|_||_\__|\__\___/_|   *)
 (*                               *)
 (* Functor *)
-let g_coq_functor : Names.inductive array ref = ref [| |]
+let g_coq_functor : Names.Constant.t array ref = ref [| |]
 let g_coq_functor_names : string array =
-  [| "HoTT.Categories.Functor"
-   ; "HoTT.Categories.Functor.Core.Functor"
-   ; "HoTT.Categories.Functor"
-   ; "HoTT.Categories.Functor.Functor"
+  [| "UniMath.CategoryTheory.Core.Functors.functor"
   |]
-let get_functor = fun _ -> perform_locate g_coq_functor g_coq_functor_names locate_inductive
-let is_functor : Names.inductive -> bool = is_ind g_coq_functor g_coq_functor_names
-let mk_functor = fun _ -> mk_ind (get_functor ())
+let get_functor = fun _ -> perform_locate g_coq_functor g_coq_functor_names locate_const
+let is_functor : Names.Constant.t -> bool = is_const g_coq_functor g_coq_functor_names
+let mk_functor = fun _ -> mk_const (get_functor ())
 
 let g_coq_funct_obj : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_obj_names : string array =
-  [| "HoTT.Categories.object_of" |]
+  [| "UniMath.CategoryTheory.Core.Functors.functor_on_objects" |]
 let get_funct_obj = fun _ -> perform_locate g_coq_funct_obj g_coq_funct_obj_names locate_const
+let is_funct_obj = is_const g_coq_funct_obj g_coq_funct_obj_names
 let mk_funct_obj = fun _ -> mk_const (get_funct_obj ())
 let g_coq_funct_mph : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_mph_names : string array =
-  [| "HoTT.Categories.morphism_of" |]
+  [| "UniMath.CategoryTheory.Core.Functors.functor_on_morphims" |]
 let get_funct_mph = fun _ -> perform_locate g_coq_funct_mph g_coq_funct_mph_names locate_const
+let is_funct_mph = is_const g_coq_funct_mph g_coq_funct_mph_names
 let mk_funct_mph = fun _ -> mk_const (get_funct_mph ())
 
 let g_coq_funct_id : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_id_names : string array =
-  [| "HoTT.Categories.identity_of" |]
+  [| "UniMath.CategoryTheory.Core.Functors.functor_id" |]
 let get_funct_id = fun _ -> perform_locate g_coq_funct_id g_coq_funct_id_names locate_const
 let mk_funct_id = fun _ -> mk_const (get_funct_id ())
 let g_coq_funct_comp : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_comp_names : string array =
-  [| "HoTT.Categories.composition_of" |]
+  [| "UniMath.CategoryTheory.Core.Functors.functor_comp" |]
 let get_funct_comp = fun _ -> perform_locate g_coq_funct_comp g_coq_funct_comp_names locate_const
 let mk_funct_comp = fun _ -> mk_const (get_funct_comp ())
 let g_coq_funct_ctx : Names.Constant.t array ref = ref [| |]
@@ -152,8 +159,9 @@ let mk_funct_ctx = fun _ -> mk_const (get_funct_ctx ())
 (*           |__/                *)
 let g_coq_object : Names.Constant.t array ref = ref [| |]
 let g_coq_object_names : string array =
-  [| "HoTT.Categories.Category.Core.object" |]
+  [| "UniMath.CategoryTheory.Core.Categories.ob" |]
 let get_object = fun _ -> perform_locate g_coq_object g_coq_object_names locate_const
+let is_object : Names.Constant.t -> bool = is_const g_coq_object g_coq_object_names
 let mk_object = fun _ -> mk_const (get_object ())
 
 
@@ -165,7 +173,7 @@ let mk_object = fun _ -> mk_const (get_object ())
 (* eq *)
 let g_coq_eq : Names.inductive array ref = ref [| |]
 let g_coq_eq_names : string array =
-  [| "HoTT.Basics.Overture.paths"
+  [| "UniMath.Foundations.Preamble.paths"
   |]
 let get_eq = fun _ -> perform_locate g_coq_eq g_coq_eq_names locate_inductive
 let is_eq : Names.inductive -> bool = is_ind g_coq_eq g_coq_eq_names
@@ -179,7 +187,7 @@ let mk_eq = fun _ -> mk_ind (get_eq ())
 (* refl *)
 let g_coq_refl : Names.constructor array ref = ref [| |]
 let g_coq_refl_names : string array =
-  [| "HoTT.Basics.Overture.idpath"
+  [| "UniMath.Foundations.Preamble.paths_refl"
   |]
 let get_refl = fun _ -> perform_locate g_coq_refl g_coq_refl_names locate_constructor
 let is_refl : Names.constructor -> bool = is_construct g_coq_refl g_coq_refl_names
@@ -193,7 +201,7 @@ let mk_refl = fun _ -> mk_constr (get_refl ())
 (* Concat *)
 let g_coq_concat : Names.Constant.t array ref = ref [| |]
 let g_coq_concat_names : string array =
-  [| "HoTT.Basics.Overture.concat"
+  [| "Loader.concat_eq"
   |]
 let get_concat = fun _ -> perform_locate g_coq_concat g_coq_concat_names locate_const
 let is_concat : Names.Constant.t -> bool = is_const g_coq_concat g_coq_concat_names
@@ -207,7 +215,7 @@ let mk_concat = fun _ -> mk_const (get_concat ())
 (* Inversion *)
 let g_coq_inv : Names.Constant.t array ref = ref [| |]
 let g_coq_inv_names : string array =
-  [| "HoTT.Basics.Overture.inverse"
+  [| "Loader.inv_eq"
   |]
 let get_inv = fun _ -> perform_locate g_coq_inv g_coq_inv_names locate_const
 let mk_inv = fun _ -> mk_const (get_inv ())
@@ -234,7 +242,7 @@ let mk_compose_eq = fun _ -> mk_const (get_compose_eq ())
 (* Associativity *)
 let g_coq_assoc : Names.Constant.t array ref = ref [| |]
 let g_coq_assoc_names : string array =
-  [| "HoTT.Categories.Category.Core.associativity"
+  [| "UniMath.CategoryTheory.Core.Categories.assoc"
   |]
 let get_assoc = fun _ -> perform_locate g_coq_assoc g_coq_assoc_names locate_const
 let mk_assoc = fun _ -> mk_const (get_assoc ())
@@ -248,13 +256,13 @@ let mk_assoc = fun _ -> mk_const (get_assoc ())
 (* Identity *)
 let g_coq_left_id : Names.Constant.t array ref = ref [| |]
 let g_coq_left_id_names : string array =
-  [| "HoTT.Categories.Category.Core.left_identity"
+  [| "UniMath.CategoryTheory.Core.Categories.id_left"
   |]
 let get_left_id = fun _ -> perform_locate g_coq_left_id g_coq_left_id_names locate_const
 let mk_left_id = fun _ -> mk_const (get_left_id ())
 let g_coq_right_id : Names.Constant.t array ref = ref [| |]
 let g_coq_right_id_names : string array =
-  [| "HoTT.Categories.Category.Core.right_identity"
+  [| "UniMath.CategoryTheory.Core.Categories.id_right"
   |]
 let get_right_id = fun _ -> perform_locate g_coq_right_id g_coq_right_id_names locate_const
 let mk_right_id = fun _ -> mk_const (get_right_id ())
@@ -268,21 +276,21 @@ let mk_right_id = fun _ -> mk_const (get_right_id ())
 (* Morphisms *)
 let g_coq_id : Names.Constant.t array ref = ref [| |]
 let g_coq_id_names : string array =
-  [| "HoTT.Categories.Category.Core.identity"
+  [| "UniMath.CategoryTheory.Core.Categories.identity"
   |]
 let get_id = fun _ -> perform_locate g_coq_id g_coq_id_names locate_const
 let is_id = is_const g_coq_id g_coq_id_names
 let mk_id = fun _ -> mk_const (get_id ())
 let g_coq_comp : Names.Constant.t array ref = ref [| |]
 let g_coq_comp_names : string array =
-  [| "HoTT.Categories.Category.Core.compose"
+  [| "UniMath.CategoryTheory.Core.Categories.compose"
   |]
 let get_comp = fun _ -> perform_locate g_coq_comp g_coq_comp_names locate_const
 let is_comp = is_const g_coq_comp g_coq_comp_names
 let mk_comp = fun _ -> mk_const (get_comp ())
 let g_coq_mphT : Names.Constant.t array ref = ref [| |]
 let g_coq_mphT_names : string array =
-  [| "HoTT.Categories.Category.Core.morphism"
+  [| "UniMath.CategoryTheory.Core.Categories.precategory_morphisms"
   |]
 let get_mphT = fun _ -> perform_locate g_coq_mphT g_coq_mphT_names locate_const
 let is_mphT = is_const g_coq_mphT g_coq_mphT_names
@@ -309,77 +317,3 @@ let g_coq_rap_names : string array =
   |]
 let get_rap = fun _ -> perform_locate g_coq_rap g_coq_rap_names locate_const
 let mk_rap = fun _ -> mk_const (get_rap ())
-
-
-
-(*  __  __                                              _     _                *)
-(* |  \/  | ___  _ __   ___  _ __ ___   ___  _ __  _ __| |__ (_)___ _ __ ___   *)
-(* | |\/| |/ _ \| '_ \ / _ \| '_ ` _ \ / _ \| '_ \| '__| '_ \| / __| '_ ` _ \  *)
-(* | |  | | (_) | | | | (_) | | | | | | (_) | |_) | |  | | | | \__ \ | | | | | *)
-(* |_|  |_|\___/|_| |_|\___/|_| |_| |_|\___/| .__/|_|  |_| |_|_|___/_| |_| |_| *)
-(*                                          |_|                                *)
-(* Monomorphism *)
-let g_coq_mono : Names.Constant.t array ref = ref [| |]
-let g_coq_mono_names : string array =
-  [| "HoTT.Categories.Category.Morphisms.IsMonomorphism"
-   ; "HoTT.Categories.Category.IsMonomorphism"
-   ; "Category.IsMonomorphism"
-   ; "Morphisms.IsMonomorphism"
-   ; "Morphisms.IsMonomorphism"
-  |]
-let get_mono = fun _ -> perform_locate g_coq_mono g_coq_mono_names locate_const
-let is_mono = is_const g_coq_mono g_coq_mono_names
-let mk_mono = fun _ -> mk_const (get_mono ())
-
-(*  _____       _                            _     _ *)
-(* | ____|_ __ (_)_ __ ___   ___  _ __ _ __ | |__ (_)___ _ __ ___ *)
-(* |  _| | '_ \| | '_ ` _ \ / _ \| '__| '_ \| '_ \| / __| '_ ` _ \ *)
-(* | |___| |_) | | | | | | | (_) | |  | |_) | | | | \__ \ | | | | | *)
-(* |_____| .__/|_|_| |_| |_|\___/|_|  | .__/|_| |_|_|___/_| |_| |_| *)
-(*       |_|                          |_| *)
-(* Epimorphism *)
-let g_coq_epi : Names.Constant.t array ref = ref [| |]
-let g_coq_epi_names : string array =
-  [| "HoTT.Categories.Category.Morphisms.IsEpimorphism"
-   ; "HoTT.Categories.Category.IsEpimorphism"
-   ; "Category.IsEpimorphism"
-   ; "Morphisms.IsEpimorphism"
-   ; "Morphisms.IsEpimorphism"
-  |]
-let get_epi = fun _ -> perform_locate g_coq_epi g_coq_epi_names locate_const
-let is_epi = is_const g_coq_epi g_coq_epi_names
-let mk_epi = fun _ -> mk_const (get_epi ())
-
-(*  ___                                      _     _ *)
-(* |_ _|___  ___  _ __ ___   ___  _ __ _ __ | |__ (_)___ _ __ ___ *)
-(*  | |/ __|/ _ \| '_ ` _ \ / _ \| '__| '_ \| '_ \| / __| '_ ` _ \ *)
-(*  | |\__ \ (_) | | | | | | (_) | |  | |_) | | | | \__ \ | | | | | *)
-(* |___|___/\___/|_| |_| |_|\___/|_|  | .__/|_| |_|_|___/_| |_| |_| *)
-(*                                    |_| *)
-(* Isomorphism *)
-let g_coq_iso : Names.inductive array ref = ref [| |]
-let g_coq_iso_names : string array =
-  [| "HoTT.Categories.Category.Morphisms.IsIsomorphism"
-   ; "HoTT.Categories.Category.IsIsomorphism"
-  |]
-let get_iso = fun _ -> perform_locate g_coq_iso g_coq_iso_names locate_inductive
-let is_iso = is_ind g_coq_iso g_coq_iso_names
-let mk_iso = fun _ -> mk_ind (get_iso ())
-let g_coq_inv_mph : Names.Constant.t array ref = ref [| |]
-let g_coq_inv_mph_names : string array =
-  [| "HoTT.Categories.Category.Morphisms.morphism_inverse"
-  |]
-let get_inv_mph = fun _ -> perform_locate g_coq_inv_mph g_coq_inv_mph_names locate_const
-let mk_inv_mph = fun _ -> mk_const (get_inv_mph ())
-let g_coq_right_inv : Names.Constant.t array ref = ref [| |]
-let g_coq_right_inv_names : string array =
-  [| "HoTT.Categories.Category.Morphisms.left_inverse"
-  |]
-let get_right_inv = fun _ -> perform_locate g_coq_right_inv g_coq_right_inv_names locate_const
-let mk_right_inv = fun _ -> mk_const (get_right_inv ())
-let g_coq_left_inv : Names.Constant.t array ref = ref [| |]
-let g_coq_left_inv_names : string array =
-  [| "HoTT.Categories.Category.Morphisms.right_inverse"
-  |]
-let get_left_inv = fun _ -> perform_locate g_coq_left_inv g_coq_left_inv_names locate_const
-let mk_left_inv = fun _ -> mk_const (get_left_inv ())

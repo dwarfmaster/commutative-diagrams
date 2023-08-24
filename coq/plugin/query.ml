@@ -89,7 +89,7 @@ let register ec tp (q : 'a option) : (obj * 'a) option Hyps.t =
   | None -> none ()
 
 let rec query_cat env sigma tp =
-  if isInd sigma Env.is_cat tp then some () else none ()
+  if isConst sigma Env.is_cat tp then some () else none ()
 and query_cat_cached env sigma tp =
   run_query_cached env sigma tp
     (query_cat env sigma)
@@ -97,38 +97,36 @@ and query_cat_cached env sigma tp =
     (fun mtdt -> mtdt.is_cat)
     Hyps.markAsCat
 
+and extract_cat env sigma cat tp =
+  match EConstr.kind sigma cat with
+  | App (coercion, [| cat |]) when isConst sigma Env.is_cat_ob_mor_from_data coercion ->
+      extract_cat env sigma cat @<< get_type env sigma cat
+  | App (coercion, [| cat |]) when isConst sigma Env.is_cat_data_from_precat coercion ->
+      extract_cat env sigma cat @<< get_type env sigma cat
+  | _ -> query_impl env sigma Category cat tp
+
 and query_object env sigma tp =
   match EConstr.kind sigma tp with
-  | Proj (p,cat) when Env.is_projection p Env.is_cat "object" ->
+  | App (ob, [| cat |]) when isConst sigma Env.is_object ob ->
       some cat
   | _ -> none ()
 and query_object_cached env sigma tp =
   run_query_cached env sigma tp
     (query_object env sigma)
-    (fun cat -> ofst <$> query_impl env sigma Category cat @<< get_type env sigma cat)
+    (fun cat -> ofst <$> extract_cat env sigma cat @<< get_type env sigma cat)
     (fun mtdt -> mtdt.is_elem)
     Hyps.markAsElem
 
 and query_morphism env sigma tp =
   match EConstr.kind sigma tp with
-  | App (m, [| cat; src; dst |]) ->
-    begin match EConstr.kind sigma m with
-    | Const (name,_) when Env.is_mphT name ->
-        some (cat,src,dst)
-    | _ -> none ()
-    end
-  | App (p, [| src; dst |]) ->
-    begin match EConstr.kind sigma p with
-      | Proj (p,cat) when Env.is_projection p Env.is_cat "morphism" ->
-          some (cat,src,dst)
-      | _ -> none ()
-    end
+  | App (m, [| cat; src; dst |]) when isConst sigma Env.is_mphT m ->
+      some (cat,src,dst)
   | _ -> none ()
 and query_morphism_cached env sigma tp =
   run_query_cached env sigma tp
     (query_morphism env sigma)
     (fun (cat, src, dst) ->
-      let* cat = ofst <$> query_impl env sigma Category cat @<< get_type env sigma cat in
+      let* cat = ofst <$> extract_cat env sigma cat @<< get_type env sigma cat in
       let* tp = get_type env sigma src in
       let* src = ofst <$> query_impl env sigma Object src @<< get_type env sigma src in
       let* dst = ofst <$> query_impl env sigma Object dst @<< get_type env sigma dst in
@@ -140,15 +138,15 @@ and query_morphism_cached env sigma tp =
 
 and query_functor env sigma tp =
   match EConstr.kind sigma tp with
-  | App (funct, [| src; dst |]) when isInd sigma Env.is_functor funct ->
+  | App (funct, [| src; dst |]) when isConst sigma Env.is_functor funct ->
       some (src,dst)
   | _ -> none ()
 and query_functor_cached env sigma tp =
   run_query_cached env sigma tp
     (query_functor env sigma)
     (fun (src,dst) ->
-      let* src = ofst <$> query_impl env sigma Category src @<< get_type env sigma src in
-      let* dst = ofst <$> query_impl env sigma Category dst @<< get_type env sigma dst in
+      let* src = ofst <$> extract_cat env sigma src @<< get_type env sigma src in
+      let* dst = ofst <$> extract_cat env sigma dst @<< get_type env sigma dst in
       match src, dst with
       | Some src, Some dst -> some (src, dst)
       | _ -> none ())
@@ -173,7 +171,7 @@ and query_eq_cached env sigma tp =
     (query_eq env sigma)
     (fun (cat,src,dst,left,right) ->
       let query f x = ofst <$> query_impl env sigma f x @<< get_type env sigma x in
-      let* cat = query Category cat in
+      let* cat = ofst <$> extract_cat env sigma cat @<< get_type env sigma cat in
       let* src = query Object src in
       let* dst = query Object dst in
       let* left = query Morphism left in
@@ -186,16 +184,12 @@ and query_eq_cached env sigma tp =
 
 and query_funct_obj env sigma ec tp =
   match EConstr.kind sigma ec with
-  | App (fobj, [| elem |]) ->
-      begin match EConstr.kind sigma fobj with
-      | Proj (fobj,funct) when Env.is_projection fobj Env.is_functor "object_of" ->
-          let* funct = query_impl env sigma Functor funct @<< get_type env sigma funct in
-          let* elem = ofst <$> query_impl env sigma Object elem @<< get_type env sigma elem in
-          begin match funct, elem with
-          | Some (funct,Features.Functor (src,dst)), Some elem ->
-              some (Features.AppliedFunctObj (src,dst,funct,elem))
-          | _ -> none ()
-          end
+  | App (fobj, [| funct; elem |]) when isConst sigma Env.is_funct_obj fobj ->
+      let* funct = query_impl env sigma Functor funct @<< get_type env sigma funct in
+      let* elem = ofst <$> query_impl env sigma Object elem @<< get_type env sigma elem in
+      begin match funct, elem with
+      | Some (funct,Features.Functor (src,dst)), Some elem ->
+          some (Features.AppliedFunctObj (src,dst,funct,elem))
       | _ -> none ()
       end
   | _ -> none ()
@@ -203,21 +197,11 @@ and query_funct_obj env sigma ec tp =
 and query_identity env sigma ec tp =
   let module E = struct exception Ret of EConstr.t * EConstr.t end in
   try match EConstr.kind sigma ec with
-  | App (id, [| cat; elem |]) ->
-      begin match EConstr.kind sigma id with
-      | Const (name,_) when Env.is_id name ->
-          raise_notrace (E.Ret (cat,elem))
-      | _ -> none ()
-      end 
-  | App (id, [| elem |]) ->
-      begin match EConstr.kind sigma id with
-      | Proj (id,cat) when Env.is_projection id Env.is_cat "identity" ->
-          raise_notrace (E.Ret (cat,elem))
-      | _ -> none ()
-      end
+  | App (id, [| cat; elem |]) when isConst sigma Env.is_id id ->
+      raise_notrace (E.Ret (cat,elem))
   | _ -> none ()
   with E.Ret (cat, elem) -> 
-    let* cat = ofst <$> query_impl env sigma Category cat @<< get_type env sigma cat in
+    let* cat = ofst <$> extract_cat env sigma cat @<< get_type env sigma cat in
     let* elem = ofst <$> query_impl env sigma Object elem @<< get_type env sigma elem in
     match cat, elem with
     | Some cat, Some elem -> some (Features.Identity (cat, elem))
@@ -226,21 +210,11 @@ and query_identity env sigma ec tp =
 and query_compose_mph env sigma ec tp =
   let module E = struct exception Ret of EConstr.t * EConstr.t * EConstr.t end in
   try match EConstr.kind sigma ec with
-  | App (cmp, [| cat; _; _; _; mid; msi |]) ->
-      begin match EConstr.kind sigma cmp with
-      | Const (name,_) when Env.is_comp name ->
-          raise_notrace (E.Ret (cat, mid, msi))
-      | _ -> none ()
-      end
-  | App (cmp, [| _; _; _; mid; msi |]) ->
-    begin match EConstr.kind sigma cmp with
-    | Proj (cmp,cat) when Env.is_projection cmp Env.is_cat "compose" ->
-        raise_notrace (E.Ret (cat, mid, msi))
-    | _ -> none ()
-    end
+  | App (cmp, [| cat; _; _; _; msi; mid |]) when isConst sigma Env.is_comp cmp ->
+      raise_notrace (E.Ret (cat, mid, msi))
   | _ -> none ()
   with E.Ret (cat, mid, msi) ->
-    let* cat = ofst <$> query_impl env sigma Category cat @<< get_type env sigma cat in
+    let* cat = ofst <$> extract_cat env sigma cat @<< get_type env sigma cat in
     let* tp = get_type env sigma msi in
     let* msi = query_impl env sigma Morphism msi @<< get_type env sigma msi in
     let* mid = query_impl env sigma Morphism mid @<< get_type env sigma mid in
@@ -253,17 +227,13 @@ and query_compose_mph env sigma ec tp =
 
 and query_funct_mph env sigma ec tp =
   match EConstr.kind sigma ec with
-  | App (funct, [| _; _; mph |]) ->
-      begin match EConstr.kind sigma funct with
-      | Proj (mof,funct) when Env.is_projection mof Env.is_functor "morphism_of" -> begin
-          let* funct = query_impl env sigma Functor funct @<< get_type env sigma funct in
-          let* mph = query_impl env sigma Morphism mph @<< get_type env sigma mph in
-          match funct, mph with
-          | Some (funct, Features.Functor (scat,dcat))
-          , Some (mph, Features.Morphism (_,src,dst)) -> 
-            some (Features.AppliedFunctMph (scat,dcat,funct,src,dst,mph))
-          | _ -> none ()
-          end
+  | App (fmph, [| funct; _; _; mph |]) when isConst sigma Env.is_funct_mph fmph ->
+      let* funct = query_impl env sigma Functor funct @<< get_type env sigma funct in
+      let* mph = query_impl env sigma Morphism mph @<< get_type env sigma mph in
+      begin match funct, mph with
+      | Some (funct, Features.Functor (scat,dcat))
+      , Some (mph, Features.Morphism (_,src,dst)) -> 
+        some (Features.AppliedFunctMph (scat,dcat,funct,src,dst,mph))
       | _ -> none ()
       end
   | _ -> none ()

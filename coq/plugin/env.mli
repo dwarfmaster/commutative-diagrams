@@ -3,11 +3,15 @@ exception Object_not_found of string
 
 val app : EConstr.t Proofview.tactic -> EConstr.t array -> EConstr.t Proofview.tactic
 
-val is_cat  : Names.inductive -> bool
+val is_cat  : Names.Constant.t -> bool
+val is_cat_ob_mor_from_data : Names.Constant.t -> bool
+val is_cat_data_from_precat : Names.Constant.t -> bool
 val mk_cat  : unit -> EConstr.t Proofview.tactic
-val is_functor : Names.inductive -> bool
+val is_functor : Names.Constant.t -> bool
 val mk_functor : unit -> EConstr.t Proofview.tactic
+val is_funct_obj : Names.Constant.t -> bool
 val mk_funct_obj : unit -> EConstr.t Proofview.tactic
+val is_funct_mph : Names.Constant.t -> bool
 val mk_funct_mph : unit -> EConstr.t Proofview.tactic
 val mk_funct_id : unit -> EConstr.t Proofview.tactic
 val mk_funct_comp : unit -> EConstr.t Proofview.tactic
@@ -32,15 +36,7 @@ val is_mphT : Names.Constant.t -> bool
 val mk_mphT : unit -> EConstr.t Proofview.tactic
 val mk_lap : unit -> EConstr.t Proofview.tactic
 val mk_rap : unit -> EConstr.t Proofview.tactic
-val is_mono : Names.Constant.t -> bool
-val mk_mono : unit -> EConstr.t Proofview.tactic
-val is_epi : Names.Constant.t -> bool
-val mk_epi : unit -> EConstr.t Proofview.tactic
-val is_iso : Names.inductive -> bool
-val mk_iso : unit -> EConstr.t Proofview.tactic
-val mk_inv_mph : unit -> EConstr.t Proofview.tactic
-val mk_right_inv : unit -> EConstr.t Proofview.tactic
-val mk_left_inv : unit -> EConstr.t Proofview.tactic
+val is_object : Names.Constant.t -> bool
 val mk_object : unit -> EConstr.t Proofview.tactic
 
 val is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool
