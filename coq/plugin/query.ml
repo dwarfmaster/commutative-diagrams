@@ -18,14 +18,14 @@ let isInd sigma pred t =
 let ofst opt = Option.map fst opt
 
 (* TODO will break in case of coq evars in ctx *)
-let get_type_uncached env sigma e : EConstr.t Hyps.t =
-  Retyping.get_type_of env sigma e |> ret
+let get_type_uncached env sigma e : EConstr.t =
+  Retyping.get_type_of env sigma e
 
 let get_type env sigma e =
   let* id = Hyps.hasObject e in
   match id with
   | Some id -> Hyps.getObjType id
-  | None -> get_type_uncached env sigma e
+  | None -> get_type_uncached env sigma e |> ret
 
 
 (*   ___                         *)
@@ -97,13 +97,17 @@ and query_cat_cached env sigma tp =
     (fun mtdt -> mtdt.is_cat)
     Hyps.markAsCat
 
-and extract_cat env sigma cat tp =
+and extract_cat_impl env sigma cat tp =
   match EConstr.kind sigma cat with
   | App (coercion, [| cat |]) when isConst sigma Env.is_cat_ob_mor_from_data coercion ->
-      extract_cat env sigma cat @<< get_type env sigma cat
+      extract_cat_impl env sigma cat @<< get_type env sigma cat
   | App (coercion, [| cat |]) when isConst sigma Env.is_cat_data_from_precat coercion ->
-      extract_cat env sigma cat @<< get_type env sigma cat
-  | _ -> query_impl env sigma Category cat tp
+      extract_cat_impl env sigma cat @<< get_type env sigma cat
+  | _ -> ret (cat, tp)
+
+and extract_cat env sigma cat tp =
+  let* (cat,tp) = extract_cat_impl env sigma cat tp in
+  query_impl env sigma Category cat tp
 
 and query_object env sigma tp =
   match EConstr.kind sigma tp with
@@ -321,13 +325,51 @@ let to_prop f = function
   | Some x -> Some (f x)
   | None -> None
 
+let is_relevant_object env sigma tp =
+  let* c = query_object env sigma tp in
+  match c with
+  | Some c -> 
+      let* (c,_) = extract_cat_impl env sigma c (get_type_uncached env sigma c) in
+      some c
+  | None -> none ()
+
+let is_relevant_morphism env sigma tp =
+  let* m = query_morphism env sigma tp in
+  match m with
+  | Some (c,x,y) ->
+      let* (c,_) = extract_cat_impl env sigma c (get_type_uncached env sigma c) in
+      some (c,x,y)
+  | None -> none ()
+
+let is_relevant_functor env sigma tp =
+  let* f = query_functor env sigma tp in
+  match f with
+  | Some (c,d) ->
+      let* (c,_) = extract_cat_impl env sigma c (get_type_uncached env sigma c) in
+      let* (d,_) = extract_cat_impl env sigma d (get_type_uncached env sigma d) in
+      some (c,d)
+  | None -> none ()
+
+let is_relevant_eq env sigma tp =
+  let* e = query_eq env sigma tp in
+  match e with
+  | Some (c,x,y,l,r) ->
+      let* (c,_) = extract_cat_impl env sigma c (get_type_uncached env sigma c) in
+      some (c,x,y,l,r)
+  | None -> none ()
+
 let is_relevant_type rctx sigma tp =
   let* env = build_env rctx sigma in
-  let* is_cat = to_prop (fun x -> Cat) <$> query_cat env sigma tp in
-  let* is_obj = to_prop (fun x -> Elem x) <$> query_object env sigma tp in
-  let* is_mph = to_prop (fun (c,x,y) -> Mph (c,x,y)) <$> query_morphism env sigma tp in
-  let* is_fun = to_prop (fun (c,d) -> Funct (c,d)) <$> query_functor env sigma tp in
-  let* is_eq  = to_prop (fun (c,x,y,l,r) -> Eq (c,x,y,l,r)) <$> query_eq env sigma tp in
+  let* is_cat = to_prop (fun x -> Cat)
+              <$> query_cat env sigma tp in
+  let* is_obj = to_prop (fun x -> Elem x)
+              <$> is_relevant_object env sigma tp in
+  let* is_mph = to_prop (fun (c,x,y) -> Mph (c,x,y))
+              <$> is_relevant_morphism env sigma tp in
+  let* is_fun = to_prop (fun (c,d) -> Funct (c,d))
+              <$> is_relevant_functor env sigma tp in
+  let* is_eq  = to_prop (fun (c,x,y,l,r) -> Eq (c,x,y,l,r))
+              <$> is_relevant_eq env sigma tp in
   List.filter_map (fun x -> x) [is_cat; is_obj; is_mph; is_fun; is_eq] |> ret
 
 let apply_property_impl ~lift env sigma obj prop =
@@ -336,7 +378,7 @@ let apply_property_impl ~lift env sigma obj prop =
     | Some l -> EConstr.Vars.lift l x 
     | None -> x in
   let reg x =
-    let* xt = get_type_uncached env sigma x in
+    let xt = get_type_uncached env sigma x in
     let x_l = do_lift x in
     let xt_l = do_lift xt in
     Hyps.registerObj x_l xt_l None in

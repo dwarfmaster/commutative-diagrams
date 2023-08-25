@@ -94,7 +94,7 @@ let handle_quantifier q n dbindex lemma env =
   | Universal ->
       let tp = q.Query.tp in
       let* sigma = evars () in
-      let* tptp = Query.get_type_uncached env sigma tp in
+      let tptp = Query.get_type_uncached env sigma tp in
       let id = n - 1 - dbindex in
       let lctp = EConstr.Vars.lift (id + 1) tp in
       let lctptp = EConstr.Vars.lift (id + 1) tptp in
@@ -178,7 +178,7 @@ let extractFromType (id: lemmaTerm) (tp: EConstr.t) : lemma option Hyps.t =
 let extractConstant name cst : lemma option Hyps.t =
   let* env = env () in
   let* sigma = evars () in
-  let* tp = Query.get_type_uncached env sigma cst in
+  let tp = Query.get_type_uncached env sigma cst in
   extractFromType
     (ConstLemma (name,cst))
     tp
