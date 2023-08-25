@@ -100,9 +100,9 @@ and query_cat_cached env sigma tp =
 and extract_cat_impl env sigma cat tp =
   match EConstr.kind sigma cat with
   | App (coercion, [| cat |]) when isConst sigma Env.is_cat_ob_mor_from_data coercion ->
-      extract_cat_impl env sigma cat @<< get_type env sigma cat
+      extract_cat_impl env sigma cat (get_type_uncached env sigma cat)
   | App (coercion, [| cat |]) when isConst sigma Env.is_cat_data_from_precat coercion ->
-      extract_cat_impl env sigma cat @<< get_type env sigma cat
+      extract_cat_impl env sigma cat (get_type_uncached env sigma cat)
   | _ -> ret (cat, tp)
 
 and extract_cat env sigma cat tp =
@@ -139,6 +139,17 @@ and query_morphism_cached env sigma tp =
       | _ -> none ())
     (fun mtdt -> mtdt.is_mph)
     Hyps.markAsMph
+
+and extract_funct_impl env sigma funct tp =
+  match EConstr.kind sigma funct with
+  | App (coercion, [| funct |]) 
+    when isConst sigma Env.is_funct_data_from_funct coercion ->
+      extract_funct_impl env sigma funct (get_type_uncached env sigma funct)
+  | _ -> ret (funct, tp)
+
+and extract_funct env sigma funct tp =
+  let* (funct,tp) = extract_funct_impl env sigma funct tp in
+  query_impl env sigma Functor funct tp
 
 and query_functor env sigma tp =
   match EConstr.kind sigma tp with
@@ -189,7 +200,7 @@ and query_eq_cached env sigma tp =
 and query_funct_obj env sigma ec tp =
   match EConstr.kind sigma ec with
   | App (fobj, [| funct; elem |]) when isConst sigma Env.is_funct_obj fobj ->
-      let* funct = query_impl env sigma Functor funct @<< get_type env sigma funct in
+      let* funct = extract_funct env sigma funct @<< get_type env sigma funct in
       let* elem = ofst <$> query_impl env sigma Object elem @<< get_type env sigma elem in
       begin match funct, elem with
       | Some (funct,Features.Functor (src,dst)), Some elem ->
@@ -232,7 +243,7 @@ and query_compose_mph env sigma ec tp =
 and query_funct_mph env sigma ec tp =
   match EConstr.kind sigma ec with
   | App (fmph, [| funct; _; _; mph |]) when isConst sigma Env.is_funct_mph fmph ->
-      let* funct = query_impl env sigma Functor funct @<< get_type env sigma funct in
+      let* funct = extract_funct env sigma funct @<< get_type env sigma funct in
       let* mph = query_impl env sigma Morphism mph @<< get_type env sigma mph in
       begin match funct, mph with
       | Some (funct, Features.Functor (scat,dcat))

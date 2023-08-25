@@ -151,6 +151,13 @@ let g_coq_funct_ctx_names : string array =
 let get_funct_ctx = fun _ -> perform_locate g_coq_funct_ctx g_coq_funct_ctx_names locate_const
 let mk_funct_ctx = fun _ -> mk_const (get_funct_ctx ())
 
+let g_coq_functor_data_from_functor : Names.Constant.t array ref = ref [| |]
+let g_coq_functor_data_from_functor_names : string array =
+  [| "UniMath.CategoryTheory.Core.Functors.functor_data_from_functor" |]
+let get_funct_data_from_funct () = perform_locate g_coq_functor_data_from_functor g_coq_functor_data_from_functor_names locate_const
+let is_funct_data_from_funct = is_const g_coq_functor_data_from_functor g_coq_functor_data_from_functor_names
+let mk_funct_data_from_funct () = mk_const (get_funct_data_from_funct ())
+
 
 
 (*   ___  _     _           _    *)

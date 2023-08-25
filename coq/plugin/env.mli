@@ -18,6 +18,8 @@ val mk_funct_mph : unit -> EConstr.t Proofview.tactic
 val mk_funct_id : unit -> EConstr.t Proofview.tactic
 val mk_funct_comp : unit -> EConstr.t Proofview.tactic
 val mk_funct_ctx : unit -> EConstr.t Proofview.tactic
+val is_funct_data_from_funct : Names.Constant.t -> bool
+val mk_funct_data_from_funct : unit -> EConstr.t Proofview.tactic
 
 val is_eq   : Names.inductive -> bool
 val mk_eq   : unit -> EConstr.t Proofview.tactic

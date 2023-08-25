@@ -31,6 +31,9 @@ let mk_ob_mor_from_data data =
 let mk_ob_mor_from_cat cat =
   ret cat >>= mk_data_from_cat >>= mk_ob_mor_from_data
 
+let mk_funct_data_from_funct funct =
+  Env.app (Env.mk_funct_data_from_funct ()) [| funct |] |> lift
+
 let build_object env objs =
   let* [cat] = get_objs_value objs in
   let* cat = mk_ob_mor_from_cat cat in
@@ -61,7 +64,7 @@ let build_funct_obj env objs =
   let* [src; dst; funct; obj] = get_objs_value objs in
   let* src = mk_ob_mor_from_cat src in
   let* dst = mk_ob_mor_from_cat dst in
-  (* TODO insert coercion from functor to functor_data *)
+  let* funct = mk_funct_data_from_funct funct in
   let* ec = Env.app (Env.mk_funct_obj ()) [| src; dst; funct; obj |] |> lift in
   let* tp = Env.app (Env.mk_object ()) [| dst |] |> lift in
   Hyps.registerObj ec tp None
@@ -86,7 +89,7 @@ let build_funct_mph env objs =
   let* [scat; dcat; funct; src; dst; mph] = get_objs_value objs in
   let* scat = mk_ob_mor_from_cat scat in
   let* dcat = mk_ob_mor_from_cat dcat in
-  (* TODO coerce funct to functor_data *)
+  let* funct = mk_funct_data_from_funct funct in
   let* ec = Env.app (Env.mk_funct_mph ()) [| scat; dcat; funct; src; dst; mph |] |> lift in
   let* fsrc = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; src |] |> lift in
   let* fdst = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; dst |] |> lift in
@@ -195,7 +198,7 @@ let build_funct_identity env objs =
   let* idobj = Env.app (Env.mk_id ()) [| src; obj |] |> lift in
   let* src = mk_ob_mor_from_data src in
   let* dst = mk_ob_mor_from_data dst_data in
-  (* TODO coerce funct to functor_data *)
+  let* funct = mk_funct_data_from_funct funct in
   let* fidobj = Env.app (Env.mk_funct_mph ()) [| src; dst; funct; obj; obj; idobj |] |> lift in
   let* fobj = Env.app (Env.mk_funct_obj ()) [| src; dst; funct; obj |] |> lift in
   let* idfobj = Env.app (Env.mk_id ()) [| dst_data; fobj |] |> lift in
@@ -211,7 +214,7 @@ let build_funct_composition env objs =
   let* m12 = Env.app (Env.mk_comp ()) [| scat; src; mid; dst; m1; m2 |] |> lift in
   let* scat = mk_ob_mor_from_data scat in
   let* dcat = mk_ob_mor_from_data dcat_data in
-  (* TODO coerce funct to functor_data *)
+  let* funct = mk_funct_data_from_funct funct in
   let* fm12 = Env.app (Env.mk_funct_mph ()) [| scat; dcat; funct; src; dst; m12 |] |> lift in
   let* fsrc = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; src |] |> lift in
   let* fmid = Env.app (Env.mk_funct_obj ()) [| scat; dcat; funct; mid |] |> lift in
