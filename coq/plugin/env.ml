@@ -97,12 +97,14 @@ let g_coq_cat_ob_mor_from_data_names : string array =
   |]
 let get_cat_ob_mor_from_data = fun _ -> perform_locate g_coq_cat_ob_mor_from_data g_coq_cat_ob_mor_from_data_names locate_const
 let is_cat_ob_mor_from_data = is_const g_coq_cat_ob_mor_from_data g_coq_cat_ob_mor_from_data_names
+let mk_cat_ob_mor_from_data () = mk_const (get_cat_ob_mor_from_data ())
 let g_coq_cat_data_from_precat : Names.Constant.t array ref = ref [| |]
 let g_coq_cat_data_from_precat_names : string array =
   [| "UniMath.CategoryTheory.Core.Categories.precategory_data_from_precategory"
   |]
 let get_cat_data_from_precat = fun _ -> perform_locate g_coq_cat_data_from_precat g_coq_cat_data_from_precat_names locate_const
 let is_cat_data_from_precat = is_const g_coq_cat_data_from_precat g_coq_cat_data_from_precat_names
+let mk_cat_data_from_precat () = mk_const (get_cat_data_from_precat ())
 
 
 

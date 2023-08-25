@@ -3,9 +3,11 @@ exception Object_not_found of string
 
 val app : EConstr.t Proofview.tactic -> EConstr.t array -> EConstr.t Proofview.tactic
 
-val is_cat  : Names.Constant.t -> bool
 val is_cat_ob_mor_from_data : Names.Constant.t -> bool
+val mk_cat_ob_mor_from_data : unit -> EConstr.t Proofview.tactic
 val is_cat_data_from_precat : Names.Constant.t -> bool
+val mk_cat_data_from_precat : unit -> EConstr.t Proofview.tactic
+val is_cat  : Names.Constant.t -> bool
 val mk_cat  : unit -> EConstr.t Proofview.tactic
 val is_functor : Names.Constant.t -> bool
 val mk_functor : unit -> EConstr.t Proofview.tactic
