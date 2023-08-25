@@ -170,15 +170,9 @@ let saveState () =
   let* _ = set (fun st -> { st with ctx_stack = state :: stack }) in
   List.length stack |> ret
 let undefineEvar ev sigma =
-  let evi = Evd.find sigma ev in
-  match Evd.evar_body evi with
-  | Evar_empty -> sigma
-  | Evar_defined _ ->
-      let evi = Evd.({ evi with
-        evar_body = Evar_empty;
-        evar_abstract_arguments = Abstraction.identity;
-      }) in
-      Evd.add (Evd.remove sigma ev) ev evi
+  begin[@alert "-deprecated"]
+    Evd.undefine sigma ev
+  end
 let applyState sigma handled state =
   (* A bit brutal *)
   let prev = fst state in

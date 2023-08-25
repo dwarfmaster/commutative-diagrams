@@ -78,7 +78,6 @@ let unify st args =
       subterm_ts = TransparentState.empty;
       allowed_evars = AllowedEvars.all;
       with_cs = true;
-      allow_K_at_toplevel = true;
     }) in
   let kind = Evarsolve.TermUnification in
   let unify_pair result (ec1,ec2) =

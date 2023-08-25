@@ -2,7 +2,6 @@
 -I _build/default
 -arg -noinit
 -arg -indices-matter
--arg type-in-type
 
 theories/Loader.v
 theories/Tests.v

@@ -37,7 +37,7 @@ opam repo add coq-released https://coq.inria.fr/opam/released
 Then you need to install the necessary dependencies. You also need to make sure
 the current opam switch is using an ocaml version that is at least `4.14.1`.
 ```sh
-opam install dune coq.8.16.1 coq-unimath.20230321
+opam install dune coq.8.17.1 coq-unimath.20230321
 ```
 
 Finally build and install the plugin:

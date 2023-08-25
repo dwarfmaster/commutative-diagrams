@@ -16,8 +16,8 @@
     };
     ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_14;
     coq = (pkgs.coq.override {
-      version = "8.16";
-      coq-version = "8.16";
+      version = "8.17";
+      coq-version = "8.17";
       customOCamlPackages = ocamlPackages;
     }).overrideAttrs (final: prev: {
       patches = (prev.patches or [ ]) ++ [ ./fix-coqmakefile.patch ];
