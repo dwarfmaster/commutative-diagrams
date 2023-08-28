@@ -1,17 +1,21 @@
-{ buildDunePackage, coq_8_16, coq-unimath_8_16, zarith, lib }:
+{ buildDunePackage, coq_8_16, coq-unimath_8_16, zarith, findlib, lib }:
 
 buildDunePackage {
-  pname = "commutative-diagrams";
+  pname = "coq-commutative-diagrams";
   version = "0.1.0";
   duneVersion = "3";
 
   src = ./.;
 
   checkInputs = [ ];
+  nativeBuildInputs = [
+    coq_8_16
+  ];
   buildInputs = [
     coq_8_16
     coq-unimath_8_16
     zarith
+    findlib
   ];
 
   meta = {
