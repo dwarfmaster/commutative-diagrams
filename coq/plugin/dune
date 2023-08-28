@@ -1,5 +1,4 @@
 
-(include_subdirs unqualified)
 (library
  (name diagrams_plugin)
  (public_name coq-commutative-diagrams.plugin)
