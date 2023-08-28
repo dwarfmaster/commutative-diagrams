@@ -20,13 +20,29 @@ assumes it contains a path to the interface. Otherwise it looks for a
 
 ## Installation
 
-The interface and the coq plugin must be installed separately.
+### With Nix
 
-### Nix
+> [!WARNING]
+> Right now the nix option is only available on linux due to the way I wrote the
+> nix file.
 
-TODO
+Using [Nix](https://nixos.org/) is the easiest way to quickly try the plugin if
+you have nix installed and [flakes enabled](https://nixos.wiki/wiki/Flakes). Simply run the following command:
+```sh
+nix develop "github:dwarfmaster/commutative-diagrams#user"
+```
 
-### The interface
+This will drop you in a shell with the right coq version installed, and
+`OCAMLPATH`, `COQPATH` and `COMDIAG_ENGINE` setup the right way. You can then
+start `coqide` from this shell and use it to edit any file you're interested in.
+
+If you want to use other interfaces like proof-general, you can use the
+[direnv](https://direnv.net/) integrationg of Emacs/VScode to have them load the
+flake automatically.
+
+### With Cargo and Opam
+
+#### The interface
 
 The interface is written in rust and packaged using
 [cargo](https://doc.rust-lang.org/cargo/). You can install it using:
@@ -40,7 +56,7 @@ default, it is installed in `$HOME/.cargo/bin`. Wherever it actually ends up,
 the `cargo install` command should warn you of which directory to add to the
 path to be able to run the command.
 
-### The plugin
+#### The plugin
 
 The plugin is written in OCaml and can be installed using
 [opam](https://opam.ocaml.org).
@@ -75,8 +91,12 @@ eval $(opam env)
 
 ## Usage
 
-To use it, import `CommutativeDiagrams.Loader` in your Coq file. You can now use
-the `diagram run` and `diagram edit` tactics.
+To import the plugin, use the following coq command:
+```coq
+From CommutativeDiagrams Require Import Loader.
+```
+
+You can now use the `diagram run` and `diagram edit` tactics.
 
 The `diagram run "file"` tactic tries to read commands from file and execute
 them on the current goal. If it succeeds, the interface is never opened. If it
