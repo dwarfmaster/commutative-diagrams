@@ -24,10 +24,16 @@
     });
     coqPackages = pkgs.mkCoqPackages coq;
     unimath = coqPackages.callPackage ./unimath.nix {};
-
-    pkg = ocamlPackages.callPackage ./coq {
+    pkg-coq = ocamlPackages.callPackage ./coq {
       coq_8_16 = coq;
       coq-unimath_8_16 = unimath;
+    };
+
+    pkg-engine = pkgs.callPackage ./engine {
+      rustPlatform = pkgs.makeRustPlatform {
+        cargo = pkgs.rust-bin.stable.latest.minimal;
+        rustc = pkgs.rust-bin.stable.latest.minimal;
+      };
     };
 
     shell-coq = pkgs.mkShell {
@@ -42,7 +48,7 @@
           ;
       };
       # Dependencies
-      inputsFrom = [ pkg ];
+      inputsFrom = [ pkg-coq ];
     };
     shell-engine = pkgs.mkShell {
       nativeBuildInputs = [
@@ -94,9 +100,10 @@
       default = shell;
     };
     packages.x86_64-linux = {
-      commutative-diagrams = pkg;
-      unimath = coqPackages.callPackage ./unimath.nix {};
-      default = pkg;
+      commutative-diagrams-coq = pkg-coq;
+      commutative-diagrams-engine = pkg-engine;
+      inherit unimath;
+      default = pkg-engine;
     };
   };
 }
