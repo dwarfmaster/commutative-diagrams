@@ -1,22 +1,24 @@
-{ buildDunePackage, coq_8_16, coq-unimath_8_16, zarith, findlib, lib }:
+{ lib, coq, mkCoqDerivation, unimath }:
 
-buildDunePackage {
-  pname = "coq-commutative-diagrams";
+mkCoqDerivation {
+  pname = "commutative-diagrams";
   version = "0.1.0";
-  duneVersion = "3";
 
   src = ./.;
 
+  useDune = true;
+  mlPlugin = true;
   checkInputs = [ ];
-  nativeBuildInputs = [
-    coq_8_16
-  ];
   buildInputs = [
-    coq_8_16
-    coq-unimath_8_16
-    zarith
-    findlib
+    unimath
   ];
+  nativeBuildInputs = [
+    coq.ocamlPackages.findlib
+  ];
+  postInstall = ''
+    mkdir -p $OCAMLFIND_DESTDIR
+    mv $out/lib/coq-commutative-diagrams $OCAMLFIND_DESTDIR
+  '';
 
   meta = {
     homepage = "https://github.com/dwarfmaster/commutative-diagrams";

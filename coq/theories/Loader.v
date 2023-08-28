@@ -17,5 +17,9 @@ Proof. rewrite p. reflexivity. Defined.
 Lemma funct_ctx (C D : precategory) (F : C ⟶ D) (x y : C) (m1 m2 : C⟦x,y⟧) (p : m1 = m2) :
   # F m1 = # F m2.
 Proof. rewrite p. reflexivity. Defined.
+Lemma concat_eq (T : UU) (a b c : T) (p1 : a = b) (p2 : b = c) : a = c.
+Proof. rewrite p1. exact p2. Defined.
+Lemma inv_eq (T : UU) (a b : T) (p : a = b) : b = a.
+Proof. rewrite p. reflexivity. Defined.
 
 
