@@ -20,6 +20,21 @@ type remote =
   ; state: Protocol.state
   }
 
+let lookup_in_path () : string option =
+  let path = Sys.getenv_opt "PATH" in
+  match path with
+  | Some path -> 
+      let paths = String.split_on_char ':' path in
+      let rec find_in_paths = function
+        | [] -> None
+        | path :: paths ->
+            let exe = path ^ "/commutative-diagrams-engine" in
+            if Sys.file_exists exe
+            then Some exe
+            else find_in_paths paths in
+      find_in_paths paths
+  | None -> None
+
 let start_remote (gl : goal) : remote Hyps.t =
   let args = List.concat [
     [ "embed" ];
@@ -28,13 +43,16 @@ let start_remote (gl : goal) : remote Hyps.t =
     | None -> [ ]);
     (if gl.force then [ "--edit" ] else []);
   ] in
-  let engine_path = Sys.getenv_opt "COMDIAG_ENGINE" in
+  let engine_path = 
+    match Sys.getenv_opt "COMDIAG_ENGINE" with
+    | Some path -> Some path
+    | None -> lookup_in_path () in
   match engine_path with
   | Some engine_path ->
       let (stdout,stdin,stderr) =
         Unix.open_process_args_full
           engine_path
-          (Array.of_list ("commutative-diagrams-engine" :: args))
+          (Array.of_list (engine_path :: args))
           (Unix.environment ()) in
       let state = Protocol.({
         goal = gl.graph;
