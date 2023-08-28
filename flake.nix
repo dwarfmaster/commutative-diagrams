@@ -24,9 +24,8 @@
     });
     coqPackages = pkgs.mkCoqPackages coq;
     unimath = coqPackages.callPackage ./unimath.nix {};
-    pkg-coq = ocamlPackages.callPackage ./coq {
-      coq_8_16 = coq;
-      coq-unimath_8_16 = unimath;
+    pkg-coq = coqPackages.callPackage ./coq {
+      inherit unimath;
     };
 
     pkg-engine = pkgs.callPackage ./engine {
@@ -93,11 +92,44 @@
         "${pkgs.vulkan-validation-layers}/lib"
       ];
     };
+
+    shell-user = let
+      ocaml-version = ocamlPackages.ocaml.version;
+      mkOcamlPath =
+        pkgs.lib.concatMapStringsSep 
+          ":" 
+          (pkg: "${pkg}/lib/ocaml/${ocaml-version}/site-lib");
+    in pkgs.mkShell {
+      nativeBuildInputs = [
+        self.packages.x86_64-linux.commutative-diagrams-coq
+        coq
+        unimath
+        coqPackages.coqide
+        ocamlPackages.zarith
+      ];
+      "COMDIAG_ENGINE" = "${self.packages.x86_64-linux.commutative-diagrams-engine}/bin/commutative-diagrams-engine";
+      "OCAMLPATH" = mkOcamlPath [
+        self.packages.x86_64-linux.commutative-diagrams-coq
+        coq
+        ocamlPackages.zarith
+      ];
+      "LD_LIBRARY_PATH" = pkgs.lib.concatStringsSep ":" [
+        "${pkgs.xorg.libX11}/lib"
+        "${pkgs.xorg.libXcursor}/lib"
+        "${pkgs.xorg.libXrandr}/lib"
+        "${pkgs.xorg.libXi}/lib"
+        "${pkgs.vulkan-tools}/lib"
+        "${pkgs.vulkan-headers}/lib"
+        "${pkgs.vulkan-loader}/lib"
+        "${pkgs.vulkan-validation-layers}/lib"
+      ];
+    };
   in {
     devShells.x86_64-linux = {
       coq-plugin = shell-coq;
       engine = shell-engine;
       default = shell;
+      user = shell-user;
     };
     packages.x86_64-linux = {
       commutative-diagrams-coq = pkg-coq;
