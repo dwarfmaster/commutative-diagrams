@@ -5,10 +5,22 @@ of categoretical proofs in a graphical manner. It can analyze the proof context
 to deduct the categorical diagram being working on, to display it and enable a
 graphical way to progress the proof.
 
+## Architecture
+
+This tool is split in two parts. The most important one, the interface itself,
+is a standalone program that handles displaying the graph and acting on it. It
+interacts with the proof assistant with an homemade protocol over its
+stdin/stdout. Then there is a Coq plugin, that analyze the Coq goal and exposes
+features and information from Coq to the interface through the protocol.
+
+The Coq plugin is also responsible for starting the interface, and thus it must
+be able to find it. If there is a `COMDIAG_ENGINE` environment variable, it
+assumes it contains a path to the interface. Otherwise it looks for a
+`commutative-diagrams-engine` in `$PATH`.
+
 ## Installation
 
-There are two pieces of software that need to be installed for it to work, the
-interface and the Coq plugin.
+The interface and the coq plugin must be installed separately.
 
 ### Nix
 
@@ -16,7 +28,17 @@ TODO
 
 ### The interface
 
-TODO
+The interface is written in rust and packaged using
+[cargo](https://doc.rust-lang.org/cargo/). You can install it using:
+
+```sh
+cargo install --git https://github.com/dwarfmaster/commutative-diagrams.git
+```
+
+The directory it will be installed in depends of your setup. On Linux, by
+default, it is installed in `$HOME/.cargo/bin`. Wherever it actually ends up,
+the `cargo install` command should warn you of which directory to add to the
+path to be able to run the command.
 
 ### The plugin
 
@@ -27,7 +49,7 @@ The plugin is written in OCaml and can be installed using
 > Due to a [bug](https://github.com/coq/coq/pull/17697) in Coq under linux,
 > installing unimath with opam will fail until coq 8.18 is out (and I have
 > ported the plugin to it). Until then please use [nix](#nix) to install coq and
-> unimath.
+> unimath. As such I haven't been able to fully test to following procedure.
 
 First you need to add the coq plugin repository to opam:
 ```sh
@@ -53,7 +75,14 @@ eval $(opam env)
 
 ## Usage
 
-To use it, import `CommutativeDiagrams.Loader` in your Coq file. Now you can use
+To use it, import `CommutativeDiagrams.Loader` in your Coq file. You can now use
 the `diagram run` and `diagram edit` tactics.
 
-TODO
+The `diagram run "file"` tactic tries to read commands from file and execute
+them on the current goal. If it succeeds, the interface is never opened. If it
+fails, or if the the file is empty, the interface is opened to graphically solve
+the goal. If there where commands in the file, they are not executed but can be
+replayed using the `Edit>Redo` button.
+
+The `diagram edit "file"` always open the interface, allowing to redo part of
+the proof and change other, even if it would have succeeded.
