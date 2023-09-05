@@ -57,12 +57,16 @@ struct DisplayState<'a, Rm: Remote + Sync + Send> {
 
 impl LemmaApplicationState {
     pub fn new<Rm: Remote + Sync + Send>(vm: &mut VM<Rm>, lemma: usize) -> Self {
-        let graph = vm.lemmas[lemma].instantiate(&mut vm.ctx, &vm.config);
+        let graph = vm.lemmas[lemma].instantiate(&mut vm.ctx, &vm.config, false);
         let mut r = Self {
             lemma,
             graph,
             direct_mapping: HashMap::new(),
-            selected: None,
+            selected: vm.lemmas[lemma]
+                .graphical_state
+                .selected_face
+                .map(|fce| AppId::Lemma(GraphId::Face(fce)))
+                .or_else(|| vm.selected_face.map(|fce| AppId::Goal(GraphId::Face(fce)))),
             error_msg: None,
             reverse_mapping: HashMap::new(),
             zoom: vm.lemmas[lemma].graphical_state.zoom,
@@ -71,6 +75,9 @@ impl LemmaApplicationState {
             hovered: None,
             dragged: None,
         };
+        if vm.lemmas[lemma].graphical_state.selected_face.is_some() {
+            vm.deselect_face();
+        }
         r.relabel(&mut vm.ctx);
         r
     }

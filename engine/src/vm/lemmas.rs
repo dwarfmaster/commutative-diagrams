@@ -145,6 +145,7 @@ impl Lemma {
         &mut self,
         ctx: &mut Context<Rm>,
         cfg: &Config,
+        unselect: bool,
     ) -> Graph {
         self.get_pattern(ctx, cfg);
 
@@ -167,7 +168,13 @@ impl Lemma {
         for fce in 0..graph.faces.len() {
             graph.faces[fce].label = pattern.faces[fce].label.clone();
         }
-        // TODO unselect face
+
+        // Unselect face
+        if unselect {
+            if let Some(fce) = self.graphical_state.selected_face {
+                VM::<Mock, ()>::unshow_face_impl(&mut graph, fce);
+            }
+        }
 
         graph
     }
