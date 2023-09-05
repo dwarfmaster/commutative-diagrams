@@ -21,8 +21,14 @@ impl UiGraph for Lemma {
                 if let Some(pos_id) = pattern.nodes[nd].2.pos {
                     // There will be no hidden nodes
                     let pos = self.graphical_state.layout.get_pos(pos_id);
-                    let drawable =
-                        Drawable::Text(pos, &pattern.nodes[nd].2.label, TextStyle::new());
+                    let drawable = Drawable::Text(
+                        pos,
+                        &pattern.nodes[nd].2.label,
+                        TextStyle {
+                            underline: pattern.nodes[nd].2.pinned,
+                            ..TextStyle::new()
+                        },
+                    );
                     let modifier = if self.graphical_state.hovered == Some(GraphId::Node(nd)) {
                         Modifier::Highlight
                     } else {
@@ -64,7 +70,10 @@ impl UiGraph for Lemma {
                         Drawable::Text(
                             edge_label_pos(psrc, pdst, control),
                             &pattern.edges[src][mph].1.label,
-                            TextStyle::new(),
+                            TextStyle {
+                                underline: pattern.edges[src][mph].1.pinned,
+                                ..TextStyle::new()
+                            },
                         ),
                         stroke,
                         modifier,
@@ -198,24 +207,53 @@ impl UiGraph for Lemma {
     // No menu
     fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool {
         if let Some(pattern) = &mut self.pattern {
-            if let GraphId::Face(fce) = on {
-                if pattern.faces[fce].label.folded {
-                    if ui.button("Show term").clicked() {
-                        pattern.faces[fce].label.folded = false;
+            match on {
+                GraphId::Node(n) => {
+                    if ui
+                        .button(if pattern.nodes[n].2.pinned {
+                            "Unpin"
+                        } else {
+                            "Pin"
+                        })
+                        .clicked()
+                    {
+                        pattern.nodes[n].2.pinned = !pattern.nodes[n].2.pinned;
                         ui.close_menu();
                         return false;
                     }
-                } else {
-                    if ui.button("Hide term").clicked() {
-                        pattern.faces[fce].label.folded = true;
-                        ui.close_menu();
-                        return false;
-                    }
+                    true
                 }
-                true
-            } else {
-                ui.close_menu();
-                false
+                GraphId::Morphism(src, mph) => {
+                    if ui
+                        .button(if pattern.edges[src][mph].1.pinned {
+                            "Unpin"
+                        } else {
+                            "Pin"
+                        })
+                        .clicked()
+                    {
+                        pattern.edges[src][mph].1.pinned = !pattern.edges[src][mph].1.pinned;
+                        ui.close_menu();
+                        return false;
+                    }
+                    true
+                }
+                GraphId::Face(fce) => {
+                    if pattern.faces[fce].label.folded {
+                        if ui.button("Show term").clicked() {
+                            pattern.faces[fce].label.folded = false;
+                            ui.close_menu();
+                            return false;
+                        }
+                    } else {
+                        if ui.button("Hide term").clicked() {
+                            pattern.faces[fce].label.folded = true;
+                            ui.close_menu();
+                            return false;
+                        }
+                    }
+                    true
+                }
             }
         } else {
             ui.close_menu();

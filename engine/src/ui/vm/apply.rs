@@ -40,16 +40,6 @@ pub struct LemmaApplicationState {
     pub dragged: Option<GraphId>,
 }
 
-fn same_nature(id1: GraphId, id2: GraphId) -> bool {
-    use GraphId::*;
-    match (id1, id2) {
-        (Node(..), Node(..)) => true,
-        (Morphism(..), Morphism(..)) => true,
-        (Face(..), Face(..)) => true,
-        _ => false,
-    }
-}
-
 struct DisplayState<'a, Rm: Remote + Sync + Send> {
     apply: &'a mut LemmaApplicationState,
     vm: &'a mut VM<Rm>,
@@ -182,7 +172,7 @@ impl LemmaApplicationState {
         ui: &mut Ui,
     ) -> CMR {
         if let Some(AppId::Lemma(id)) = &self.selected {
-            if same_nature(*id, on) {
+            if id.same_nature(&on) {
                 if ui.button("Match").clicked() {
                     self.do_match(vm, *id, on);
                     ui.close_menu();
@@ -301,8 +291,14 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
                     .graphical_state
                     .layout
                     .get_pos(pos_id);
-                let drawable =
-                    Drawable::Text(pos, &self.apply.graph.nodes[nd].2.label, TextStyle::new());
+                let drawable = Drawable::Text(
+                    pos,
+                    &self.apply.graph.nodes[nd].2.label,
+                    TextStyle {
+                        underline: self.apply.graph.nodes[nd].2.pinned,
+                        ..TextStyle::new()
+                    },
+                );
                 let mut modifier = if self.apply.hovered == Some(GraphId::Node(nd)) {
                     Modifier::Highlight
                 } else {
@@ -349,7 +345,10 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
                     Drawable::Text(
                         edge_label_pos(psrc, pdst, control),
                         &self.apply.graph.edges[src][mph].1.label,
-                        TextStyle::new(),
+                        TextStyle {
+                            underline: self.apply.graph.edges[src][mph].1.pinned,
+                            ..TextStyle::new()
+                        },
                     ),
                     stroke,
                     modifier,
@@ -476,39 +475,71 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
     }
 
     fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool {
-        let mut r = CMR::Nothing;
         if let Some(AppId::Goal(id)) = self.apply.selected {
-            if same_nature(id, on) {
+            if id.same_nature(&on) {
                 if ui.button("Match").clicked() {
                     self.apply.do_match(self.vm, on, id);
                     ui.close_menu();
                     return false;
-                } else {
-                    r = CMR::Added;
                 }
             }
         }
 
-        if let GraphId::Face(fce) = on {
-            if self.apply.graph.faces[fce].label.folded {
-                if ui.button("Show term").clicked() {
-                    self.apply.graph.faces[fce].label.folded = false;
+        match on {
+            GraphId::Node(n) => {
+                if ui
+                    .button(if self.apply.graph.nodes[n].2.pinned {
+                        "Unpin"
+                    } else {
+                        "Pin"
+                    })
+                    .clicked()
+                {
+                    self.apply.graph.nodes[n].2.pinned = !self.apply.graph.nodes[n].2.pinned;
+                    if let Some(pattern) = &mut self.vm.lemmas[self.apply.lemma].pattern {
+                        pattern.nodes[n].2.pinned = self.apply.graph.nodes[n].2.pinned;
+                    }
                     ui.close_menu();
                     return false;
                 }
-            } else {
-                if ui.button("Hide term").clicked() {
-                    self.apply.graph.faces[fce].label.folded = true;
-                    ui.close_menu();
-                    return false;
-                }
+                true
             }
-            true
-        } else if r == CMR::Nothing {
-            ui.close_menu();
-            false
-        } else {
-            true
+            GraphId::Morphism(src, mph) => {
+                if ui
+                    .button(if self.apply.graph.edges[src][mph].1.pinned {
+                        "Unpin"
+                    } else {
+                        "Pin"
+                    })
+                    .clicked()
+                {
+                    self.apply.graph.edges[src][mph].1.pinned =
+                        !self.apply.graph.edges[src][mph].1.pinned;
+                    if let Some(pattern) = &mut self.vm.lemmas[self.apply.lemma].pattern {
+                        pattern.edges[src][mph].1.pinned =
+                            self.apply.graph.edges[src][mph].1.pinned;
+                    }
+                    ui.close_menu();
+                    return false;
+                }
+                true
+            }
+            GraphId::Face(fce) => {
+                if self.apply.graph.faces[fce].label.folded {
+                    if ui.button("Show term").clicked() {
+                        self.apply.graph.faces[fce].label.folded = false;
+                        ui.close_menu();
+                        return false;
+                    }
+                } else {
+                    if ui.button("Hide term").clicked() {
+                        self.apply.graph.faces[fce].label.folded = true;
+                        ui.close_menu();
+                        return false;
+                    }
+                }
+                true
+            }
         }
     }
 }

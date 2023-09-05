@@ -27,7 +27,14 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
 
             if let Some(pos_id) = self.graph.nodes[nd].2.pos {
                 let pos = self.layout.get_pos(pos_id);
-                let drawable = Drawable::Text(pos, &self.graph.nodes[nd].2.label, TextStyle::new());
+                let drawable = Drawable::Text(
+                    pos,
+                    &self.graph.nodes[nd].2.label,
+                    TextStyle {
+                        underline: self.graph.nodes[nd].2.pinned,
+                        ..TextStyle::new()
+                    },
+                );
                 let mut modifier = if self.hovered_object == Some(GraphId::Node(nd)) {
                     Modifier::Highlight
                 } else {
@@ -78,7 +85,10 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                     Drawable::Text(
                         edge_label_pos(psrc, pdst, control),
                         &self.graph.edges[src][mph].1.label,
-                        TextStyle::new(),
+                        TextStyle {
+                            underline: self.graph.edges[src][mph].1.pinned,
+                            ..TextStyle::new()
+                        },
                     ),
                     stroke,
                     modifier,
@@ -281,6 +291,18 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                     ui.close_menu();
                     return false;
                 }
+                if ui
+                    .button(if self.graph.nodes[n].2.pinned {
+                        "Unpin"
+                    } else {
+                        "Pin"
+                    })
+                    .clicked()
+                {
+                    self.graph.nodes[n].2.pinned = !self.graph.nodes[n].2.pinned;
+                    ui.close_menu();
+                    return false;
+                }
                 true
             }
             GraphId::Morphism(src, dst) => {
@@ -292,6 +314,18 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                 if ui.button("Merge with").clicked() {
                     let merge = InteractiveAction::merge(GraphId::Morphism(src, dst));
                     self.start_interactive(merge);
+                    ui.close_menu();
+                    return false;
+                }
+                if ui
+                    .button(if self.graph.edges[src][dst].1.pinned {
+                        "Unpin"
+                    } else {
+                        "Pin"
+                    })
+                    .clicked()
+                {
+                    self.graph.edges[src][dst].1.pinned = !self.graph.edges[src][dst].1.pinned;
                     ui.close_menu();
                     return false;
                 }

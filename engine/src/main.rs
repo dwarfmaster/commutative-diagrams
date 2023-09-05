@@ -99,15 +99,15 @@ fn goal_ui_system(
     // Do one layout step
     {
         let vm = vm.as_mut();
-        let fixed = |id| vm.dragged_object == Some(id);
+        let fixed = |id| vm.dragged_object == Some(id) || vm.graph.pinned(id);
         vm.layout.apply_forces(&vm.config, &vm.graph, &fixed);
         vm.layout.update(&vm.config);
 
         if let Some(lem) = vm.selected_lemma {
             if vm.lemmas[lem].pattern.is_some() {
                 let dragged = vm.lemmas[lem].graphical_state.dragged;
-                let fixed = |id| dragged == Some(id);
                 let lem = &mut vm.lemmas[lem];
+                let fixed = |id| dragged == Some(id) || lem.pattern.as_ref().unwrap().pinned(id);
                 lem.graphical_state.layout.apply_forces(
                     &vm.config,
                     lem.pattern.as_ref().unwrap(),
@@ -121,7 +121,7 @@ fn goal_ui_system(
             match &vm.current_action {
                 Some((_, LemmaApplication(state))) => {
                     if vm.selected_lemma != Some(state.lemma) {
-                        let fixed = |id| state.dragged == Some(id);
+                        let fixed = |id| state.dragged == Some(id) || state.graph.pinned(id);
                         vm.lemmas[state.lemma].graphical_state.layout.apply_forces(
                             &vm.config,
                             &state.graph,
