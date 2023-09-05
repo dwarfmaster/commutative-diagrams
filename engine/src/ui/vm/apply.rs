@@ -3,7 +3,7 @@ use crate::graph::{Graph, GraphId};
 use crate::remote::Remote;
 use crate::ui::graph::graph::{edge_label_pos, prepare_edge};
 use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
-use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier};
+use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier, TextStyle};
 use crate::ui::graph::widget;
 use crate::ui::VM;
 use crate::vm::{Context, EdgeLabel, FaceLabel, FaceStatus, NodeLabel};
@@ -301,7 +301,8 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
                     .graphical_state
                     .layout
                     .get_pos(pos_id);
-                let drawable = Drawable::Text(pos, &self.apply.graph.nodes[nd].2.label);
+                let drawable =
+                    Drawable::Text(pos, &self.apply.graph.nodes[nd].2.label, TextStyle::new());
                 let mut modifier = if self.apply.hovered == Some(GraphId::Node(nd)) {
                     Modifier::Highlight
                 } else {
@@ -348,6 +349,7 @@ impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
                     Drawable::Text(
                         edge_label_pos(psrc, pdst, control),
                         &self.apply.graph.edges[src][mph].1.label,
+                        TextStyle::new(),
                     ),
                     stroke,
                     modifier,

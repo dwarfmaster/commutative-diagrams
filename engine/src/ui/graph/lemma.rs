@@ -1,6 +1,6 @@
 use super::graph::{edge_label_pos, prepare_edge};
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
-use super::graph::{FaceContent, FaceStyle};
+use super::graph::{FaceContent, FaceStyle, TextStyle};
 use crate::graph::GraphId;
 use crate::vm::{FaceStatus, Lemma};
 use egui::{Rect, Stroke, Style, Ui, Vec2};
@@ -21,7 +21,8 @@ impl UiGraph for Lemma {
                 if let Some(pos_id) = pattern.nodes[nd].2.pos {
                     // There will be no hidden nodes
                     let pos = self.graphical_state.layout.get_pos(pos_id);
-                    let drawable = Drawable::Text(pos, &pattern.nodes[nd].2.label);
+                    let drawable =
+                        Drawable::Text(pos, &pattern.nodes[nd].2.label, TextStyle::new());
                     let modifier = if self.graphical_state.hovered == Some(GraphId::Node(nd)) {
                         Modifier::Highlight
                     } else {
@@ -63,6 +64,7 @@ impl UiGraph for Lemma {
                         Drawable::Text(
                             edge_label_pos(psrc, pdst, control),
                             &pattern.edges[src][mph].1.label,
+                            TextStyle::new(),
                         ),
                         stroke,
                         modifier,

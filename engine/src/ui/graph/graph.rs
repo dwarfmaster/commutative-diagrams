@@ -13,10 +13,25 @@ pub enum ArrowStyle {
     Simple,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct TextStyle {
+    pub color: Option<Color32>,
+    pub underline: bool,
+}
+
+impl TextStyle {
+    pub fn new() -> Self {
+        Self {
+            color: None,
+            underline: false,
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Drawable<'a> {
-    Text(Pos2, &'a str),
+    Text(Pos2, &'a str, TextStyle),
     // Quadratic bezier curve
     Curve([Pos2; 4], CurveStyle, ArrowStyle),
     // The color is the background color

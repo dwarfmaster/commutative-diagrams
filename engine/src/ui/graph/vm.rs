@@ -1,6 +1,6 @@
 use super::graph::{edge_label_pos, prepare_edge};
 use super::graph::{Action, ArrowStyle, CurveStyle, Drawable, Modifier, UiGraph};
-use super::graph::{FaceContent, FaceStyle};
+use super::graph::{FaceContent, FaceStyle, TextStyle};
 use crate::graph::GraphId;
 use crate::remote::Remote;
 use crate::ui::vm::{InteractiveAction, VM};
@@ -27,7 +27,7 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
 
             if let Some(pos_id) = self.graph.nodes[nd].2.pos {
                 let pos = self.layout.get_pos(pos_id);
-                let drawable = Drawable::Text(pos, &self.graph.nodes[nd].2.label);
+                let drawable = Drawable::Text(pos, &self.graph.nodes[nd].2.label, TextStyle::new());
                 let mut modifier = if self.hovered_object == Some(GraphId::Node(nd)) {
                     Modifier::Highlight
                 } else {
@@ -78,6 +78,7 @@ impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
                     Drawable::Text(
                         edge_label_pos(psrc, pdst, control),
                         &self.graph.edges[src][mph].1.label,
+                        TextStyle::new(),
                     ),
                     stroke,
                     modifier,

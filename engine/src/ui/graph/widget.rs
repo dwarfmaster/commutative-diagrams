@@ -118,14 +118,23 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
             };
 
             match dr {
-                Drawable::Text(p, label) => {
+                Drawable::Text(p, label, style) => {
                     let rect = painter.text(
                         project_pos(p),
                         egui::Align2::CENTER_CENTER,
                         label,
                         egui::FontId::proportional(14.0),
-                        stroke.color,
+                        style.color.unwrap_or(stroke.color),
                     );
+                    if style.underline {
+                        painter.line_segment(
+                            [rect.left_bottom(), rect.right_bottom()],
+                            egui::Stroke {
+                                color: style.color.unwrap_or(stroke.color),
+                                ..stroke
+                            },
+                        );
+                    }
 
                     if let Some(ppos) = pointer_pos {
                         if rect.contains(ppos) {
