@@ -130,7 +130,7 @@ let is_funct_obj = is_const g_coq_funct_obj g_coq_funct_obj_names
 let mk_funct_obj = fun _ -> mk_const (get_funct_obj ())
 let g_coq_funct_mph : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_mph_names : string array =
-  [| "UniMath.CategoryTheory.Core.Functors.functor_on_morphims" |]
+  [| "UniMath.CategoryTheory.Core.Functors.functor_on_morphisms" |]
 let get_funct_mph = fun _ -> perform_locate g_coq_funct_mph g_coq_funct_mph_names locate_const
 let is_funct_mph = is_const g_coq_funct_mph g_coq_funct_mph_names
 let mk_funct_mph = fun _ -> mk_const (get_funct_mph ())
