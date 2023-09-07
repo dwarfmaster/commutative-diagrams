@@ -31,7 +31,7 @@ fn code_impl<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
         ..format_none.clone()
     };
     let format_run = egui::TextFormat {
-        background: ui.style().visuals.faint_bg_color,
+        background: ui.style().visuals.code_bg_color,
         ..format_none.clone()
     };
     let sections = vm
