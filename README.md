@@ -26,6 +26,10 @@ assumes it contains a path to the interface. Otherwise it looks for a
 > Right now the nix option is only available on linux due to the way I wrote the
 > nix file.
 
+> [!NOTE]
+> Nix is packaged in many distributions. If it is not for your distribution,
+> see [here](https://nixos.org/download) for installation instruction.
+
 Using [Nix](https://nixos.org/) is the easiest way to quickly try the plugin if
 you have nix installed and [flakes enabled](https://nixos.wiki/wiki/Flakes). Simply run the following command:
 ```sh
@@ -41,6 +45,12 @@ If you want to use other interfaces like proof-general, you can use the
 flake automatically.
 
 ### With Cargo and Opam
+
+> [!NOTE]
+> If you're not using nix to install this plugin, the installation is a lot
+> more complicated. You need to make sure you have a recent enough rust
+> version, a recent enough dune version, and the right system packages
+> installed.
 
 #### The interface
 
