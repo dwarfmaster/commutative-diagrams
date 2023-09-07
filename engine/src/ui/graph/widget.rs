@@ -259,6 +259,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
         *gr.dragged() = None;
     }
     if response.dragged() {
+        response.request_focus();
         if let Some(id) = *gr.dragged() {
             if let Some(ppos) = pointer_pos {
                 gr.action(
