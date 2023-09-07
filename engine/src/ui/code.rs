@@ -14,6 +14,40 @@ pub fn code<Rm: Remote + Sync + Send>(ctx: &mut egui::Context, vm: &mut VM<Rm>) 
 }
 
 fn code_impl<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
+    ui.with_layout(egui::Layout::top_down_justified(egui::Align::RIGHT), |ui| {
+        code_text_box(ui, vm, 150.0, true);
+        egui::ScrollArea::vertical()
+            .max_height(100.0)
+            .id_source("error_msg_scroll_area")
+            .show(ui, |ui| {
+                ui.add_sized(
+                    ui.available_size(),
+                    egui::TextEdit::multiline(&mut vm.error_msg)
+                        .font(egui::TextStyle::Monospace)
+                        .interactive(false),
+                )
+            });
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if ui.add(egui::Button::new("Run")).clicked() {
+                log::debug!("Running");
+                if let Some(ast) = vm.recompile() {
+                    vm.run(ast);
+                }
+            }
+            if ui.add(egui::Button::new("Check")).clicked() {
+                log::debug!("Recompiling");
+                vm.recompile();
+            }
+        });
+    });
+}
+
+pub fn code_text_box<Rm: Remote + Sync + Send>(
+    ui: &mut egui::Ui,
+    vm: &mut VM<Rm>,
+    height: f32,
+    format: bool,
+) {
     let format_none = egui::TextFormat {
         font_id: egui::FontId::monospace(14.0),
         color: ui.style().noninteractive().fg_stroke.color,
@@ -34,21 +68,30 @@ fn code_impl<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
         background: ui.style().visuals.code_bg_color,
         ..format_none.clone()
     };
-    let sections = vm
-        .code_style
-        .iter()
-        .chain(std::iter::once(&(vm.code.len(), vm::CodeStyle::None)))
-        .tuple_windows()
-        .map(|((start, style), (end, _))| egui::text::LayoutSection {
+
+    let sections = if format {
+        vm.code_style
+            .iter()
+            .chain(std::iter::once(&(vm.code.len(), vm::CodeStyle::None)))
+            .tuple_windows()
+            .map(|((start, style), (end, _))| egui::text::LayoutSection {
+                leading_space: 0.0,
+                byte_range: *start..*end,
+                format: match style {
+                    vm::CodeStyle::None => format_none.clone(),
+                    vm::CodeStyle::Error => format_err.clone(),
+                    vm::CodeStyle::Run => format_run.clone(),
+                },
+            })
+            .collect::<Vec<_>>()
+    } else {
+        vec![egui::text::LayoutSection {
             leading_space: 0.0,
-            byte_range: *start..*end,
-            format: match style {
-                vm::CodeStyle::None => format_none.clone(),
-                vm::CodeStyle::Error => format_err.clone(),
-                vm::CodeStyle::Run => format_run.clone(),
-            },
-        })
-        .collect::<Vec<_>>();
+            byte_range: 0..vm.code.len(),
+            format: format_none,
+        }]
+    };
+
     let mut layouter = |ui: &egui::Ui, string: &str, _width: f32| {
         // TODO memoize to avoid to realloc on each frame
         let sections = sections
@@ -80,46 +123,21 @@ fn code_impl<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
         ui.fonts(|f| f.layout_job(job))
     };
 
-    ui.with_layout(egui::Layout::top_down_justified(egui::Align::RIGHT), |ui| {
-        egui::ScrollArea::vertical()
-            .auto_shrink([false, false])
-            .max_height(ui.available_height() - 150.0)
-            .show(ui, |ui| {
-                let event = ui.add_sized(
-                    ui.available_size(),
-                    egui::TextEdit::multiline(&mut vm.code)
-                        .code_editor()
-                        .cursor_at_end(true)
-                        .layouter(&mut layouter),
-                );
-                if event.changed() {
-                    vm.reset_style();
-                    vm.style_range(0..vm.run_until, vm::CodeStyle::Run);
-                    vm.sync_code();
-                }
-            });
-        egui::ScrollArea::vertical()
-            .max_height(100.0)
-            .id_source("error_msg_scroll_area")
-            .show(ui, |ui| {
-                ui.add_sized(
-                    ui.available_size(),
-                    egui::TextEdit::multiline(&mut vm.error_msg)
-                        .font(egui::TextStyle::Monospace)
-                        .interactive(false),
-                )
-            });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.add(egui::Button::new("Run")).clicked() {
-                log::debug!("Running");
-                if let Some(ast) = vm.recompile() {
-                    vm.run(ast);
-                }
-            }
-            if ui.add(egui::Button::new("Check")).clicked() {
-                log::debug!("Recompiling");
-                vm.recompile();
+    egui::ScrollArea::vertical()
+        .auto_shrink([false, false])
+        .max_height(ui.available_height() - height)
+        .show(ui, |ui| {
+            let event = ui.add_sized(
+                ui.available_size(),
+                egui::TextEdit::multiline(&mut vm.code)
+                    .code_editor()
+                    .cursor_at_end(true)
+                    .layouter(&mut layouter),
+            );
+            if event.changed() {
+                vm.reset_style();
+                vm.style_range(0..vm.run_until, vm::CodeStyle::Run);
+                vm.sync_code();
             }
         });
-    });
 }

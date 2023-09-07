@@ -23,13 +23,18 @@ use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiSettings};
 type RPC = remote::RPC<std::io::Stdin, std::io::Stdout>;
 type VM = ui::VM<RPC>;
 
-#[derive(Resource)]
-struct AppConfig {
-    file: Option<String>,
+enum State {
+    File(String),
+    Script(String),
+    None,
 }
 
-// Return true if the code has succeeded, ie no ui should be started
-fn init_vm_code(vm: &mut VM, path: &str, edit: bool) -> bool {
+#[derive(Resource)]
+struct AppConfig {
+    state: State,
+}
+
+fn init_vm_code_from_file(vm: &mut VM, path: &str, edit: bool) -> bool {
     let file = File::open(path);
     if file.is_err() {
         return false;
@@ -39,6 +44,11 @@ fn init_vm_code(vm: &mut VM, path: &str, edit: bool) -> bool {
     if file.read_to_string(&mut vm.code).is_err() {
         return false;
     }
+    init_vm_code(vm, edit)
+}
+
+// Return true if the code has succeeded, ie no ui should be started
+fn init_vm_code(vm: &mut VM, edit: bool) -> bool {
     if edit {
         return false;
     }
@@ -63,17 +73,27 @@ fn init_vm_code(vm: &mut VM, path: &str, edit: bool) -> bool {
     }
 }
 
-fn goal_graph(client: RPC, state: Option<String>, edit: bool) {
+fn goal_graph(client: RPC, state: State, edit: bool) {
     // Open the vm
     let mut vm = vm::VM::start(client);
 
     // Open the file
-    if let Some(path) = &state {
-        log::info!("Reading code from file");
-        if init_vm_code(&mut vm, path, edit) {
-            log::info!("Ending without opening the ui");
-            return;
+    match &state {
+        State::File(path) => {
+            log::info!("Reading code from file");
+            if init_vm_code_from_file(&mut vm, path, edit) {
+                log::info!("Ending without opening the ui");
+                return;
+            }
         }
+        State::Script(script) => {
+            vm.code = script.to_string();
+            if init_vm_code(&mut vm, edit) {
+                log::info!("Ending without opening the ui");
+                return;
+            }
+        }
+        State::None => (),
     }
 
     // Run the ui if necessary
@@ -83,10 +103,19 @@ fn goal_graph(client: RPC, state: Option<String>, edit: bool) {
         .add_plugins(EguiPlugin)
         .add_state::<vm::EndStatus>()
         .insert_resource(vm)
-        .insert_resource(AppConfig { file: state })
-        .add_systems(Update, goal_ui_system)
-        .add_systems(OnEnter(vm::EndStatus::Success), success_system)
-        .add_systems(OnEnter(vm::EndStatus::Failure), failure_system);
+        .insert_resource(AppConfig { state })
+        .add_systems(
+            Update,
+            goal_ui_system.run_if(in_state(vm::EndStatus::Running)),
+        )
+        .add_systems(
+            Update,
+            success_system.run_if(in_state(vm::EndStatus::Success)),
+        )
+        .add_systems(
+            Update,
+            failure_system.run_if(in_state(vm::EndStatus::Failure)),
+        );
     app.run();
 }
 
@@ -201,8 +230,12 @@ fn on_failure(client: &mut RPC) {
 
 fn failure_system(mut exit: EventWriter<AppExit>, mut vm: ResMut<VM>, cfg: Res<AppConfig>) {
     on_failure(&mut vm.as_mut().ctx.remote);
-    if let Some(path) = &cfg.file {
-        save_code_on_exit(path, vm.as_ref());
+    match &cfg.state {
+        State::File(path) => {
+            save_code_on_exit(path, vm.as_ref());
+        }
+        State::Script(_) => (),
+        State::None => (),
     }
     exit.send(AppExit)
 }
@@ -215,15 +248,32 @@ fn on_success(client: &mut RPC) {
     });
 }
 
-fn success_system(mut exit: EventWriter<AppExit>, mut vm: ResMut<VM>, cfg: Res<AppConfig>) {
-    on_success(&mut vm.as_mut().ctx.remote);
-    if let Some(path) = &cfg.file {
-        save_code_on_exit(path, vm.as_ref());
+fn success_system(
+    mut egui_context: EguiContexts,
+    mut exit: EventWriter<AppExit>,
+    mut vm: ResMut<VM>,
+    cfg: Res<AppConfig>,
+) {
+    match &cfg.state {
+        State::File(path) => {
+            save_code_on_exit(path, vm.as_ref());
+            on_success(&mut vm.as_mut().ctx.remote);
+            exit.send(AppExit)
+        }
+        State::Script(_) => {
+            if ui::exit(egui_context.ctx_mut(), vm.as_mut()) {
+                on_success(&mut vm.as_mut().ctx.remote);
+                exit.send(AppExit)
+            }
+        }
+        State::None => {
+            on_success(&mut vm.as_mut().ctx.remote);
+            exit.send(AppExit);
+        }
     }
-    exit.send(AppExit)
 }
 
-fn embed(state: Option<String>, edit: bool) {
+fn embed(state: State, edit: bool) {
     simplelog::WriteLogger::init(
         simplelog::LevelFilter::max(),
         simplelog::ConfigBuilder::new()
@@ -258,12 +308,21 @@ enum Commands {
         #[arg(long)]
         edit: bool,
     },
+    Execute {
+        #[arg(long)]
+        script: String,
+        #[arg(long)]
+        edit: bool,
+    },
 }
 
 fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Embed { state, edit } => embed(state, edit),
+        Commands::Embed { state, edit } => {
+            embed(state.map(|f| State::File(f)).unwrap_or(State::None), edit)
+        }
+        Commands::Execute { script, edit } => embed(State::Script(script), edit),
     }
 }
