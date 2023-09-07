@@ -8,6 +8,10 @@ open Stdarg
 }
 
 TACTIC EXTEND diagram
+| [ "diagram" "exec" string(script) ] ->
+  { Extractor.execute script ~force:false }
+| [ "diagram" "step" string(script) ] ->
+  { Extractor.execute script ~force:true }
 | [ "diagram" "run" string(file) ] ->
   { Extractor.server (Some file) ~force:false }
 | [ "diagram" "run" ] ->

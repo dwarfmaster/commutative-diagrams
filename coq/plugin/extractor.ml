@@ -82,7 +82,7 @@ let extract_hyps (goal : Proofview.Goal.t)
       bld |> Graphbuilder.build |> Option.map (fun gr -> (lemmas, gr, goal)) |> ret
   | None -> none ()
 
-let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit Hyps.t =
+let server' (file: string option) (script: string option) (force: bool) (goal : Proofview.Goal.t) : unit Hyps.t =
   let* obj = extract_hyps goal in
   match obj with
   | None -> fail "Goal is not a face"
@@ -90,7 +90,7 @@ let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit
       let* globalLemmas = Lemmas.extractAllConstants () in
       let lemmas = List.append lemmas globalLemmas in
       let* () = Hyps.mapState (fun sigma -> (), Evd.push_shelf sigma) in
-      let* _ = Sv.run ~file:file ~force:force graph lemmas in
+      let* _ = Sv.run ~file:file ~script:script ~force:force graph lemmas in
       let* shelf = Hyps.mapState Evd.pop_shelf in
       let* handled = Hyps.handled () in
       let* () = Hyps.mapState (fun sigma -> (), Evd.unshelve sigma handled) in
@@ -101,6 +101,9 @@ let server' (file: string option) (force: bool) (goal : Proofview.Goal.t) : unit
                 |> lift in
       let* () = lift Refine.solve_constraints in
       ret ()
+
 let server file ~force : unit Proofview.tactic =
-  Proofview.Goal.enter_one (fun goal -> server' file force goal |> runWithGoal goal)
+  Proofview.Goal.enter_one (fun goal -> server' file None force goal |> runWithGoal goal)
+let execute script ~force : unit Proofview.tactic =
+  Proofview.Goal.enter_one (fun goal -> server' None (Some script) force goal |> runWithGoal goal)
 

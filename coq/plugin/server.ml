@@ -9,6 +9,7 @@ let rec whileM (cond : unit -> bool Hyps.t) (body : unit -> unit Hyps.t) : unit 
 
 type goal =
   { file: string option
+  ; script: string option
   ; force: bool
   ; graph: Graph.graph
   ; lemmas: Lemmas.t list
@@ -37,9 +38,14 @@ let lookup_in_path () : string option =
 
 let start_remote (gl : goal) : remote Hyps.t =
   let args = List.concat [
-    [ "embed" ];
+    (match gl.script with
+    | Some _ -> [ "execute" ]
+    | None -> [ "embed" ]);
     (match gl.file with
     | Some file -> [ "--state"; file ]
+    | None -> [ ]);
+    (match gl.script with
+    | Some script -> [ "--script"; script ]
     | None -> [ ]);
     (if gl.force then [ "--edit" ] else []);
   ] in
@@ -122,9 +128,10 @@ let handle_message (rm : remote) (msg : Msgpack.t) : (bool * bool) Hyps.t =
     end
   | _ -> fail "Ill formed rpc message"
 
-let run ?(file = None) ?(force = false) gr lms : unit Hyps.t =
+let run ?(file = None) ?(script = None) ?(force = false) gr lms : unit Hyps.t =
   let goal = 
     { file = file
+    ; script = script
     ; force = force
     ; graph = gr
     ; lemmas = lms
