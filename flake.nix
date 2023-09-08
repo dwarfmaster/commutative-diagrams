@@ -24,8 +24,12 @@
     });
     coqPackages = pkgs.mkCoqPackages coq;
     unimath = coqPackages.callPackage ./unimath.nix {};
-    pkg-coq = coqPackages.callPackage ./coq {
+    pkg-coq-plugin = ocamlPackages.callPackage ./coq/plugin.nix {
+      inherit coq;
+    };
+    pkg-coq-unimath = coqPackages.callPackage ./coq/unimath.nix {
       inherit unimath;
+      coq-commutative-diagrams-plugin = pkg-coq-plugin;
     };
 
     pkg-engine = pkgs.callPackage ./engine {
@@ -45,9 +49,10 @@
           # ocaml-lsp
           merlin
           ;
+        coqide = coqPackages.coqide;
       };
       # Dependencies
-      inputsFrom = [ pkg-coq ];
+      inputsFrom = [ pkg-coq-plugin pkg-coq-unimath ];
     };
     shell-engine = pkgs.mkShell {
       nativeBuildInputs = [
@@ -93,7 +98,7 @@
       ];
     };
 
-    shell-user = let
+    shell-user = extrasOcaml: extrasNative: let
       ocaml-version = ocamlPackages.ocaml.version;
       mkOcamlPath =
         pkgs.lib.concatMapStringsSep 
@@ -103,16 +108,15 @@
       nativeBuildInputs = [
         self.packages.x86_64-linux.commutative-diagrams-coq
         coq
-        unimath
         coqPackages.coqide
         ocamlPackages.zarith
-      ];
+      ] ++ extrasNative;
       "COMDIAG_ENGINE" = "${self.packages.x86_64-linux.commutative-diagrams-engine}/bin/commutative-diagrams-engine";
-      "OCAMLPATH" = mkOcamlPath [
+      "OCAMLPATH" = mkOcamlPath ([
         self.packages.x86_64-linux.commutative-diagrams-coq
         coq
         ocamlPackages.zarith
-      ];
+      ] ++ extrasOcaml);
       "LD_LIBRARY_PATH" = pkgs.lib.concatStringsSep ":" [
         "${pkgs.xorg.libX11}/lib"
         "${pkgs.xorg.libXcursor}/lib"
@@ -129,10 +133,12 @@
       coq-plugin = shell-coq;
       engine = shell-engine;
       default = shell;
-      user = shell-user;
+      user = shell-user [ self.packages.x86_64-linux.commutative-diagrams-coq-unimath ] [ unimath ];
+      unimath-user = shell-user [] [];
     };
     packages.x86_64-linux = {
-      commutative-diagrams-coq = pkg-coq;
+      commutative-diagrams-coq = pkg-coq-plugin;
+      commutative-diagrams-coq-unimath = pkg-coq-unimath;
       commutative-diagrams-engine = pkg-engine;
       inherit unimath;
       default = pkg-engine;

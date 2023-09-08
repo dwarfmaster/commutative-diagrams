@@ -10,9 +10,17 @@
 
 
 (package
- (name coq-commutative-diagrams)
+ (name coq-commutative-diagrams-plugin)
  (synopsis "A Coq plugin to deal with commutative diagrams")
  (depends
+   (ocaml (>= 4.14))
+   (coq (and (>= 8.16) (< 8.17~)))))
+
+(package
+ (name coq-commutative-diagrams-unimath)
+ (synopsis "A Coq plugin to deal with commutative diagrams - unimath")
+ (depends
+   coq-commutative-diagrams-plugin
    (ocaml (>= 4.14))
    (coq (and (>= 8.16) (< 8.17~)))
    (coq-unimath (= 20230321))))

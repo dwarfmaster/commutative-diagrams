@@ -1,8 +1,8 @@
 
 (coq.theory
   (name CommutativeDiagrams)
-  (package coq-commutative-diagrams)
+  (package coq-commutative-diagrams-unimath)
   (modules Loader)
-  (plugins coq-commutative-diagrams.plugin)
+  (plugins coq-commutative-diagrams-plugin.plugin)
   (theories UniMath)
   (flags -noinit -indices-matter))

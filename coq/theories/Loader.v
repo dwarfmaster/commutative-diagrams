@@ -2,7 +2,7 @@
 From UniMath Require Import Preamble.
 From UniMath Require Import CategoryTheory.Core.Categories.
 From UniMath Require Import CategoryTheory.Core.Functors.
-Declare ML Module "coq-commutative-diagrams.plugin".
+Declare ML Module "coq-commutative-diagrams-plugin.plugin".
 Local Open Scope cat.
 
 Lemma compose_eq (C : precategory) (a b c : C) (m1 m2 : C⟦a,b⟧) (m3 m4 : C⟦b,c⟧)
