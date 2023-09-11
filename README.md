@@ -20,7 +20,47 @@ assumes it contains a path to the interface. Otherwise it looks for a
 
 ## Installation
 
-### With Nix
+### For usage within UniMath
+
+> [!NOTE]
+> Since this plugin is made of maby moving parts in different languages and
+> ecosystem, only the nix installation method is supported for now.
+
+Using [Nix](https://nixos.org/) is the easiest way to quickly try the plugin if
+you have nix installed and [flakes enabled](https://nixos.wiki/wiki/Flakes). Simply run the following command:
+```sh
+nix develop "github:dwarfmaster/commutative-diagrams#unimath-user"
+```
+
+This will drop you in a shell with the right coq version installed, and
+`OCAMLPATH`, `COQPATH` and `COMDIAG_ENGINE` setup the right way.
+
+The, you need to copy the
+[Loader.v](https://github.com/dwarfmaster/commutative-diagrams/blob/main/coq/theories/Loader.v)
+to `UniMath/CategoryTheory/CommutativeDiagrams.v` and add
+`CommutativeDiagrams.v` to the `UniMath/CategoryTheory/.package/files`. You can
+now build UniMath using `make`.
+
+Once this is finished, you can open any file in your UniMath clone, import the
+plugin with:
+```coq
+Require Import UniMath.CategoryTheory.CommutativeDiagrams.
+```
+And use the tactics as described in the [usage section](#usage).
+
+### For usage outside of unimath
+
+> [!WARNING]
+> For some reason this is broken for now.
+
+Once the installation has succeeded, you can use the following to make the
+tactic available in the Coq file you're developping:
+```coq
+From CommutativeDiagrams Require Import Loader.
+```
+
+
+#### With Nix
 
 > [!WARNING]
 > Right now the nix option is only available on linux due to the way I wrote the
@@ -44,7 +84,7 @@ If you want to use other interfaces like proof-general, you can use the
 [direnv](https://direnv.net/) integrationg of Emacs/VScode to have them load the
 flake automatically.
 
-### With Cargo and Opam
+#### With Cargo and Opam
 
 > [!NOTE]
 > If you're not using nix to install this plugin, the installation is a lot
@@ -52,7 +92,7 @@ flake automatically.
 > version, a recent enough dune version, and the right system packages
 > installed.
 
-#### The interface
+##### The interface
 
 The interface is written in rust and packaged using
 [cargo](https://doc.rust-lang.org/cargo/). You can install it using:
@@ -66,7 +106,7 @@ default, it is installed in `$HOME/.cargo/bin`. Wherever it actually ends up,
 the `cargo install` command should warn you of which directory to add to the
 path to be able to run the command.
 
-#### The plugin
+##### The plugin
 
 The plugin is written in OCaml and can be installed using
 [opam](https://opam.ocaml.org).
@@ -101,12 +141,7 @@ eval $(opam env)
 
 ## Usage
 
-To import the plugin, use the following coq command:
-```coq
-From CommutativeDiagrams Require Import Loader.
-```
-
-You can now use the `diagram run` and `diagram edit` tactics.
+The two main tactics are `diagram run` and `diagram edit`.
 
 The `diagram run "file"` tactic tries to read commands from file and execute
 them on the current goal. If it succeeds, the interface is never opened. If it
