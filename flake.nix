@@ -98,7 +98,7 @@
       ];
     };
 
-    shell-user = extrasOcaml: extrasNative: let
+    shell-user = include-unimath: let
       ocaml-version = ocamlPackages.ocaml.version;
       mkOcamlPath =
         pkgs.lib.concatMapStringsSep 
@@ -110,13 +110,19 @@
         coq
         coqPackages.coqide
         ocamlPackages.zarith
-      ] ++ extrasNative;
+      ] 
+      ++ (if include-unimath
+          then [ unimath ]
+          else []);
       "COMDIAG_ENGINE" = "${self.packages.x86_64-linux.commutative-diagrams-engine}/bin/commutative-diagrams-engine";
       "OCAMLPATH" = mkOcamlPath ([
         self.packages.x86_64-linux.commutative-diagrams-coq
         coq
         ocamlPackages.zarith
-      ] ++ extrasOcaml);
+      ]
+      ++ (if include-unimath
+          then [ self.packages.x86_64-linux.commutative-diagrams-coq-unimath ]
+          else [ ]));
       "LD_LIBRARY_PATH" = pkgs.lib.concatStringsSep ":" [
         "${pkgs.xorg.libX11}/lib"
         "${pkgs.xorg.libXcursor}/lib"
@@ -127,14 +133,15 @@
         "${pkgs.vulkan-loader}/lib"
         "${pkgs.vulkan-validation-layers}/lib"
       ];
+      "COMDIAG_LOADER_NAME" = if include-unimath then "CommutativeDiagrams.Loader" else "UniMath.CategoryTheory.CommutativeDiagrams";
     };
   in {
     devShells.x86_64-linux = {
       coq-plugin = shell-coq;
       engine = shell-engine;
       default = shell;
-      user = shell-user [ self.packages.x86_64-linux.commutative-diagrams-coq-unimath ] [ unimath ];
-      unimath-user = shell-user [] [];
+      user = shell-user true;
+      unimath-user = shell-user false;
     };
     packages.x86_64-linux = {
       commutative-diagrams-coq = pkg-coq-plugin;
