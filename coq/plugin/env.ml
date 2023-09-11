@@ -79,6 +79,12 @@ let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string ->
   let plbl = Names.Projection.Repr.label r in
   indP pind && Names.Label.equal plbl (Names.Label.make lbl)
 
+let mk_loader_name name : string =
+  let prefix = match Sys.getenv_opt "COMDIAG_LOADER_NAME" with
+  | Some name -> name
+  | None -> "Loader" in
+  Printf.sprintf "%s.%s" prefix name
+
 (*   ___      _ *)
 (*  / __|__ _| |_ *)
 (* | (__/ _` |  _| *)
@@ -147,7 +153,7 @@ let get_funct_comp = fun _ -> perform_locate g_coq_funct_comp g_coq_funct_comp_n
 let mk_funct_comp = fun _ -> mk_const (get_funct_comp ())
 let g_coq_funct_ctx : Names.Constant.t array ref = ref [| |]
 let g_coq_funct_ctx_names : string array =
-  [| "Loader.funct_ctx" |]
+  [| (mk_loader_name "funct_ctx") |]
 let get_funct_ctx = fun _ -> perform_locate g_coq_funct_ctx g_coq_funct_ctx_names locate_const
 let mk_funct_ctx = fun _ -> mk_const (get_funct_ctx ())
 
@@ -210,7 +216,7 @@ let mk_refl = fun _ -> mk_constr (get_refl ())
 (* Concat *)
 let g_coq_concat : Names.Constant.t array ref = ref [| |]
 let g_coq_concat_names : string array =
-  [| "Loader.concat_eq"
+  [| (mk_loader_name "concat_eq")
   |]
 let get_concat = fun _ -> perform_locate g_coq_concat g_coq_concat_names locate_const
 let is_concat : Names.Constant.t -> bool = is_const g_coq_concat g_coq_concat_names
@@ -224,7 +230,7 @@ let mk_concat = fun _ -> mk_const (get_concat ())
 (* Inversion *)
 let g_coq_inv : Names.Constant.t array ref = ref [| |]
 let g_coq_inv_names : string array =
-  [| "Loader.inv_eq"
+  [| (mk_loader_name "inv_eq")
   |]
 let get_inv = fun _ -> perform_locate g_coq_inv g_coq_inv_names locate_const
 let mk_inv = fun _ -> mk_const (get_inv ())
@@ -237,7 +243,7 @@ let mk_inv = fun _ -> mk_const (get_inv ())
 (* compose_eq *)
 let g_coq_compose_eq : Names.Constant.t array ref = ref [| |]
 let g_coq_compose_eq_names : string array =
-  [| "Loader.compose_eq"
+  [| (mk_loader_name "compose_eq")
   |]
 let get_compose_eq = fun _ -> perform_locate g_coq_compose_eq g_coq_compose_eq_names locate_const
 let mk_compose_eq = fun _ -> mk_const (get_compose_eq ())
@@ -316,13 +322,13 @@ let mk_mphT = fun _ -> mk_const (get_mphT ())
 (* ap  *)
 let g_coq_lap : Names.Constant.t array ref = ref [| |]
 let g_coq_lap_names : string array =
-  [| "Loader.r_ap"
+  [| (mk_loader_name "r_ap")
   |]
 let get_lap = fun _ -> perform_locate g_coq_lap g_coq_lap_names locate_const
 let mk_lap = fun _ -> mk_const (get_lap ())
 let g_coq_rap : Names.Constant.t array ref = ref [| |]
 let g_coq_rap_names : string array =
-  [| "Loader.l_ap"
+  [| (mk_loader_name "l_ap")
   |]
 let get_rap = fun _ -> perform_locate g_coq_rap g_coq_rap_names locate_const
 let mk_rap = fun _ -> mk_const (get_rap ())
