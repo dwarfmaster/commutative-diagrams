@@ -1,4 +1,4 @@
-use commutative_diagrams_engine_lib::{remote,ui,vm};
+use commutative_diagrams_engine_lib::{remote, ui, vm};
 
 use remote::Remote;
 use ui::ActionResult;
@@ -24,6 +24,17 @@ enum State {
 #[derive(Resource)]
 struct AppConfig {
     state: State,
+}
+#[derive(Resource)]
+struct VMHolder {
+    vm: VM,
+}
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, States)]
+enum RunState {
+    Success,
+    Failure,
+    #[default]
+    Running,
 }
 
 fn init_vm_code_from_file(vm: &mut VM, path: &str, edit: bool) -> bool {
@@ -93,33 +104,24 @@ fn goal_graph(client: RPC, state: State, edit: bool) {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
         .add_plugins(EguiPlugin)
-        .add_state::<vm::EndStatus>()
-        .insert_resource(vm)
+        .add_state::<RunState>()
+        .insert_resource(VMHolder { vm })
         .insert_resource(AppConfig { state })
-        .add_systems(
-            Update,
-            goal_ui_system.run_if(in_state(vm::EndStatus::Running)),
-        )
-        .add_systems(
-            Update,
-            success_system.run_if(in_state(vm::EndStatus::Success)),
-        )
-        .add_systems(
-            Update,
-            failure_system.run_if(in_state(vm::EndStatus::Failure)),
-        );
+        .add_systems(Update, goal_ui_system.run_if(in_state(RunState::Running)))
+        .add_systems(Update, success_system.run_if(in_state(RunState::Success)))
+        .add_systems(Update, failure_system.run_if(in_state(RunState::Failure)));
     app.run();
 }
 
 fn goal_ui_system(
     mut egui_context: EguiContexts,
     mut settings: ResMut<EguiSettings>,
-    mut vm: ResMut<VM>,
-    mut state: ResMut<NextState<vm::EndStatus>>,
+    mut vm: ResMut<VMHolder>,
+    mut state: ResMut<NextState<RunState>>,
 ) {
     // Do one layout step
     {
-        let vm = vm.as_mut();
+        let vm = &mut vm.as_mut().vm;
         let fixed = |id| vm.dragged_object == Some(id) || vm.graph.pinned(id);
         vm.layout.apply_forces(&vm.config, &vm.graph, &fixed);
         vm.layout.update(&vm.config);
@@ -161,33 +163,33 @@ fn goal_ui_system(
         }
     }
 
-    ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut());
-    ui::code(egui_context.ctx_mut(), &mut vm.as_mut());
-    if let Some((last, mut interactive)) = vm.current_action.take() {
-        let r = interactive.display(&mut vm, egui_context.ctx_mut());
-        vm.current_action = Some((last, interactive));
+    ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut().vm);
+    ui::code(egui_context.ctx_mut(), &mut vm.as_mut().vm);
+    if let Some((last, mut interactive)) = vm.vm.current_action.take() {
+        let r = interactive.display(&mut vm.vm, egui_context.ctx_mut());
+        vm.vm.current_action = Some((last, interactive));
         if r == ActionResult::Stop {
-            vm.stop_interactive();
+            vm.vm.stop_interactive();
         } else if r == ActionResult::Commit {
-            vm.commit_interactive();
+            vm.vm.commit_interactive();
         }
     }
     egui::SidePanel::left("Lemmas").show(egui_context.ctx_mut(), |ui| {
-        ui::lemmas_menu(ui, vm.as_mut())
+        ui::lemmas_menu(ui, &mut vm.as_mut().vm)
     });
 
     egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
-        ui::toolbar(ui, &mut vm.as_mut());
-        ui.add(ui::graph_vm(&mut vm.as_mut()))
+        ui::toolbar(ui, &mut vm.as_mut().vm);
+        ui.add(ui::graph_vm(&mut vm.as_mut().vm))
     });
 
-    match vm.end_status {
-        vm::EndStatus::Success => state.set(vm::EndStatus::Success),
-        vm::EndStatus::Failure => state.set(vm::EndStatus::Failure),
+    match vm.vm.end_status {
+        vm::EndStatus::Success => state.set(RunState::Success),
+        vm::EndStatus::Failure => state.set(RunState::Failure),
         _ => (),
     }
 
-    if let Some(ppp) = vm.ppp {
+    if let Some(ppp) = vm.vm.ppp {
         settings.scale_factor = ppp as f64;
     }
 }
@@ -220,11 +222,11 @@ fn on_failure(client: &mut RPC) {
     });
 }
 
-fn failure_system(mut exit: EventWriter<AppExit>, mut vm: ResMut<VM>, cfg: Res<AppConfig>) {
-    on_failure(&mut vm.as_mut().ctx.remote);
+fn failure_system(mut exit: EventWriter<AppExit>, mut vm: ResMut<VMHolder>, cfg: Res<AppConfig>) {
+    on_failure(&mut vm.as_mut().vm.ctx.remote);
     match &cfg.state {
         State::File(path) => {
-            save_code_on_exit(path, vm.as_ref());
+            save_code_on_exit(path, &vm.as_ref().vm);
         }
         State::Script(_) => (),
         State::None => (),
@@ -243,23 +245,23 @@ fn on_success(client: &mut RPC) {
 fn success_system(
     mut egui_context: EguiContexts,
     mut exit: EventWriter<AppExit>,
-    mut vm: ResMut<VM>,
+    mut vm: ResMut<VMHolder>,
     cfg: Res<AppConfig>,
 ) {
     match &cfg.state {
         State::File(path) => {
-            save_code_on_exit(path, vm.as_ref());
-            on_success(&mut vm.as_mut().ctx.remote);
+            save_code_on_exit(path, &vm.as_ref().vm);
+            on_success(&mut vm.as_mut().vm.ctx.remote);
             exit.send(AppExit)
         }
         State::Script(_) => {
-            if ui::exit(egui_context.ctx_mut(), vm.as_mut()) {
-                on_success(&mut vm.as_mut().ctx.remote);
+            if ui::exit(egui_context.ctx_mut(), &mut vm.as_mut().vm) {
+                on_success(&mut vm.as_mut().vm.ctx.remote);
                 exit.send(AppExit)
             }
         }
         State::None => {
-            on_success(&mut vm.as_mut().ctx.remote);
+            on_success(&mut vm.as_mut().vm.ctx.remote);
             exit.send(AppExit);
         }
     }

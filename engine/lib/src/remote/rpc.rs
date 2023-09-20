@@ -1,4 +1,3 @@
-use bevy::ecs::system::Resource;
 use core::marker::PhantomData;
 use rmp_serde::decode::{Deserializer, ReadReader};
 use rmp_serde::{decode, encode};
@@ -8,7 +7,6 @@ use serde::ser::{SerializeTuple, Serializer};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Resource)]
 pub struct RPC<In, Out>
 where
     In: std::io::Read,

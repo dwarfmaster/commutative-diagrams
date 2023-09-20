@@ -9,13 +9,11 @@ use crate::vm::layout::LayoutEngine;
 use crate::vm::lemmas::{Lemma, LemmaTree};
 use crate::vm::parser;
 use crate::vm::store::Context;
-use bevy::ecs::schedule::States;
-use bevy::ecs::system::Resource;
 use core::ops::Range;
 use egui::Vec2;
 use std::collections::HashMap;
 
-#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq, Default, States)]
+#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq, Default)]
 pub enum EndStatus {
     Success,
     Failure,
@@ -48,7 +46,6 @@ impl Interactive for () {
     fn terminate(self) {}
 }
 
-#[derive(Resource)]
 pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     // State
     pub ctx: Context<Rm>,

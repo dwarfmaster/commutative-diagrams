@@ -1294,14 +1294,8 @@ dependencies = [
  "clap",
  "commutative-diagrams-engine-lib",
  "egui",
- "itertools",
  "log",
  "log-panics",
- "nom",
- "rmp",
- "rmp-serde",
- "serde",
- "serde_json",
  "simplelog",
 ]
 
@@ -1309,19 +1303,14 @@ dependencies = [
 name = "commutative-diagrams-engine-lib"
 version = "0.1.0"
 dependencies = [
- "bevy",
- "bevy_egui",
- "clap",
  "egui",
  "itertools",
  "log",
- "log-panics",
  "nom",
  "rmp",
  "rmp-serde",
  "serde",
  "serde_json",
- "simplelog",
 ]
 
 [[package]]
