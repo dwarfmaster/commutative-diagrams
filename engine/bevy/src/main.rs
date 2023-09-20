@@ -1,12 +1,4 @@
-pub mod autofill;
-pub mod data;
-pub mod graph;
-pub mod lemmas;
-pub mod normalizer;
-pub mod realizer;
-pub mod remote;
-pub mod ui;
-pub mod vm;
+use commutative_diagrams_engine_lib::{remote,ui,vm};
 
 use remote::Remote;
 use ui::ActionResult;

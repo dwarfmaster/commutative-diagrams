@@ -21,3 +21,6 @@ egui = "0.22"
 bevy = "0.11"
 bevy_egui = "0.21.0"
 nom = "7.1.3"
+
+[dependencies.commutative-diagrams-engine-lib]
+path = "../lib"

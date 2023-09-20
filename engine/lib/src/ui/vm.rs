@@ -1,8 +1,8 @@
 use super::graph::graph::Action;
-use crate::egui::{Context, Ui};
 use crate::graph::GraphId;
 use crate::remote::Remote;
 use crate::vm;
+use egui::{Context, Ui};
 
 pub mod apply;
 pub mod insert;

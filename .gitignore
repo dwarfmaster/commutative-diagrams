@@ -3,7 +3,9 @@ coq/**/_build
 CoqMakefile.conf
 Makefile.coq*
 coq/theories/test
-engine/target
+engine/lib/target
+engine/bevy/target
+engine/web/target
 **/.envrc
 **/*.mp
 
