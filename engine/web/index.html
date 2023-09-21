@@ -3,12 +3,29 @@
   <head>
     <meta charset="utf-8" />
     <title>hello-wasm example</title>
+<style>
+html {
+  touch-action: manipulation;
+}
+
+html, body {
+  overflow: hidden;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 100%;
+  width: 100%;
+}
+</style>
   </head>
   <body>
+    <canvas id="cd-engine">
+      Empty canvas
+    </canvas>
     <script type="module">
-      import init, { greet } from "./pkg/commutative_diagrams_engine_wasm.js";
+      import init, { WebHandle } from "./pkg/commutative_diagrams_engine_wasm.js";
       init().then(() => {
-        greet("WebAssembly");
+        var handle = new WebHandle();
+        handle.start("cd-engine");
       });
     </script>
   </body>
