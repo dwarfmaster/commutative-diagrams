@@ -2,7 +2,7 @@ use super::super::config::Config;
 use super::precompute::GraphStructure;
 use crate::vm::Graph;
 use egui::{Pos2, Rect, Vec2};
-use std::time::Instant;
+use chrono::prelude::{DateTime,Utc};
 
 #[derive(Clone, Debug, Default)]
 pub struct Particle {
@@ -35,7 +35,7 @@ pub struct LayoutEngine {
     // Config
     pub ideal_distance: f32,
     // Time in second elapsed since the start
-    time: Instant,
+    time: DateTime<Utc>,
     time_elapsed: f32,
     // Additional information about the graph
     pub structure: GraphStructure,
@@ -53,7 +53,7 @@ impl LayoutEngine {
             particles: Vec::new(),
             components: Vec::new(),
             ideal_distance: 200.0f32,
-            time: Instant::now(),
+            time: Utc::now(),
             time_elapsed: 0f32,
             structure: GraphStructure::new(),
         }
@@ -108,10 +108,11 @@ impl LayoutEngine {
     // Update position and speed according to forces and the time since last
     // round. Also clear forces.
     pub fn update(&mut self, cfg: &Config) {
-        let elapsed = self.time.elapsed().as_secs_f32();
+        let new_time = Utc::now();
+        let elapsed = (new_time - self.time).to_std().unwrap().as_secs_f32();
         self.time_elapsed += elapsed;
         let t = cfg.layout.speed * 10.0f32 * elapsed;
-        self.time = Instant::now();
+        self.time = new_time;
         self.step(t);
     }
 

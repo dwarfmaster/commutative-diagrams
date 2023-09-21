@@ -3,7 +3,7 @@ use crate::ui::VM;
 use crate::vm;
 use itertools::Itertools;
 
-pub fn code<Rm: Remote + Sync + Send>(ctx: &mut egui::Context, vm: &mut VM<Rm>) {
+pub fn code<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<Rm>) {
     if vm.code_window_open {
         let mut open = vm.code_window_open;
         egui::Window::new("Script")
