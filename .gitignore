@@ -6,6 +6,7 @@ coq/theories/test
 engine/lib/target
 engine/bevy/target
 engine/web/target
+engine/web/pkg
 **/.envrc
 **/*.mp
 

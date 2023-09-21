@@ -58,6 +58,7 @@
       nativeBuildInputs = [
         (pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-analyzer" "rust-src" ];
+          targets = [ "wasm32-unknown-unknown" ];
         })
         pkgs.fontconfig.dev
         pkgs.freetype.dev
@@ -71,6 +72,13 @@
         pkgs.vulkan-headers
         pkgs.vulkan-loader
         pkgs.vulkan-validation-layers
+        pkgs.openssl
+      ];
+
+      packages = [
+        pkgs.wasm-pack
+        pkgs.pkg-config
+        pkgs.simple-http-server
       ];
     };
     shell = pkgs.mkShell {
