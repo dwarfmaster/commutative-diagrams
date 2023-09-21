@@ -1,8 +1,8 @@
 use super::super::config::Config;
 use super::precompute::GraphStructure;
 use crate::vm::Graph;
+use chrono::prelude::{DateTime, Utc};
 use egui::{Pos2, Rect, Vec2};
-use chrono::prelude::{DateTime,Utc};
 
 #[derive(Clone, Debug, Default)]
 pub struct Particle {

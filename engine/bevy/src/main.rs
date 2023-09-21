@@ -1,7 +1,6 @@
 use commutative_diagrams_engine_lib::{remote, ui, vm};
 
 use remote::Remote;
-use ui::ActionResult;
 
 use std::fs::File;
 use std::io::{Read, Write};
@@ -10,7 +9,7 @@ use clap::{Parser, Subcommand};
 
 use bevy::app::AppExit;
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiSettings};
+use bevy_egui::{EguiContexts, EguiPlugin, EguiSettings};
 
 type RPC = remote::RPC<std::io::Stdin, std::io::Stdout>;
 type VM = ui::VM<RPC>;
@@ -119,70 +118,7 @@ fn goal_ui_system(
     mut vm: ResMut<VMHolder>,
     mut state: ResMut<NextState<RunState>>,
 ) {
-    // Do one layout step
-    {
-        let vm = &mut vm.as_mut().vm;
-        let fixed = |id| vm.dragged_object == Some(id) || vm.graph.pinned(id);
-        vm.layout.apply_forces(&vm.config, &vm.graph, &fixed);
-        vm.layout.update(&vm.config);
-
-        if let Some(lem) = vm.selected_lemma {
-            if vm.lemmas[lem].pattern.is_some() {
-                let dragged = vm.lemmas[lem].graphical_state.dragged;
-                let lem = &mut vm.lemmas[lem];
-                let fixed = |id| dragged == Some(id) || lem.pattern.as_ref().unwrap().pinned(id);
-                lem.graphical_state.layout.apply_forces(
-                    &vm.config,
-                    lem.pattern.as_ref().unwrap(),
-                    &fixed,
-                );
-                lem.graphical_state.layout.update(&vm.config);
-            }
-        }
-        {
-            use crate::ui::InteractiveAction::*;
-            match &vm.current_action {
-                Some((_, LemmaApplication(state))) => {
-                    if vm.selected_lemma != Some(state.lemma) {
-                        let fixed = |id| state.dragged == Some(id) || state.graph.pinned(id);
-                        vm.lemmas[state.lemma].graphical_state.layout.apply_forces(
-                            &vm.config,
-                            &state.graph,
-                            &fixed,
-                        );
-                        vm.lemmas[state.lemma]
-                            .graphical_state
-                            .layout
-                            .update(&vm.config);
-                    }
-                }
-                Some((_, Merge(..))) => (),
-                Some((_, Insert(..))) => (),
-                None => (),
-            }
-        }
-    }
-
-    ui::lemmas_window(egui_context.ctx_mut(), &mut vm.as_mut().vm);
-    ui::code(egui_context.ctx_mut(), &mut vm.as_mut().vm);
-    if let Some((last, mut interactive)) = vm.vm.current_action.take() {
-        let r = interactive.display(&mut vm.vm, egui_context.ctx_mut());
-        vm.vm.current_action = Some((last, interactive));
-        if r == ActionResult::Stop {
-            vm.vm.stop_interactive();
-        } else if r == ActionResult::Commit {
-            vm.vm.commit_interactive();
-        }
-    }
-    egui::SidePanel::left("Lemmas").show(egui_context.ctx_mut(), |ui| {
-        ui::lemmas_menu(ui, &mut vm.as_mut().vm)
-    });
-
-    egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
-        ui::toolbar(ui, &mut vm.as_mut().vm);
-        ui.add(ui::graph_vm(&mut vm.as_mut().vm))
-    });
-
+    ui::main(egui_context.ctx_mut(), &mut vm.as_mut().vm);
     match vm.vm.end_status {
         vm::EndStatus::Success => state.set(RunState::Success),
         vm::EndStatus::Failure => state.set(RunState::Failure),

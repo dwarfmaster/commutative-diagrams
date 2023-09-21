@@ -1,6 +1,7 @@
+use super::graph::graph_lemma;
+use super::vm::InteractiveAction;
 use crate::remote::Remote;
-use crate::ui::vm::InteractiveAction;
-use crate::ui::{graph_lemma, VM};
+use crate::ui::VM;
 use crate::vm::{Lemma, LemmaTree};
 
 pub fn lemmas_window<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<Rm>) {

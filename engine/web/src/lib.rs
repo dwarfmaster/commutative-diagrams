@@ -1,9 +1,7 @@
-use commutative_diagrams_engine_lib::{remote, ui, data, graph};
-use eframe::egui;
+use commutative_diagrams_engine_lib::{data, graph, remote, ui};
 use eframe::WebRunner;
-use ui::ActionResult;
-use wasm_bindgen::prelude::*;
 use std::time::Duration;
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 extern "C" {
@@ -145,36 +143,13 @@ impl EguiApp {
             faces: vec![face],
         };
         ctx.set_graph(gr);
-        Self {
-            vm: VM::start(ctx),
-        }
+        Self { vm: VM::start(ctx) }
     }
 }
 
 impl eframe::App for EguiApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
-        let fixed = |id| self.vm.dragged_object == Some(id) || self.vm.graph.pinned(id);
-        self.vm.layout.apply_forces(&self.vm.config, &self.vm.graph, &fixed);
-        self.vm.layout.update(&self.vm.config);
-
-        ui::lemmas_window(ctx, &mut self.vm);
-        ui::code(ctx, &mut self.vm);
-        if let Some((last, mut interactive)) = self.vm.current_action.take() {
-            let r = interactive.display(&mut self.vm, ctx);
-            self.vm.current_action = Some((last, interactive));
-            if r == ActionResult::Stop {
-                self.vm.stop_interactive();
-            } else if r == ActionResult::Commit {
-                self.vm.commit_interactive();
-            }
-        }
-        egui::SidePanel::left("Lemmas").show(ctx, |ui| ui::lemmas_menu(ui, &mut self.vm));
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui::toolbar(ui, &mut self.vm);
-            ui.add(ui::graph_vm(&mut self.vm))
-        });
-
+        ui::main(ctx, &mut self.vm);
         ctx.request_repaint_after(Duration::from_millis(33));
     }
 }
