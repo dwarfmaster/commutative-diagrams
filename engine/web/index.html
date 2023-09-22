@@ -18,14 +18,14 @@ html, body {
 </style>
   </head>
   <body>
-    <canvas id="cd-engine">
+    <canvas id="commdiag-engine">
       Empty canvas
     </canvas>
     <script type="module">
-      import init, { WebHandle } from "./pkg/commutative_diagrams_engine_wasm.js";
+      import init, { WebHandle } from "/scripts/pkg/commutative_diagrams_engine_wasm.js";
       init().then(() => {
         var handle = new WebHandle();
-        handle.start("cd-engine");
+        handle.start("commdiag-engine");
       });
     </script>
   </body>

@@ -78,7 +78,6 @@
       packages = [
         pkgs.wasm-pack
         pkgs.pkg-config
-        pkgs.simple-http-server
       ];
     };
     shell = pkgs.mkShell {

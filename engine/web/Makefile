@@ -3,5 +3,5 @@ all:
 	wasm-pack build --target web
 
 serve:
-	simple-http-server
+	../server/target/debug/commutative-diagrams-engine-server
 
