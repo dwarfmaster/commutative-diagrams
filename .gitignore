@@ -7,6 +7,7 @@ engine/lib/target
 engine/bevy/target
 engine/web/target
 engine/web/pkg
+engine/server/target
 **/.envrc
 **/*.mp
 
