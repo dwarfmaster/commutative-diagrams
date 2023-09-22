@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <title>hello-wasm example</title>
+    <script type="module" src="/scripts/commdiag.js"></script>
 <style>
 html {
   touch-action: manipulation;
@@ -18,15 +19,8 @@ html, body {
 </style>
   </head>
   <body>
-    <canvas id="commdiag-engine">
+    <canvas id="commdiag-engine" class="commdiag">
       Empty canvas
     </canvas>
-    <script type="module">
-      import init, { WebHandle } from "/scripts/pkg/commutative_diagrams_engine_wasm.js";
-      init().then(() => {
-        var handle = new WebHandle();
-        handle.start("commdiag-engine");
-      });
-    </script>
   </body>
 </html>
