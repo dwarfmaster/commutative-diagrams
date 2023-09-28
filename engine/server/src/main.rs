@@ -52,36 +52,34 @@ pub async fn client_connection(args: Args, ws: warp::ws::WebSocket, id: String) 
     let mut vfile_path = std::path::Path::new(&args.vfiles).to_path_buf();
     vfile_path.push(std::path::Path::new(&format!("{}.v", id)));
 
-    // Bind the unix stream to the websocket stream
-    let unix = tokio::net::UnixStream::connect(socket_path.clone())
-        .and_then(|unix_socket| {
-            let (unix_sink, unix_stream) = tokio_util::codec::length_delimited::Builder::new()
-                .native_endian()
-                .new_framed(unix_socket)
-                .map_err(ConnectionError::IO)
-                .sink_map_err(ConnectionError::IO)
-                .split();
-            let (ws_sink, ws_stream) = ws
-                .map(|msg| msg.map(|data| Bytes::copy_from_slice(data.as_bytes())))
-                .with(|data: tokio_util::bytes::BytesMut| -> _ {
-                    async move {
-                        let r: Result<warp::ws::Message, warp::Error> =
-                            Ok(warp::ws::Message::binary(&*data));
-                        r
-                    }
-                })
-                .map_err(ConnectionError::WARP)
-                .sink_map_err(ConnectionError::WARP)
-                .split();
-            let ws_to_unix = ws_stream.forward(unix_sink).map(std::mem::drop);
-            let unix_to_ws = unix_stream.forward(ws_sink).map(std::mem::drop);
-            future::join(ws_to_unix, unix_to_ws).map(|_| -> Result<(), _> { Ok(()) })
-        })
-        .unwrap_or_else(|err| {
-            log::debug!("Error on connection for {}: {:?}", id, err);
-        });
+    // First create the unix socket
+    let listener = tokio::net::UnixListener::bind(socket_path.clone()).unwrap();
+    let unix = listener.accept().and_then(|(unix_socket, _)| {
+        // Bind the unix stream to the websocket stream
+        let (unix_sink, unix_stream) = tokio_util::codec::length_delimited::Builder::new()
+            .native_endian()
+            .new_framed(unix_socket)
+            .map_err(ConnectionError::IO)
+            .sink_map_err(ConnectionError::IO)
+            .split();
+        let (ws_sink, ws_stream) = ws
+            .map(|msg| msg.map(|data| Bytes::copy_from_slice(data.as_bytes())))
+            .with(|data: tokio_util::bytes::BytesMut| -> _ {
+                async move {
+                    let r: Result<warp::ws::Message, warp::Error> =
+                        Ok(warp::ws::Message::binary(&*data));
+                    r
+                }
+            })
+            .map_err(ConnectionError::WARP)
+            .sink_map_err(ConnectionError::WARP)
+            .split();
+        let ws_to_unix = ws_stream.forward(unix_sink).map(std::mem::drop);
+        let unix_to_ws = unix_stream.forward(ws_sink).map(std::mem::drop);
+        future::join(ws_to_unix, unix_to_ws).map(|_| -> Result<(), _> { Ok(()) })
+    });
 
-    // Spawn coq
+    // At the same time, spawn coq
     let mut cmd = Command::new("coqc")
         .arg("-R")
         .arg(args.vfiles)
@@ -94,6 +92,12 @@ pub async fn client_connection(args: Args, ws: warp::ws::WebSocket, id: String) 
         .env("COMDIAG_SOCKET", socket_path)
         .spawn()
         .expect("Couldn't spawn coqc");
+    let cmd_fut = cmd.wait().and_then(move |_| async move {
+        // Drop the temp_dir only after coq has finished
+        let tmpdir = temp_dir;
+        std::mem::drop(tmpdir);
+        Ok(())
+    });
 
-    future::join(unix, cmd.wait().map(|_| ())).map(|_| ()).await
+    future::join(unix, cmd_fut).map(|_| ()).await
 }
