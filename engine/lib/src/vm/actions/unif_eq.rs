@@ -8,10 +8,7 @@ use crate::vm::Context;
 // Check if the equality is simple, and furthermore checks if the internal object
 // is an evar. Otherwise returns None. Returns Ok if the evar is directly used and
 // Err if it is inversed.
-fn eq_is_evar<Rm: Remote + Sync + Send>(
-    ctx: &mut Context<Rm>,
-    eq: &Eq,
-) -> Option<Result<u64, u64>> {
+fn eq_is_evar<Rm: Remote>(ctx: &mut Context<Rm>, eq: &Eq) -> Option<Result<u64, u64>> {
     if let Some(e) = eq.is_simple() {
         match e {
             Ok(a) => {
@@ -29,7 +26,7 @@ fn eq_is_evar<Rm: Remote + Sync + Send>(
     None
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn unify_eq(&mut self, cat: u64, eq1: &Eq, eq2: &Eq) -> bool {
         let (atomic, eq) = if let Some(e) = eq_is_evar(&mut self.ctx, eq1) {
             match e {

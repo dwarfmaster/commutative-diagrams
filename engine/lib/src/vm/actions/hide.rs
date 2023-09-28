@@ -40,7 +40,7 @@ fn hidden_upd<T: HasHidden + Clone>(val: &T, new: bool) -> asm::Updater<T> {
     }
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     fn hide_node(&mut self, id: usize) {
         if self.graph.nodes[id].2.hidden {
             return;

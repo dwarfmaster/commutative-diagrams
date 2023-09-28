@@ -8,7 +8,7 @@ use crate::vm::{FaceLabel, FaceStatus, Interactive, VM};
 
 type Ins = asm::Instruction;
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     /// Look over graph nodes, if obj is already present returns its index,
     /// otherwise insert it and return the index of the nely inserted node.
     pub fn insert_node(&mut self, obj: u64, cat: u64) -> usize {

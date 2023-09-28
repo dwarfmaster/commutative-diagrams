@@ -69,7 +69,7 @@ impl Lemma {
         }
     }
 
-    pub fn name<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>) {
+    pub fn name<Rm: Remote>(&mut self, ctx: &mut Context<Rm>) {
         if let Some(pattern) = &mut self.pattern {
             for nd in 0..pattern.nodes.len() {
                 pattern.nodes[nd].2.name =
@@ -120,7 +120,7 @@ impl Lemma {
         }
     }
 
-    pub fn get_pattern<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>, cfg: &Config) {
+    pub fn get_pattern<Rm: Remote>(&mut self, ctx: &mut Context<Rm>, cfg: &Config) {
         if self.pattern.is_some() {
             return;
         }
@@ -141,7 +141,7 @@ impl Lemma {
         ctx.unset_lem_context();
     }
 
-    pub fn instantiate<Rm: Remote + Sync + Send>(
+    pub fn instantiate<Rm: Remote>(
         &mut self,
         ctx: &mut Context<Rm>,
         cfg: &Config,

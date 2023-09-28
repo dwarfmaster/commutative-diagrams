@@ -5,7 +5,7 @@ use super::toolbar::toolbar;
 use super::{ActionResult, VM};
 use crate::remote::Remote;
 
-pub fn main<RPC: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<RPC>) {
+pub fn main<RPC: Remote>(ctx: &egui::Context, vm: &mut VM<RPC>) {
     // Do one layout step
     {
         let fixed = |id| vm.dragged_object == Some(id) || vm.graph.pinned(id);

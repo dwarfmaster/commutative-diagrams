@@ -30,7 +30,7 @@ fn range_for_angles(
     }
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Given two parallel pathes delimiting a face, decompose it along its
     // planar faces using the layout. If the layout is not planar, results may
     // be unexpected, but not false. If the layout is planar but the orientation

@@ -1,7 +1,7 @@
 use crate::remote::Remote;
 use crate::vm::{Interactive, VM};
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn relabel(&mut self) {
         for id in 0..self.graph.nodes.len() {
             let (nd, _, lbl) = &mut self.graph.nodes[id];

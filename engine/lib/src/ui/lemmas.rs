@@ -4,7 +4,7 @@ use crate::remote::Remote;
 use crate::ui::VM;
 use crate::vm::{Lemma, LemmaTree};
 
-pub fn lemmas_window<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<Rm>) {
+pub fn lemmas_window<Rm: Remote>(ctx: &egui::Context, vm: &mut VM<Rm>) {
     if let Some(lem) = vm.selected_lemma {
         let mut open = true;
         let mut should_close = false;
@@ -27,7 +27,7 @@ pub fn lemmas_window<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<
     }
 }
 
-pub fn lemmas_menu<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
+pub fn lemmas_menu<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
     egui::ScrollArea::vertical().show(ui, |ui| {
         let mut selected = None;
         display_lemma_tree(

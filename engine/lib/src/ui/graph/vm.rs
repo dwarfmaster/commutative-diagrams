@@ -9,7 +9,7 @@ use egui::{Rect, Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
 type CMR = crate::ui::vm::ContextMenuResult;
 
-impl<Rm: Remote + Sync + Send> UiGraph for VM<Rm> {
+impl<Rm: Remote> UiGraph for VM<Rm> {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
         F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId) -> Rect,

@@ -35,18 +35,18 @@ pub enum CodeStyle {
     None,
 }
 
-pub trait Interactive: Sync + Send + Sized {
-    fn compile<R: Remote + Sync + Send>(self, vm: &VM<R, Self>) -> String;
+pub trait Interactive: Sized {
+    fn compile<R: Remote>(self, vm: &VM<R, Self>) -> String;
     fn terminate(self);
 }
 impl Interactive for () {
-    fn compile<R: Remote + Sync + Send>(self, _: &VM<R, ()>) -> String {
+    fn compile<R: Remote>(self, _: &VM<R, ()>) -> String {
         "".to_string()
     }
     fn terminate(self) {}
 }
 
-pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
+pub struct VM<Rm: Remote, I: Interactive> {
     // State
     pub ctx: Context<Rm>,
     pub graph: Graph,
@@ -100,7 +100,7 @@ pub struct VM<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> {
     pub ppp: Option<f32>,
 }
 
-impl<R: Remote + Sync + Send, I: Interactive + Sync + Send> VM<R, I> {
+impl<R: Remote, I: Interactive> VM<R, I> {
     pub fn start(remote: R) -> Self {
         log::info!("Starting VM");
         let mut ctx = Context::new(remote);

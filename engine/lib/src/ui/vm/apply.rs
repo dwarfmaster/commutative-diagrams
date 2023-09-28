@@ -40,13 +40,13 @@ pub struct LemmaApplicationState {
     pub dragged: Option<GraphId>,
 }
 
-struct DisplayState<'a, Rm: Remote + Sync + Send> {
+struct DisplayState<'a, Rm: Remote> {
     apply: &'a mut LemmaApplicationState,
     vm: &'a mut VM<Rm>,
 }
 
 impl LemmaApplicationState {
-    pub fn new<Rm: Remote + Sync + Send>(vm: &mut VM<Rm>, lemma: usize) -> Self {
+    pub fn new<Rm: Remote>(vm: &mut VM<Rm>, lemma: usize) -> Self {
         let graph = vm.lemmas[lemma].instantiate(&mut vm.ctx, &vm.config, false);
         let mut r = Self {
             lemma,
@@ -81,7 +81,7 @@ impl LemmaApplicationState {
         }
     }
 
-    pub fn compile<Rm: Remote + Sync + Send>(self, vm: &VM<Rm>) -> String {
+    pub fn compile<Rm: Remote>(self, vm: &VM<Rm>) -> String {
         let mut name = String::new();
         for nms in &vm.lemmas[self.lemma].namespace {
             name.push_str(nms);
@@ -99,11 +99,7 @@ impl LemmaApplicationState {
         cmd
     }
 
-    pub fn display<Rm: Remote + Sync + Send>(
-        &mut self,
-        vm: &mut VM<Rm>,
-        ui: &egui::Context,
-    ) -> ActionResult {
+    pub fn display<Rm: Remote>(&mut self, vm: &mut VM<Rm>, ui: &egui::Context) -> ActionResult {
         // Display error message in window
         if let Some(errmsg) = &mut self.error_msg {
             let mut open = true;
@@ -165,12 +161,7 @@ impl LemmaApplicationState {
         }
     }
 
-    pub fn context_menu<Rm: Remote + Sync + Send>(
-        &mut self,
-        vm: &mut VM<Rm>,
-        on: GraphId,
-        ui: &mut Ui,
-    ) -> CMR {
+    pub fn context_menu<Rm: Remote>(&mut self, vm: &mut VM<Rm>, on: GraphId, ui: &mut Ui) -> CMR {
         if let Some(AppId::Lemma(id)) = &self.selected {
             if id.same_nature(&on) {
                 if ui.button("Match").clicked() {
@@ -185,12 +176,7 @@ impl LemmaApplicationState {
         CMR::Nothing
     }
 
-    pub fn action<Rm: Remote + Sync + Send>(
-        &mut self,
-        vm: &mut VM<Rm>,
-        act: Action,
-        _ui: &mut Ui,
-    ) -> bool {
+    pub fn action<Rm: Remote>(&mut self, vm: &mut VM<Rm>, act: Action, _ui: &mut Ui) -> bool {
         match act {
             Action::Click(id) => {
                 if let Some(AppId::Lemma(GraphId::Face(prev))) = self.selected {
@@ -207,7 +193,7 @@ impl LemmaApplicationState {
         }
     }
 
-    pub fn modifier<Rm: Remote + Sync + Send>(&self, _vm: &VM<Rm>, on: GraphId) -> Mod {
+    pub fn modifier<Rm: Remote>(&self, _vm: &VM<Rm>, on: GraphId) -> Mod {
         Mod {
             active: self.reverse_mapping.contains_key(&on),
             selected: self.selected == Some(AppId::Goal(on)),
@@ -223,15 +209,15 @@ impl LemmaApplicationState {
         }
     }
 
-    fn show_face<Rm: Remote + Sync + Send>(&mut self, fce: usize) {
+    fn show_face<Rm: Remote>(&mut self, fce: usize) {
         VM::<Rm>::show_face_impl(&mut self.graph, fce);
     }
 
-    fn unshow_face<Rm: Remote + Sync + Send>(&mut self, fce: usize) {
+    fn unshow_face<Rm: Remote>(&mut self, fce: usize) {
         VM::<Rm>::unshow_face_impl(&mut self.graph, fce);
     }
 
-    fn relabel<Rm: Remote + Sync + Send>(&mut self, ctx: &mut Context<Rm>) {
+    fn relabel<Rm: Remote>(&mut self, ctx: &mut Context<Rm>) {
         for nd in 0..self.graph.nodes.len() {
             self.graph.nodes[nd].2.label = ctx.get_stored_label(self.graph.nodes[nd].0);
         }
@@ -246,7 +232,7 @@ impl LemmaApplicationState {
         }
     }
 
-    fn do_match<Rm: Remote + Sync + Send>(&mut self, vm: &mut VM<Rm>, lem: GraphId, goal: GraphId) {
+    fn do_match<Rm: Remote>(&mut self, vm: &mut VM<Rm>, lem: GraphId, goal: GraphId) {
         // Complete matching
         let mut matching = Vec::new();
         let r = vm.lemma_complete_matching(&self.graph, lem, goal, &mut matching);
@@ -275,7 +261,7 @@ impl LemmaApplicationState {
     }
 }
 
-impl<'vm, Rm: Remote + Sync + Send> UiGraph for DisplayState<'vm, Rm> {
+impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
         F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId) -> Rect,

@@ -19,7 +19,7 @@ impl InterpreterStatus {
     }
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Execute the instruction and register it in the vm
     pub fn register_instruction(&mut self, ins: Instruction) {
         self.execute_instruction(&ins);

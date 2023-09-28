@@ -2,7 +2,7 @@ use crate::remote::Remote;
 use crate::vm::{Interactive, VM};
 use egui::Pos2;
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Returns true if two parallel paths are oriented correctly for decomposition
     pub fn decompose_orient_sides<ItLeft, ItRight>(&self, left: ItLeft, right: ItRight) -> bool
     where

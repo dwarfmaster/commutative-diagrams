@@ -29,7 +29,7 @@ impl Step {
     }
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn decompose_step_to_string(&self, step: Step) -> String {
         let get_name =
             |(src, mph): &(usize, usize)| -> &str { self.graph.edges[*src][*mph].1.name.as_str() };

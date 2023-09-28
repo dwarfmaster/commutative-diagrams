@@ -18,7 +18,7 @@ fn on_path<F>(
     }
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn show_face_impl(graph: &mut Graph, fce: usize) {
         on_path(
             &mut graph.edges,

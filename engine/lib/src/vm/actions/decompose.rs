@@ -38,7 +38,7 @@ fn real_mph<Rm: Remote>(rm: &mut Rm, cat: u64, mph: &Morphism) -> u64 {
     r.2
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Look all visible faces for one with the right sides. If found, returns its equality
     // (potentially inverted).
     fn decompose_lookup(&self, left: &Morphism, right: &Morphism) -> Option<Eq> {

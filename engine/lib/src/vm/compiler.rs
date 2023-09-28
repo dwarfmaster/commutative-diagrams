@@ -15,7 +15,7 @@ pub enum ExecutionResult {
     Unfinished,
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     fn execute(&mut self, act: ast::Annot<ast::Action>) -> ExecutionResult {
         use Action::*;
         use ExecutionResult::*;

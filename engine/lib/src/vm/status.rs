@@ -50,7 +50,7 @@ impl<Rm: Remote> Context<Rm> {
     }
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn set_face_status(&mut self, fce: usize) {
         self.graph.faces[fce].label.status = self.ctx.compute_eq_status(&self.graph.faces[fce].eq);
     }

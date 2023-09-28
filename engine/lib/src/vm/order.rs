@@ -13,7 +13,7 @@ fn cmp_status(st1: FaceStatus, st2: FaceStatus) -> Ordering {
     }
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn init_face_order(&mut self) {
         let mut faces_ids = (0..self.graph.faces.len()).collect::<Vec<_>>();
         faces_ids.sort_by(|id1, id2| {

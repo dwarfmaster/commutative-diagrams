@@ -4,7 +4,7 @@ use crate::vm::{Interactive, VM};
 use std::collections::HashMap;
 use std::ops::Range;
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Given a path, creates a list of steps that remove all the loops by making
     // them trivial (ie equal to the identity)
     pub fn decompose_trivialize_path<It>(&self, path: It) -> (Vec<(usize, usize)>, Vec<Step>)

@@ -20,7 +20,7 @@ impl MergeState {
         }
     }
 
-    pub fn compile<R: Remote + Sync + Send>(self, _vm: &VM<R>) -> String {
+    pub fn compile<R: Remote>(self, _vm: &VM<R>) -> String {
         if let Some((name1, name2)) = &self.result {
             format!("merge {} {}", name1, name2)
         } else {
@@ -28,7 +28,7 @@ impl MergeState {
         }
     }
 
-    fn target<R: Remote + Sync + Send>(&mut self, vm: &mut VM<R>, target: GraphId) {
+    fn target<R: Remote>(&mut self, vm: &mut VM<R>, target: GraphId) {
         let result = (vm.get_name(self.merging), vm.get_name(target));
         let state = vm.ctx.save_state();
         if vm.merge_dwim(self.merging, target) {
@@ -44,11 +44,7 @@ impl MergeState {
         }
     }
 
-    pub fn display<R: Remote + Sync + Send>(
-        &mut self,
-        _vm: &mut VM<R>,
-        ui: &Context,
-    ) -> ActionResult {
+    pub fn display<R: Remote>(&mut self, _vm: &mut VM<R>, ui: &Context) -> ActionResult {
         if self.cancel {
             return ActionResult::Stop;
         } else if self.result.is_some() {
@@ -70,7 +66,7 @@ impl MergeState {
         ActionResult::Continue
     }
 
-    pub fn context_menu<R: Remote + Sync + Send>(
+    pub fn context_menu<R: Remote>(
         &mut self,
         vm: &mut VM<R>,
         on: GraphId,
@@ -96,12 +92,7 @@ impl MergeState {
         r
     }
 
-    pub fn action<R: Remote + Sync + Send>(
-        &mut self,
-        vm: &mut VM<R>,
-        act: Action,
-        _ui: &mut Ui,
-    ) -> bool {
+    pub fn action<R: Remote>(&mut self, vm: &mut VM<R>, act: Action, _ui: &mut Ui) -> bool {
         match act {
             Action::Click(id) => {
                 if id != self.merging && id.same_nature(&self.merging) {
@@ -115,7 +106,7 @@ impl MergeState {
         }
     }
 
-    pub fn modifier<R: Remote + Sync + Send>(&self, _vm: &VM<R>, on: GraphId) -> Modifier {
+    pub fn modifier<R: Remote>(&self, _vm: &VM<R>, on: GraphId) -> Modifier {
         Modifier {
             active: on == self.merging,
             selected: false,

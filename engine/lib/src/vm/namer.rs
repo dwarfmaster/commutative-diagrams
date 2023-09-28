@@ -26,7 +26,7 @@ fn is_valid_name(name: &String) -> bool {
     valid_name(name).is_ok()
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Set name without any checks, assuming the previous name is empty
     pub fn set_name(&mut self, id: GraphId, name: String) {
         use GraphId::*;

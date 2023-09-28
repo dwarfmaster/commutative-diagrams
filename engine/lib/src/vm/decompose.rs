@@ -7,7 +7,7 @@ use crate::remote::Remote;
 use crate::vm::{Interactive, VM};
 use step::Step;
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn planar_split(&mut self, face: usize) -> bool {
         // Find left and right sides
         let left = self.graph.faces[face].left.iter().scan(

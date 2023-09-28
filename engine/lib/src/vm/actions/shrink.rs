@@ -56,7 +56,7 @@ fn realize_morphism<Rm: TermEngine>(
     (mph_term, mph)
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Find a common part of size size (or as big as possible if size is None)
     // at the start and end of the sides of equality fce. Return the length of
     // the found prefix and suffix.

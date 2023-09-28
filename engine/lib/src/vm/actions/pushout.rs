@@ -78,7 +78,7 @@ impl Mapping {
     }
 }
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     fn pushout_merge_nodes(&mut self, direct: &mut Mapping, map: &mut PartialMap) {
         while let Some(mapping) = direct.nodes.pop() {
             let nd1 = mapping.1[0];

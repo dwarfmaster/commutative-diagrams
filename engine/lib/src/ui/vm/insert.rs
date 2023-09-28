@@ -29,7 +29,7 @@ impl InsertState {
         }
     }
 
-    fn do_insert<R: Remote + Sync + Send>(&mut self, vm: &mut VM<R>) {
+    fn do_insert<R: Remote>(&mut self, vm: &mut VM<R>) {
         use InsertKind::*;
         let r = vm.ctx.remote.parse(self.text.clone()).unwrap();
         match r {
@@ -81,7 +81,7 @@ impl InsertState {
         }
     }
 
-    pub fn compile<R: Remote + Sync + Send>(&self, _vm: &VM<R>) -> String {
+    pub fn compile<R: Remote>(&self, _vm: &VM<R>) -> String {
         use InsertKind::*;
         let kind = match self.kind {
             Object => "node",
@@ -91,11 +91,7 @@ impl InsertState {
         format!("insert {} \"{}\"", kind, self.text)
     }
 
-    pub fn display<R: Remote + Sync + Send>(
-        &mut self,
-        vm: &mut VM<R>,
-        ui: &Context,
-    ) -> ActionResult {
+    pub fn display<R: Remote>(&mut self, vm: &mut VM<R>, ui: &Context) -> ActionResult {
         if self.aborted {
             return ActionResult::Stop;
         } else if self.finished {
@@ -155,7 +151,7 @@ impl InsertState {
         ActionResult::Continue
     }
 
-    pub fn context_menu<R: Remote + Sync + Send>(
+    pub fn context_menu<R: Remote>(
         &mut self,
         _vm: &mut VM<R>,
         _on: GraphId,
@@ -164,16 +160,11 @@ impl InsertState {
         ContextMenuResult::Nothing
     }
 
-    pub fn action<R: Remote + Sync + Send>(
-        &mut self,
-        _vm: &mut VM<R>,
-        _act: Action,
-        _ui: &mut Ui,
-    ) -> bool {
+    pub fn action<R: Remote>(&mut self, _vm: &mut VM<R>, _act: Action, _ui: &mut Ui) -> bool {
         true
     }
 
-    pub fn modifier<R: Remote + Sync + Send>(&self, _vm: &VM<R>, _on: GraphId) -> Modifier {
+    pub fn modifier<R: Remote>(&self, _vm: &VM<R>, _on: GraphId) -> Modifier {
         Modifier {
             active: false,
             candidate: false,

@@ -3,7 +3,7 @@ use crate::ui::VM;
 use crate::vm;
 use itertools::Itertools;
 
-pub fn code<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<Rm>) {
+pub fn code<Rm: Remote>(ctx: &egui::Context, vm: &mut VM<Rm>) {
     if vm.code_window_open {
         let mut open = vm.code_window_open;
         egui::Window::new("Script")
@@ -13,7 +13,7 @@ pub fn code<Rm: Remote + Sync + Send>(ctx: &egui::Context, vm: &mut VM<Rm>) {
     }
 }
 
-fn code_impl<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
+fn code_impl<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
     ui.with_layout(egui::Layout::top_down_justified(egui::Align::RIGHT), |ui| {
         code_text_box(ui, vm, 150.0, true);
         egui::ScrollArea::vertical()
@@ -42,12 +42,7 @@ fn code_impl<Rm: Remote + Sync + Send>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
     });
 }
 
-pub fn code_text_box<Rm: Remote + Sync + Send>(
-    ui: &mut egui::Ui,
-    vm: &mut VM<Rm>,
-    height: f32,
-    format: bool,
-) {
+pub fn code_text_box<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>, height: f32, format: bool) {
     let format_none = egui::TextFormat {
         font_id: egui::FontId::monospace(14.0),
         color: ui.style().noninteractive().fg_stroke.color,

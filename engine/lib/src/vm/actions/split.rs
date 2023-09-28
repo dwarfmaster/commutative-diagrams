@@ -6,7 +6,7 @@ use crate::vm::{Interactive, VM};
 
 type Ins = asm::Instruction;
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Normalize morphism mph, and hide it if it changed
     pub fn split(&mut self, src: usize, mph: usize) {
         if let Some(path) = self.split_norm(src, mph) {

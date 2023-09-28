@@ -51,7 +51,7 @@ pub enum ActionResult {
 }
 
 impl vm::Interactive for InteractiveAction {
-    fn compile<R: Remote + Sync + Send>(self, vm: &VM<R>) -> String {
+    fn compile<R: Remote>(self, vm: &VM<R>) -> String {
         use InteractiveAction::*;
         match self {
             LemmaApplication(apply) => apply.compile(vm),
@@ -65,7 +65,7 @@ impl vm::Interactive for InteractiveAction {
 pub type VM<R> = vm::VM<R, InteractiveAction>;
 
 impl InteractiveAction {
-    pub fn apply<R: Remote + Sync + Send>(vm: &mut VM<R>, lemma: usize) -> Self {
+    pub fn apply<R: Remote>(vm: &mut VM<R>, lemma: usize) -> Self {
         let state = apply::LemmaApplicationState::new(vm, lemma);
         InteractiveAction::LemmaApplication(state)
     }
@@ -80,11 +80,7 @@ impl InteractiveAction {
         InteractiveAction::Insert(state)
     }
 
-    pub fn display<R: Remote + Sync + Send>(
-        &mut self,
-        vm: &mut VM<R>,
-        ui: &Context,
-    ) -> ActionResult {
+    pub fn display<R: Remote>(&mut self, vm: &mut VM<R>, ui: &Context) -> ActionResult {
         use InteractiveAction::*;
         match self {
             LemmaApplication(state) => state.display(vm, ui),
@@ -93,7 +89,7 @@ impl InteractiveAction {
         }
     }
 
-    pub fn context_menu<R: Remote + Sync + Send>(
+    pub fn context_menu<R: Remote>(
         &mut self,
         vm: &mut VM<R>,
         on: GraphId,
@@ -107,12 +103,7 @@ impl InteractiveAction {
         }
     }
 
-    pub fn action<R: Remote + Sync + Send>(
-        &mut self,
-        vm: &mut VM<R>,
-        act: Action,
-        ui: &mut Ui,
-    ) -> bool {
+    pub fn action<R: Remote>(&mut self, vm: &mut VM<R>, act: Action, ui: &mut Ui) -> bool {
         use InteractiveAction::*;
         match self {
             LemmaApplication(state) => state.action(vm, act, ui),
@@ -121,7 +112,7 @@ impl InteractiveAction {
         }
     }
 
-    pub fn modifier<R: Remote + Sync + Send>(&self, vm: &VM<R>, on: GraphId) -> Modifier {
+    pub fn modifier<R: Remote>(&self, vm: &VM<R>, on: GraphId) -> Modifier {
         use InteractiveAction::*;
         match self {
             LemmaApplication(state) => state.modifier(vm, on),

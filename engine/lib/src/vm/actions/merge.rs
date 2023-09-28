@@ -4,7 +4,7 @@ use crate::vm::{Interactive, VM};
 
 type Ins = crate::vm::asm::Instruction;
 
-impl<Rm: Remote + Sync + Send, I: Interactive + Sync + Send> VM<Rm, I> {
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Returns the face that is kept
     pub fn merge_faces(&mut self, mut fce1: usize, mut fce2: usize) -> usize {
         if self.graph.faces[fce1].label.name > self.graph.faces[fce2].label.name {
