@@ -17,7 +17,7 @@ type goal =
 type remote = 
   { stdin: out_channel
   ; stdout: in_channel
-  ; stderr: in_channel
+  ; stderr: in_channel option
   ; state: Protocol.state
   }
 
@@ -53,19 +53,29 @@ let start_remote (gl : goal) : remote Hyps.t =
     match Sys.getenv_opt "COMDIAG_ENGINE" with
     | Some path -> Some path
     | None -> lookup_in_path () in
-  match engine_path with
-  | Some engine_path ->
-      let (stdout,stdin,stderr) =
-        Unix.open_process_args_full
-          engine_path
-          (Array.of_list (engine_path :: args))
-          (Unix.environment ()) in
+  match Sys.getenv_opt "COMDIAG_SOCKET" with
+  | Some socket_path ->
+      let (socket_in, socket_out) =
+        Unix.(open_connection (ADDR_UNIX socket_path)) in
       let state = Protocol.({
         goal = gl.graph;
         lemmas = Array.of_list gl.lemmas;
       }) in
-      ret { stdin = stdin; stdout = stdout; stderr = stderr; state = state; }
-  | None -> fail "$COMDIAG_ENGINE not found in environment"
+      ret { stdin = socket_out; stdout = socket_in; stderr = None; state = state; }
+  | None ->
+      match engine_path with
+      | Some engine_path ->
+          let (stdout,stdin,stderr) =
+            Unix.open_process_args_full
+              engine_path
+              (Array.of_list (engine_path :: args))
+              (Unix.environment ()) in
+          let state = Protocol.({
+            goal = gl.graph;
+            lemmas = Array.of_list gl.lemmas;
+          }) in
+          ret { stdin = stdin; stdout = stdout; stderr = Some stderr; state = state; }
+      | None -> fail "Couldn't find where to connect"
 
 let invalid_message (_ : unit) : 'a Hyps.t =
   fail "Incoming message ill formed"
@@ -145,8 +155,11 @@ let run ?(file = None) ?(script = None) ?(force = false) gr lms : unit Hyps.t =
     | Msgpack.Eof ->
         (* Failed to finish *)
         finish := true;
-        let lines = Seq.unfold (fun () -> In_channel.input_line rm.stderr
-                                       |> Option.map (fun x -> (x,()))) () in
+        let lines = match rm.stderr with
+        | Some stderr -> 
+            Seq.unfold (fun () -> In_channel.input_line stderr
+                               |> Option.map (fun x -> (x,()))) ()
+        | None -> fun () -> Seq.(Cons ("", fun () -> Nil)) in
         let* _ = Seq.fold_left (fun m line -> m >>= (fun () -> warning line)) (ret ()) lines in
         fail "Connection interrupted"
     | Msgpack.Error err ->
