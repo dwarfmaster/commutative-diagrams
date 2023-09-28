@@ -3,6 +3,6 @@ init().then(() => {
   const allCanvas = document.querySelectorAll("body > canvas.commdiag");
   allCanvas.forEach(canvas => {
     var handle = new WebHandle();
-    handle.start(canvas.id);
+    handle.start(canvas.id, canvas.getAttribute("data-commdiag"));
   });
 })

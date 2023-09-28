@@ -34,16 +34,18 @@ impl WebHandle {
     }
 
     #[wasm_bindgen]
-    pub async fn start(&self, canvas_id: &str) -> Result<(), wasm_bindgen::JsValue> {
+    pub async fn start(&self, canvas_id: &str, vfile: &str) -> Result<(), wasm_bindgen::JsValue> {
+        let url = format!("ws://127.0.0.1:8000/wss/{}", vfile);
         self.runner
             .start(
                 canvas_id,
                 eframe::WebOptions::default(),
-                Box::new(|_cc| {
-                    let ws = WebSocket::new("ws://127.0.0.1:8000/wss/test").unwrap_or_else(|err| {
-                        console_log!("Error: {:?}", err);
-                        panic!();
-                    });
+                Box::new(move |_cc| {
+                    let ws = WebSocket::new(&url)
+                        .unwrap_or_else(|err| {
+                            console_log!("Error: {:?}", err);
+                            panic!();
+                        });
                     ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
                     console_log!("Connected to {}", ws.url());
                     let cloned_ws = ws.clone();
