@@ -5,11 +5,11 @@ use crate::ui::VM;
 use crate::vm::{Lemma, LemmaTree};
 
 pub fn lemmas_window<Rm: Remote>(ctx: &egui::Context, vm: &mut VM<Rm>) {
-    if let Some(lem) = vm.selected_lemma {
+    if let Some(lem) = vm.lemmas.selected_lemma {
         let mut open = true;
         let mut should_close = false;
-        egui::Window::new(vm.lemmas[lem].complete_name.clone())
-            .id(egui::Id::new(vm.lemmas[lem].complete_name.as_str()))
+        egui::Window::new(vm.lemmas.lemmas[lem].complete_name.clone())
+            .id(egui::Id::new(vm.lemmas.lemmas[lem].complete_name.as_str()))
             .open(&mut open)
             .show(ctx, |ui| {
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
@@ -18,11 +18,11 @@ pub fn lemmas_window<Rm: Remote>(ctx: &egui::Context, vm: &mut VM<Rm>) {
                         vm.start_interactive(apply);
                         should_close = true;
                     }
-                    ui.add(graph_lemma(&mut vm.lemmas[lem]));
+                    ui.add(graph_lemma(&mut vm.lemmas.lemmas[lem]));
                 })
             });
         if !open || should_close {
-            vm.selected_lemma = None;
+            vm.lemmas.selected_lemma = None;
         }
     }
 }
@@ -32,14 +32,14 @@ pub fn lemmas_menu<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
         let mut selected = None;
         display_lemma_tree(
             ui,
-            &vm.lemma_tree,
-            &vm.lemmas,
-            &vm.selected_lemma,
+            &vm.lemmas.lemma_tree,
+            &vm.lemmas.lemmas,
+            &vm.lemmas.selected_lemma,
             &mut selected,
         );
         if let Some(lem) = selected {
-            vm.lemmas[lem].get_pattern(&mut vm.ctx, &vm.config);
-            vm.selected_lemma = Some(lem);
+            vm.lemmas.lemmas[lem].get_pattern(&mut vm.ctx, &vm.config);
+            vm.lemmas.selected_lemma = Some(lem);
         }
     });
 }

@@ -4,12 +4,12 @@ use crate::vm;
 use itertools::Itertools;
 
 pub fn code<Rm: Remote>(ctx: &egui::Context, vm: &mut VM<Rm>) {
-    if vm.code_window_open {
-        let mut open = vm.code_window_open;
+    if vm.code.code_window_open {
+        let mut open = vm.code.code_window_open;
         egui::Window::new("Script")
             .open(&mut open)
             .show(ctx, |ui| code_impl(ui, vm));
-        vm.code_window_open = open;
+        vm.code.code_window_open = open;
     }
 }
 
@@ -22,7 +22,7 @@ fn code_impl<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
             .show(ui, |ui| {
                 ui.add_sized(
                     ui.available_size(),
-                    egui::TextEdit::multiline(&mut vm.error_msg)
+                    egui::TextEdit::multiline(&mut vm.code.error_msg)
                         .font(egui::TextStyle::Monospace)
                         .interactive(false),
                 )
@@ -65,9 +65,10 @@ pub fn code_text_box<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>, height: f32
     };
 
     let sections = if format {
-        vm.code_style
+        vm.code
+            .code_style
             .iter()
-            .chain(std::iter::once(&(vm.code.len(), vm::CodeStyle::None)))
+            .chain(std::iter::once(&(vm.code.code.len(), vm::CodeStyle::None)))
             .tuple_windows()
             .map(|((start, style), (end, _))| egui::text::LayoutSection {
                 leading_space: 0.0,
@@ -82,7 +83,7 @@ pub fn code_text_box<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>, height: f32
     } else {
         vec![egui::text::LayoutSection {
             leading_space: 0.0,
-            byte_range: 0..vm.code.len(),
+            byte_range: 0..vm.code.code.len(),
             format: format_none,
         }]
     };
@@ -124,14 +125,14 @@ pub fn code_text_box<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>, height: f32
         .show(ui, |ui| {
             let event = ui.add_sized(
                 ui.available_size(),
-                egui::TextEdit::multiline(&mut vm.code)
+                egui::TextEdit::multiline(&mut vm.code.code)
                     .code_editor()
                     .cursor_at_end(true)
                     .layouter(&mut layouter),
             );
             if event.changed() {
                 vm.reset_style();
-                vm.style_range(0..vm.run_until, vm::CodeStyle::Run);
+                vm.style_range(0..vm.code.run_until, vm::CodeStyle::Run);
                 vm.sync_code();
             }
         });

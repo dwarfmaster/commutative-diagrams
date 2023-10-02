@@ -12,13 +12,13 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     /// Look over graph nodes, if obj is already present returns its index,
     /// otherwise insert it and return the index of the nely inserted node.
     pub fn insert_node(&mut self, obj: u64, cat: u64) -> usize {
-        for n in 0..self.graph.nodes.len() {
-            if self.graph.nodes[n].0 == obj && self.graph.nodes[n].1 == cat {
+        for n in 0..self.graph.graph.nodes.len() {
+            if self.graph.graph.nodes[n].0 == obj && self.graph.graph.nodes[n].1 == cat {
                 return n;
             }
         }
         self.register_instruction(Ins::InsertNode(obj, cat));
-        self.graph.nodes.len() - 1
+        self.graph.graph.nodes.len() - 1
     }
 
     /// Try to find the morphism in the output edges of node, and return its index.
@@ -26,20 +26,20 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     /// codomain of the morphism.
     pub fn insert_mph_at(&mut self, node: usize, mph: u64) -> (usize, usize) {
         assert!(
-            node < self.graph.nodes.len(),
+            node < self.graph.graph.nodes.len(),
             "Trying to insert at unexisting node"
         );
-        for m in 0..self.graph.edges[node].len() {
-            if self.graph.edges[node][m].2 == mph {
-                return (m, self.graph.edges[node][m].0);
+        for m in 0..self.graph.graph.edges[node].len() {
+            if self.graph.graph.edges[node][m].2 == mph {
+                return (m, self.graph.graph.edges[node][m].0);
             }
         }
-        let cat = self.graph.nodes[node].1;
+        let cat = self.graph.graph.nodes[node].1;
         let (src, dst) = self.ctx.is_mph(mph, cat).unwrap();
         let ndst = self.insert_node(dst, cat);
         let morph = to_morphism(&mut self.ctx, cat, src, dst, mph);
         self.register_instruction(Ins::InsertMorphism(node, ndst, mph, morph));
-        (self.graph.edges[node].len() - 1, ndst)
+        (self.graph.graph.edges[node].len() - 1, ndst)
     }
 
     /// Same as insert_mph_at, but finds or insert automatically the source of the
@@ -98,7 +98,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 status: FaceStatus::Refined,
             },
         };
-        let id = self.graph.faces.len();
+        let id = self.graph.graph.faces.len();
         self.register_instruction(Ins::InsertFace(face));
         id
     }
@@ -144,21 +144,25 @@ mod tests {
 
         let (m1_src, _, _) = vm.insert_mph(m1, cat);
         assert_eq!(
-            vm.graph.nodes.len(),
+            vm.graph.graph.nodes.len(),
             2,
             "There should be two nodes after the insertion"
         );
         assert_eq!(
-            vm.graph.edges.len(),
+            vm.graph.graph.edges.len(),
             2,
             "The len of edges should be the same as the number of nodes"
         );
 
         let (m2_id, _) = vm.insert_mph_at(m1_src, m2.clone());
-        assert!(vm.graph.check(), "The graph should still be valid");
-        assert_eq!(vm.graph.nodes.len(), 2, "There should still be 2 nodes");
+        assert!(vm.graph.graph.check(), "The graph should still be valid");
         assert_eq!(
-            vm.graph.edges[m1_src].len(),
+            vm.graph.graph.nodes.len(),
+            2,
+            "There should still be 2 nodes"
+        );
+        assert_eq!(
+            vm.graph.graph.edges[m1_src].len(),
             2,
             "There should be 2 outgoing edges"
         );

@@ -16,7 +16,7 @@ pub fn toolbar<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
                 ui.close_menu();
             }
             if ui.button("View script").clicked() {
-                vm.code_window_open = true;
+                vm.code.code_window_open = true;
                 ui.close_menu();
             }
         });
@@ -60,31 +60,37 @@ pub fn toolbar<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
             const MIN_PPP: f32 = 0.2f32;
             const MAX_PPP: f32 = 4f32;
             if ui.button("Reset zoom").clicked() {
-                if let Some(ppp) = vm.init_ppp {
-                    vm.ppp = Some(ppp);
+                if let Some(ppp) = vm.graphical.init_ppp {
+                    vm.graphical.ppp = Some(ppp);
                 }
                 ui.close_menu();
             }
             if ui.button("Zoom in").clicked() {
-                if vm.init_ppp.is_none() {
-                    vm.init_ppp = Some(ui.ctx().pixels_per_point());
+                if vm.graphical.init_ppp.is_none() {
+                    vm.graphical.init_ppp = Some(ui.ctx().pixels_per_point());
                 }
-                let mut ppp = vm.ppp.unwrap_or_else(|| ui.ctx().pixels_per_point());
+                let mut ppp = vm
+                    .graphical
+                    .ppp
+                    .unwrap_or_else(|| ui.ctx().pixels_per_point());
                 ppp += 0.1f32;
                 ppp = ppp.clamp(MIN_PPP, MAX_PPP);
                 ppp = (ppp * 10f32).round() / 10f32;
-                vm.ppp = Some(ppp);
+                vm.graphical.ppp = Some(ppp);
                 ui.close_menu();
             }
             if ui.button("Zoom out").clicked() {
-                if vm.init_ppp.is_none() {
-                    vm.init_ppp = Some(ui.ctx().pixels_per_point());
+                if vm.graphical.init_ppp.is_none() {
+                    vm.graphical.init_ppp = Some(ui.ctx().pixels_per_point());
                 }
-                let mut ppp = vm.ppp.unwrap_or_else(|| ui.ctx().pixels_per_point());
+                let mut ppp = vm
+                    .graphical
+                    .ppp
+                    .unwrap_or_else(|| ui.ctx().pixels_per_point());
                 ppp -= 0.1f32;
                 ppp = ppp.clamp(MIN_PPP, MAX_PPP);
                 ppp = (ppp * 10f32).round() / 10f32;
-                vm.ppp = Some(ppp);
+                vm.graphical.ppp = Some(ppp);
                 ui.close_menu();
             }
         });

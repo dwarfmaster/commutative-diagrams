@@ -18,24 +18,24 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
 
         // Draw nodes
         let mut nodes_rect: Vec<Rect> = Vec::new();
-        nodes_rect.reserve(self.graph.nodes.len());
-        for nd in 0..self.graph.nodes.len() {
-            if self.graph.nodes[nd].2.hidden {
+        nodes_rect.reserve(self.graph.graph.nodes.len());
+        for nd in 0..self.graph.graph.nodes.len() {
+            if self.graph.graph.nodes[nd].2.hidden {
                 nodes_rect.push(Rect::NOTHING);
                 continue;
             }
 
-            if let Some(pos_id) = self.graph.nodes[nd].2.pos {
-                let pos = self.layout.get_pos(pos_id);
+            if let Some(pos_id) = self.graph.graph.nodes[nd].2.pos {
+                let pos = self.graph.layout.get_pos(pos_id);
                 let drawable = Drawable::Text(
                     pos,
-                    &self.graph.nodes[nd].2.label,
+                    &self.graph.graph.nodes[nd].2.label,
                     TextStyle {
-                        underline: self.graph.nodes[nd].2.pinned,
+                        underline: self.graph.graph.nodes[nd].2.pinned,
                         ..TextStyle::new()
                     },
                 );
-                let mut modifier = if self.hovered_object == Some(GraphId::Node(nd)) {
+                let mut modifier = if self.graphical.hovered_object == Some(GraphId::Node(nd)) {
                     Modifier::Highlight
                 } else {
                     Modifier::None
@@ -54,18 +54,19 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
         }
 
         // Draw edges
-        for src in 0..self.graph.nodes.len() {
-            for mph in 0..self.graph.edges[src].len() {
-                if self.graph.edges[src][mph].1.hidden {
+        for src in 0..self.graph.graph.nodes.len() {
+            for mph in 0..self.graph.graph.edges[src].len() {
+                if self.graph.graph.edges[src][mph].1.hidden {
                     continue;
                 }
-                let dst = self.graph.edges[src][mph].0;
+                let dst = self.graph.graph.edges[src][mph].0;
 
-                let mut modifier = if self.hovered_object == Some(GraphId::Morphism(src, mph)) {
-                    Modifier::Highlight
-                } else {
-                    Modifier::None
-                };
+                let mut modifier =
+                    if self.graphical.hovered_object == Some(GraphId::Morphism(src, mph)) {
+                        Modifier::Highlight
+                    } else {
+                        Modifier::None
+                    };
                 let id = GraphId::Morphism(src, mph);
 
                 if let Some((_, interactive)) = &self.current_action {
@@ -74,19 +75,26 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                 }
 
                 // Positions
-                let psrc = self.layout.get_pos(self.graph.nodes[src].2.pos.unwrap());
-                let pdst = self.layout.get_pos(self.graph.nodes[dst].2.pos.unwrap());
-                let control = self
+                let psrc = self
+                    .graph
                     .layout
-                    .get_pos(self.graph.edges[src][mph].1.control.unwrap());
+                    .get_pos(self.graph.graph.nodes[src].2.pos.unwrap());
+                let pdst = self
+                    .graph
+                    .layout
+                    .get_pos(self.graph.graph.nodes[dst].2.pos.unwrap());
+                let control = self
+                    .graph
+                    .layout
+                    .get_pos(self.graph.graph.edges[src][mph].1.control.unwrap());
 
                 // Label
                 f(
                     Drawable::Text(
                         edge_label_pos(psrc, pdst, control),
-                        &self.graph.edges[src][mph].1.label,
+                        &self.graph.graph.edges[src][mph].1.label,
                         TextStyle {
-                            underline: self.graph.edges[src][mph].1.pinned,
+                            underline: self.graph.graph.edges[src][mph].1.pinned,
                             ..TextStyle::new()
                         },
                     ),
@@ -100,7 +108,7 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                 let curve = prepare_edge(psrc, nodes_rect[src], control, pdst, nodes_rect[dst]);
                 let drawable = Drawable::Curve(curve, CurveStyle::Simple, arrow);
 
-                let stl = self.graph.edges[src][mph].1.style;
+                let stl = self.graph.graph.edges[src][mph].1.style;
                 stroke.color = if stl.left && stl.right {
                     egui::Color32::GOLD
                 } else if stl.left {
@@ -121,38 +129,38 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
     where
         F: FnMut(GraphId, FaceContent<'a>, bool, FaceStyle),
     {
-        let len = self.face_goal_order.len() + self.face_hyps_order.len();
+        let len = self.graph.face_goal_order.len() + self.graph.face_hyps_order.len();
         for id in 0..len {
-            let fce = if id >= self.face_goal_order.len() {
-                self.face_hyps_order[id - self.face_goal_order.len()]
+            let fce = if id >= self.graph.face_goal_order.len() {
+                self.graph.face_hyps_order[id - self.graph.face_goal_order.len()]
             } else {
-                self.face_goal_order[id]
+                self.graph.face_goal_order[id]
             };
 
-            if self.graph.faces[fce].label.hidden {
+            if self.graph.graph.faces[fce].label.hidden {
                 continue;
             }
             let id = GraphId::Face(fce);
 
             let content = FaceContent {
-                name: &self.graph.faces[fce].label.name,
-                content: &self.graph.faces[fce].label.label,
+                name: &self.graph.graph.faces[fce].label.name,
+                content: &self.graph.graph.faces[fce].label.label,
             };
 
-            let folded = self.graph.faces[fce].label.folded;
+            let folded = self.graph.graph.faces[fce].label.folded;
 
-            let mut border_color = match self.graph.faces[fce].label.status {
+            let mut border_color = match self.graph.graph.faces[fce].label.status {
                 FaceStatus::Goal => egui::Color32::GOLD,
                 FaceStatus::Refined => egui::Color32::GREEN,
                 FaceStatus::Hypothesis => {
-                    if self.selected_face == Some(fce) {
+                    if self.graph.selected_face == Some(fce) {
                         style.noninteractive().fg_stroke.color
                     } else {
                         style.noninteractive().bg_stroke.color
                     }
                 }
             };
-            let mut md = if self.selected_face == Some(fce) {
+            let mut md = if self.graph.selected_face == Some(fce) {
                 Modifier::Highlight
             } else {
                 Modifier::None
@@ -196,27 +204,27 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
     }
 
     fn zoom<'a>(&'a mut self) -> &'a mut f32 {
-        &mut self.zoom
+        &mut self.graphical.zoom
     }
 
     fn offset<'a>(&'a mut self) -> &'a mut Vec2 {
-        &mut self.offset
+        &mut self.graphical.offset
     }
 
     fn focused<'a>(&'a mut self) -> &'a mut Option<GraphId> {
-        &mut self.focused_object
+        &mut self.graphical.focused_object
     }
 
     fn dragged<'a>(&'a mut self) -> &'a mut Option<GraphId> {
-        &mut self.dragged_object
+        &mut self.graphical.dragged_object
     }
 
     fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
-        &mut self.graph.faces[fce].label.folded
+        &mut self.graph.graph.faces[fce].label.folded
     }
 
     fn action(&mut self, act: Action, ui: &mut Ui) {
-        self.hovered_object = None;
+        self.graphical.hovered_object = None;
 
         if let Some((last, mut interactive)) = self.current_action.take() {
             let r = interactive.action(self, act, ui);
@@ -228,20 +236,20 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
 
         match act {
             Action::Hover(id) => {
-                self.hovered_object = Some(id);
+                self.graphical.hovered_object = Some(id);
                 // Show tooltip
                 egui::show_tooltip_at_pointer(ui.ctx(), egui::Id::new("Graph tooltip"), |ui| {
                     let label = match id {
                         GraphId::Node(n) => {
-                            let node = &self.graph.nodes[n].2;
+                            let node = &self.graph.graph.nodes[n].2;
                             format!("node {}: {}", node.name, node.label)
                         }
                         GraphId::Morphism(src, dst) => {
-                            let edge = &self.graph.edges[src][dst].1;
+                            let edge = &self.graph.graph.edges[src][dst].1;
                             format!("morphism {}: {}", edge.name, edge.label)
                         }
                         GraphId::Face(fce) => {
-                            let face = &self.graph.faces[fce].label;
+                            let face = &self.graph.graph.faces[fce].label;
                             format!("face {}", face.name)
                         }
                     };
@@ -249,26 +257,26 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                 });
             }
             Action::Click(GraphId::Face(fce)) => {
-                if self.selected_face != Some(fce) {
-                    if let Some(prev) = self.selected_face {
+                if self.graph.selected_face != Some(fce) {
+                    if let Some(prev) = self.graph.selected_face {
                         self.unshow_face(prev);
                     }
-                    self.selected_face = Some(fce);
+                    self.graph.selected_face = Some(fce);
                     self.show_face(fce);
                 }
             }
             Action::DoubleClick(GraphId::Face(fce)) => {
-                self.insert_and_run(&format!("solve {}", self.graph.faces[fce].label.name))
+                self.insert_and_run(&format!("solve {}", self.graph.graph.faces[fce].label.name))
             }
             Action::Drag(GraphId::Node(nd), pos, _) => {
-                if let Some(part) = self.graph.nodes[nd].2.pos {
-                    self.layout.set_pos(part, pos);
+                if let Some(part) = self.graph.graph.nodes[nd].2.pos {
+                    self.graph.layout.set_pos(part, pos);
                 }
             }
             Action::Drag(GraphId::Morphism(src, mph), _, vec) => {
-                if let Some(part) = self.graph.edges[src][mph].1.control {
-                    let pos = self.layout.get_pos(part) + vec;
-                    self.layout.set_pos(part, pos);
+                if let Some(part) = self.graph.graph.edges[src][mph].1.control {
+                    let pos = self.graph.layout.get_pos(part) + vec;
+                    self.graph.layout.set_pos(part, pos);
                 }
             }
             _ => (),
@@ -292,14 +300,14 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                     return false;
                 }
                 if ui
-                    .button(if self.graph.nodes[n].2.pinned {
+                    .button(if self.graph.graph.nodes[n].2.pinned {
                         "Unpin"
                     } else {
                         "Pin"
                     })
                     .clicked()
                 {
-                    self.graph.nodes[n].2.pinned = !self.graph.nodes[n].2.pinned;
+                    self.graph.graph.nodes[n].2.pinned = !self.graph.graph.nodes[n].2.pinned;
                     ui.close_menu();
                     return false;
                 }
@@ -307,7 +315,10 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
             }
             GraphId::Morphism(src, dst) => {
                 if ui.button("Split").clicked() {
-                    self.insert_and_run(&format!("split {}", self.graph.edges[src][dst].1.name));
+                    self.insert_and_run(&format!(
+                        "split {}",
+                        self.graph.graph.edges[src][dst].1.name
+                    ));
                     ui.close_menu();
                     return false;
                 }
@@ -318,23 +329,27 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                     return false;
                 }
                 if ui
-                    .button(if self.graph.edges[src][dst].1.pinned {
+                    .button(if self.graph.graph.edges[src][dst].1.pinned {
                         "Unpin"
                     } else {
                         "Pin"
                     })
                     .clicked()
                 {
-                    self.graph.edges[src][dst].1.pinned = !self.graph.edges[src][dst].1.pinned;
+                    self.graph.graph.edges[src][dst].1.pinned =
+                        !self.graph.graph.edges[src][dst].1.pinned;
                     ui.close_menu();
                     return false;
                 }
                 true
             }
             GraphId::Face(fce) => {
-                if self.graph.faces[fce].label.status == FaceStatus::Goal {
+                if self.graph.graph.faces[fce].label.status == FaceStatus::Goal {
                     if ui.button("Solve").clicked() {
-                        self.insert_and_run(&format!("solve {}", self.graph.faces[fce].label.name));
+                        self.insert_and_run(&format!(
+                            "solve {}",
+                            self.graph.graph.faces[fce].label.name
+                        ));
                         ui.close_menu();
                         return false;
                     }
@@ -346,7 +361,7 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                     if ui.button("Shrink").clicked() {
                         self.insert_and_run(&format!(
                             "shrink {}",
-                            self.graph.faces[fce].label.name
+                            self.graph.graph.faces[fce].label.name
                         ));
                         ui.close_menu();
                         return false;
@@ -360,7 +375,7 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                     if ui.button("Pull").clicked() {
                         self.insert_and_run(&format!(
                             "pull {}, *",
-                            self.graph.faces[fce].label.name
+                            self.graph.graph.faces[fce].label.name
                         ));
                         ui.close_menu();
                         return false;
@@ -368,21 +383,21 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                     if ui.button("Push").clicked() {
                         self.insert_and_run(&format!(
                             "push {}, *",
-                            self.graph.faces[fce].label.name
+                            self.graph.graph.faces[fce].label.name
                         ));
                         ui.close_menu();
                         return false;
                     }
                 }
-                if self.graph.faces[fce].label.folded {
+                if self.graph.graph.faces[fce].label.folded {
                     if ui.button("Show term").clicked() {
-                        self.graph.faces[fce].label.folded = false;
+                        self.graph.graph.faces[fce].label.folded = false;
                         ui.close_menu();
                         return false;
                     }
                 } else {
                     if ui.button("Hide term").clicked() {
-                        self.graph.faces[fce].label.folded = true;
+                        self.graph.graph.faces[fce].label.folded = true;
                         ui.close_menu();
                         return false;
                     }

@@ -46,21 +46,27 @@ impl Interactive for () {
     fn terminate(self) {}
 }
 
-pub struct VM<Rm: Remote, I: Interactive> {
-    // State
-    pub ctx: Context<Rm>,
+pub struct GraphState {
     pub graph: Graph,
     pub names: HashMap<String, GraphId>,
+    pub layout: LayoutEngine,
+    pub face_goal_order: Vec<usize>,
+    pub face_hyps_order: Vec<usize>,
+    pub selected_face: Option<usize>,
+}
+
+pub struct LemmaState {
     pub lemmas: Vec<Lemma>,
     pub lemma_tree: Vec<Box<LemmaTree>>,
-    pub end_status: EndStatus,
-    pub config: Config,
+    pub selected_lemma: Option<usize>,
+}
 
-    // Execution
+pub struct InstructionsState {
     pub instructions: Vec<asm::Instruction>,
     pub eval_status: interpreter::InterpreterStatus,
+}
 
-    // Code
+pub struct CodeState {
     pub prev_code: String,
     pub code: String,
     pub ast: Vec<Action>,
@@ -74,6 +80,32 @@ pub struct VM<Rm: Remote, I: Interactive> {
     // (which may be the same). As such states should never be empty, and
     // always be of length exactly one more than the length of ast.
     pub states: Vec<u64>,
+    pub code_window_open: bool,
+}
+
+pub struct GraphicalState {
+    pub offset: Vec2,
+    pub zoom: f32,
+    pub focused_object: Option<GraphId>,
+    pub hovered_object: Option<GraphId>,
+    pub dragged_object: Option<GraphId>,
+    pub init_ppp: Option<f32>,
+    pub ppp: Option<f32>,
+}
+
+pub struct VM<Rm: Remote, I: Interactive> {
+    // State
+    pub ctx: Context<Rm>,
+    pub config: Config,
+    pub graph: GraphState,
+    pub lemmas: LemmaState,
+
+    // Execution
+    pub ins: InstructionsState,
+    pub end_status: EndStatus,
+
+    // Code
+    pub code: CodeState,
 
     // Used to handle partial action execution. Indeed, some actions executions
     // are interactive, and as such can be in a state of being partially
@@ -85,19 +117,7 @@ pub struct VM<Rm: Remote, I: Interactive> {
     pub current_action: Option<(usize, I)>,
 
     // Graphical status
-    pub offset: Vec2,
-    pub zoom: f32,
-    pub selected_face: Option<usize>,
-    pub focused_object: Option<GraphId>,
-    pub hovered_object: Option<GraphId>,
-    pub dragged_object: Option<GraphId>,
-    pub face_goal_order: Vec<usize>,
-    pub face_hyps_order: Vec<usize>,
-    pub selected_lemma: Option<usize>,
-    pub code_window_open: bool,
-    pub layout: LayoutEngine,
-    pub init_ppp: Option<f32>,
-    pub ppp: Option<f32>,
+    pub graphical: GraphicalState,
 }
 
 impl<R: Remote, I: Interactive> VM<R, I> {
@@ -124,51 +144,66 @@ impl<R: Remote, I: Interactive> VM<R, I> {
         let mut vm = Self {
             ctx,
             config: Config::new(),
-            prev_code: String::new(),
-            code: String::new(),
-            ast: Vec::new(),
-            current_action: None,
-            instructions: Vec::new(),
-            eval_status: interpreter::InterpreterStatus::new(),
-            names: HashMap::new(),
-            code_style: vec![(0, CodeStyle::None)],
-            error_msg: String::new(),
-            run_until: 0,
-            states: vec![init_state],
-            graph,
-            offset: Vec2::ZERO,
-            zoom: 1.0,
-            selected_face: None,
-            focused_object: None,
-            hovered_object: None,
-            dragged_object: None,
-            face_goal_order: Vec::new(),
-            face_hyps_order: Vec::new(),
             end_status: EndStatus::Running,
-            lemmas,
-            lemma_tree,
-            selected_lemma: None,
-            code_window_open: false,
-            layout: LayoutEngine::new(),
-            init_ppp: None,
-            ppp: None,
+            graph: GraphState {
+                graph,
+                names: HashMap::new(),
+                layout: LayoutEngine::new(),
+                face_goal_order: Vec::new(),
+                face_hyps_order: Vec::new(),
+                selected_face: None,
+            },
+            ins: InstructionsState {
+                instructions: Vec::new(),
+                eval_status: interpreter::InterpreterStatus::new(),
+            },
+            code: CodeState {
+                prev_code: String::new(),
+                code: String::new(),
+                ast: Vec::new(),
+                code_style: vec![(0, CodeStyle::None)],
+                error_msg: String::new(),
+                run_until: 0,
+                states: vec![init_state],
+                code_window_open: false,
+            },
+            lemmas: LemmaState {
+                lemmas,
+                lemma_tree,
+                selected_lemma: None,
+            },
+            current_action: None,
+            graphical: GraphicalState {
+                offset: Vec2::ZERO,
+                zoom: 1.0,
+                focused_object: None,
+                hovered_object: None,
+                dragged_object: None,
+                init_ppp: None,
+                ppp: None,
+            },
         };
         vm.relabel();
         vm.recompute_face_statuses();
         vm.autoname();
         vm.init_face_order();
-        vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
+        vm.graph
+            .layout
+            .particles_for_graph(&vm.config, &mut vm.graph.graph);
         vm
     }
 
     fn recompile_to(&mut self, to: usize, one: bool) -> Option<ast::AST> {
-        let p = parser::Parser::new(self.run_until, &self.code[self.run_until..to]);
+        let p = parser::Parser::new(
+            self.code.run_until,
+            &self.code.code[self.code.run_until..to],
+        );
         let r = if one { p.parse_one() } else { p.parse() };
         match r {
             Ok((_, ast)) => {
-                self.error_msg.clear();
+                self.code.error_msg.clear();
                 self.reset_style();
-                self.style_range(0..self.run_until, CodeStyle::Run);
+                self.style_range(0..self.code.run_until, CodeStyle::Run);
                 Some(ast)
             }
             Err(err) => {
@@ -177,10 +212,11 @@ impl<R: Remote, I: Interactive> VM<R, I> {
                     nom::Err::Error(err) => err,
                     nom::Err::Failure(err) => err,
                 };
-                let start = unsafe { err.input.as_ptr().offset_from(self.code.as_ptr()) as usize };
+                let start =
+                    unsafe { err.input.as_ptr().offset_from(self.code.code.as_ptr()) as usize };
                 let end = start + err.input.len();
-                self.ast.clear();
-                self.error_msg = format!("{}:{}: {}", start, end, err);
+                self.code.ast.clear();
+                self.code.error_msg = format!("{}:{}: {}", start, end, err);
                 self.style_range(start..end, CodeStyle::Error);
                 None
             }
@@ -189,24 +225,28 @@ impl<R: Remote, I: Interactive> VM<R, I> {
 
     // Compile the code, but do not run it
     pub fn recompile(&mut self) -> Option<ast::AST> {
-        self.recompile_to(self.code.len(), false)
+        self.recompile_to(self.code.code.len(), false)
     }
     pub fn recompile_one(&mut self) -> Option<ast::AST> {
-        self.recompile_to(self.code.len(), true)
+        self.recompile_to(self.code.code.len(), true)
     }
 
     // Insert new code the last executed instruction and parse it
     fn insert_and_parse(&mut self, code: &str) -> Option<ast::AST> {
-        let start = self.run_until + (if self.run_until == 0 { 0 } else { 1 });
-        let end = self.run_until + code.len() + (if self.run_until == 0 { 0 } else { 1 });
-        if !(self.code.len() > end
-            && &self.code[start..end] == code
-            && (self.code.len() == end || self.code.chars().nth(end) == Some('\n')))
+        let start = self.code.run_until + (if self.code.run_until == 0 { 0 } else { 1 });
+        let end = self.code.run_until + code.len() + (if self.code.run_until == 0 { 0 } else { 1 });
+        if !(self.code.code.len() > end
+            && &self.code.code[start..end] == code
+            && (self.code.code.len() == end || self.code.code.chars().nth(end) == Some('\n')))
         {
-            if self.run_until == 0 {
-                self.code.insert_str(self.run_until, &format!("{}\n", code));
+            if self.code.run_until == 0 {
+                self.code
+                    .code
+                    .insert_str(self.code.run_until, &format!("{}\n", code));
             } else {
-                self.code.insert_str(self.run_until, &format!("\n{}", code));
+                self.code
+                    .code
+                    .insert_str(self.code.run_until, &format!("\n{}", code));
             }
         }
         self.recompile_to(end, false)
@@ -224,7 +264,7 @@ impl<R: Remote, I: Interactive> VM<R, I> {
         if self.current_action.is_some() {
             self.stop_interactive();
         }
-        self.current_action = Some((self.instructions.len(), int));
+        self.current_action = Some((self.ins.instructions.len(), int));
     }
 
     // Commit the current interactive action

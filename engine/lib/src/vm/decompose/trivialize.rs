@@ -39,7 +39,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             starts.insert(path[i].0, i);
         }
         if let Some((src, mph)) = path.last() {
-            let dst = self.graph.edges[*src][*mph].0;
+            let dst = self.graph.graph.edges[*src][*mph].0;
             if let Some(start) = starts.get(&dst) {
                 return Some(*start..path.len());
             }

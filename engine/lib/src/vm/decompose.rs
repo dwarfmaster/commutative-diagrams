@@ -10,19 +10,19 @@ use step::Step;
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn planar_split(&mut self, face: usize) -> bool {
         // Find left and right sides
-        let left = self.graph.faces[face].left.iter().scan(
-            self.graph.faces[face].start,
+        let left = self.graph.graph.faces[face].left.iter().scan(
+            self.graph.graph.faces[face].start,
             |st: &mut usize, mph: &usize| {
                 let src = *st;
-                *st = self.graph.edges[src][*mph].0;
+                *st = self.graph.graph.edges[src][*mph].0;
                 Some((src, *mph))
             },
         );
-        let right = self.graph.faces[face].right.iter().scan(
-            self.graph.faces[face].start,
+        let right = self.graph.graph.faces[face].right.iter().scan(
+            self.graph.graph.faces[face].start,
             |st: &mut usize, mph: &usize| {
                 let src = *st;
-                *st = self.graph.edges[src][*mph].0;
+                *st = self.graph.graph.edges[src][*mph].0;
                 Some((src, *mph))
             },
         );
@@ -72,7 +72,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         log::trace!("Decomposing with steps {}", steps);
         self.insert_and_run(&format!(
             "decompose {} {}",
-            self.graph.faces[face].label.name, steps
+            self.graph.graph.faces[face].label.name, steps
         ));
         true
     }

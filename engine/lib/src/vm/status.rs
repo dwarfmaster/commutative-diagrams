@@ -52,12 +52,13 @@ impl<Rm: Remote> Context<Rm> {
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn set_face_status(&mut self, fce: usize) {
-        self.graph.faces[fce].label.status = self.ctx.compute_eq_status(&self.graph.faces[fce].eq);
+        self.graph.graph.faces[fce].label.status =
+            self.ctx.compute_eq_status(&self.graph.graph.faces[fce].eq);
     }
 
     // Recompute face status of all faces
     pub fn recompute_face_statuses(&mut self) {
-        for fce in 0..self.graph.faces.len() {
+        for fce in 0..self.graph.graph.faces.len() {
             self.set_face_status(fce);
         }
     }

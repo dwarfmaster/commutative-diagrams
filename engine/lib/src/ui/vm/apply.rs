@@ -47,25 +47,33 @@ struct DisplayState<'a, Rm: Remote> {
 
 impl LemmaApplicationState {
     pub fn new<Rm: Remote>(vm: &mut VM<Rm>, lemma: usize) -> Self {
-        let graph = vm.lemmas[lemma].instantiate(&mut vm.ctx, &vm.config, false);
+        let graph = vm.lemmas.lemmas[lemma].instantiate(&mut vm.ctx, &vm.config, false);
         let mut r = Self {
             lemma,
             graph,
             direct_mapping: HashMap::new(),
-            selected: vm.lemmas[lemma]
+            selected: vm.lemmas.lemmas[lemma]
                 .graphical_state
                 .selected_face
                 .map(|fce| AppId::Lemma(GraphId::Face(fce)))
-                .or_else(|| vm.selected_face.map(|fce| AppId::Goal(GraphId::Face(fce)))),
+                .or_else(|| {
+                    vm.graph
+                        .selected_face
+                        .map(|fce| AppId::Goal(GraphId::Face(fce)))
+                }),
             error_msg: None,
             reverse_mapping: HashMap::new(),
-            zoom: vm.lemmas[lemma].graphical_state.zoom,
-            offset: vm.lemmas[lemma].graphical_state.offset,
+            zoom: vm.lemmas.lemmas[lemma].graphical_state.zoom,
+            offset: vm.lemmas.lemmas[lemma].graphical_state.offset,
             focused: None,
             hovered: None,
             dragged: None,
         };
-        if vm.lemmas[lemma].graphical_state.selected_face.is_some() {
+        if vm.lemmas.lemmas[lemma]
+            .graphical_state
+            .selected_face
+            .is_some()
+        {
             vm.deselect_face();
         }
         r.relabel(&mut vm.ctx);
@@ -83,11 +91,11 @@ impl LemmaApplicationState {
 
     pub fn compile<Rm: Remote>(self, vm: &VM<Rm>) -> String {
         let mut name = String::new();
-        for nms in &vm.lemmas[self.lemma].namespace {
+        for nms in &vm.lemmas.lemmas[self.lemma].namespace {
             name.push_str(nms);
             name.push_str(".");
         }
-        name.push_str(&vm.lemmas[self.lemma].name);
+        name.push_str(&vm.lemmas.lemmas[self.lemma].name);
         let mut cmd = format!("apply {}", name);
         for (lem, goals) in self.direct_mapping.iter() {
             let lname = self.get_name(*lem);
@@ -123,10 +131,12 @@ impl LemmaApplicationState {
         let mut state = DisplayState { apply: self, vm };
         egui::Window::new(format!(
             "Applying {}",
-            state.vm.lemmas[state.apply.lemma].complete_name
+            state.vm.lemmas.lemmas[state.apply.lemma].complete_name
         ))
         .id(egui::Id::new(
-            state.vm.lemmas[state.apply.lemma].complete_name.as_str(),
+            state.vm.lemmas.lemmas[state.apply.lemma]
+                .complete_name
+                .as_str(),
         ))
         .open(&mut open)
         .show(ui, |ui| {
@@ -273,7 +283,7 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
         nodes_rect.reserve(self.apply.graph.nodes.len());
         for nd in 0..self.apply.graph.nodes.len() {
             if let Some(pos_id) = self.apply.graph.nodes[nd].2.pos {
-                let pos = self.vm.lemmas[self.apply.lemma]
+                let pos = self.vm.lemmas.lemmas[self.apply.lemma]
                     .graphical_state
                     .layout
                     .get_pos(pos_id);
@@ -313,15 +323,15 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
                 super::apply_modifier(md, &mut stroke.color, &mut modifier);
 
                 // Positions
-                let psrc = self.vm.lemmas[self.apply.lemma]
+                let psrc = self.vm.lemmas.lemmas[self.apply.lemma]
                     .graphical_state
                     .layout
                     .get_pos(self.apply.graph.nodes[src].2.pos.unwrap());
-                let pdst = self.vm.lemmas[self.apply.lemma]
+                let pdst = self.vm.lemmas.lemmas[self.apply.lemma]
                     .graphical_state
                     .layout
                     .get_pos(self.apply.graph.nodes[dst].2.pos.unwrap());
-                let control = self.vm.lemmas[self.apply.lemma]
+                let control = self.vm.lemmas.lemmas[self.apply.lemma]
                     .graphical_state
                     .layout
                     .get_pos(self.apply.graph.edges[src][mph].1.control.unwrap());
@@ -445,13 +455,17 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
             }
             Action::Drag(GraphId::Node(nd), pos, _) => {
                 if let Some(part) = self.apply.graph.nodes[nd].2.pos {
-                    let layout = &mut self.vm.lemmas[self.apply.lemma].graphical_state.layout;
+                    let layout = &mut self.vm.lemmas.lemmas[self.apply.lemma]
+                        .graphical_state
+                        .layout;
                     layout.set_pos(part, pos);
                 }
             }
             Action::Drag(GraphId::Morphism(src, mph), _, vec) => {
                 if let Some(part) = self.apply.graph.edges[src][mph].1.control {
-                    let layout = &mut self.vm.lemmas[self.apply.lemma].graphical_state.layout;
+                    let layout = &mut self.vm.lemmas.lemmas[self.apply.lemma]
+                        .graphical_state
+                        .layout;
                     let pos = layout.get_pos(part) + vec;
                     layout.set_pos(part, pos);
                 }
@@ -482,7 +496,7 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
                     .clicked()
                 {
                     self.apply.graph.nodes[n].2.pinned = !self.apply.graph.nodes[n].2.pinned;
-                    if let Some(pattern) = &mut self.vm.lemmas[self.apply.lemma].pattern {
+                    if let Some(pattern) = &mut self.vm.lemmas.lemmas[self.apply.lemma].pattern {
                         pattern.nodes[n].2.pinned = self.apply.graph.nodes[n].2.pinned;
                     }
                     ui.close_menu();
@@ -501,7 +515,7 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
                 {
                     self.apply.graph.edges[src][mph].1.pinned =
                         !self.apply.graph.edges[src][mph].1.pinned;
-                    if let Some(pattern) = &mut self.vm.lemmas[self.apply.lemma].pattern {
+                    if let Some(pattern) = &mut self.vm.lemmas.lemmas[self.apply.lemma].pattern {
                         pattern.edges[src][mph].1.pinned =
                             self.apply.graph.edges[src][mph].1.pinned;
                     }

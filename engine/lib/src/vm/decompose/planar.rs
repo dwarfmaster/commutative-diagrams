@@ -45,26 +45,27 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         // The path is triplets of src, dst and mph ids. The dst of an entry
         // should be the src of the next one.
         let mut actual: Vec<(usize, usize, usize)> = left
-            .map(|(src, mph)| (src, self.graph.edges[src][mph].0, mph))
+            .map(|(src, mph)| (src, self.graph.graph.edges[src][mph].0, mph))
             .collect();
 
         // For each node in the right sides, we remember the angle corresponding
         // to the outgoing edge, to use as max angle when exploring, thus making
         // sure we do not leave the face
-        let mut max_angles: Vec<Option<f32>> = vec![None; self.graph.nodes.len()];
+        let mut max_angles: Vec<Option<f32>> = vec![None; self.graph.graph.nodes.len()];
         {
             for (src, mph) in right {
                 max_angles[src] = Some(self.compute_angle(
-                    self.graph.nodes[src].2.pos.unwrap(),
-                    self.graph.edges[src][mph].1.control.unwrap(),
+                    self.graph.graph.nodes[src].2.pos.unwrap(),
+                    self.graph.graph.edges[src][mph].1.control.unwrap(),
                 ));
             }
         }
 
         // For each node, lazily order the outgoing edge by angle
-        let mut out_angles: Vec<Option<Vec<(f32, usize)>>> = vec![None; self.graph.nodes.len()];
+        let mut out_angles: Vec<Option<Vec<(f32, usize)>>> =
+            vec![None; self.graph.graph.nodes.len()];
         // For each node, we remember wether they are one the source path or not
-        let mut in_actual: Vec<Option<usize>> = vec![None; self.graph.nodes.len()];
+        let mut in_actual: Vec<Option<usize>> = vec![None; self.graph.graph.nodes.len()];
 
         // Create steps
         let mut steps = Vec::new();
@@ -92,7 +93,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     .iter()
                     .chain(step.middle_right.iter())
                     .chain(step.end.iter())
-                    .map(|(src, mph)| (*src, self.graph.edges[*src][*mph].0, *mph))
+                    .map(|(src, mph)| (*src, self.graph.graph.edges[*src][*mph].0, *mph))
                     .collect();
                 steps.push(step);
             } else {
@@ -104,20 +105,23 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     }
 
     fn compute_angle(&self, pt: usize, control: usize) -> f32 {
-        let pt = self.layout.get_pos(pt);
-        let control = self.layout.get_pos(control);
+        let pt = self.graph.layout.get_pos(pt);
+        let control = self.graph.layout.get_pos(control);
         let dir = control - pt;
         dir.angle()
     }
 
     fn compute_out_angles(&self, nd: usize) -> Vec<(f32, usize)> {
-        let mut r = self.graph.edges[nd]
+        let mut r = self.graph.graph.edges[nd]
             .iter()
             .enumerate()
             .filter(|(_, (_, lbl, _, _))| !lbl.hidden)
             .map(|(mph, (_, lbl, _, _))| {
                 (
-                    self.compute_angle(self.graph.nodes[nd].2.pos.unwrap(), lbl.control.unwrap()),
+                    self.compute_angle(
+                        self.graph.graph.nodes[nd].2.pos.unwrap(),
+                        lbl.control.unwrap(),
+                    ),
                     mph,
                 )
             })
@@ -162,10 +166,10 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         let range = range_for_angles(node, out_angles, start_angle, max_angle);
         for out in range {
             let mph = out_angles[node].as_ref().unwrap()[out].1;
-            let dst = self.graph.edges[node][mph].0;
+            let dst = self.graph.graph.edges[node][mph].0;
             let in_angle = self.compute_angle(
-                self.graph.nodes[dst].2.pos.unwrap(),
-                self.graph.edges[node][mph].1.control.unwrap(),
+                self.graph.graph.nodes[dst].2.pos.unwrap(),
+                self.graph.graph.edges[node][mph].1.control.unwrap(),
             );
             let max_angle = max_angles[dst].unwrap_or(in_angle);
             path.push((node, mph));
@@ -201,8 +205,8 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         {
             let nangle = max_angles[dst].unwrap_or_else(|| {
                 self.compute_angle(
-                    self.graph.nodes[dst].2.pos.unwrap(),
-                    self.graph.edges[src][mph].1.control.unwrap(),
+                    self.graph.graph.nodes[dst].2.pos.unwrap(),
+                    self.graph.graph.edges[src][mph].1.control.unwrap(),
                 )
             });
             step.start.push((src, mph));
@@ -221,11 +225,11 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         }
         // We try to find a parallel path starting from current node
         let min_angle = self.compute_angle(
-            self.graph.nodes[src].2.pos.unwrap(),
-            self.graph.edges[src][mph].1.control.unwrap(),
+            self.graph.graph.nodes[src].2.pos.unwrap(),
+            self.graph.graph.edges[src][mph].1.control.unwrap(),
         );
         let mut path = Vec::new();
-        let mut seen = vec![false; self.graph.nodes.len()];
+        let mut seen = vec![false; self.graph.graph.nodes.len()];
         if let Some(end) = self.find_parallel_path(
             true, pos, src, min_angle, max_angle, &mut path, in_actual, out_angles, max_angles,
             &mut seen,

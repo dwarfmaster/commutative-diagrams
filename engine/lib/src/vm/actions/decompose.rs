@@ -42,7 +42,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Look all visible faces for one with the right sides. If found, returns its equality
     // (potentially inverted).
     fn decompose_lookup(&self, left: &Morphism, right: &Morphism) -> Option<Eq> {
-        for face in &self.graph.faces {
+        for face in &self.graph.graph.faces {
             if face.label.hidden {
                 continue;
             }
@@ -70,9 +70,9 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 (step.middle_left[0], step.middle_left.last().unwrap())
             };
             (
-                self.graph.nodes[fmph.0].1,
+                self.graph.graph.nodes[fmph.0].1,
                 fmph.0,
-                self.graph.edges[lmph.0][lmph.1].0,
+                self.graph.graph.edges[lmph.0][lmph.1].0,
             )
         };
 
@@ -96,21 +96,24 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     step.middle_right.last().unwrap()
                 }
             };
-            (first_mph.0, self.graph.edges[last_mph.0][last_mph.1].0)
+            (
+                first_mph.0,
+                self.graph.graph.edges[last_mph.0][last_mph.1].0,
+            )
         };
 
         // Building the reflexivity
         let mk_comp = |(src, mph): (usize, usize)| {
-            let dst = self.graph.edges[src][mph].0;
+            let dst = self.graph.graph.edges[src][mph].0;
             (
-                self.graph.nodes[src].0,
-                self.graph.nodes[dst].0,
-                self.graph.edges[src][mph].2,
+                self.graph.graph.nodes[src].0,
+                self.graph.graph.nodes[dst].0,
+                self.graph.graph.edges[src][mph].2,
             )
         };
         let mph = Morphism {
-            src: self.graph.nodes[src_node].0,
-            dst: self.graph.nodes[dst_node].0,
+            src: self.graph.graph.nodes[src_node].0,
+            dst: self.graph.graph.nodes[dst_node].0,
             comps: step
                 .start
                 .iter()
@@ -124,14 +127,14 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
 
         // Building the existential
         let in_mph = Morphism {
-            src: self.graph.nodes[ex_src].0,
-            dst: self.graph.nodes[ex_dst].0,
+            src: self.graph.graph.nodes[ex_src].0,
+            dst: self.graph.graph.nodes[ex_dst].0,
             comps: step.middle_left.iter().copied().map(mk_comp).collect(),
         };
         let in_mph_val = real_mph(&mut self.ctx.remote, cat, &in_mph);
         let out_mph = Morphism {
-            src: self.graph.nodes[ex_src].0,
-            dst: self.graph.nodes[ex_dst].0,
+            src: self.graph.graph.nodes[ex_src].0,
+            dst: self.graph.graph.nodes[ex_dst].0,
             comps: step.middle_right.iter().copied().map(mk_comp).collect(),
         };
         let out_mph_val = real_mph(&mut self.ctx.remote, cat, &out_mph);
@@ -179,7 +182,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
 
     pub fn decompose_face(&mut self, fce: usize, steps: Vec<Step>) -> bool {
         assert!(steps.len() > 0);
-        let cat = self.graph.nodes[self.graph.faces[fce].start].1;
+        let cat = self.graph.graph.nodes[self.graph.graph.faces[fce].start].1;
 
         // Realize all the steps
         let (steps, exs): (Vec<Eq>, Vec<Option<Face<FaceLabel>>>) = steps
@@ -193,7 +196,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 eq1
             })
             .unwrap();
-        if !self.unify_eq(cat, &self.graph.faces[fce].eq.clone(), &to_unify) {
+        if !self.unify_eq(cat, &self.graph.graph.faces[fce].eq.clone(), &to_unify) {
             return false;
         }
 

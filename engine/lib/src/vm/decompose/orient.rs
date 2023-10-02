@@ -15,17 +15,23 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         let points: Vec<Pos2> = left
             .map(|(src, mph)| {
                 [
-                    self.layout.get_pos(self.graph.nodes[src].2.pos.unwrap()),
-                    self.layout
-                        .get_pos(self.graph.edges[src][mph].1.control.unwrap()),
+                    self.graph
+                        .layout
+                        .get_pos(self.graph.graph.nodes[src].2.pos.unwrap()),
+                    self.graph
+                        .layout
+                        .get_pos(self.graph.graph.edges[src][mph].1.control.unwrap()),
                 ]
             })
             .chain(right.rev().map(|(src, mph)| {
-                let dst = self.graph.edges[src][mph].0;
+                let dst = self.graph.graph.edges[src][mph].0;
                 [
-                    self.layout.get_pos(self.graph.nodes[dst].2.pos.unwrap()),
-                    self.layout
-                        .get_pos(self.graph.edges[src][mph].1.control.unwrap()),
+                    self.graph
+                        .layout
+                        .get_pos(self.graph.graph.nodes[dst].2.pos.unwrap()),
+                    self.graph
+                        .layout
+                        .get_pos(self.graph.graph.edges[src][mph].1.control.unwrap()),
                 ]
             }))
             .flatten()

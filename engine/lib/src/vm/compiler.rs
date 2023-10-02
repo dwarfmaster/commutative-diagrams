@@ -20,7 +20,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         use Action::*;
         use ExecutionResult::*;
         let mut result = Unfinished;
-        let start = self.instructions.len();
+        let start = self.ins.instructions.len();
         match act.value.clone() {
             InsertNode(node) => {
                 let node = self.ctx.remote.parse(node.value.clone()).unwrap();
@@ -34,7 +34,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                         }
                     }
                     Err(err) => {
-                        self.error_msg = format!("Couldn't parse object: {:#?}", err);
+                        self.code.error_msg = format!("Couldn't parse object: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
@@ -51,7 +51,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                         }
                     }
                     Err(err) => {
-                        self.error_msg = format!("Couldn't parse morphism: {:#?}", err);
+                        self.code.error_msg = format!("Couldn't parse morphism: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
@@ -68,7 +68,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                         }
                     }
                     Err(err) => {
-                        self.error_msg = format!("Couldn't parse equality: {:#?}", err);
+                        self.code.error_msg = format!("Couldn't parse equality: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
@@ -77,128 +77,132 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 let mph = self.ctx.remote.parse(mph.value.clone()).unwrap();
                 match mph {
                     Ok(mph) => {
-                        if let Some(GraphId::Node(id)) = self.names.get(&node.value) {
+                        if let Some(GraphId::Node(id)) = self.graph.names.get(&node.value) {
                             self.insert_mph_at(*id, mph);
                         } else {
-                            self.error_msg = format!("{} is not a valid node name", node.value);
+                            self.code.error_msg =
+                                format!("{} is not a valid node name", node.value);
                             result = ExecutionError;
                         }
                     }
                     Err(err) => {
-                        self.error_msg = format!("Couldn't parse morphism: {:#?}", err);
+                        self.code.error_msg = format!("Couldn't parse morphism: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
             }
             Split(mph) => {
-                if let Some(GraphId::Morphism(src, mph)) = self.names.get(&mph.value) {
+                if let Some(GraphId::Morphism(src, mph)) = self.graph.names.get(&mph.value) {
                     self.split(*src, *mph)
                 } else {
-                    self.error_msg = format!("{} is not a valid morphism name", mph.value);
+                    self.code.error_msg = format!("{} is not a valid morphism name", mph.value);
                     result = ExecutionError;
                 }
             }
             HideNode(n) => {
-                if let Some(GraphId::Node(n)) = self.names.get(&n.value) {
+                if let Some(GraphId::Node(n)) = self.graph.names.get(&n.value) {
                     self.hide(GraphId::Node(*n))
                 } else {
-                    self.error_msg = format!("{} is not a valid node name", n.value);
+                    self.code.error_msg = format!("{} is not a valid node name", n.value);
                     result = ExecutionError;
                 }
             }
             RevealNode(n) => {
-                if let Some(GraphId::Node(n)) = self.names.get(&n.value) {
+                if let Some(GraphId::Node(n)) = self.graph.names.get(&n.value) {
                     self.reveal(GraphId::Node(*n))
                 } else {
-                    self.error_msg = format!("{} is not a valid node name", n.value);
+                    self.code.error_msg = format!("{} is not a valid node name", n.value);
                     result = ExecutionError;
                 }
             }
             HideMorphism(m) => {
-                if let Some(GraphId::Morphism(s, m)) = self.names.get(&m.value) {
+                if let Some(GraphId::Morphism(s, m)) = self.graph.names.get(&m.value) {
                     self.hide(GraphId::Morphism(*s, *m))
                 } else {
-                    self.error_msg = format!("{} is not a valid morphism name", m.value);
+                    self.code.error_msg = format!("{} is not a valid morphism name", m.value);
                     result = ExecutionError;
                 }
             }
             RevealMorphism(m) => {
-                if let Some(GraphId::Morphism(s, m)) = self.names.get(&m.value) {
+                if let Some(GraphId::Morphism(s, m)) = self.graph.names.get(&m.value) {
                     self.reveal(GraphId::Morphism(*s, *m))
                 } else {
-                    self.error_msg = format!("{} is not a valid morphism name", m.value);
+                    self.code.error_msg = format!("{} is not a valid morphism name", m.value);
                     result = ExecutionError;
                 }
             }
             HideFace(f) => {
-                if let Some(GraphId::Face(f)) = self.names.get(&f.value) {
+                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value) {
                     self.hide(GraphId::Face(*f))
                 } else {
-                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             RevealFace(f) => {
-                if let Some(GraphId::Face(f)) = self.names.get(&f.value) {
+                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value) {
                     self.reveal(GraphId::Face(*f))
                 } else {
-                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             Solve(size, f) => {
-                if let Some(GraphId::Face(f)) = self.names.get(&f.value).cloned() {
+                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value).cloned() {
                     if !self.solve_face(f, size.map(|a| a.value).unwrap_or(5)) {
-                        self.error_msg = format!("Couldn't solve face {}", f);
+                        self.code.error_msg = format!("Couldn't solve face {}", f);
                         result = ExecutionError;
                     }
                 } else {
-                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             PullFace(f, size) => {
-                if let Some(GraphId::Face(f)) = self.names.get(&f.value) {
+                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value) {
                     if !self.shrink(*f, Some(0), size) {
-                        self.error_msg = "Couldn't pull previous face".to_string();
+                        self.code.error_msg = "Couldn't pull previous face".to_string();
                         result = ExecutionError;
                     }
                 } else {
-                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             PushFace(f, size) => {
-                if let Some(GraphId::Face(f)) = self.names.get(&f.value) {
+                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value) {
                     if !self.shrink(*f, size, Some(0)) {
-                        self.error_msg = "Couldn't push previous face".to_string();
+                        self.code.error_msg = "Couldn't push previous face".to_string();
                         result = ExecutionError;
                     }
                 } else {
-                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             ShrinkFace(f) => {
-                if let Some(GraphId::Face(f)) = self.names.get(&f.value) {
+                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value) {
                     if !self.shrink(*f, None, None) {
-                        self.error_msg = "Couldn't shrink previous face".to_string();
+                        self.code.error_msg = "Couldn't shrink previous face".to_string();
                         result = ExecutionError;
                     }
                 } else {
-                    self.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.error_msg = format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             Lemma(lem, matching) => {
                 let lemma = self.find_lemma(&lem.value);
                 if let Some(lemma) = lemma {
-                    self.lemmas[lemma].get_pattern(&mut self.ctx, &self.config);
+                    self.lemmas.lemmas[lemma].get_pattern(&mut self.ctx, &self.config);
                     let matching = matching
                         .iter()
                         .map(|(lem, goal)| {
-                            let lemid = self.lemmas[lemma].graphical_state.names.get(&lem.value);
-                            let goalid = self.names.get(&goal.value);
+                            let lemid = self.lemmas.lemmas[lemma]
+                                .graphical_state
+                                .names
+                                .get(&lem.value);
+                            let goalid = self.graph.names.get(&goal.value);
                             match (lemid, goalid) {
                                 (Some(lem), Some(goal)) => Ok((lem.clone(), goal.clone())),
                                 (None, _) => {
@@ -216,40 +220,40 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                             }
                         }
                         Err(msg) => {
-                            self.error_msg = msg;
+                            self.code.error_msg = msg;
                             result = ExecutionError;
                         }
                     }
                 } else {
-                    self.error_msg = format!("Couldn't find lemma {}", lem.value);
+                    self.code.error_msg = format!("Couldn't find lemma {}", lem.value);
                     result = ExecutionError;
                 }
             }
             Merge(name1, name2) => {
-                if let Some(id1) = self.names.get(&name1.value) {
-                    if let Some(id2) = self.names.get(&name2.value) {
+                if let Some(id1) = self.graph.names.get(&name1.value) {
+                    if let Some(id2) = self.graph.names.get(&name2.value) {
                         if !self.merge_dwim(*id1, *id2) {
-                            self.error_msg =
+                            self.code.error_msg =
                                 format!("Couldn't merge {} with {}", name1.value, name2.value);
                             result = ExecutionError;
                         }
                     } else {
-                        self.error_msg = format!("Couldn't find {}", name2.value);
+                        self.code.error_msg = format!("Couldn't find {}", name2.value);
                         result = ExecutionError;
                     }
                 } else {
-                    self.error_msg = format!("Couldn't find {}", name1.value);
+                    self.code.error_msg = format!("Couldn't find {}", name1.value);
                     result = ExecutionError;
                 }
             }
             Decompose(fce, steps) => {
-                if let Some(GraphId::Face(face)) = self.names.get(&fce.value) {
+                if let Some(GraphId::Face(face)) = self.graph.names.get(&fce.value) {
                     let deref_names =
                         |v: Vec<ast::Annot<String>>| -> Result<Vec<(usize, usize)>, String> {
                             v.into_iter()
                                 .map(|name| {
                                     if let Some(GraphId::Morphism(src, mph)) =
-                                        self.names.get(&name.value)
+                                        self.graph.names.get(&name.value)
                                     {
                                         Ok((*src, *mph))
                                     } else {
@@ -273,17 +277,18 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     match steps {
                         Ok(steps) => {
                             if !self.decompose_face(*face, steps) {
-                                self.error_msg = format!("Couldn't decompose face {}", fce.value);
+                                self.code.error_msg =
+                                    format!("Couldn't decompose face {}", fce.value);
                                 result = ExecutionError;
                             }
                         }
                         Err(msg) => {
-                            self.error_msg = msg;
+                            self.code.error_msg = msg;
                             result = ExecutionError;
                         }
                     }
                 } else {
-                    self.error_msg = format!("Coudn't find face {}", fce.value);
+                    self.code.error_msg = format!("Coudn't find face {}", fce.value);
                     result = ExecutionError;
                 }
             }
@@ -292,11 +297,11 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         }
         if result == ExecutionError {
             // Undo all new instructions
-            let tail = self.instructions.split_off(start);
+            let tail = self.ins.instructions.split_off(start);
             for ins in tail.into_iter().rev() {
                 self.undo_instruction(&ins)
             }
-            self.ctx.restore_state(*self.states.last().unwrap());
+            self.ctx.restore_state(*self.code.states.last().unwrap());
         } else {
             // Register the action as having been executed
             self.store_action(act, start);
@@ -305,28 +310,28 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     }
 
     pub fn store_action(&mut self, act: ast::Annot<Action>, from: usize) {
-        self.run_until = act.range.end;
+        self.code.run_until = act.range.end;
         self.reset_style();
-        self.style_range(0..self.run_until, CodeStyle::Run);
-        self.ast.push(vm::Action {
+        self.style_range(0..self.code.run_until, CodeStyle::Run);
+        self.code.ast.push(vm::Action {
             act: act.value,
             text: act.range,
-            asm: from..self.instructions.len(),
+            asm: from..self.ins.instructions.len(),
         });
         let status = self.ctx.save_state();
-        self.states.push(status);
+        self.code.states.push(status);
     }
 
     fn clear_interactive(&mut self) {
         if let Some((last_act, act)) = self.current_action.take() {
             act.terminate();
             // Undo partial execution of the action
-            while self.instructions.len() > last_act {
+            while self.ins.instructions.len() > last_act {
                 self.pop_instruction();
             }
-            let state = *self.states.last().unwrap();
+            let state = *self.code.states.last().unwrap();
             log::trace!("Restoring to {}", state);
-            self.ctx.restore_state(*self.states.last().unwrap());
+            self.ctx.restore_state(*self.code.states.last().unwrap());
             self.change_state();
         }
     }
@@ -350,15 +355,15 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             }
         }
         self.finalize_execution();
-        self.prev_code = self.code.clone();
+        self.code.prev_code = self.code.code.clone();
     }
 
     // On code change, undo all actions that were downstream the edit
     pub fn sync_code(&mut self) {
         // Find first change
-        let mut first_change_id: usize = self.code.len().min(self.prev_code.len());
-        for i in 0..self.code.len().min(self.prev_code.len()) {
-            if self.code.as_bytes()[i] != self.prev_code.as_bytes()[i] {
+        let mut first_change_id: usize = self.code.code.len().min(self.code.prev_code.len());
+        for i in 0..self.code.code.len().min(self.code.prev_code.len()) {
+            if self.code.code.as_bytes()[i] != self.code.prev_code.as_bytes()[i] {
                 first_change_id = i;
                 break;
             }
@@ -366,12 +371,13 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
 
         // If nothing has changed in the part that has been run, there is
         // nothing to do
-        if first_change_id >= self.run_until {
+        if first_change_id >= self.code.run_until {
             return;
         }
 
         // Find first modified action
         let first_modified = self
+            .code
             .ast
             .binary_search_by(|act: &vm::Action| {
                 use std::cmp::Ordering::*;
@@ -384,7 +390,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 }
             })
             .unwrap_or_else(|i| i);
-        if first_modified >= self.ast.len() {
+        if first_modified >= self.code.ast.len() {
             return;
         }
 
@@ -394,9 +400,9 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Keep the first keep actions, undoing all the others
     pub fn undo_until(&mut self, keep: usize) {
         // Undo all these actions and remove them from the ast
-        let tail = self.ast.split_off(keep);
-        let status = self.states[keep];
-        self.states.truncate(keep + 1);
+        let tail = self.code.ast.split_off(keep);
+        let status = self.code.states[keep];
+        self.code.states.truncate(keep + 1);
         self.initialize_execution();
         self.clear_interactive();
         for act in tail.iter().rev() {
@@ -409,11 +415,11 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
 
         // Update run_until
         self.reset_style();
-        if let Some(lst) = self.ast.last() {
-            self.run_until = lst.text.end;
-            self.style_range(0..self.run_until, CodeStyle::Run);
+        if let Some(lst) = self.code.ast.last() {
+            self.code.run_until = lst.text.end;
+            self.style_range(0..self.code.run_until, CodeStyle::Run);
         } else {
-            self.run_until = 0;
+            self.code.run_until = 0;
         }
     }
 }

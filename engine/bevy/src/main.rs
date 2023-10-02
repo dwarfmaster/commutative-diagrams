@@ -43,7 +43,7 @@ fn init_vm_code_from_file(vm: &mut VM, path: &str, edit: bool) -> bool {
     }
     let mut file = file.unwrap();
 
-    if file.read_to_string(&mut vm.code).is_err() {
+    if file.read_to_string(&mut vm.code.code).is_err() {
         return false;
     }
     init_vm_code(vm, edit)
@@ -89,7 +89,7 @@ fn goal_graph(client: RPC, state: State, edit: bool) {
             }
         }
         State::Script(script) => {
-            vm.code = script.to_string();
+            vm.code.code = script.to_string();
             if init_vm_code(&mut vm, edit) {
                 log::info!("Ending without opening the ui");
                 return;
@@ -125,7 +125,7 @@ fn goal_ui_system(
         _ => (),
     }
 
-    if let Some(ppp) = vm.vm.ppp {
+    if let Some(ppp) = vm.vm.graphical.ppp {
         settings.scale_factor = ppp as f64;
     }
 }
@@ -135,9 +135,9 @@ fn save_code_on_exit(path: &str, vm: &VM) {
     let prefix = path.parent().unwrap();
     std::fs::create_dir_all(prefix).unwrap();
     let mut file = File::create(path).unwrap();
-    file.write_all(&vm.code[0..vm.run_until].as_bytes())
+    file.write_all(&vm.code.code[0..vm.code.run_until].as_bytes())
         .unwrap();
-    for line in vm.code[vm.run_until..].split("\n") {
+    for line in vm.code.code[vm.code.run_until..].split("\n") {
         if line.is_empty() {
             continue;
         }

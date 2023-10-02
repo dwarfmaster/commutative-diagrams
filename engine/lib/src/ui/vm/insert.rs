@@ -45,7 +45,9 @@ impl InsertState {
                             vm.insert_node(id, cat);
                         }
                     }
-                    vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
+                    vm.graph
+                        .layout
+                        .particles_for_graph(&vm.config, &mut vm.graph.graph);
                     self.finished = true;
                 }
                 Morphism => {
@@ -59,7 +61,9 @@ impl InsertState {
                             vm.insert_mph(id, cat);
                         }
                     }
-                    vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
+                    vm.graph
+                        .layout
+                        .particles_for_graph(&vm.config, &mut vm.graph.graph);
                     self.finished = true;
                 }
                 Equality => {
@@ -73,7 +77,9 @@ impl InsertState {
                             vm.insert_eq(id, cat);
                         }
                     }
-                    vm.layout.particles_for_graph(&vm.config, &mut vm.graph);
+                    vm.graph
+                        .layout
+                        .particles_for_graph(&vm.config, &mut vm.graph.graph);
                     self.finished = true;
                 }
             },

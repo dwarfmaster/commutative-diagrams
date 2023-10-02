@@ -8,14 +8,16 @@ use crate::remote::Remote;
 pub fn main<RPC: Remote>(ctx: &egui::Context, vm: &mut VM<RPC>) {
     // Do one layout step
     {
-        let fixed = |id| vm.dragged_object == Some(id) || vm.graph.pinned(id);
-        vm.layout.apply_forces(&vm.config, &vm.graph, &fixed);
-        vm.layout.update(&vm.config);
+        let fixed = |id| vm.graphical.dragged_object == Some(id) || vm.graph.graph.pinned(id);
+        vm.graph
+            .layout
+            .apply_forces(&vm.config, &vm.graph.graph, &fixed);
+        vm.graph.layout.update(&vm.config);
 
-        if let Some(lem) = vm.selected_lemma {
-            if vm.lemmas[lem].pattern.is_some() {
-                let dragged = vm.lemmas[lem].graphical_state.dragged;
-                let lem = &mut vm.lemmas[lem];
+        if let Some(lem) = vm.lemmas.selected_lemma {
+            if vm.lemmas.lemmas[lem].pattern.is_some() {
+                let dragged = vm.lemmas.lemmas[lem].graphical_state.dragged;
+                let lem = &mut vm.lemmas.lemmas[lem];
                 let fixed = |id| dragged == Some(id) || lem.pattern.as_ref().unwrap().pinned(id);
                 lem.graphical_state.layout.apply_forces(
                     &vm.config,
@@ -29,14 +31,13 @@ pub fn main<RPC: Remote>(ctx: &egui::Context, vm: &mut VM<RPC>) {
             use crate::ui::InteractiveAction::*;
             match &vm.current_action {
                 Some((_, LemmaApplication(state))) => {
-                    if vm.selected_lemma != Some(state.lemma) {
+                    if vm.lemmas.selected_lemma != Some(state.lemma) {
                         let fixed = |id| state.dragged == Some(id) || state.graph.pinned(id);
-                        vm.lemmas[state.lemma].graphical_state.layout.apply_forces(
-                            &vm.config,
-                            &state.graph,
-                            &fixed,
-                        );
-                        vm.lemmas[state.lemma]
+                        vm.lemmas.lemmas[state.lemma]
+                            .graphical_state
+                            .layout
+                            .apply_forces(&vm.config, &state.graph, &fixed);
+                        vm.lemmas.lemmas[state.lemma]
                             .graphical_state
                             .layout
                             .update(&vm.config);

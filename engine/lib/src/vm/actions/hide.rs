@@ -42,21 +42,21 @@ fn hidden_upd<T: HasHidden + Clone>(val: &T, new: bool) -> asm::Updater<T> {
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     fn hide_node(&mut self, id: usize) {
-        if self.graph.nodes[id].2.hidden {
+        if self.graph.graph.nodes[id].2.hidden {
             return;
         }
 
         self.register_instruction(Ins::UpdateNodeLabel(
             id,
-            hidden_upd(&self.graph.nodes[id].2, true),
+            hidden_upd(&self.graph.graph.nodes[id].2, true),
         ));
-        for src in 0..self.graph.nodes.len() {
-            for mph in 0..self.graph.edges[src].len() {
-                if src == id || self.graph.edges[src][mph].0 == id {
+        for src in 0..self.graph.graph.nodes.len() {
+            for mph in 0..self.graph.graph.edges[src].len() {
+                if src == id || self.graph.graph.edges[src][mph].0 == id {
                     self.register_instruction(Ins::UpdateMorphismLabel(
                         src,
                         mph,
-                        hidden_upd(&self.graph.edges[src][mph].1, true),
+                        hidden_upd(&self.graph.graph.edges[src][mph].1, true),
                     ));
                 }
             }
@@ -72,13 +72,13 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 self.register_instruction(Ins::UpdateMorphismLabel(
                     src,
                     mph,
-                    hidden_upd(&self.graph.edges[src][mph].1, true),
+                    hidden_upd(&self.graph.graph.edges[src][mph].1, true),
                 ));
             }
             Face(f) => {
                 self.register_instruction(Ins::UpdateFaceLabel(
                     f,
-                    hidden_upd(&self.graph.faces[f].label, true),
+                    hidden_upd(&self.graph.graph.faces[f].label, true),
                 ));
             }
         }
@@ -90,27 +90,27 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         match id {
             Node(n) => self.register_instruction(Ins::UpdateNodeLabel(
                 n,
-                hidden_upd(&self.graph.nodes[n].2, false),
+                hidden_upd(&self.graph.graph.nodes[n].2, false),
             )),
             Morphism(src, mph) => {
-                let dst = self.graph.edges[src][mph].0;
+                let dst = self.graph.graph.edges[src][mph].0;
                 self.register_instruction(Ins::UpdateMorphismLabel(
                     src,
                     mph,
-                    hidden_upd(&self.graph.edges[src][mph].1, false),
+                    hidden_upd(&self.graph.graph.edges[src][mph].1, false),
                 ));
                 self.register_instruction(Ins::UpdateNodeLabel(
                     src,
-                    hidden_upd(&self.graph.nodes[src].2, false),
+                    hidden_upd(&self.graph.graph.nodes[src].2, false),
                 ));
                 self.register_instruction(Ins::UpdateNodeLabel(
                     dst,
-                    hidden_upd(&self.graph.nodes[dst].2, false),
+                    hidden_upd(&self.graph.graph.nodes[dst].2, false),
                 ));
             }
             Face(f) => self.register_instruction(Ins::UpdateFaceLabel(
                 f,
-                hidden_upd(&self.graph.faces[f].label, false),
+                hidden_upd(&self.graph.graph.faces[f].label, false),
             )),
         }
     }

@@ -3,11 +3,11 @@ use crate::remote::Remote;
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn undo(&mut self) {
-        if self.ast.is_empty() {
-            self.error_msg = "Nothing to undo".to_string();
+        if self.code.ast.is_empty() {
+            self.code.error_msg = "Nothing to undo".to_string();
             return;
         }
-        self.undo_until(self.ast.len() - 1);
+        self.undo_until(self.code.ast.len() - 1);
     }
 
     pub fn redo(&mut self) {

@@ -13,10 +13,10 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             self.hide(GraphId::Morphism(src, mph));
 
             // Replace mph by path in all equalities, the equality itself doesn't change
-            for fce in 0..self.graph.faces.len() {
+            for fce in 0..self.graph.graph.faces.len() {
                 let replace =
                     |node: &mut usize, nxt: &usize| -> Option<Box<dyn Iterator<Item = usize>>> {
-                        let (dst, _, _, _) = &self.graph.edges[*node][*nxt];
+                        let (dst, _, _, _) = &self.graph.graph.edges[*node][*nxt];
                         let prev = *node;
                         *node = *dst;
                         if prev == src && *nxt == mph {
@@ -26,30 +26,30 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                         }
                     };
 
-                let left = self.graph.faces[fce]
+                let left = self.graph.graph.faces[fce]
                     .left
                     .iter()
-                    .scan(self.graph.faces[fce].start, replace)
+                    .scan(self.graph.graph.faces[fce].start, replace)
                     .flatten()
                     .collect::<Vec<_>>();
-                let right = self.graph.faces[fce]
+                let right = self.graph.graph.faces[fce]
                     .right
                     .iter()
-                    .scan(self.graph.faces[fce].start, replace)
+                    .scan(self.graph.graph.faces[fce].start, replace)
                     .flatten()
                     .collect::<Vec<_>>();
 
-                if left.len() != self.graph.faces[fce].left.len() {
+                if left.len() != self.graph.graph.faces[fce].left.len() {
                     self.register_instruction(Ins::RelocateFaceLeft(
                         fce,
-                        self.graph.faces[fce].left.clone(),
+                        self.graph.graph.faces[fce].left.clone(),
                         left,
                     ));
                 }
-                if right.len() != self.graph.faces[fce].right.len() {
+                if right.len() != self.graph.graph.faces[fce].right.len() {
                     self.register_instruction(Ins::RelocateFaceRight(
                         fce,
-                        self.graph.faces[fce].right.clone(),
+                        self.graph.graph.faces[fce].right.clone(),
                         right,
                     ));
                 }
@@ -61,13 +61,13 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     /// introduce the components as edges. Returns the new path as a sequence
     /// of edges in the graph if the edge wasn't already normal
     pub fn split_norm(&mut self, src: usize, mph: usize) -> Option<Vec<(usize, usize)>> {
-        assert!(src < self.graph.nodes.len(), "src out of bounds");
-        assert!(mph < self.graph.edges[src].len(), "mph out of bounds");
+        assert!(src < self.graph.graph.nodes.len(), "src out of bounds");
+        assert!(mph < self.graph.graph.edges[src].len(), "mph out of bounds");
 
-        let cat = self.graph.nodes[src].1;
-        let sobj = self.graph.nodes[src].0;
-        let dobj = self.graph.nodes[self.graph.edges[src][mph].0].0;
-        let mobj = self.graph.edges[src][mph].2;
+        let cat = self.graph.graph.nodes[src].1;
+        let sobj = self.graph.graph.nodes[src].0;
+        let dobj = self.graph.graph.nodes[self.graph.graph.edges[src][mph].0].0;
+        let mobj = self.graph.graph.edges[src][mph].2;
 
         let comps = to_morphism(&mut self.ctx, cat, sobj, dobj, mobj).comps;
         if comps.len() == 1 {
@@ -82,7 +82,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             res.push((snode, m));
             snode = dnode;
         }
-        assert_eq!(snode, self.graph.edges[src][mph].0);
+        assert_eq!(snode, self.graph.graph.edges[src][mph].0);
         Some(res)
     }
 }
@@ -227,16 +227,20 @@ mod tests {
         let mut vm = VM::<Mock, ()>::start(ctx);
         vm.split(0, 0);
 
-        assert!(vm.graph.check(), "Graph is not valid after split");
-        assert_eq!(vm.graph.nodes.len(), 5, "There should be 5 nodes now");
+        assert!(vm.graph.graph.check(), "Graph is not valid after split");
+        assert_eq!(vm.graph.graph.nodes.len(), 5, "There should be 5 nodes now");
         assert_eq!(
-            vm.graph.edges[0].len(),
+            vm.graph.graph.edges[0].len(),
             2,
             "There should be two outgoing edges from first node"
         );
-        assert_eq!(vm.graph.faces.len(), 0, "No face should have been added");
+        assert_eq!(
+            vm.graph.graph.faces.len(),
+            0,
+            "No face should have been added"
+        );
         assert_ne!(
-            vm.instructions.len(),
+            vm.ins.instructions.len(),
             0,
             "There should be at least one instruction"
         );

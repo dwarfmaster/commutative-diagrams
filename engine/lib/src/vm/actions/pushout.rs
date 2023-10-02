@@ -84,8 +84,8 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             let nd1 = mapping.1[0];
             let mut nd = nd1;
             mapping.1.iter().skip(1).for_each(|nd2| {
-                let mut prevlen = self.graph.edges[nd].len();
-                let mut newlen = self.graph.edges[*nd2].len();
+                let mut prevlen = self.graph.graph.edges[nd].len();
+                let mut newlen = self.graph.graph.edges[*nd2].len();
                 let mut prev = nd;
                 let mut new = *nd2;
 
@@ -175,7 +175,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         }
     }
 
-    // The direct mapping is a mapping from other into self.graph. The object
+    // The direct mapping is a mapping from other into self.graph.graph. The object
     // under the mapped together must be equal. The pushout proceed by
     // incrementally filling a graph morphism from other and the current graph,
     // first on nodes, then on edges and finally on faces. The morphism starts
@@ -194,7 +194,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 continue;
             }
             self.register_instruction(Ins::InsertNode(other.nodes[nd].0, other.nodes[nd].1));
-            map.nodes[nd] = Some(self.graph.nodes.len() - 1);
+            map.nodes[nd] = Some(self.graph.graph.nodes.len() - 1);
         }
 
         // Edges
@@ -212,7 +212,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     other.edges[src][mph].2,
                     other.edges[src][mph].3.clone(),
                 ));
-                map.edges[src][mph] = Some((nsrc, self.graph.edges[nsrc].len() - 1));
+                map.edges[src][mph] = Some((nsrc, self.graph.graph.edges[nsrc].len() - 1));
             }
         }
 
@@ -248,7 +248,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 label: Default::default(),
             };
             self.register_instruction(Ins::InsertFace(face));
-            map.faces[fce] = Some(self.graph.faces.len() - 1);
+            map.faces[fce] = Some(self.graph.graph.faces.len() - 1);
         }
 
         // Update metadata

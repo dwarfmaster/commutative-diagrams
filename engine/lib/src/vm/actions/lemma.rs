@@ -8,11 +8,11 @@ type Mapping = HashMap<GraphId, Vec<GraphId>>;
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Returns true on success and false on failure
     pub fn apply_lemma(&mut self, lemma: usize, matching: &[(GraphId, GraphId)]) -> bool {
-        let pattern = self.lemmas[lemma].instantiate(&mut self.ctx, &self.config, true);
+        let pattern = self.lemmas.lemmas[lemma].instantiate(&mut self.ctx, &self.config, true);
         let matchings = match self.lemma_complete_matchings(&pattern, matching) {
             Some(matching) => matching,
             None => {
-                self.error_msg = "Couldn't complete matching".to_string();
+                self.code.error_msg = "Couldn't complete matching".to_string();
                 return false;
             }
         };
@@ -23,7 +23,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
 
         let r = self.lemma_unify_matching(&pattern, &matchings);
         if let Some(errmsg) = r {
-            self.error_msg = errmsg;
+            self.code.error_msg = errmsg;
             return false;
         }
 
@@ -76,7 +76,10 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         let to_unify = matching
             .iter()
             .filter_map(|(id1, id2)| {
-                match (get_value(&pattern, *id1), get_value(&self.graph, *id2)) {
+                match (
+                    get_value(&pattern, *id1),
+                    get_value(&self.graph.graph, *id2),
+                ) {
                     (Some(n1), Some(n2)) => Some((n1, n2)),
                     _ => None,
                 }
@@ -94,7 +97,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             .filter_map(|(id1, id2)| match (id1, id2) {
                 (Face(f1), Face(f2)) => Some((
                     pattern.faces[*f1].eq.clone(),
-                    self.graph.faces[*f2].eq.clone(),
+                    self.graph.graph.faces[*f2].eq.clone(),
                 )),
                 _ => None,
             })
@@ -109,12 +112,12 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     }
 
     pub fn find_lemma(&self, name: &str) -> Option<usize> {
-        for lem in 0..self.lemmas.len() {
+        for lem in 0..self.lemmas.lemmas.len() {
             let parts = name.split('.');
-            if parts.eq(self.lemmas[lem]
+            if parts.eq(self.lemmas.lemmas[lem]
                 .namespace
                 .iter()
-                .chain(std::iter::once(&self.lemmas[lem].name)))
+                .chain(std::iter::once(&self.lemmas.lemmas[lem].name)))
             {
                 return Some(lem);
             }
@@ -140,46 +143,46 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 matching.push((Node(lsrc), Node(gsrc)));
                 matching.push((
                     Node(pattern.edges[lsrc][lmph].0),
-                    Node(self.graph.edges[gsrc][gmph].0),
+                    Node(self.graph.graph.edges[gsrc][gmph].0),
                 ));
             }
             (Face(lfce), Face(gfce)) => {
                 matching.push((Face(lfce), Face(gfce)));
                 matching.push((
                     Node(pattern.faces[lfce].end),
-                    Node(self.graph.faces[gfce].end),
+                    Node(self.graph.graph.faces[gfce].end),
                 ));
 
                 // Connect left side
                 let mut lsrc = pattern.faces[lfce].start;
-                let mut gsrc = self.graph.faces[gfce].start;
+                let mut gsrc = self.graph.graph.faces[gfce].start;
                 for nxt in 0..pattern.faces[lfce]
                     .left
                     .len()
-                    .min(self.graph.faces[gfce].left.len())
+                    .min(self.graph.graph.faces[gfce].left.len())
                 {
                     matching.push((Node(lsrc), Node(gsrc)));
                     let lmph = pattern.faces[lfce].left[nxt];
-                    let gmph = self.graph.faces[gfce].left[nxt];
+                    let gmph = self.graph.graph.faces[gfce].left[nxt];
                     matching.push((Morphism(lsrc, lmph), Morphism(gsrc, gmph)));
                     lsrc = pattern.edges[lsrc][lmph].0;
-                    gsrc = self.graph.edges[gsrc][gmph].0;
+                    gsrc = self.graph.graph.edges[gsrc][gmph].0;
                 }
 
                 // Connect right side
                 let mut lsrc = pattern.faces[lfce].start;
-                let mut gsrc = self.graph.faces[gfce].start;
+                let mut gsrc = self.graph.graph.faces[gfce].start;
                 for nxt in 0..pattern.faces[lfce]
                     .right
                     .len()
-                    .min(self.graph.faces[gfce].right.len())
+                    .min(self.graph.graph.faces[gfce].right.len())
                 {
                     matching.push((Node(lsrc), Node(gsrc)));
                     let lmph = pattern.faces[lfce].right[nxt];
-                    let gmph = self.graph.faces[gfce].right[nxt];
+                    let gmph = self.graph.graph.faces[gfce].right[nxt];
                     matching.push((Morphism(lsrc, lmph), Morphism(gsrc, gmph)));
                     lsrc = pattern.edges[lsrc][lmph].0;
-                    gsrc = self.graph.edges[gsrc][gmph].0;
+                    gsrc = self.graph.graph.edges[gsrc][gmph].0;
                 }
             }
             _ => return false,
