@@ -18,6 +18,7 @@ wasm-bindgen-futures = "0.4.37"
 eframe = "0.22"
 log = "0.4.17"
 js-sys = "0.3.64"
+futures = "0.3.28"
 
 [dependencies.commutative-diagrams-engine-lib]
 path = "../lib"
