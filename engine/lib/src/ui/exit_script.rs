@@ -3,7 +3,7 @@ use crate::remote::Remote;
 use crate::ui::VM;
 
 // Return true when the application should exit
-pub fn exit<Rm: Remote>(ctx: &mut egui::Context, vm: &mut VM<Rm>) -> bool {
+pub fn exit<Rm: Remote>(ctx: &egui::Context, vm: &mut VM<Rm>) -> bool {
     let mut exit = false;
     egui::CentralPanel::default().show(ctx, |ui| {
         ui.with_layout(egui::Layout::top_down_justified(egui::Align::RIGHT), |ui| {

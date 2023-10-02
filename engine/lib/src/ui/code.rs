@@ -51,11 +51,12 @@ pub fn code_text_box<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>, height: f32
         underline: egui::Stroke::NONE,
         strikethrough: egui::Stroke::NONE,
         valign: egui::Align::BOTTOM,
+        ..Default::default()
     };
     let format_err = egui::TextFormat {
         underline: egui::Stroke {
             color: ui.style().visuals.error_fg_color,
-            width: ui.style().visuals.text_cursor_width,
+            width: ui.style().visuals.text_cursor.width,
         },
         ..format_none.clone()
     };

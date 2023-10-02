@@ -195,6 +195,8 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                         rounding,
                         fill,
                         stroke,
+                        fill_texture_id: Default::default(),
+                        uv: Rect::ZERO,
                     };
                     painter.add(shape);
                     rect
