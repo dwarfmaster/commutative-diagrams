@@ -7,10 +7,6 @@ use std::io::{Read, Write};
 
 use clap::{Parser, Subcommand};
 
-use bevy::app::AppExit;
-use bevy::prelude::*;
-use bevy_egui::{EguiContexts, EguiPlugin, EguiSettings};
-
 type RPC = remote::RPC<std::io::Stdin, std::io::Stdout>;
 type VM = ui::VM<RPC>;
 
@@ -20,20 +16,79 @@ enum State {
     None,
 }
 
-#[derive(Resource)]
-struct AppConfig {
+struct App {
     state: State,
-}
-#[derive(Resource)]
-struct VMHolder {
     vm: VM,
+    copying: bool,
 }
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, States)]
-enum RunState {
-    Success,
-    Failure,
-    #[default]
-    Running,
+
+impl App {
+    pub fn new(_cc: &eframe::CreationContext<'_>, state: State, vm: VM) -> Self {
+        Self {
+            state,
+            vm,
+            copying: false,
+        }
+    }
+
+    pub fn success(&mut self) -> bool {
+        match &self.state {
+            State::File(path) => {
+                save_code_on_exit(path, &self.vm);
+                on_success(&mut self.vm.ctx.remote);
+                true
+            }
+            State::Script(_) => {
+                if self.copying {
+                    on_success(&mut self.vm.ctx.remote);
+                    return true;
+                }
+                self.copying = true;
+                false
+            }
+            State::None => {
+                on_success(&mut self.vm.ctx.remote);
+                true
+            }
+        }
+    }
+
+    pub fn failure(&mut self) -> bool {
+        on_failure(&mut self.vm.ctx.remote);
+        match &self.state {
+            State::File(path) => {
+                save_code_on_exit(path, &self.vm);
+            }
+            State::Script(_) => (),
+            State::None => (),
+        }
+        true
+    }
+}
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if self.copying {
+            if ui::exit(ctx, &mut self.vm) {
+                frame.close();
+            }
+        } else {
+            ui::main(ctx, &mut self.vm);
+            match self.vm.end_status {
+                vm::EndStatus::Success => {
+                    if self.success() {
+                        frame.close();
+                    }
+                }
+                vm::EndStatus::Failure => {
+                    if self.failure() {
+                        frame.close();
+                    }
+                }
+                _ => (),
+            }
+        }
+        ctx.request_repaint_after(std::time::Duration::from_secs_f32(0.033));
+    }
 }
 
 fn init_vm_code_from_file(vm: &mut VM, path: &str, edit: bool) -> bool {
@@ -100,34 +155,16 @@ fn goal_graph(client: RPC, state: State, edit: bool) {
 
     // Run the ui if necessary
     log::info!("Running the ui");
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
-        .add_plugins(EguiPlugin)
-        .add_state::<RunState>()
-        .insert_resource(VMHolder { vm })
-        .insert_resource(AppConfig { state })
-        .add_systems(Update, goal_ui_system.run_if(in_state(RunState::Running)))
-        .add_systems(Update, success_system.run_if(in_state(RunState::Success)))
-        .add_systems(Update, failure_system.run_if(in_state(RunState::Failure)));
-    app.run();
-}
-
-fn goal_ui_system(
-    mut egui_context: EguiContexts,
-    mut settings: ResMut<EguiSettings>,
-    mut vm: ResMut<VMHolder>,
-    mut state: ResMut<NextState<RunState>>,
-) {
-    ui::main(egui_context.ctx_mut(), &mut vm.as_mut().vm);
-    match vm.vm.end_status {
-        vm::EndStatus::Success => state.set(RunState::Success),
-        vm::EndStatus::Failure => state.set(RunState::Failure),
-        _ => (),
-    }
-
-    if let Some(ppp) = vm.vm.graphical.ppp {
-        settings.scale_factor = ppp as f64;
-    }
+    let native_options = eframe::NativeOptions {
+        renderer: eframe::Renderer::Wgpu,
+        ..eframe::NativeOptions::default()
+    };
+    eframe::run_native(
+        "ComDiag",
+        native_options,
+        Box::new(|cc| Box::new(App::new(cc, state, vm))),
+    )
+    .expect("Failed to run eframe");
 }
 
 fn save_code_on_exit(path: &str, vm: &VM) {
@@ -158,49 +195,12 @@ fn on_failure(client: &mut RPC) {
     });
 }
 
-fn failure_system(mut exit: EventWriter<AppExit>, mut vm: ResMut<VMHolder>, cfg: Res<AppConfig>) {
-    on_failure(&mut vm.as_mut().vm.ctx.remote);
-    match &cfg.state {
-        State::File(path) => {
-            save_code_on_exit(path, &vm.as_ref().vm);
-        }
-        State::Script(_) => (),
-        State::None => (),
-    }
-    exit.send(AppExit)
-}
-
 fn on_success(client: &mut RPC) {
     log::info!("Entering success state");
     client.finish(true).unwrap_or_else(|err| {
         log::warn!("Couldn't parse finish(true) answer: {:#?}", err);
         panic!()
     });
-}
-
-fn success_system(
-    mut egui_context: EguiContexts,
-    mut exit: EventWriter<AppExit>,
-    mut vm: ResMut<VMHolder>,
-    cfg: Res<AppConfig>,
-) {
-    match &cfg.state {
-        State::File(path) => {
-            save_code_on_exit(path, &vm.as_ref().vm);
-            on_success(&mut vm.as_mut().vm.ctx.remote);
-            exit.send(AppExit)
-        }
-        State::Script(_) => {
-            if ui::exit(egui_context.ctx_mut(), &mut vm.as_mut().vm) {
-                on_success(&mut vm.as_mut().vm.ctx.remote);
-                exit.send(AppExit)
-            }
-        }
-        State::None => {
-            on_success(&mut vm.as_mut().vm.ctx.remote);
-            exit.send(AppExit);
-        }
-    }
 }
 
 fn embed(state: State, edit: bool) {
@@ -211,9 +211,13 @@ fn embed(state: State, edit: bool) {
             .add_filter_ignore("wgpu_core".to_string())
             .add_filter_ignore("objects".to_string())
             .add_filter_ignore("winit".to_string())
-            .add_filter_ignore("gilrs".to_string())
             .add_filter_ignore("naga".to_string())
             .add_filter_ignore("mio".to_string())
+            .add_filter_ignore("eframe".to_string())
+            .add_filter_ignore("egui_winit".to_string())
+            .add_filter_ignore("async_io".to_string())
+            .add_filter_ignore("polling".to_string())
+            .add_filter_ignore("arboard".to_string())
             .build(),
         File::create("diagrams-engine.log").unwrap(),
     )

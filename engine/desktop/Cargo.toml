@@ -12,9 +12,8 @@ clap = { version = "4.0.32", features = [ "derive" ] }
 log = "0.4.17"
 log-panics = "2.1.0"
 simplelog = "0.12.0"
-egui = "0.22"
-bevy = "0.11"
-bevy_egui = "0.21.0"
+egui = "0.23"
+eframe = { version = "0.23", features = [ "wgpu" ] }
 
 [dependencies.commutative-diagrams-engine-lib]
 path = "../lib"

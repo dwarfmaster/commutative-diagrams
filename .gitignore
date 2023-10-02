@@ -4,7 +4,7 @@ CoqMakefile.conf
 Makefile.coq*
 coq/theories/test
 engine/lib/target
-engine/bevy/target
+engine/desktop/target
 engine/web/target
 engine/web/pkg
 engine/server/target

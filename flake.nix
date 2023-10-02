@@ -62,8 +62,6 @@
         })
         pkgs.fontconfig.dev
         pkgs.freetype.dev
-        pkgs.alsa-lib.dev
-        pkgs.systemd.dev
         pkgs.xorg.libX11
         pkgs.xorg.libXcursor
         pkgs.xorg.libXrandr
