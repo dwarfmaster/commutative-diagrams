@@ -1,11 +1,14 @@
-use commutative_diagrams_engine_lib::{remote, ui, vm};
-
-use remote::Remote;
-
-use std::fs::File;
-use std::io::{Read, Write};
-
 use clap::{Parser, Subcommand};
+use commutative_diagrams_engine_lib::runtime::Runtime;
+use commutative_diagrams_engine_lib::{remote, ui, vm};
+use futures::lock::Mutex;
+use remote::Remote;
+use std::fs::File;
+use std::future::Future;
+use std::io::{Read, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 
 type RPC = remote::RPC<std::io::Stdin, std::io::Stdout>;
 type VM = ui::VM<RPC>;
@@ -16,48 +19,106 @@ enum State {
     None,
 }
 
+struct VMRuntime {
+    vm: Arc<Mutex<VM>>,
+    running: Arc<AtomicBool>,
+    description: String,
+    tokio: Option<tokio::runtime::Runtime>,
+}
+
+impl Runtime for VMRuntime {
+    type Rem = RPC;
+
+    fn running<'a>(&'a self) -> Option<&'a str> {
+        let is_running = self.running.load(Ordering::SeqCst);
+        if is_running {
+            Some(&self.description)
+        } else {
+            None
+        }
+    }
+
+    fn run<Fut: Future + Send, F>(&mut self, desc: &str, f: F)
+    where
+        F: FnOnce(&VM) -> Fut + Send + 'static,
+    {
+        self.running.store(true, Ordering::SeqCst);
+        self.description = desc.to_string();
+
+        let vm = self.vm.clone();
+        let running = self.running.clone();
+        self.tokio.as_ref().unwrap().spawn(async move {
+            let vm = vm.lock().await;
+            let _ = f(&vm).await;
+            running.store(false, Ordering::SeqCst);
+        });
+    }
+}
+
 struct App {
     state: State,
-    vm: VM,
     copying: bool,
+    runtime: VMRuntime,
 }
 
 impl App {
     pub fn new(_cc: &eframe::CreationContext<'_>, state: State, vm: VM) -> Self {
+        let rt = tokio::runtime::Runtime::new().expect("Create the tokio runtime");
         Self {
             state,
-            vm,
             copying: false,
+            runtime: VMRuntime {
+                description: String::new(),
+                running: Arc::new(AtomicBool::new(false)),
+                vm: Arc::new(Mutex::new(vm)),
+                tokio: Some(rt),
+            },
         }
     }
 
+    pub fn finish(&mut self) {
+        self.runtime
+            .tokio
+            .take()
+            .unwrap()
+            .shutdown_timeout(Duration::from_secs_f32(1.0));
+    }
+
     pub fn success(&mut self) -> bool {
+        self.finish();
+        let vm = &mut self
+            .runtime
+            .vm
+            .try_lock()
+            .expect("No other references should be left");
         match &self.state {
             State::File(path) => {
-                save_code_on_exit(path, &self.vm);
-                on_success(&mut self.vm.ctx.remote);
+                save_code_on_exit(path, &vm);
+                on_success(&mut vm.ctx.remote);
                 true
             }
             State::Script(_) => {
                 if self.copying {
-                    on_success(&mut self.vm.ctx.remote);
+                    on_success(&mut vm.ctx.remote);
                     return true;
                 }
                 self.copying = true;
                 false
             }
             State::None => {
-                on_success(&mut self.vm.ctx.remote);
+                on_success(&mut vm.ctx.remote);
                 true
             }
         }
     }
 
     pub fn failure(&mut self) -> bool {
-        on_failure(&mut self.vm.ctx.remote);
+        self.finish();
+        let vm = &mut self.runtime.vm.try_lock().expect("No other references should be left");
+        on_failure(&mut vm.ctx.remote);
         match &self.state {
             State::File(path) => {
-                save_code_on_exit(path, &self.vm);
+                save_code_on_exit(path, &vm);
             }
             State::Script(_) => (),
             State::None => (),
@@ -68,12 +129,19 @@ impl App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if self.copying {
-            if ui::exit(ctx, &mut self.vm) {
+            let vm = &mut self.runtime.vm.try_lock().expect("No other references should be left");
+            if ui::exit(ctx, vm) {
+                on_success(&mut vm.ctx.remote);
                 frame.close();
             }
         } else {
-            ui::main(ctx, &mut self.vm);
-            match self.vm.end_status {
+            // TODO remove mut once refactoring has reached this point
+            let end = {
+                let vm = &mut self.runtime.vm.try_lock().unwrap();
+                ui::main(ctx, vm);
+                vm.end_status.clone()
+            };
+            match end {
                 vm::EndStatus::Success => {
                     if self.success() {
                         frame.close();

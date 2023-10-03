@@ -8,7 +8,7 @@ pub trait Runtime {
     // running something, returns it description.
     fn running<'a>(&'a self) -> Option<&'a str>;
     // Run a new task with an associated description.
-    fn run<Fut: Future, F>(&mut self, desc: &str, f: F)
+    fn run<Fut: Future + Send, F>(&mut self, desc: &str, f: F)
     where
-        F: FnOnce(&VM<Self::Rem>) -> Fut;
+        F: FnOnce(&VM<Self::Rem>) -> Fut + Send + 'static;
 }

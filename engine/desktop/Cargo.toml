@@ -14,6 +14,8 @@ log-panics = "2.1.0"
 simplelog = "0.12.0"
 egui = "0.23"
 eframe = { version = "0.23", features = [ "wgpu" ] }
+tokio = { version = "1", features = [ "full" ] }
+futures = "0.3.28"
 
 [dependencies.commutative-diagrams-engine-lib]
 path = "../lib"
