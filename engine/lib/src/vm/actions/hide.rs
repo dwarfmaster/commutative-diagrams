@@ -26,11 +26,10 @@ derive_has_hidden!(NodeLabel);
 derive_has_hidden!(EdgeLabel);
 derive_has_hidden!(FaceLabel);
 
-fn hidden_upd<T: HasHidden + Clone>(val: &T, new: bool) -> asm::Updater<T> {
+fn hidden_upd<T: HasHidden + Clone>(old: bool, new: bool) -> asm::Updater<T> {
     let direct = move |v: &mut T| {
         *v.hidden() = new;
     };
-    let old = val.is_hidden();
     let reverse = move |v: &mut T| {
         *v.hidden() = old;
     };
@@ -41,77 +40,103 @@ fn hidden_upd<T: HasHidden + Clone>(val: &T, new: bool) -> asm::Updater<T> {
 }
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
-    fn hide_node(&mut self, id: usize) {
-        if self.graph.graph.nodes[id].2.hidden {
-            return;
-        }
+    async fn hide_node(&self, id: usize) {
+        let old = {
+            let graph = self.graph.lock().await;
+            if graph.graph.nodes[id].2.hidden {
+                return;
+            }
+            graph.graph.nodes[id].2.is_hidden()
+        };
 
-        self.register_instruction(Ins::UpdateNodeLabel(
-            id,
-            hidden_upd(&self.graph.graph.nodes[id].2, true),
-        ));
-        for src in 0..self.graph.graph.nodes.len() {
-            for mph in 0..self.graph.graph.edges[src].len() {
-                if src == id || self.graph.graph.edges[src][mph].0 == id {
-                    self.register_instruction(Ins::UpdateMorphismLabel(
-                        src,
-                        mph,
-                        hidden_upd(&self.graph.graph.edges[src][mph].1, true),
-                    ));
+        let () = self
+            .register_instruction(Ins::UpdateNodeLabel(id, hidden_upd(old, true)))
+            .await;
+        let nnodes = self.graph.lock().await.graph.nodes.len();
+        for src in 0..nnodes {
+            let nmphs = self.graph.lock().await.graph.edges[src].len();
+            for mph in 0..nmphs {
+                let (dst, old) = {
+                    let graph = self.graph.lock().await;
+                    (
+                        graph.graph.edges[src][mph].0,
+                        graph.graph.edges[src][mph].1.is_hidden(),
+                    )
+                };
+                if src == id || dst == id {
+                    let () = self
+                        .register_instruction(Ins::UpdateMorphismLabel(
+                            src,
+                            mph,
+                            hidden_upd(old, true),
+                        ))
+                        .await;
                 }
             }
         }
     }
 
     // When hiding a node, hide all adjacent edges
-    pub fn hide(&mut self, id: GraphId) {
+    pub async fn hide(&self, id: GraphId) {
         use GraphId::*;
         match id {
-            Node(n) => self.hide_node(n),
+            Node(n) => self.hide_node(n).await,
             Morphism(src, mph) => {
-                self.register_instruction(Ins::UpdateMorphismLabel(
-                    src,
-                    mph,
-                    hidden_upd(&self.graph.graph.edges[src][mph].1, true),
-                ));
+                let old = self.graph.lock().await.graph.edges[src][mph].1.is_hidden();
+                let () = self
+                    .register_instruction(Ins::UpdateMorphismLabel(src, mph, hidden_upd(old, true)))
+                    .await;
             }
             Face(f) => {
-                self.register_instruction(Ins::UpdateFaceLabel(
-                    f,
-                    hidden_upd(&self.graph.graph.faces[f].label, true),
-                ));
+                let old = self.graph.lock().await.graph.faces[f].label.is_hidden();
+                let () = self
+                    .register_instruction(Ins::UpdateFaceLabel(f, hidden_upd(old, true)))
+                    .await;
             }
         }
     }
 
     // When revealing an edge, reveal its source and target nodes
-    pub fn reveal(&mut self, id: GraphId) {
+    pub async fn reveal(&self, id: GraphId) {
         use GraphId::*;
         match id {
-            Node(n) => self.register_instruction(Ins::UpdateNodeLabel(
-                n,
-                hidden_upd(&self.graph.graph.nodes[n].2, false),
-            )),
-            Morphism(src, mph) => {
-                let dst = self.graph.graph.edges[src][mph].0;
-                self.register_instruction(Ins::UpdateMorphismLabel(
-                    src,
-                    mph,
-                    hidden_upd(&self.graph.graph.edges[src][mph].1, false),
-                ));
-                self.register_instruction(Ins::UpdateNodeLabel(
-                    src,
-                    hidden_upd(&self.graph.graph.nodes[src].2, false),
-                ));
-                self.register_instruction(Ins::UpdateNodeLabel(
-                    dst,
-                    hidden_upd(&self.graph.graph.nodes[dst].2, false),
-                ));
+            Node(n) => {
+                let old = self.graph.lock().await.graph.nodes[n].2.is_hidden();
+                let () = self
+                    .register_instruction(Ins::UpdateNodeLabel(n, hidden_upd(old, false)))
+                    .await;
             }
-            Face(f) => self.register_instruction(Ins::UpdateFaceLabel(
-                f,
-                hidden_upd(&self.graph.graph.faces[f].label, false),
-            )),
+            Morphism(src, mph) => {
+                let (dst, old, old_src, old_dst) = {
+                    let graph = self.graph.lock().await;
+                    let dst = graph.graph.edges[src][mph].0;
+                    (
+                        dst,
+                        graph.graph.edges[src][mph].1.is_hidden(),
+                        graph.graph.nodes[src].2.is_hidden(),
+                        graph.graph.nodes[dst].2.is_hidden(),
+                    )
+                };
+                let () = self
+                    .register_instruction(Ins::UpdateMorphismLabel(
+                        src,
+                        mph,
+                        hidden_upd(old, false),
+                    ))
+                    .await;
+                let () = self
+                    .register_instruction(Ins::UpdateNodeLabel(src, hidden_upd(old_src, false)))
+                    .await;
+                let () = self
+                    .register_instruction(Ins::UpdateNodeLabel(dst, hidden_upd(old_dst, false)))
+                    .await;
+            }
+            Face(f) => {
+                let old = self.graph.lock().await.graph.faces[f].label.is_hidden();
+                let () = self
+                    .register_instruction(Ins::UpdateFaceLabel(f, hidden_upd(old, false)))
+                    .await;
+            }
         }
     }
 }

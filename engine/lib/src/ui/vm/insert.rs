@@ -1,7 +1,9 @@
 use super::{Action, ActionResult, ContextMenuResult, Modifier, VM};
+use super::InteractiveAction::Insert;
 use crate::data::{Feature, Tag};
 use crate::graph::GraphId;
 use crate::remote::Remote;
+use crate::runtime::Runtime;
 use egui::{Context, Ui, Vec2};
 
 pub enum InsertKind {
@@ -29,15 +31,23 @@ impl InsertState {
         }
     }
 
-    fn do_insert<R: Remote>(&mut self, vm: &mut VM<R>) {
+    async fn do_insert<R: Remote>(vm: &mut VM<R>) {
         use InsertKind::*;
-        let r = vm.ctx.remote.parse(self.text.clone()).unwrap();
+        let config = &mut vm.config.lock().await;
+        let ctx = &mut vm.ctx.lock().await;
+        let graph = &mut vm.graph.lock().await;
+        let interactive = &mut vm.current_action.lock().await;
+        let ins = match interactive.as_mut() {
+            Some((_,Insert(ins))) => ins,
+            _ => panic!(),
+        };
+        let r = ctx.remote.parse(ins.text.clone()).unwrap();
         match r {
-            Ok(id) => match self.kind {
+            Ok(id) => match ins.kind {
                 Object => {
-                    let tps = vm.ctx.get_stored_query(id, Tag::Object);
+                    let tps = ctx.get_stored_query(id, Tag::Object);
                     if tps.is_empty() {
-                        self.error_msg = Some(format!("\"{}\" is not an object", self.text));
+                        ins.error_msg = Some(format!("\"{}\" is not an object", ins.text));
                         return;
                     }
                     for tp in tps {
@@ -45,15 +55,13 @@ impl InsertState {
                             vm.insert_node(id, cat);
                         }
                     }
-                    vm.graph
-                        .layout
-                        .particles_for_graph(&vm.config, &mut vm.graph.graph);
-                    self.finished = true;
+                    graph.particles_for_graph(&config);
+                    ins.finished = true;
                 }
                 Morphism => {
-                    let tps = vm.ctx.get_stored_query(id, Tag::Morphism);
+                    let tps = ctx.get_stored_query(id, Tag::Morphism);
                     if tps.is_empty() {
-                        self.error_msg = Some(format!("\"{}\" is not a morphism", self.text));
+                        ins.error_msg = Some(format!("\"{}\" is not a morphism", ins.text));
                         return;
                     }
                     for tp in tps {
@@ -61,15 +69,13 @@ impl InsertState {
                             vm.insert_mph(id, cat);
                         }
                     }
-                    vm.graph
-                        .layout
-                        .particles_for_graph(&vm.config, &mut vm.graph.graph);
-                    self.finished = true;
+                    graph.particles_for_graph(&config);
+                    ins.finished = true;
                 }
                 Equality => {
-                    let tps = vm.ctx.get_stored_query(id, Tag::Equality);
+                    let tps = ctx.get_stored_query(id, Tag::Equality);
                     if tps.is_empty() {
-                        self.error_msg = Some(format!("\"{}\" is not an equality", self.text));
+                        ins.error_msg = Some(format!("\"{}\" is not an equality", ins.text));
                         return;
                     }
                     for tp in tps {
@@ -77,13 +83,12 @@ impl InsertState {
                             vm.insert_eq(id, cat);
                         }
                     }
-                    vm.graph
-                        .layout
-                        .particles_for_graph(&vm.config, &mut vm.graph.graph);
-                    self.finished = true;
+                    graph
+                        .particles_for_graph(&config);
+                    ins.finished = true;
                 }
             },
-            Err(msg) => self.error_msg = Some(format!("Couldn't parse \"{}\": {}", self.text, msg)),
+            Err(msg) => ins.error_msg = Some(format!("Couldn't parse \"{}\": {}", ins.text, msg)),
         }
     }
 
@@ -97,7 +102,12 @@ impl InsertState {
         format!("insert {} \"{}\"", kind, self.text)
     }
 
-    pub fn display<R: Remote>(&mut self, vm: &mut VM<R>, ui: &Context) -> ActionResult {
+    pub fn display<RT: Runtime>(
+        &mut self,
+        rt: &mut RT,
+        vm: &VM<RT::Rem>,
+        ui: &Context,
+    ) -> ActionResult {
         if self.aborted {
             return ActionResult::Stop;
         } else if self.finished {
@@ -135,9 +145,14 @@ impl InsertState {
                             Vec2::new(100.0, 40.0),
                             egui::Layout::right_to_left(egui::Align::Center),
                             |ui| {
-                                if ui.button("Insert").clicked() {
-                                    self.do_insert(vm);
-                                }
+                                let running = rt.running();
+                                ui.add_enabled_ui(running.is_none(), |ui| {
+                                    if ui.button("Insert").clicked() {
+                                        rt.run("Insert object", move |vm| async {
+                                            Self::do_insert::<RT::Rem>(&mut vm).await;
+                                        });
+                                    }
+                                });
                                 if ui.button("Cancel").clicked() {
                                     self.aborted = true;
                                 }
@@ -157,16 +172,23 @@ impl InsertState {
         ActionResult::Continue
     }
 
-    pub fn context_menu<R: Remote>(
+    pub fn context_menu<RT: Runtime>(
         &mut self,
-        _vm: &mut VM<R>,
+        _rt: &mut RT,
+        _vm: &VM<RT::Rem>,
         _on: GraphId,
         _ui: &mut Ui,
     ) -> ContextMenuResult {
         ContextMenuResult::Nothing
     }
 
-    pub fn action<R: Remote>(&mut self, _vm: &mut VM<R>, _act: Action, _ui: &mut Ui) -> bool {
+    pub fn action<RT: Runtime>(
+        &mut self,
+        _rt: &mut RT,
+        _vm: &VM<RT::Rem>,
+        _act: Action,
+        _ui: &mut Ui,
+    ) -> bool {
         true
     }
 

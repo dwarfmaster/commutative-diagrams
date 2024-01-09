@@ -1,6 +1,7 @@
 use crate::graph::GraphId;
 use egui::{Color32, Pos2, Rect, Rounding, Stroke, Style, Ui, Vec2};
 use std::sync::Arc;
+use crate::runtime::Runtime;
 
 #[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Debug)]
 pub enum CurveStyle {
@@ -68,7 +69,7 @@ pub enum Action {
     DragRelease(GraphId),
 }
 
-pub trait UiGraph {
+pub trait UiGraph<RT: Runtime> {
     // Draw the graph
     fn draw<'a, F>(&'a self, style: &Arc<Style>, f: F)
     where
@@ -82,11 +83,11 @@ pub trait UiGraph {
     fn offset<'a>(&'a mut self) -> &'a mut Vec2;
     fn focused<'a>(&'a mut self) -> &'a mut Option<GraphId>;
     fn dragged<'a>(&'a mut self) -> &'a mut Option<GraphId>;
-    fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool;
+    fn face_folded<'a>(&'a mut self, fce: usize) -> Option<&'a mut bool>;
     // Called at every frame
-    fn action(&mut self, act: Action, ui: &mut Ui);
+    fn action(&mut self, act: Action, ui: &mut Ui, rt: &mut RT);
     // Setup right-click menu. Must returns false when the menu is closed
-    fn context_menu(&mut self, on: GraphId, ui: &mut Ui) -> bool;
+    fn context_menu(&mut self, on: GraphId, ui: &mut Ui, rt: &mut RT) -> bool;
 }
 
 // Helpers

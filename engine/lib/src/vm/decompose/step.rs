@@ -1,5 +1,4 @@
-use crate::remote::Remote;
-use crate::vm::{Interactive, VM};
+use crate::vm::vm::GraphState;
 
 // Store a step
 pub struct Step {
@@ -29,11 +28,10 @@ impl Step {
     }
 }
 
-impl<Rm: Remote, I: Interactive> VM<Rm, I> {
+impl GraphState {
     pub fn decompose_step_to_string(&self, step: Step) -> String {
-        let get_name = |(src, mph): &(usize, usize)| -> &str {
-            self.graph.graph.edges[*src][*mph].1.name.as_str()
-        };
+        let get_name =
+            |(src, mph): &(usize, usize)| -> &str { self.graph.edges[*src][*mph].1.name.as_str() };
         let middle: String = std::iter::once("<")
             .chain(itertools::Itertools::intersperse(
                 step.middle_left.iter().map(get_name),

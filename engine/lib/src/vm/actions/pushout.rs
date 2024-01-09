@@ -79,17 +79,26 @@ impl Mapping {
 }
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
-    fn pushout_merge_nodes(&mut self, direct: &mut Mapping, map: &mut PartialMap) {
+    async fn pushout_merge_nodes(&self, direct: &mut Mapping, map: &mut PartialMap) {
         while let Some(mapping) = direct.nodes.pop() {
             let nd1 = mapping.1[0];
             let mut nd = nd1;
-            mapping.1.iter().skip(1).for_each(|nd2| {
-                let mut prevlen = self.graph.graph.edges[nd].len();
-                let mut newlen = self.graph.graph.edges[*nd2].len();
+            let edges_len = {
+                let graph = self.graph.lock().await;
+                graph
+                    .graph
+                    .edges
+                    .iter()
+                    .map(|v| v.len())
+                    .collect::<Vec<_>>()
+            };
+            for nd2 in mapping.1.iter().skip(1) {
+                let mut prevlen = edges_len[nd];
+                let mut newlen = edges_len[*nd2];
                 let mut prev = nd;
                 let mut new = *nd2;
 
-                nd = self.merge_nodes(nd, *nd2);
+                nd = self.merge_nodes(nd, *nd2).await;
                 if nd != *nd2 {
                     std::mem::swap(&mut prev, &mut new);
                     std::mem::swap(&mut prevlen, &mut newlen);
@@ -116,18 +125,18 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                         }
                     }
                 });
-            });
+            }
             map.nodes[mapping.0] = Some(nd);
         }
     }
 
-    fn pushout_merge_edges(&mut self, direct: &mut Mapping, map: &mut PartialMap) {
+    async fn pushout_merge_edges(&self, direct: &mut Mapping, map: &mut PartialMap) {
         while let Some(mapping) = direct.edges.pop() {
             let (src, mph1) = mapping.1[0];
             let mut mph = mph1;
-            mapping.1.iter().skip(1).for_each(|(_, mph2)| {
+            for (_, mph2) in mapping.1.iter().skip(1) {
                 let prev = mph;
-                mph = self.merge_edges(src, mph, *mph2);
+                mph = self.merge_edges(src, mph, *mph2).await;
                 direct.edges.iter_mut().for_each(|(_, v)| {
                     v.iter_mut().for_each(|(s, m)| {
                         if *s == src && (*m == prev || *m == *mph2) {
@@ -144,18 +153,18 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                         }
                     });
                 });
-            });
+            }
             map.edges[mapping.0 .0][mapping.0 .1] = Some((src, mph));
         }
     }
 
-    fn pushout_merge_faces(&mut self, direct: &mut Mapping, map: &mut PartialMap) {
+    async fn pushout_merge_faces(&self, direct: &mut Mapping, map: &mut PartialMap) {
         while let Some(mapping) = direct.faces.pop() {
             let fce1 = mapping.1[0];
             let mut fce = fce1;
-            mapping.1.iter().skip(1).for_each(|fce2| {
+            for fce2 in mapping.1.iter().skip(1) {
                 let prev = fce;
-                fce = self.merge_faces(fce, *fce2);
+                fce = self.merge_faces(fce, *fce2).await;
                 direct.faces.iter_mut().for_each(|(_, v)| {
                     v.iter_mut().for_each(|f| {
                         if *f == prev || *f == *fce2 {
@@ -170,7 +179,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                         }
                     }
                 });
-            });
+            }
             map.faces[mapping.0] = Some(fce);
         }
     }
@@ -183,22 +192,24 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // objects are merged. Then objects are added to the graph to complete the
     // injection. It also keeps a map from the initial graph to position in the
     // resulting graph.
-    pub fn pushout(&mut self, other: &Graph, direct: &HashMap<GraphId, Vec<GraphId>>) {
+    pub async fn pushout(&self, other: &Graph, direct: &HashMap<GraphId, Vec<GraphId>>) {
         let mut map = PartialMap::new(&other);
         let mut direct = Mapping::new(direct);
 
         // Nodes
-        self.pushout_merge_nodes(&mut direct, &mut map);
+        let () = self.pushout_merge_nodes(&mut direct, &mut map).await;
         for nd in 0..other.nodes.len() {
             if map.nodes[nd].is_some() {
                 continue;
             }
-            self.register_instruction(Ins::InsertNode(other.nodes[nd].0, other.nodes[nd].1));
-            map.nodes[nd] = Some(self.graph.graph.nodes.len() - 1);
+            let () = self
+                .register_instruction(Ins::InsertNode(other.nodes[nd].0, other.nodes[nd].1))
+                .await;
+            map.nodes[nd] = Some(self.graph.lock().await.graph.nodes.len() - 1);
         }
 
         // Edges
-        self.pushout_merge_edges(&mut direct, &mut map);
+        let () = self.pushout_merge_edges(&mut direct, &mut map).await;
         for src in 0..other.nodes.len() {
             for mph in 0..other.edges[src].len() {
                 if map.edges[src][mph].is_some() {
@@ -206,18 +217,21 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 }
                 let nsrc = map.nodes[src].unwrap();
                 let ndst = map.nodes[other.edges[src][mph].0].unwrap();
-                self.register_instruction(Ins::InsertMorphism(
-                    nsrc,
-                    ndst,
-                    other.edges[src][mph].2,
-                    other.edges[src][mph].3.clone(),
-                ));
-                map.edges[src][mph] = Some((nsrc, self.graph.graph.edges[nsrc].len() - 1));
+                let () = self
+                    .register_instruction(Ins::InsertMorphism(
+                        nsrc,
+                        ndst,
+                        other.edges[src][mph].2,
+                        other.edges[src][mph].3.clone(),
+                    ))
+                    .await;
+                map.edges[src][mph] =
+                    Some((nsrc, self.graph.lock().await.graph.edges[nsrc].len() - 1));
             }
         }
 
         // Faces
-        self.pushout_merge_faces(&mut direct, &mut map);
+        let () = self.pushout_merge_faces(&mut direct, &mut map).await;
         for fce in 0..other.faces.len() {
             if map.faces[fce].is_some() {
                 continue;
@@ -247,11 +261,11 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 eq: rface.eq.clone(),
                 label: Default::default(),
             };
-            self.register_instruction(Ins::InsertFace(face));
-            map.faces[fce] = Some(self.graph.graph.faces.len() - 1);
+            let () = self.register_instruction(Ins::InsertFace(face)).await;
+            map.faces[fce] = Some(self.graph.lock().await.graph.faces.len() - 1);
         }
 
         // Update metadata
-        self.relabel();
+        let () = self.relabel().await;
     }
 }

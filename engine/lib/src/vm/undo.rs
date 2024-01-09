@@ -2,16 +2,20 @@ use super::{Interactive, VM};
 use crate::remote::Remote;
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
-    pub fn undo(&mut self) {
-        if self.code.ast.is_empty() {
-            self.code.error_msg = "Nothing to undo".to_string();
-            return;
-        }
-        self.undo_until(self.code.ast.len() - 1);
+    pub async fn undo(&mut self) {
+        let len = {
+            let code = &mut self.code.lock().await;
+            if code.ast.is_empty() {
+                code.error_msg = "Nothing to undo".to_string();
+                return;
+            }
+            code.ast.len()
+        };
+        self.undo_until(len - 1);
     }
 
-    pub fn redo(&mut self) {
-        if let Some(ast) = self.recompile_one() {
+    pub async fn redo(&mut self) {
+        if let Some(ast) = self.recompile_one().await {
             self.run(ast);
         }
     }

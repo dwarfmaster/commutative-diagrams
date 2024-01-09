@@ -16,279 +16,388 @@ pub enum ExecutionResult {
 }
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
-    fn execute(&mut self, act: ast::Annot<ast::Action>) -> ExecutionResult {
+    async fn execute(&self, act: ast::Annot<ast::Action>) -> ExecutionResult {
         use Action::*;
         use ExecutionResult::*;
         let mut result = Unfinished;
-        let start = self.ins.instructions.len();
+        let start = self.ins.lock().await.instructions.len();
         match act.value.clone() {
             InsertNode(node) => {
-                let node = self.ctx.remote.parse(node.value.clone()).unwrap();
+                let node = {
+                    let ctx = &mut self.ctx.lock().await;
+                    ctx.remote.parse(node.value.clone()).unwrap()
+                };
                 match node {
                     Ok(node) => {
-                        let tps = self.ctx.get_stored_query(node, Tag::Object);
+                        let tps = {
+                            let ctx = &mut self.ctx.lock().await;
+                            ctx.get_stored_query(node, Tag::Object)
+                        };
                         for tp in tps {
                             if let Feature::Object { cat } = tp {
-                                self.insert_node(node, cat);
+                                self.insert_node(node, cat).await;
                             }
                         }
                     }
                     Err(err) => {
-                        self.code.error_msg = format!("Couldn't parse object: {:#?}", err);
+                        self.code.lock().await.error_msg =
+                            format!("Couldn't parse object: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
             }
             InsertMorphism(mph) => {
-                let mph = self.ctx.remote.parse(mph.value.clone()).unwrap();
+                let mph = {
+                    let ctx = &mut self.ctx.lock().await;
+                    ctx.remote.parse(mph.value.clone()).unwrap()
+                };
                 match mph {
                     Ok(mph) => {
-                        let tps = self.ctx.get_stored_query(mph, Tag::Morphism);
+                        let tps = {
+                            let ctx = &mut self.ctx.lock().await;
+                            ctx.get_stored_query(mph, Tag::Morphism)
+                        };
                         for tp in tps {
                             if let Feature::Morphism { cat, .. } = tp {
-                                self.insert_mph(mph, cat);
+                                self.insert_mph(mph, cat).await;
                             }
                         }
                     }
                     Err(err) => {
-                        self.code.error_msg = format!("Couldn't parse morphism: {:#?}", err);
+                        self.code.lock().await.error_msg =
+                            format!("Couldn't parse morphism: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
             }
             InsertFace(eq) => {
-                let eq = self.ctx.remote.parse(eq.value.clone()).unwrap();
+                let eq = {
+                    let ctx = &mut self.ctx.lock().await;
+                    ctx.remote.parse(eq.value.clone()).unwrap()
+                };
                 match eq {
                     Ok(eq) => {
-                        let tps = self.ctx.get_stored_query(eq, Tag::Equality);
+                        let tps = {
+                            let ctx = &mut self.ctx.lock().await;
+                            ctx.get_stored_query(eq, Tag::Equality)
+                        };
                         for tp in tps {
                             if let Feature::Equality { cat, .. } = tp {
-                                self.insert_eq(eq, cat);
+                                self.insert_eq(eq, cat).await;
                             }
                         }
                     }
                     Err(err) => {
-                        self.code.error_msg = format!("Couldn't parse equality: {:#?}", err);
+                        self.code.lock().await.error_msg =
+                            format!("Couldn't parse equality: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
             }
             InsertMorphismAt(node, mph) => {
-                let mph = self.ctx.remote.parse(mph.value.clone()).unwrap();
+                let mph = {
+                    let ctx = &mut self.ctx.lock().await;
+                    ctx.remote.parse(mph.value.clone()).unwrap()
+                };
                 match mph {
                     Ok(mph) => {
-                        if let Some(GraphId::Node(id)) = self.graph.names.get(&node.value) {
-                            self.insert_mph_at(*id, mph);
+                        let nid = {
+                            let graph = self.graph.lock().await;
+                            graph.names.get(&node.value).cloned()
+                        };
+                        if let Some(GraphId::Node(id)) = nid {
+                            self.insert_mph_at(id, mph).await;
                         } else {
-                            self.code.error_msg =
+                            self.code.lock().await.error_msg =
                                 format!("{} is not a valid node name", node.value);
                             result = ExecutionError;
                         }
                     }
                     Err(err) => {
-                        self.code.error_msg = format!("Couldn't parse morphism: {:#?}", err);
+                        self.code.lock().await.error_msg =
+                            format!("Couldn't parse morphism: {:#?}", err);
                         result = ExecutionError;
                     }
                 }
             }
             Split(mph) => {
-                if let Some(GraphId::Morphism(src, mph)) = self.graph.names.get(&mph.value) {
-                    self.split(*src, *mph)
+                let mid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&mph.value).cloned()
+                };
+                if let Some(GraphId::Morphism(src, mph)) = mid {
+                    self.split(src, mph).await
                 } else {
-                    self.code.error_msg = format!("{} is not a valid morphism name", mph.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid morphism name", mph.value);
                     result = ExecutionError;
                 }
             }
             HideNode(n) => {
-                if let Some(GraphId::Node(n)) = self.graph.names.get(&n.value) {
-                    self.hide(GraphId::Node(*n))
+                let nid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&n.value).cloned()
+                };
+                if let Some(GraphId::Node(n)) = nid {
+                    self.hide(GraphId::Node(n)).await
                 } else {
-                    self.code.error_msg = format!("{} is not a valid node name", n.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid node name", n.value);
                     result = ExecutionError;
                 }
             }
             RevealNode(n) => {
-                if let Some(GraphId::Node(n)) = self.graph.names.get(&n.value) {
-                    self.reveal(GraphId::Node(*n))
+                let nid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&n.value).cloned()
+                };
+                if let Some(GraphId::Node(n)) = nid {
+                    self.reveal(GraphId::Node(n)).await
                 } else {
-                    self.code.error_msg = format!("{} is not a valid node name", n.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid node name", n.value);
                     result = ExecutionError;
                 }
             }
             HideMorphism(m) => {
-                if let Some(GraphId::Morphism(s, m)) = self.graph.names.get(&m.value) {
-                    self.hide(GraphId::Morphism(*s, *m))
+                let mid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&m.value).cloned()
+                };
+                if let Some(GraphId::Morphism(s, m)) = mid {
+                    self.hide(GraphId::Morphism(s, m)).await
                 } else {
-                    self.code.error_msg = format!("{} is not a valid morphism name", m.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid morphism name", m.value);
                     result = ExecutionError;
                 }
             }
             RevealMorphism(m) => {
-                if let Some(GraphId::Morphism(s, m)) = self.graph.names.get(&m.value) {
-                    self.reveal(GraphId::Morphism(*s, *m))
+                let mid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&m.value).cloned()
+                };
+                if let Some(GraphId::Morphism(s, m)) = mid {
+                    self.reveal(GraphId::Morphism(s, m)).await
                 } else {
-                    self.code.error_msg = format!("{} is not a valid morphism name", m.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid morphism name", m.value);
                     result = ExecutionError;
                 }
             }
             HideFace(f) => {
-                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value) {
-                    self.hide(GraphId::Face(*f))
+                let fid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&f.value).cloned()
+                };
+                if let Some(GraphId::Face(f)) = fid {
+                    self.hide(GraphId::Face(f)).await
                 } else {
-                    self.code.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             RevealFace(f) => {
-                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value) {
-                    self.reveal(GraphId::Face(*f))
+                let fid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&f.value).cloned()
+                };
+                if let Some(GraphId::Face(f)) = fid {
+                    self.reveal(GraphId::Face(f)).await
                 } else {
-                    self.code.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             Solve(size, f) => {
-                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value).cloned() {
-                    if !self.solve_face(f, size.map(|a| a.value).unwrap_or(5)) {
-                        self.code.error_msg = format!("Couldn't solve face {}", f);
+                let fid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&f.value).cloned()
+                };
+                if let Some(GraphId::Face(f)) = fid {
+                    if !self.solve_face(f, size.map(|a| a.value).unwrap_or(5)).await {
+                        self.code.lock().await.error_msg = format!("Couldn't solve face {}", f);
                         result = ExecutionError;
                     }
                 } else {
-                    self.code.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             PullFace(f, size) => {
-                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value) {
-                    if !self.shrink(*f, Some(0), size) {
-                        self.code.error_msg = "Couldn't pull previous face".to_string();
+                let fid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&f.value).cloned()
+                };
+                if let Some(GraphId::Face(f)) = fid {
+                    if !self.shrink(f, Some(0), size).await {
+                        self.code.lock().await.error_msg =
+                            "Couldn't pull previous face".to_string();
                         result = ExecutionError;
                     }
                 } else {
-                    self.code.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             PushFace(f, size) => {
-                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value) {
-                    if !self.shrink(*f, size, Some(0)) {
-                        self.code.error_msg = "Couldn't push previous face".to_string();
+                let fid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&f.value).cloned()
+                };
+                if let Some(GraphId::Face(f)) = fid {
+                    if !self.shrink(f, size, Some(0)).await {
+                        self.code.lock().await.error_msg =
+                            "Couldn't push previous face".to_string();
                         result = ExecutionError;
                     }
                 } else {
-                    self.code.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             ShrinkFace(f) => {
-                if let Some(GraphId::Face(f)) = self.graph.names.get(&f.value) {
-                    if !self.shrink(*f, None, None) {
-                        self.code.error_msg = "Couldn't shrink previous face".to_string();
+                let fid = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&f.value).cloned()
+                };
+                if let Some(GraphId::Face(f)) = fid {
+                    if !self.shrink(f, None, None).await {
+                        self.code.lock().await.error_msg =
+                            "Couldn't shrink previous face".to_string();
                         result = ExecutionError;
                     }
                 } else {
-                    self.code.error_msg = format!("{} is not a valid face name", f.value);
+                    self.code.lock().await.error_msg =
+                        format!("{} is not a valid face name", f.value);
                     result = ExecutionError;
                 }
             }
             Lemma(lem, matching) => {
-                let lemma = self.find_lemma(&lem.value);
+                let lemma = self.find_lemma(&lem.value).await;
                 if let Some(lemma) = lemma {
-                    self.lemmas.lemmas[lemma].get_pattern(&mut self.ctx, &self.config);
-                    let matching = matching
-                        .iter()
-                        .map(|(lem, goal)| {
-                            let lemid = self.lemmas.lemmas[lemma]
-                                .graphical_state
-                                .names
-                                .get(&lem.value);
-                            let goalid = self.graph.names.get(&goal.value);
-                            match (lemid, goalid) {
-                                (Some(lem), Some(goal)) => Ok((lem.clone(), goal.clone())),
-                                (None, _) => {
-                                    Err(format!("Couldn't find {:#?} in lemma", lem.value))
+                    let matching = {
+                        let ctx = &mut self.ctx.lock().await;
+                        let config = self.config.lock().await;
+                        let graph = self.graph.lock().await;
+                        let lemmas = &mut self.lemmas.lock().await;
+                        let () = lemmas.lemmas[lemma].get_pattern(ctx, &config).await;
+
+                        let pattern = lemmas.lemmas[lemma].pattern.lock().await;
+                        let matching = matching
+                            .iter()
+                            .map(|(lem, goal)| {
+                                let lemid = pattern
+                                    .as_ref()
+                                    .and_then(|pat| pat.names.get(&lem.value).cloned());
+                                let goalid = graph.names.get(&goal.value);
+                                match (lemid, goalid) {
+                                    (Some(lem), Some(goal)) => Ok((lem.clone(), goal.clone())),
+                                    (None, _) => {
+                                        Err(format!("Couldn't find {:#?} in lemma", lem.value))
+                                    }
+                                    _ => Err(format!("Couldn't find {:#?} in goal", goal.value)),
                                 }
-                                _ => Err(format!("Couldn't find {:#?} in goal", goal.value)),
-                            }
-                        })
-                        .collect::<Result<Vec<_>, String>>();
+                            })
+                            .collect::<Result<Vec<_>, String>>();
+                        matching
+                    };
                     match matching {
                         Ok(matching) => {
-                            if !self.apply_lemma(lemma, &matching[..]) {
+                            if !self.apply_lemma(lemma, &matching[..]).await {
                                 // error_msg is set by apply_lemma
                                 result = ExecutionError;
                             }
                         }
                         Err(msg) => {
-                            self.code.error_msg = msg;
+                            self.code.lock().await.error_msg = msg;
                             result = ExecutionError;
                         }
                     }
                 } else {
-                    self.code.error_msg = format!("Couldn't find lemma {}", lem.value);
+                    self.code.lock().await.error_msg = format!("Couldn't find lemma {}", lem.value);
                     result = ExecutionError;
                 }
             }
             Merge(name1, name2) => {
-                if let Some(id1) = self.graph.names.get(&name1.value) {
-                    if let Some(id2) = self.graph.names.get(&name2.value) {
-                        if !self.merge_dwim(*id1, *id2) {
-                            self.code.error_msg =
+                let (id1, id2) = {
+                    let graph = self.graph.lock().await;
+                    let id1 = graph.names.get(&name1.value).cloned();
+                    let id2 = graph.names.get(&name2.value).cloned();
+                    (id1, id2)
+                };
+                if let Some(id1) = id1 {
+                    if let Some(id2) = id2 {
+                        if !self.merge_dwim(id1, id2).await {
+                            self.code.lock().await.error_msg =
                                 format!("Couldn't merge {} with {}", name1.value, name2.value);
                             result = ExecutionError;
                         }
                     } else {
-                        self.code.error_msg = format!("Couldn't find {}", name2.value);
+                        self.code.lock().await.error_msg = format!("Couldn't find {}", name2.value);
                         result = ExecutionError;
                     }
                 } else {
-                    self.code.error_msg = format!("Couldn't find {}", name1.value);
+                    self.code.lock().await.error_msg = format!("Couldn't find {}", name1.value);
                     result = ExecutionError;
                 }
             }
             Decompose(fce, steps) => {
-                if let Some(GraphId::Face(face)) = self.graph.names.get(&fce.value) {
-                    let deref_names =
-                        |v: Vec<ast::Annot<String>>| -> Result<Vec<(usize, usize)>, String> {
-                            v.into_iter()
-                                .map(|name| {
-                                    if let Some(GraphId::Morphism(src, mph)) =
-                                        self.graph.names.get(&name.value)
-                                    {
-                                        Ok((*src, *mph))
-                                    } else {
-                                        Err(format!("Couldn't find {}", name.value))
-                                    }
-                                })
-                                .collect()
-                        };
-                    let steps: Result<Vec<decompose::Step>, String> = steps
-                        .into_iter()
-                        .map(|step| {
-                            let r = decompose::Step {
-                                start: deref_names(step.start)?,
-                                middle_left: deref_names(step.middle_left)?,
-                                middle_right: deref_names(step.middle_right)?,
-                                end: deref_names(step.end)?,
+                let id = {
+                    let graph = self.graph.lock().await;
+                    graph.names.get(&fce.value).cloned()
+                };
+                if let Some(GraphId::Face(face)) = id {
+                    let steps = {
+                        let graph = self.graph.lock().await;
+                        let deref_names =
+                            |v: Vec<ast::Annot<String>>| -> Result<Vec<(usize, usize)>, String> {
+                                v.into_iter()
+                                    .map(|name| {
+                                        if let Some(GraphId::Morphism(src, mph)) =
+                                            graph.names.get(&name.value)
+                                        {
+                                            Ok((*src, *mph))
+                                        } else {
+                                            Err(format!("Couldn't find {}", name.value))
+                                        }
+                                    })
+                                    .collect()
                             };
-                            Ok(r)
-                        })
-                        .collect();
+                        let steps: Result<Vec<decompose::Step>, String> = steps
+                            .into_iter()
+                            .map(|step| {
+                                let r = decompose::Step {
+                                    start: deref_names(step.start)?,
+                                    middle_left: deref_names(step.middle_left)?,
+                                    middle_right: deref_names(step.middle_right)?,
+                                    end: deref_names(step.end)?,
+                                };
+                                Ok(r)
+                            })
+                            .collect();
+                        steps
+                    };
                     match steps {
                         Ok(steps) => {
-                            if !self.decompose_face(*face, steps) {
-                                self.code.error_msg =
+                            if !self.decompose_face(face, steps).await {
+                                self.code.lock().await.error_msg =
                                     format!("Couldn't decompose face {}", fce.value);
                                 result = ExecutionError;
                             }
                         }
                         Err(msg) => {
-                            self.code.error_msg = msg;
+                            self.code.lock().await.error_msg = msg;
                             result = ExecutionError;
                         }
                     }
                 } else {
-                    self.code.error_msg = format!("Coudn't find face {}", fce.value);
+                    self.code.lock().await.error_msg = format!("Coudn't find face {}", fce.value);
                     result = ExecutionError;
                 }
             }
@@ -297,11 +406,14 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         }
         if result == ExecutionError {
             // Undo all new instructions
-            let tail = self.ins.instructions.split_off(start);
+            let tail = self.ins.lock().await.instructions.split_off(start);
             for ins in tail.into_iter().rev() {
-                self.undo_instruction(&ins)
+                self.undo_instruction(&ins).await
             }
-            self.ctx.restore_state(*self.code.states.last().unwrap());
+            self.ctx
+                .lock()
+                .await
+                .restore_state(*self.code.lock().await.states.last().unwrap());
         } else {
             // Register the action as having been executed
             self.store_action(act, start);
@@ -309,117 +421,141 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         result
     }
 
-    pub fn store_action(&mut self, act: ast::Annot<Action>, from: usize) {
-        self.code.run_until = act.range.end;
-        self.reset_style();
-        self.style_range(0..self.code.run_until, CodeStyle::Run);
-        self.code.ast.push(vm::Action {
+    pub async fn store_action(&self, act: ast::Annot<Action>, from: usize) {
+        let code = &mut self.code.lock().await;
+        let ins = self.ins.lock().await;
+        code.run_until = act.range.end;
+        let () = code.reset_style();
+        let run_until = code.run_until;
+        let () = code.style_range(0..run_until, CodeStyle::Run);
+        code.ast.push(vm::Action {
             act: act.value,
             text: act.range,
-            asm: from..self.ins.instructions.len(),
+            asm: from..ins.instructions.len(),
         });
-        let status = self.ctx.save_state();
-        self.code.states.push(status);
+        let status = self.ctx.lock().await.save_state();
+        code.states.push(status);
     }
 
-    fn clear_interactive(&mut self) {
-        if let Some((last_act, act)) = self.current_action.take() {
-            act.terminate();
+    async fn clear_interactive(&self) {
+        let current = {
+            let caction = &mut self.current_action.lock().await;
+            caction.take()
+        };
+        if let Some((last_act, act)) = current {
+            act.terminate().await;
             // Undo partial execution of the action
-            while self.ins.instructions.len() > last_act {
+            while self.ins.lock().await.instructions.len() > last_act {
                 self.pop_instruction();
             }
-            let state = *self.code.states.last().unwrap();
-            log::trace!("Restoring to {}", state);
-            self.ctx.restore_state(*self.code.states.last().unwrap());
-            self.change_state();
+            {
+                let code = self.code.lock().await;
+                let state = *code.states.last().unwrap();
+                log::trace!("Restoring to {}", state);
+                self.ctx
+                    .lock()
+                    .await
+                    .restore_state(*code.states.last().unwrap());
+            }
+            let () = self.change_state().await;
         }
     }
 
     // Cancel the current interactive action
-    pub fn stop_interactive(&mut self) {
-        self.initialize_execution();
-        self.clear_interactive();
-        self.finalize_execution();
+    pub async fn stop_interactive(&self) {
+        let () = self.initialize_execution().await;
+        let () = self.clear_interactive().await;
+        let () = self.finalize_execution().await;
     }
 
-    pub fn run(&mut self, ast: ast::AST) {
+    pub async fn run(&self, ast: ast::AST) {
         use ExecutionResult::*;
-        self.initialize_execution();
-        self.clear_interactive();
+        let () = self.initialize_execution().await;
+        let () = self.clear_interactive().await;
         for a in ast {
-            match self.execute(a) {
-                Success => self.end_status = EndStatus::Success,
-                Failure => self.end_status = EndStatus::Failure,
+            match self.execute(a).await {
+                Success => *self.end_status.lock().await = EndStatus::Success,
+                Failure => *self.end_status.lock().await = EndStatus::Failure,
                 _ => (),
             }
         }
-        self.finalize_execution();
-        self.code.prev_code = self.code.code.clone();
+        let () = self.finalize_execution().await;
+        let code = &mut self.code.lock().await;
+        code.prev_code = code.code.clone();
     }
 
     // On code change, undo all actions that were downstream the edit
-    pub fn sync_code(&mut self) {
-        // Find first change
-        let mut first_change_id: usize = self.code.code.len().min(self.code.prev_code.len());
-        for i in 0..self.code.code.len().min(self.code.prev_code.len()) {
-            if self.code.code.as_bytes()[i] != self.code.prev_code.as_bytes()[i] {
-                first_change_id = i;
-                break;
-            }
-        }
-
-        // If nothing has changed in the part that has been run, there is
-        // nothing to do
-        if first_change_id >= self.code.run_until {
-            return;
-        }
-
-        // Find first modified action
-        let first_modified = self
-            .code
-            .ast
-            .binary_search_by(|act: &vm::Action| {
-                use std::cmp::Ordering::*;
-                if first_change_id < act.text.start {
-                    Greater
-                } else if first_change_id >= act.text.end {
-                    Less
-                } else {
-                    Equal
+    pub async fn sync_code(&self) {
+        let first_modified = {
+            let code = &mut self.code.lock().await;
+            // Find first change
+            let prevlen = code.prev_code.len();
+            let mut first_change_id: usize = code.code.len().min(prevlen);
+            for i in 0..code.code.len().min(prevlen) {
+                if code.code.as_bytes()[i] != code.prev_code.as_bytes()[i] {
+                    first_change_id = i;
+                    break;
                 }
-            })
-            .unwrap_or_else(|i| i);
-        if first_modified >= self.code.ast.len() {
-            return;
-        }
+            }
 
-        self.undo_until(first_modified);
+            // If nothing has changed in the part that has been run, there is
+            // nothing to do
+            if first_change_id >= code.run_until {
+                return;
+            }
+
+            // Find first modified action
+            let first_modified = code
+                .ast
+                .binary_search_by(|act: &vm::Action| {
+                    use std::cmp::Ordering::*;
+                    if first_change_id < act.text.start {
+                        Greater
+                    } else if first_change_id >= act.text.end {
+                        Less
+                    } else {
+                        Equal
+                    }
+                })
+                .unwrap_or_else(|i| i);
+            if first_modified >= code.ast.len() {
+                return;
+            }
+            first_modified
+        };
+
+        let () = self.undo_until(first_modified).await;
     }
 
     // Keep the first keep actions, undoing all the others
-    pub fn undo_until(&mut self, keep: usize) {
-        // Undo all these actions and remove them from the ast
-        let tail = self.code.ast.split_off(keep);
-        let status = self.code.states[keep];
-        self.code.states.truncate(keep + 1);
-        self.initialize_execution();
-        self.clear_interactive();
+    pub async fn undo_until(&self, keep: usize) {
+        let (status, tail) = {
+            let code = &mut self.code.lock().await;
+            // Undo all these actions and remove them from the ast
+            let tail = code.ast.split_off(keep);
+            let status = code.states[keep];
+            code.states.truncate(keep + 1);
+            (status, tail)
+        };
+        let () = self.initialize_execution().await;
+        let () = self.clear_interactive().await;
         for act in tail.iter().rev() {
             for _ in act.asm.clone() {
-                self.pop_instruction();
+                let () = self.pop_instruction().await;
             }
         }
-        self.ctx.restore_state(status);
-        self.finalize_execution();
+        let () = self.ctx.lock().await.restore_state(status);
+        let () = self.finalize_execution().await;
 
         // Update run_until
-        self.reset_style();
-        if let Some(lst) = self.code.ast.last() {
-            self.code.run_until = lst.text.end;
-            self.style_range(0..self.code.run_until, CodeStyle::Run);
+        let code = &mut self.code.lock().await;
+        code.reset_style();
+        let end = code.ast.last().map(|lst| lst.text.end);
+        if let Some(end) = end {
+            code.run_until = end;
+            code.style_range(0..end, CodeStyle::Run);
         } else {
-            self.code.run_until = 0;
+            code.run_until = 0;
         }
     }
 }

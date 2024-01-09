@@ -1,8 +1,9 @@
 use super::graph::UiGraph;
 use crate::graph::GraphId;
+use crate::runtime::Runtime;
 use egui::{Align2, FontId, Painter, Pos2, Rect, Ui, Vec2};
 
-pub fn faces_in_rect<G: UiGraph>(
+pub fn faces_in_rect<RT: Runtime, G: UiGraph<RT>>(
     ui: &mut Ui,
     mut painter: Painter,
     mut rect: Rect,

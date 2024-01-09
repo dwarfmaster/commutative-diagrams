@@ -4,25 +4,26 @@ mod step;
 mod trivialize;
 
 use crate::remote::Remote;
+use crate::vm::vm::GraphState;
 use crate::vm::{Interactive, VM};
 use step::Step;
 
-impl<Rm: Remote, I: Interactive> VM<Rm, I> {
-    pub fn planar_split(&mut self, face: usize) -> bool {
+impl GraphState {
+    pub fn planar_split(&mut self, face: usize) -> Option<String> {
         // Find left and right sides
-        let left = self.graph.graph.faces[face].left.iter().scan(
-            self.graph.graph.faces[face].start,
+        let left = self.graph.faces[face].left.iter().scan(
+            self.graph.faces[face].start,
             |st: &mut usize, mph: &usize| {
                 let src = *st;
-                *st = self.graph.graph.edges[src][*mph].0;
+                *st = self.graph.edges[src][*mph].0;
                 Some((src, *mph))
             },
         );
-        let right = self.graph.graph.faces[face].right.iter().scan(
-            self.graph.graph.faces[face].start,
+        let right = self.graph.faces[face].right.iter().scan(
+            self.graph.faces[face].start,
             |st: &mut usize, mph: &usize| {
                 let src = *st;
-                *st = self.graph.graph.edges[src][*mph].0;
+                *st = self.graph.edges[src][*mph].0;
                 Some((src, *mph))
             },
         );
@@ -56,7 +57,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         if steps.is_empty()
             || (steps.len() == 1 && steps[0].start.is_empty() && steps[0].end.is_empty())
         {
-            return false;
+            return None;
         }
 
         // Realize steps as string
@@ -68,12 +69,24 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         )
         .collect();
 
-        // Register action
-        log::trace!("Decomposing with steps {}", steps);
-        self.insert_and_run(&format!(
-            "decompose {} {}",
-            self.graph.graph.faces[face].label.name, steps
-        ));
-        true
+        Some(steps)
+    }
+}
+
+impl<Rm: Remote, I: Interactive> VM<Rm, I> {
+    pub async fn planar_split(&mut self, face: usize) -> bool {
+        let ins = {
+            let graph = &mut self.graph.lock().await;
+            let steps = graph.planar_split(face);
+            steps.map(|steps| format!("decompose {} {}", graph.graph.faces[face].label.name, steps))
+        };
+
+        if let Some(ins) = ins {
+            // Register action
+            let () = self.insert_and_run(&ins).await;
+            true
+        } else {
+            false
+        }
     }
 }

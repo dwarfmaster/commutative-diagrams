@@ -1,6 +1,8 @@
 use super::{Action, ActionResult, ContextMenuResult, Modifier, VM};
+use super::InteractiveAction::Merge;
 use crate::graph::GraphId;
 use crate::remote::Remote;
+use crate::runtime::Runtime;
 use egui::{Context, Ui};
 
 pub struct MergeState {
@@ -28,23 +30,33 @@ impl MergeState {
         }
     }
 
-    fn target<R: Remote>(&mut self, vm: &mut VM<R>, target: GraphId) {
-        let result = (vm.get_name(self.merging), vm.get_name(target));
-        let state = vm.ctx.save_state();
-        if vm.merge_dwim(self.merging, target) {
-            self.result = Some(result);
-            vm.relabel();
+    async fn target<R: Remote>(vm: &mut VM<R>, target: GraphId) {
+        let ctx = &mut vm.ctx.lock().await;
+        let interactive = &mut vm.current_action.lock().await;
+        let mrg = match interactive.as_mut() {
+            Some((_,Merge(mrg))) => mrg,
+            _ => panic!(),
+        };
+        let result = {
+            let graph = vm.graph.lock().await;
+            (graph.get_name(mrg.merging), graph.get_name(target))
+        };
+        let state = ctx.save_state();
+        if vm.merge_dwim(mrg.merging, target).await {
+            mrg.result = Some(result);
+            let () = vm.relabel().await;
         } else {
-            vm.ctx.restore_state(state);
-            self.error_msg = Some(format!(
-                "Couldn't merge {} with {}",
-                vm.get_name(self.merging),
-                vm.get_name(target)
-            ));
+            let () = ctx.restore_state(state);
+            mrg.error_msg = Some(format!("Couldn't merge {} with {}", result.0, result.1,));
         }
     }
 
-    pub fn display<R: Remote>(&mut self, _vm: &mut VM<R>, ui: &Context) -> ActionResult {
+    pub fn display<RT: Runtime>(
+        &mut self,
+        rt: &mut RT,
+        _vm: &VM<RT::Rem>,
+        ui: &Context,
+    ) -> ActionResult {
         if self.cancel {
             return ActionResult::Stop;
         } else if self.result.is_some() {
@@ -66,9 +78,10 @@ impl MergeState {
         ActionResult::Continue
     }
 
-    pub fn context_menu<R: Remote>(
+    pub fn context_menu<RT: Runtime>(
         &mut self,
-        vm: &mut VM<R>,
+        rt: &mut RT,
+        vm: &VM<RT::Rem>,
         on: GraphId,
         ui: &mut Ui,
     ) -> ContextMenuResult {
@@ -83,20 +96,33 @@ impl MergeState {
                 r = ContextMenuResult::Closed;
             }
         } else {
-            if ui.button("Merge").clicked() {
-                self.target(vm, on);
-                ui.close_menu();
-                r = ContextMenuResult::Closed;
-            }
+            let running = rt.running();
+            ui.add_enabled_ui(running.is_none(), |ui| {
+                if ui.button("Merge").clicked() {
+                    rt.run("Merge", move |vm| async {
+                        Self::target(&mut vm, on).await;
+                    });
+                    ui.close_menu();
+                    r = ContextMenuResult::Closed;
+                }
+            });
         }
         r
     }
 
-    pub fn action<R: Remote>(&mut self, vm: &mut VM<R>, act: Action, _ui: &mut Ui) -> bool {
+    pub fn action<RT: Runtime>(
+        &mut self,
+        rt: &mut RT,
+        vm: &VM<RT::Rem>,
+        act: Action,
+        _ui: &mut Ui,
+    ) -> bool {
         match act {
             Action::Click(id) => {
-                if id != self.merging && id.same_nature(&self.merging) {
-                    self.target(vm, id);
+                if id != self.merging && id.same_nature(&self.merging) && rt.running().is_none() {
+                    rt.run("Merge", move |vm| async {
+                        Self::target(&mut vm, id).await;
+                    });
                     false
                 } else {
                     true

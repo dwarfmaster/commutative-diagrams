@@ -1,6 +1,7 @@
 use super::faces::faces_in_rect;
 use super::graph::{Action, ArrowStyle, Drawable, Modifier, UiGraph};
 use crate::graph::GraphId;
+use crate::runtime::Runtime;
 use egui::{Pos2, Rect, Vec2};
 use std::ops::Add;
 
@@ -10,7 +11,7 @@ fn set_width_right(mut r: Rect, w: f32) -> Rect {
     r
 }
 
-fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
+fn graph_widget<RT: Runtime, G: UiGraph<RT>>(ui: &mut egui::Ui, gr: &mut G, rt: &mut RT) -> egui::Response {
     // We fill all the available space
     let desired_size = ui.available_size();
     // For now it is non interactive, but we may want to react to click and drag
@@ -220,16 +221,16 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
         // Notify graph of actions
         if closest_distance < 20.0 * zoom {
             if response.double_clicked() {
-                gr.action(Action::DoubleClick(closest_object), ui);
+                gr.action(Action::DoubleClick(closest_object), ui, rt);
             } else if response.clicked() {
-                gr.action(Action::Click(closest_object), ui);
+                gr.action(Action::Click(closest_object), ui, rt);
             } else if response.hovered() {
-                gr.action(Action::Hover(closest_object), ui);
+                gr.action(Action::Hover(closest_object), ui, rt);
             } else {
-                gr.action(Action::None, ui);
+                gr.action(Action::None, ui, rt);
             }
         } else {
-            gr.action(Action::None, ui);
+            gr.action(Action::None, ui, rt);
         }
 
         // Setup context (right-click) menu
@@ -242,7 +243,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                 }
             }
             if let Some(id) = *gr.focused() {
-                if !gr.context_menu(id, ui) {
+                if !gr.context_menu(id, ui, rt) {
                     *gr.focused() = None;
                 }
             } else {
@@ -256,7 +257,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
         response.request_focus();
     } else if response.drag_released() {
         if let Some(id) = *gr.dragged() {
-            gr.action(Action::DragRelease(id), ui);
+            gr.action(Action::DragRelease(id), ui, rt);
         }
         *gr.dragged() = None;
     }
@@ -267,6 +268,7 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
                 gr.action(
                     Action::Drag(id, abstract_pos(ppos), response.drag_delta()),
                     ui,
+                    rt,
                 );
             }
         } else {
@@ -279,6 +281,6 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
 }
 
 // For more idiomatic usage
-pub fn graph<'a, G: UiGraph>(gr: &'a mut G) -> impl egui::Widget + 'a {
-    move |ui: &mut egui::Ui| graph_widget(ui, gr)
+pub fn graph<'a, RT: Runtime, G: UiGraph<RT>>(gr: &'a mut G, rt: &'a mut RT) -> impl egui::Widget + 'a {
+    move |ui: &mut egui::Ui| graph_widget(ui, gr, rt)
 }

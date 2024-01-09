@@ -51,15 +51,21 @@ impl<Rm: Remote> Context<Rm> {
 }
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
-    pub fn set_face_status(&mut self, fce: usize) {
-        self.graph.graph.faces[fce].label.status =
-            self.ctx.compute_eq_status(&self.graph.graph.faces[fce].eq);
+    pub async fn set_face_status(&self, fce: usize) {
+        let graph = &mut self.graph.lock().await;
+        let status = self
+            .ctx
+            .lock()
+            .await
+            .compute_eq_status(&graph.graph.faces[fce].eq);
+        self.graph.lock().await.graph.faces[fce].label.status = status;
     }
 
     // Recompute face status of all faces
-    pub fn recompute_face_statuses(&mut self) {
-        for fce in 0..self.graph.graph.faces.len() {
-            self.set_face_status(fce);
+    pub async fn recompute_face_statuses(&self) {
+        let ln = self.graph.lock().await.graph.faces.len();
+        for fce in 0..ln {
+            self.set_face_status(fce).await;
         }
     }
 }

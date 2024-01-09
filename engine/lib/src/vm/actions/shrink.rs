@@ -4,6 +4,7 @@ use crate::graph::{Face, GraphId};
 use crate::remote::{Remote, TermEngine};
 use crate::vm::graph::{FaceLabel, FaceStatus, Graph};
 use crate::vm::{Interactive, VM};
+use core::ops::DerefMut;
 
 type Ins = crate::vm::asm::Instruction;
 
@@ -60,8 +61,8 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Find a common part of size size (or as big as possible if size is None)
     // at the start and end of the sides of equality fce. Return the length of
     // the found prefix and suffix.
-    fn find_common(
-        &mut self,
+    async fn find_common(
+        &self,
         fce: usize,
         size_prefix: Option<usize>,
         size_suffix: Option<usize>,
@@ -79,37 +80,38 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             }
         };
 
-        let mut src = self.graph.graph.faces[fce].start;
-        for mph_id in 0..self.graph.graph.faces[fce]
+        let graph = self.graph.lock().await;
+        let mut src = graph.graph.faces[fce].start;
+        for mph_id in 0..graph.graph.faces[fce]
             .left
             .len()
-            .min(self.graph.graph.faces[fce].right.len())
+            .min(graph.graph.faces[fce].right.len())
         {
-            let nxt_left = self.graph.graph.faces[fce].left[mph_id];
-            let nxt_right = self.graph.graph.faces[fce].right[mph_id];
+            let nxt_left = graph.graph.faces[fce].left[mph_id];
+            let nxt_right = graph.graph.faces[fce].right[mph_id];
             if keep_looking_left(mph_id) && nxt_left == nxt_right {
                 prefix += 1;
-                src = self.graph.graph.edges[src][nxt_left].0;
+                src = graph.graph.edges[src][nxt_left].0;
                 continue;
             }
-            remain_left = self.graph.graph.faces[fce].left[mph_id..]
+            remain_left = graph.graph.faces[fce].left[mph_id..]
                 .iter()
                 .scan(
                     src,
                     |src: &mut usize, mph: &usize| -> Option<(usize, usize)> {
                         let prev_src = *src;
-                        *src = self.graph.graph.edges[*src][*mph].0;
+                        *src = graph.graph.edges[*src][*mph].0;
                         Some((prev_src, *mph))
                     },
                 )
                 .collect();
-            remain_right = self.graph.graph.faces[fce].right[mph_id..]
+            remain_right = graph.graph.faces[fce].right[mph_id..]
                 .iter()
                 .scan(
                     src,
                     |src: &mut usize, mph: &usize| -> Option<(usize, usize)> {
                         let prev_src = *src;
-                        *src = self.graph.graph.edges[*src][*mph].0;
+                        *src = graph.graph.edges[*src][*mph].0;
                         Some((prev_src, *mph))
                     },
                 )
@@ -143,27 +145,37 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     }
 
     // May fail if fce is not an existential
-    pub fn shrink(
-        &mut self,
+    pub async fn shrink(
+        &self,
         fce: usize,
         prefix_size: Option<usize>,
         suffix_size: Option<usize>,
     ) -> bool {
-        let cat = self.graph.graph.nodes[self.graph.graph.faces[fce].start].1;
+        let cat = {
+            let graph = self.graph.lock().await;
+            graph.graph.nodes[graph.graph.faces[fce].start].1
+        };
 
         // If left and right are the same, we conclude by reflexivity
         let total_size = prefix_size
             .unwrap_or(std::usize::MAX)
             .saturating_add(suffix_size.unwrap_or(std::usize::MAX));
-        if self.graph.graph.faces[fce].eq.inp == self.graph.graph.faces[fce].eq.outp
-            && total_size >= self.graph.graph.faces[fce].left.len()
-        {
-            let new_eq = Eq::refl(cat, self.graph.graph.faces[fce].eq.inp.clone());
-            let eq = self.graph.graph.faces[fce].eq.clone();
-            return self.unify_eq(cat, &new_eq, &eq);
+        let is_refl = {
+            let graph = self.graph.lock().await;
+            graph.graph.faces[fce].eq.inp == graph.graph.faces[fce].eq.outp
+                && total_size >= graph.graph.faces[fce].left.len()
+        };
+        if is_refl {
+            let (new_eq, eq) = {
+                let graph = self.graph.lock().await;
+                let new_eq = Eq::refl(cat, graph.graph.faces[fce].eq.inp.clone());
+                let eq = graph.graph.faces[fce].eq.clone();
+                (new_eq, eq)
+            };
+            return self.unify_eq(cat, &new_eq, &eq).await;
         }
 
-        let (prefix_len, suffix_len) = self.find_common(fce, prefix_size, suffix_size);
+        let (prefix_len, suffix_len) = self.find_common(fce, prefix_size, suffix_size).await;
         if prefix_size.map(|l| l != prefix_len).unwrap_or(false)
             || suffix_size.map(|l| l != suffix_len).unwrap_or(false)
         {
@@ -175,93 +187,102 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             return true;
         }
 
-        // Find src and dst of the common part
-        let mut src_id = self.graph.graph.faces[fce].start;
-        for i in 0..prefix_len {
-            let mph = self.graph.graph.faces[fce].left[i];
-            src_id = self.graph.graph.edges[src_id][mph].0;
-        }
-        let mut dst_id = src_id;
-        for i in prefix_len..(self.graph.graph.faces[fce].left.len() - suffix_len) {
-            let mph = self.graph.graph.faces[fce].left[i];
-            dst_id = self.graph.graph.edges[dst_id][mph].0;
-        }
+        let (eq, prev_eq, new_eq, src_id, dst_id, left_range, right_range) = {
+            let graph = self.graph.lock().await;
+            let ctx = &mut self.ctx.lock().await;
+            // Find src and dst of the common part
+            let mut src_id = graph.graph.faces[fce].start;
+            for i in 0..prefix_len {
+                let mph = graph.graph.faces[fce].left[i];
+                src_id = graph.graph.edges[src_id][mph].0;
+            }
+            let mut dst_id = src_id;
+            for i in prefix_len..(graph.graph.faces[fce].left.len() - suffix_len) {
+                let mph = graph.graph.faces[fce].left[i];
+                dst_id = graph.graph.edges[dst_id][mph].0;
+            }
 
-        // Left and right morphisms
-        let left_range = prefix_len..(self.graph.graph.faces[fce].left.len() - suffix_len);
-        let left_slice = &self.graph.graph.faces[fce].left[left_range.clone()];
-        let right_range = prefix_len..(self.graph.graph.faces[fce].right.len() - suffix_len);
-        let right_slice = &self.graph.graph.faces[fce].right[right_range.clone()];
-        let (left, left_mph) =
-            realize_morphism(&mut self.ctx, &self.graph.graph, src_id, left_slice);
-        let (right, right_mph) =
-            realize_morphism(&mut self.ctx, &self.graph.graph, src_id, right_slice);
+            // Left and right morphisms
+            let left_range = prefix_len..(graph.graph.faces[fce].left.len() - suffix_len);
+            let left_slice = &graph.graph.faces[fce].left[left_range.clone()];
+            let right_range = prefix_len..(graph.graph.faces[fce].right.len() - suffix_len);
+            let right_slice = &graph.graph.faces[fce].right[right_range.clone()];
+            let (left, left_mph) =
+                realize_morphism(ctx.deref_mut(), &graph.graph, src_id, left_slice);
+            let (right, right_mph) =
+                realize_morphism(ctx.deref_mut(), &graph.graph, src_id, right_slice);
 
-        // We create the new equality
-        let ex = self
-            .ctx
-            .remote
-            .build(Feature::Equality {
-                cat,
-                src: self.graph.graph.nodes[src_id].0,
-                dst: self.graph.graph.nodes[dst_id].0,
-                left,
-                right,
-            })
-            .unwrap();
-        let new_eq = Eq::atomic(cat, left_mph, right_mph, ex);
-        let mut prev_eq = new_eq.clone();
+            // We create the new equality
+            let ex = ctx
+                .remote
+                .build(Feature::Equality {
+                    cat,
+                    src: graph.graph.nodes[src_id].0,
+                    dst: graph.graph.nodes[dst_id].0,
+                    left,
+                    right,
+                })
+                .unwrap();
+            let new_eq = Eq::atomic(cat, left_mph, right_mph, ex);
+            let mut prev_eq = new_eq.clone();
 
-        // Shrinking the suffix
-        if suffix_len != 0 {
-            let (_, suffix) = realize_morphism(
-                &mut self.ctx,
-                &self.graph.graph,
-                dst_id,
-                &self.graph.graph.faces[fce].left
-                    [(self.graph.graph.faces[fce].left.len() - suffix_len)..],
-            );
-            prev_eq.rap(&suffix);
-        }
+            // Shrinking the suffix
+            if suffix_len != 0 {
+                let (_, suffix) = realize_morphism(
+                    ctx.deref_mut(),
+                    &graph.graph,
+                    dst_id,
+                    &graph.graph.faces[fce].left
+                        [(graph.graph.faces[fce].left.len() - suffix_len)..],
+                );
+                prev_eq.rap(&suffix);
+            }
 
-        // Shrinking the prefix
-        if prefix_len != 0 {
-            let (_, prefix) = realize_morphism(
-                &mut self.ctx,
-                &self.graph.graph,
-                self.graph.graph.faces[fce].start,
-                &self.graph.graph.faces[fce].left[0..prefix_len],
-            );
-            prev_eq.lap(&prefix);
-        }
+            // Shrinking the prefix
+            if prefix_len != 0 {
+                let (_, prefix) = realize_morphism(
+                    ctx.deref_mut(),
+                    &graph.graph,
+                    graph.graph.faces[fce].start,
+                    &graph.graph.faces[fce].left[0..prefix_len],
+                );
+                prev_eq.lap(&prefix);
+            }
+
+            let eq = graph.graph.faces[fce].eq.clone();
+            (eq, prev_eq, new_eq, src_id, dst_id, left_range, right_range)
+        };
 
         // Unify with previous face
-        let eq = self.graph.graph.faces[fce].eq.clone();
-        if !self.unify_eq(cat, &eq, &prev_eq) {
+        if !self.unify_eq(cat, &eq, &prev_eq).await {
             return false;
         }
 
         // Create face
-        let left_slice = &self.graph.graph.faces[fce].left[left_range];
-        let right_slice = &self.graph.graph.faces[fce].right[right_range];
-        let new_face = Face {
-            start: src_id,
-            end: dst_id,
-            left: left_slice.to_vec(),
-            right: right_slice.to_vec(),
-            eq: new_eq,
-            label: FaceLabel {
-                label: "".to_string(),
-                name: "".to_string(),
-                hidden: false,
-                parent: Some(fce),
-                children: Vec::new(),
-                status: FaceStatus::Goal,
-                folded: self.graph.graph.faces[fce].label.folded,
-            },
+        let new_face = {
+            let graph = self.graph.lock().await;
+            let left_slice = &graph.graph.faces[fce].left[left_range];
+            let right_slice = &graph.graph.faces[fce].right[right_range];
+            let new_face = Face {
+                start: src_id,
+                end: dst_id,
+                left: left_slice.to_vec(),
+                right: right_slice.to_vec(),
+                eq: new_eq,
+                label: FaceLabel {
+                    label: "".to_string(),
+                    name: "".to_string(),
+                    hidden: false,
+                    parent: Some(fce),
+                    children: Vec::new(),
+                    status: FaceStatus::Goal,
+                    folded: graph.graph.faces[fce].label.folded,
+                },
+            };
+            new_face
         };
-        self.register_instruction(Ins::InsertFace(new_face));
-        self.hide(GraphId::Face(fce));
+        let () = self.register_instruction(Ins::InsertFace(new_face)).await;
+        let () = self.hide(GraphId::Face(fce)).await;
         true
     }
 }

@@ -3,7 +3,7 @@ use crate::ui::VM;
 use std::future::Future;
 
 pub trait Runtime {
-    type Rem: Remote;
+    type Rem: Remote + Sync + Send;
     // Checks wether the runtime is already running something. If it is already
     // running something, returns it description.
     fn running<'a>(&'a self) -> Option<&'a str>;

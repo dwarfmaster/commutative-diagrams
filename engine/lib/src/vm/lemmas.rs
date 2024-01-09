@@ -1,127 +1,131 @@
 use super::config::Config;
 use super::graph::{EdgeLabel, FaceLabel, NodeLabel};
 use crate::graph::GraphId;
-use crate::lemmas;
 use crate::remote::Mock;
 use crate::remote::Remote;
 use crate::vm::layout::LayoutEngine;
 use crate::vm::store::Context;
-use crate::vm::{Graph, VM};
+use crate::vm::vm::{GraphState, GraphicalState};
+use crate::vm::VM;
 use egui::Vec2;
+use futures::lock::Mutex;
 use std::collections::HashMap;
 
 mod tree;
 pub use tree::LemmaTree;
 
-#[derive(Clone, Debug)]
-pub struct LemmaState {
-    pub zoom: f32,
-    pub offset: Vec2,
-    pub focused: Option<GraphId>,
-    pub hovered: Option<GraphId>,
-    pub dragged: Option<GraphId>,
-    pub selected_face: Option<usize>,
+pub struct Lemma {
+    pub id: u64,
+    pub index: usize,
+    pub name: String,
+    pub namespace: Vec<String>,
+    pub complete_name: String,
     pub selected: bool,
-    pub names: HashMap<String, GraphId>,
-    pub layout: LayoutEngine,
+    pub pattern: Mutex<Option<GraphState>>,
+    pub graphical: GraphicalState,
 }
-
-impl Default for LemmaState {
-    fn default() -> Self {
-        Self {
-            zoom: 1.0,
-            offset: Vec2::ZERO,
-            focused: None,
-            hovered: None,
-            dragged: None,
-            selected_face: None,
-            selected: false,
-            names: HashMap::new(),
-            layout: LayoutEngine::new(),
-        }
-    }
-}
-
-pub type Lemma = lemmas::Lemma<LemmaState, NodeLabel, EdgeLabel, FaceLabel>;
 
 impl Lemma {
-    pub fn relabel<Rm: Remote>(&mut self, ctx: &mut Context<Rm>) {
-        if let Some(pattern) = &mut self.pattern {
-            for nd in 0..pattern.nodes.len() {
-                pattern.nodes[nd].2.label = ctx.get_stored_label(pattern.nodes[nd].0);
+    pub fn new(id: u64, index: usize, name: String, namespace: Vec<String>) -> Self {
+        let complete = itertools::Itertools::intersperse(
+            namespace
+                .iter()
+                .map(|s| s.as_str())
+                .chain(std::iter::once(name.as_str())),
+            ">",
+        )
+        .collect();
+        Self {
+            id,
+            index,
+            name,
+            namespace,
+            complete_name: complete,
+            selected: false,
+            pattern: Mutex::new(None),
+            graphical: GraphicalState {
+                offset: Vec2::ZERO,
+                zoom: 1f32,
+                focused: None,
+                hovered: None,
+                dragged: None,
+            },
+        }
+    }
+
+    pub async fn relabel<Rm: Remote>(&mut self, ctx: &mut Context<Rm>) {
+        let pattern = &mut self.pattern.lock().await;
+        if let Some(pattern) = pattern.as_mut() {
+            for nd in 0..pattern.graph.nodes.len() {
+                pattern.graph.nodes[nd].2.label = ctx.get_stored_label(pattern.graph.nodes[nd].0);
             }
-            for src in 0..pattern.nodes.len() {
-                for mph in 0..pattern.edges[src].len() {
-                    pattern.edges[src][mph].1.label =
-                        ctx.get_stored_label(pattern.edges[src][mph].2);
+            for src in 0..pattern.graph.nodes.len() {
+                for mph in 0..pattern.graph.edges[src].len() {
+                    pattern.graph.edges[src][mph].1.label =
+                        ctx.get_stored_label(pattern.graph.edges[src][mph].2);
                 }
             }
-            for fce in 0..pattern.faces.len() {
-                pattern.faces[fce].label.label = "{{todo!}}".to_string();
+            for fce in 0..pattern.graph.faces.len() {
+                pattern.graph.faces[fce].label.label = "{{todo!}}".to_string();
             }
         }
     }
 
-    pub fn recompute_face_statuses<Rm: Remote>(&mut self, ctx: &mut Context<Rm>) {
-        let pattern = self.pattern.as_mut().unwrap();
-        for fce in 0..pattern.faces.len() {
-            pattern.faces[fce].label.status = ctx.compute_eq_status(&pattern.faces[fce].eq);
+    pub async fn recompute_face_statuses<Rm: Remote>(&mut self, ctx: &mut Context<Rm>) {
+        let pattern = &mut self.pattern.lock().await;
+        let pattern = pattern.as_mut().unwrap();
+        for fce in 0..pattern.graph.faces.len() {
+            pattern.graph.faces[fce].label.status =
+                ctx.compute_eq_status(&pattern.graph.faces[fce].eq);
         }
     }
 
-    pub fn name<Rm: Remote>(&mut self, ctx: &mut Context<Rm>) {
-        if let Some(pattern) = &mut self.pattern {
-            for nd in 0..pattern.nodes.len() {
-                pattern.nodes[nd].2.name =
-                    VM::<Rm, ()>::name_compute_node(ctx, &pattern, &self.graphical_state.names, nd);
-                self.graphical_state
+    pub async fn name<Rm: Remote>(&mut self, ctx: &mut Context<Rm>) {
+        let pattern = &mut self.pattern.lock().await;
+        if let Some(pattern) = pattern.as_mut() {
+            for nd in 0..pattern.graph.nodes.len() {
+                pattern.graph.nodes[nd].2.name = pattern.name_compute_node(ctx, nd).await;
+                pattern
                     .names
-                    .insert(pattern.nodes[nd].2.name.clone(), GraphId::Node(nd));
+                    .insert(pattern.graph.nodes[nd].2.name.clone(), GraphId::Node(nd));
             }
-            for src in 0..pattern.nodes.len() {
-                for mph in 0..pattern.edges[src].len() {
-                    pattern.edges[src][mph].1.name = VM::<Rm, ()>::name_compute_morphism(
-                        ctx,
-                        &pattern,
-                        &self.graphical_state.names,
-                        src,
-                        mph,
-                    );
-                    self.graphical_state.names.insert(
-                        pattern.edges[src][mph].1.name.clone(),
+            for src in 0..pattern.graph.nodes.len() {
+                for mph in 0..pattern.graph.edges[src].len() {
+                    pattern.graph.edges[src][mph].1.name =
+                        pattern.name_compute_morphism(ctx, src, mph).await;
+                    pattern.names.insert(
+                        pattern.graph.edges[src][mph].1.name.clone(),
                         GraphId::Morphism(src, mph),
                     );
                 }
             }
-            for fce in 0..pattern.faces.len() {
-                pattern.faces[fce].label.name = VM::<Rm, ()>::name_compute_face(
-                    ctx,
-                    &pattern,
-                    &self.graphical_state.names,
-                    "Lem",
-                    fce,
+            for fce in 0..pattern.graph.faces.len() {
+                pattern.graph.faces[fce].label.name =
+                    pattern.name_compute_face(ctx, "Lem", fce).await;
+                pattern.names.insert(
+                    pattern.graph.faces[fce].label.name.clone(),
+                    GraphId::Face(fce),
                 );
-                self.graphical_state
-                    .names
-                    .insert(pattern.faces[fce].label.name.clone(), GraphId::Face(fce));
             }
         }
     }
 
-    pub fn show_face(&mut self, fce: usize) {
-        if let Some(pattern) = &mut self.pattern {
-            VM::<Mock, ()>::show_face_impl(pattern, fce);
+    pub async fn show_face(&mut self, fce: usize) {
+        let pattern = &mut self.pattern.lock().await;
+        if let Some(pattern) = pattern.as_mut() {
+            VM::<Mock, ()>::show_face_impl(&mut pattern.graph, fce);
         }
     }
 
-    pub fn unshow_face(&mut self, fce: usize) {
-        if let Some(pattern) = &mut self.pattern {
-            VM::<Mock, ()>::unshow_face_impl(pattern, fce);
+    pub async fn unshow_face(&mut self, fce: usize) {
+        let pattern = &mut self.pattern.lock().await;
+        if let Some(pattern) = pattern.as_mut() {
+            VM::<Mock, ()>::unshow_face_impl(&mut pattern.graph, fce);
         }
     }
 
-    pub fn get_pattern<Rm: Remote>(&mut self, ctx: &mut Context<Rm>, cfg: &Config) {
-        if self.pattern.is_some() {
+    pub async fn get_pattern<Rm: Remote>(&mut self, ctx: &mut Context<Rm>, cfg: &Config) {
+        if self.pattern.lock().await.is_some() {
             return;
         }
 
@@ -130,24 +134,31 @@ impl Lemma {
             .pattern::<NodeLabel, EdgeLabel, FaceLabel>(self.id)
             .unwrap();
         ctx.set_lem_context(self.id);
-        let mut graph = graph.prepare(ctx);
-        self.graphical_state
-            .layout
-            .particles_for_graph(cfg, &mut graph);
-        self.pattern = Some(graph);
-        self.relabel(ctx);
-        self.name(ctx);
-        self.recompute_face_statuses(ctx);
-        ctx.unset_lem_context();
+        let graph = graph.prepare(ctx);
+        let mut gstate = GraphState {
+            graph,
+            names: HashMap::new(),
+            layout: LayoutEngine::new(),
+            face_goal_order: Vec::new(),
+            face_hyps_order: Vec::new(),
+            selected_face: None,
+        };
+        let () = gstate.particles_for_graph(cfg);
+        let () = gstate.init_face_order();
+        *self.pattern.lock().await = Some(gstate);
+        let () = self.relabel(ctx).await;
+        let () = self.name(ctx).await;
+        let () = self.recompute_face_statuses(ctx).await;
+        let () = ctx.unset_lem_context();
     }
 
-    pub fn instantiate<Rm: Remote>(
+    pub async fn instantiate<Rm: Remote>(
         &mut self,
         ctx: &mut Context<Rm>,
         cfg: &Config,
         unselect: bool,
-    ) -> Graph {
-        self.get_pattern(ctx, cfg);
+    ) -> GraphState {
+        let () = self.get_pattern(ctx, cfg).await;
 
         let graph = ctx
             .remote
@@ -156,26 +167,34 @@ impl Lemma {
         let mut graph = graph.prepare(ctx);
 
         // Copy labels
-        let pattern = self.pattern.as_ref().unwrap();
+        let pattern = self.pattern.lock().await;
+        let pattern = pattern.as_ref().unwrap();
         for nd in 0..graph.nodes.len() {
-            graph.nodes[nd].2 = pattern.nodes[nd].2.clone();
+            graph.nodes[nd].2 = pattern.graph.nodes[nd].2.clone();
         }
         for src in 0..graph.nodes.len() {
             for mph in 0..graph.edges[src].len() {
-                graph.edges[src][mph].1 = pattern.edges[src][mph].1.clone();
+                graph.edges[src][mph].1 = pattern.graph.edges[src][mph].1.clone();
             }
         }
         for fce in 0..graph.faces.len() {
-            graph.faces[fce].label = pattern.faces[fce].label.clone();
+            graph.faces[fce].label = pattern.graph.faces[fce].label.clone();
         }
 
         // Unselect face
         if unselect {
-            if let Some(fce) = self.graphical_state.selected_face {
+            if let Some(fce) = pattern.selected_face {
                 VM::<Mock, ()>::unshow_face_impl(&mut graph, fce);
             }
         }
 
-        graph
+        GraphState {
+            graph,
+            layout: pattern.layout.clone(),
+            names: pattern.names.clone(),
+            face_hyps_order: pattern.face_hyps_order.clone(),
+            face_goal_order: pattern.face_goal_order.clone(),
+            selected_face: if unselect { None } else { pattern.selected_face.clone() },
+        }
     }
 }

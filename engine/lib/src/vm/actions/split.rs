@@ -3,20 +3,25 @@ use crate::normalizer::to_morphism;
 use crate::remote::Remote;
 use crate::vm::asm;
 use crate::vm::{Interactive, VM};
+use core::ops::DerefMut;
 
 type Ins = asm::Instruction;
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Normalize morphism mph, and hide it if it changed
-    pub fn split(&mut self, src: usize, mph: usize) {
-        if let Some(path) = self.split_norm(src, mph) {
+    pub async fn split(&self, src: usize, mph: usize) {
+        if let Some(path) = self.split_norm(src, mph).await {
             self.hide(GraphId::Morphism(src, mph));
 
+            let nfaces = self.graph.lock().await.graph.faces.len();
             // Replace mph by path in all equalities, the equality itself doesn't change
-            for fce in 0..self.graph.graph.faces.len() {
-                let replace =
-                    |node: &mut usize, nxt: &usize| -> Option<Box<dyn Iterator<Item = usize>>> {
-                        let (dst, _, _, _) = &self.graph.graph.edges[*node][*nxt];
+            for fce in 0..nfaces {
+                let (left, old_left, right, old_right) = {
+                    let graph = self.graph.lock().await;
+                    let replace = |node: &mut usize,
+                                   nxt: &usize|
+                     -> Option<Box<dyn Iterator<Item = usize>>> {
+                        let (dst, _, _, _) = &graph.graph.edges[*node][*nxt];
                         let prev = *node;
                         *node = *dst;
                         if prev == src && *nxt == mph {
@@ -26,32 +31,41 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                         }
                     };
 
-                let left = self.graph.graph.faces[fce]
-                    .left
-                    .iter()
-                    .scan(self.graph.graph.faces[fce].start, replace)
-                    .flatten()
-                    .collect::<Vec<_>>();
-                let right = self.graph.graph.faces[fce]
-                    .right
-                    .iter()
-                    .scan(self.graph.graph.faces[fce].start, replace)
-                    .flatten()
-                    .collect::<Vec<_>>();
+                    let left = graph.graph.faces[fce]
+                        .left
+                        .iter()
+                        .scan(graph.graph.faces[fce].start, replace)
+                        .flatten()
+                        .collect::<Vec<_>>();
+                    let right = graph.graph.faces[fce]
+                        .right
+                        .iter()
+                        .scan(graph.graph.faces[fce].start, replace)
+                        .flatten()
+                        .collect::<Vec<_>>();
 
-                if left.len() != self.graph.graph.faces[fce].left.len() {
-                    self.register_instruction(Ins::RelocateFaceLeft(
-                        fce,
-                        self.graph.graph.faces[fce].left.clone(),
-                        left,
-                    ));
+                    let old_left = if left.len() != graph.graph.faces[fce].left.len() {
+                        Some(graph.graph.faces[fce].left.clone())
+                    } else {
+                        None
+                    };
+                    let old_right = if right.len() != graph.graph.faces[fce].right.len() {
+                        Some(graph.graph.faces[fce].right.clone())
+                    } else {
+                        None
+                    };
+                    (left, old_left, right, old_right)
+                };
+
+                if let Some(oleft) = old_left {
+                    let () = self
+                        .register_instruction(Ins::RelocateFaceLeft(fce, oleft, left))
+                        .await;
                 }
-                if right.len() != self.graph.graph.faces[fce].right.len() {
-                    self.register_instruction(Ins::RelocateFaceRight(
-                        fce,
-                        self.graph.graph.faces[fce].right.clone(),
-                        right,
-                    ));
+                if let Some(oright) = old_right {
+                    let () = self
+                        .register_instruction(Ins::RelocateFaceRight(fce, oright, right))
+                        .await;
                 }
             }
         }
@@ -60,29 +74,34 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     /// Normalize a morphism of the graph, then split it along composition and
     /// introduce the components as edges. Returns the new path as a sequence
     /// of edges in the graph if the edge wasn't already normal
-    pub fn split_norm(&mut self, src: usize, mph: usize) -> Option<Vec<(usize, usize)>> {
-        assert!(src < self.graph.graph.nodes.len(), "src out of bounds");
-        assert!(mph < self.graph.graph.edges[src].len(), "mph out of bounds");
+    pub async fn split_norm(&self, src: usize, mph: usize) -> Option<Vec<(usize, usize)>> {
+        let comps = {
+            let graph = self.graph.lock().await;
+            assert!(src < graph.graph.nodes.len(), "src out of bounds");
+            assert!(mph < graph.graph.edges[src].len(), "mph out of bounds");
 
-        let cat = self.graph.graph.nodes[src].1;
-        let sobj = self.graph.graph.nodes[src].0;
-        let dobj = self.graph.graph.nodes[self.graph.graph.edges[src][mph].0].0;
-        let mobj = self.graph.graph.edges[src][mph].2;
+            let cat = graph.graph.nodes[src].1;
+            let sobj = graph.graph.nodes[src].0;
+            let dobj = graph.graph.nodes[graph.graph.edges[src][mph].0].0;
+            let mobj = graph.graph.edges[src][mph].2;
 
-        let comps = to_morphism(&mut self.ctx, cat, sobj, dobj, mobj).comps;
-        if comps.len() == 1 {
-            return None;
-        }
+            let ctx = &mut self.ctx.lock().await;
+            let comps = to_morphism(ctx.deref_mut(), cat, sobj, dobj, mobj).comps;
+            if comps.len() == 1 {
+                return None;
+            }
+            comps
+        };
 
         let mut snode = src;
         let mut res = Vec::new();
         res.reserve(comps.len());
         for (_, _, m) in &comps {
-            let (m, dnode) = self.insert_mph_at(snode, *m);
+            let (m, dnode) = self.insert_mph_at(snode, *m).await;
             res.push((snode, m));
             snode = dnode;
         }
-        assert_eq!(snode, self.graph.graph.edges[src][mph].0);
+        assert_eq!(snode, self.graph.lock().await.graph.edges[src][mph].0);
         Some(res)
     }
 }
@@ -227,20 +246,27 @@ mod tests {
         let mut vm = VM::<Mock, ()>::start(ctx);
         vm.split(0, 0);
 
-        assert!(vm.graph.graph.check(), "Graph is not valid after split");
-        assert_eq!(vm.graph.graph.nodes.len(), 5, "There should be 5 nodes now");
+        assert!(
+            vm.graph.try_lock().unwrap().graph.check(),
+            "Graph is not valid after split"
+        );
         assert_eq!(
-            vm.graph.graph.edges[0].len(),
+            vm.graph.try_lock().unwrap().graph.nodes.len(),
+            5,
+            "There should be 5 nodes now"
+        );
+        assert_eq!(
+            vm.graph.try_lock().unwrap().graph.edges[0].len(),
             2,
             "There should be two outgoing edges from first node"
         );
         assert_eq!(
-            vm.graph.graph.faces.len(),
+            vm.graph.try_lock().unwrap().graph.faces.len(),
             0,
             "No face should have been added"
         );
         assert_ne!(
-            vm.ins.instructions.len(),
+            vm.ins.try_lock().unwrap().instructions.len(),
             0,
             "There should be at least one instruction"
         );

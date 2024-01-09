@@ -6,8 +6,11 @@ rustPlatform.buildRustPackage {
   pname = "commutative-diagrams";
   version = "0.5";
   src = ./.;
+  cargoRoot = "bevy";
+  cargoLock.lockFile = ./bevy/Cargo.lock;
 
-  cargoSha256 = "sha256-1Ovgh7tSbXrIkcUVYur6fWhIIppYr7orGs3ShUaGoEM=";
+  # cargoSha256 = "sha256-1Ovgh7tSbXrIkcUVYur6fWhIIppYr7orGs3ShUaGoEM=";
+  # cargoSha256 = lib.fakeSha256;
   nativeBuildInputs = [
     pkg-config
   ];

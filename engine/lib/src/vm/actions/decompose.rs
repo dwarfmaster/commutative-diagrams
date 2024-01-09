@@ -2,7 +2,7 @@ use crate::data::Feature;
 use crate::graph::eq::{Eq, Morphism};
 use crate::graph::Face;
 use crate::remote::Remote;
-use crate::vm::asm;
+use crate::vm::{asm, Graph};
 use crate::vm::{FaceLabel, FaceStatus, Interactive, VM};
 
 pub struct Step {
@@ -41,8 +41,9 @@ fn real_mph<Rm: Remote>(rm: &mut Rm, cat: u64, mph: &Morphism) -> u64 {
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Look all visible faces for one with the right sides. If found, returns its equality
     // (potentially inverted).
-    fn decompose_lookup(&self, left: &Morphism, right: &Morphism) -> Option<Eq> {
-        for face in &self.graph.graph.faces {
+    async fn decompose_lookup(&self, left: &Morphism, right: &Morphism) -> Option<Eq> {
+        let graph = self.graph.lock().await;
+        for face in &graph.graph.faces {
             if face.label.hidden {
                 continue;
             }
@@ -59,7 +60,11 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
 
     // Convert a step into a equality, and returns it. Also return the equality
     // consisting only of the existential.
-    fn decompose_step_to_eq(&mut self, parent: usize, step: Step) -> (Eq, Option<Face<FaceLabel>>) {
+    async fn decompose_step_to_eq(
+        &self,
+        parent: usize,
+        step: Step,
+    ) -> (Eq, Option<Face<FaceLabel>>) {
         assert!(step.middle_left.len() > 0 || step.middle_right.len() > 0);
 
         // Information about the existential part
@@ -69,10 +74,11 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             } else {
                 (step.middle_left[0], step.middle_left.last().unwrap())
             };
+            let graph = self.graph.lock().await;
             (
-                self.graph.graph.nodes[fmph.0].1,
+                graph.graph.nodes[fmph.0].1,
                 fmph.0,
-                self.graph.graph.edges[lmph.0][lmph.1].0,
+                graph.graph.edges[lmph.0][lmph.1].0,
             )
         };
 
@@ -96,56 +102,74 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     step.middle_right.last().unwrap()
                 }
             };
-            (
-                first_mph.0,
-                self.graph.graph.edges[last_mph.0][last_mph.1].0,
-            )
+            let graph = self.graph.lock().await;
+            (first_mph.0, graph.graph.edges[last_mph.0][last_mph.1].0)
         };
 
         // Building the reflexivity
-        let mk_comp = |(src, mph): (usize, usize)| {
-            let dst = self.graph.graph.edges[src][mph].0;
+        let mk_comp = |graph: &Graph, (src, mph): (usize, usize)| {
+            let dst = graph.edges[src][mph].0;
             (
-                self.graph.graph.nodes[src].0,
-                self.graph.graph.nodes[dst].0,
-                self.graph.graph.edges[src][mph].2,
+                graph.nodes[src].0,
+                graph.nodes[dst].0,
+                graph.edges[src][mph].2,
             )
         };
-        let mph = Morphism {
-            src: self.graph.graph.nodes[src_node].0,
-            dst: self.graph.graph.nodes[dst_node].0,
-            comps: step
-                .start
-                .iter()
-                .chain(step.middle_left.iter())
-                .chain(step.end.iter())
-                .copied()
-                .map(mk_comp)
-                .collect(),
+        let mut eq = {
+            let graph = self.graph.lock().await;
+            let mph = Morphism {
+                src: graph.graph.nodes[src_node].0,
+                dst: graph.graph.nodes[dst_node].0,
+                comps: step
+                    .start
+                    .iter()
+                    .chain(step.middle_left.iter())
+                    .chain(step.end.iter())
+                    .copied()
+                    .map(|p| mk_comp(&graph.graph, p))
+                    .collect(),
+            };
+            Eq::refl(cat, mph)
         };
-        let mut eq = Eq::refl(cat, mph);
 
         // Building the existential
-        let in_mph = Morphism {
-            src: self.graph.graph.nodes[ex_src].0,
-            dst: self.graph.graph.nodes[ex_dst].0,
-            comps: step.middle_left.iter().copied().map(mk_comp).collect(),
+        let (in_mph, in_mph_val, out_mph, out_mph_val) = {
+            let graph = self.graph.lock().await;
+            let ctx = &mut self.ctx.lock().await;
+            let in_mph = Morphism {
+                src: graph.graph.nodes[ex_src].0,
+                dst: graph.graph.nodes[ex_dst].0,
+                comps: step
+                    .middle_left
+                    .iter()
+                    .copied()
+                    .map(|p| mk_comp(&graph.graph, p))
+                    .collect(),
+            };
+            let in_mph_val = real_mph(&mut ctx.remote, cat, &in_mph);
+            let out_mph = Morphism {
+                src: graph.graph.nodes[ex_src].0,
+                dst: graph.graph.nodes[ex_dst].0,
+                comps: step
+                    .middle_right
+                    .iter()
+                    .copied()
+                    .map(|p| mk_comp(&graph.graph, p))
+                    .collect(),
+            };
+            let out_mph_val = real_mph(&mut ctx.remote, cat, &out_mph);
+            (in_mph, in_mph_val, out_mph, out_mph_val)
         };
-        let in_mph_val = real_mph(&mut self.ctx.remote, cat, &in_mph);
-        let out_mph = Morphism {
-            src: self.graph.graph.nodes[ex_src].0,
-            dst: self.graph.graph.nodes[ex_dst].0,
-            comps: step.middle_right.iter().copied().map(mk_comp).collect(),
-        };
-        let out_mph_val = real_mph(&mut self.ctx.remote, cat, &out_mph);
 
         // Reuse existing face if found
-        if let Some(face_eq) = self.decompose_lookup(&in_mph, &out_mph) {
+        if let Some(face_eq) = self.decompose_lookup(&in_mph, &out_mph).await {
             eq.append_at(step.start.len(), face_eq);
             return (eq, None);
         }
         let ex = self
             .ctx
+            .lock()
+            .await
             .remote
             .build(Feature::Equality {
                 cat,
@@ -180,30 +204,39 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         (eq, Some(face))
     }
 
-    pub fn decompose_face(&mut self, fce: usize, steps: Vec<Step>) -> bool {
+    pub async fn decompose_face(&self, fce: usize, steps: Vec<Step>) -> bool {
         assert!(steps.len() > 0);
-        let cat = self.graph.graph.nodes[self.graph.graph.faces[fce].start].1;
+        let cat = {
+            let graph = self.graph.lock().await;
+            graph.graph.nodes[graph.graph.faces[fce].start].1
+        };
 
         // Realize all the steps
-        let (steps, exs): (Vec<Eq>, Vec<Option<Face<FaceLabel>>>) = steps
-            .into_iter()
-            .map(|step| self.decompose_step_to_eq(fce, step))
-            .unzip();
-        let to_unify = steps
+        let mut nsteps: Vec<Eq> = Vec::new();
+        let mut exs: Vec<Option<Face<FaceLabel>>> = Vec::new();
+        for step in steps.into_iter() {
+            let (step, ex) = self.decompose_step_to_eq(fce, step).await;
+            nsteps.push(step);
+            exs.push(ex);
+        }
+        let to_unify = nsteps
             .into_iter()
             .reduce(|mut eq1, eq2| {
                 eq1.append(eq2);
                 eq1
             })
             .unwrap();
-        if !self.unify_eq(cat, &self.graph.graph.faces[fce].eq.clone(), &to_unify) {
+        let eq = self.graph.lock().await.graph.faces[fce].eq.clone();
+        if !self.unify_eq(cat, &eq, &to_unify).await {
             return false;
         }
 
         // Create new faces for all new existentials
         for ex in exs {
             if let Some(ex) = ex {
-                self.register_instruction(asm::Instruction::InsertFace(ex));
+                let () = self
+                    .register_instruction(asm::Instruction::InsertFace(ex))
+                    .await;
             }
         }
         true

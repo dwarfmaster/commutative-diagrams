@@ -1,10 +1,9 @@
 use super::step::Step;
-use crate::remote::Remote;
-use crate::vm::{Interactive, VM};
+use crate::vm::vm::GraphState;
 use std::collections::HashMap;
 use std::ops::Range;
 
-impl<Rm: Remote, I: Interactive> VM<Rm, I> {
+impl GraphState {
     // Given a path, creates a list of steps that remove all the loops by making
     // them trivial (ie equal to the identity)
     pub fn decompose_trivialize_path<It>(&self, path: It) -> (Vec<(usize, usize)>, Vec<Step>)
@@ -39,7 +38,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             starts.insert(path[i].0, i);
         }
         if let Some((src, mph)) = path.last() {
-            let dst = self.graph.graph.edges[*src][*mph].0;
+            let dst = self.graph.edges[*src][*mph].0;
             if let Some(start) = starts.get(&dst) {
                 return Some(*start..path.len());
             }

@@ -1,0 +1,139 @@
+* e0a8432 - (HEAD -> new_protocol, dwarfmaster/new_protocol) [engine] Recompute face status on change (76 seconds ago) <DwarfMaster>
+* 19d3d35 - [engine] Clear outdated cache when applying lemma (38 minutes ago) <DwarfMaster>
+* 74f30c5 - [engine] Fix lookup of lemma by name (60 minutes ago) <DwarfMaster>
+* 6fe633b - [engine] Improve error message on lemma application failure (60 minutes ago) <DwarfMaster>
+* e1bc409 - [coq] Fix handling of universe constraints for constants (2 hours ago) <DwarfMaster>
+* db22b41 - [engine] Treat categories modulo repr when querying cache (4 hours ago) <DwarfMaster>
+* 9b97102 - [engine] Fix unification of equalities (25 hours ago) <DwarfMaster>
+* 6b139a0 - [coq] Fix handling of quantifiers in lemmas (26 hours ago) <DwarfMaster>
+* d398c8c - [coq] Do not parenthesize term when printing them (28 hours ago) <DwarfMaster>
+* c102d01 - [engine] Switch placement of code and lemmas list (2 days ago) <DwarfMaster>
+* 05e2d20 - [engine] Reorder lemmas in the display tree (2 days ago) <DwarfMaster>
+* 7d62388 - [engine] Update protocol to receive namespaces as list (2 days ago) <DwarfMaster>
+* 52dcba2 - [coq] Update protocol to send namespaces as list (2 days ago) <DwarfMaster>
+* 7ed7038 - [engine] Display lemmas as a tree (2 days ago) <DwarfMaster>
+* 4f1497d - [engine] Implement replaying of lemma application (2 days ago) <DwarfMaster>
+* d236ec1 - [coq] Undefined instantiated evars when restoring state (2 weeks ago) <DwarfMaster>
+* 157cc0d - [coq] Fix unification (2 weeks ago) <DwarfMaster>
+* a02df14 - [engine] Solve modulo repr (2 weeks ago) <DwarfMaster>
+* 7efa6ef - [coq] Fix instantiation of Var lconstr in lemma (2 weeks ago) <DwarfMaster>
+* 4850508 - [coq] Fix protocol handler for repr (2 weeks ago) <DwarfMaster>
+* 8e47598 - [engine] Extend TermEngine trait to support querying info (2 weeks ago) <DwarfMaster>
+* 4378626 - [coq] Remove debug logging of received messages (2 weeks ago) <DwarfMaster>
+* 2c1526c - [engine] Implement usage of repr protocol method (2 weeks ago) <DwarfMaster>
+* 8ed5302 - [coq] Implement repr protocol handler (2 weeks ago) <DwarfMaster>
+* 4dc7730 - [engine] Update pushout action (2 weeks ago) <DwarfMaster>
+* 802ec46 - [engine] Update merge action (2 weeks ago) <DwarfMaster>
+* 6d2cda4 - [engine] Fix handling of state (2 weeks ago) <DwarfMaster>
+* fdfced8 - [engine] Update lemma matching mecanism + ui (2 weeks ago) <DwarfMaster>
+* 75ce2b0 - [coq] Fix instantiation of lemma graph (2 weeks ago) <DwarfMaster>
+* dcfc7b8 - [engine] Fix obj information caching (2 weeks ago) <DwarfMaster>
+* c9179b1 - [coq] Fix lemma result querying (2 weeks ago) <DwarfMaster>
+* 5e5352e - [engine] Update bevy/egui stack (2 weeks ago) <DwarfMaster>
+* dcc1ce4 - [nix] Update rust (2 weeks ago) <DwarfMaster>
+* 51e8cca - [coq] Fix handling of open term in lemmas (2 weeks ago) <DwarfMaster>
+* a83fb80 - [engine] Use different caches for different namespaces (2 weeks ago) <DwarfMaster>
+* f629b24 - [coq] Update protocol to handle namespaces (2 weeks ago) <DwarfMaster>
+* 6e3da01 - [coq] Improve namespace system and update protocol (2 weeks ago) <DwarfMaster>
+* 0255c2a - [coq] Do not register as lemma constants with empty graph (3 weeks ago) <DwarfMaster>
+* fc951c1 - [engine] Get lemma pattern when viewing it (3 weeks ago) <DwarfMaster>
+* 90c29ad - [engine] Implement pattern protocol call (3 weeks ago) <DwarfMaster>
+* 8bf4aaf - [coq] Do not register as lemma hyptheses already present in the graph (3 weeks ago) <DwarfMaster>
+* d9be08d - [coq] Implement pattern protocol handler (3 weeks ago) <DwarfMaster>
+* d2911aa - [coq] Prevent creating existential variables with the same name (3 weeks ago) <DwarfMaster>
+* cb698c2 - [engine] Add log helpers in solver (3 weeks ago) <DwarfMaster>
+* d2dd3cb - [engine] Fix graph preparation (3 weeks ago) <DwarfMaster>
+* 4ffab30 - [engine] Plug solver in compiler (3 weeks ago) <DwarfMaster>
+* ee6225c - [engine] Update solver (3 weeks ago) <DwarfMaster>
+* 9544136 - [engine] Fix graph preparation (3 weeks ago) <DwarfMaster>
+* c79345f - [engine] Update union find for solver (3 weeks ago) <DwarfMaster>
+* 9516e5b - [engine] Update enumeration for solver (3 weeks ago) <DwarfMaster>
+* f478a81 - [engine] Store normalized morphims on edges (3 weeks ago) <DwarfMaster>
+* e2847cf - [coq] Mark created evars as goals (5 weeks ago) <DwarfMaster>
+* dd23a0f - [coq] Keep universe information when rolling back state (5 weeks ago) <DwarfMaster>
+* a30f76c - [coq] Fix state RPC method names (5 weeks ago) <DwarfMaster>
+* 6e26563 - [engine] Manage proof assistant state (5 weeks ago) <DwarfMaster>
+* 8d8d534 - [coq] Refine the goal with the result of the interaction (5 weeks ago) <DwarfMaster>
+* 8fa63c6 - [coq] Fix building of {r,l}_ap (5 weeks ago) <DwarfMaster>
+* 483ed38 - [coq] Make evar map usage more local (5 weeks ago) <DwarfMaster>
+* 371aa9f - [coq] Fix building of unitalities (5 weeks ago) <DwarfMaster>
+* 82612d7 - [engine] Fix application of associativity when normalizing (5 weeks ago) <DwarfMaster>
+* e99ada4 - [coq] Fix handling of evar env (5 weeks ago) <DwarfMaster>
+* 2973c93 - [engine] Update shrink action (5 weeks ago) <DwarfMaster>
+* f669670 - [coq] Fix unification protocol handler (5 weeks ago) <DwarfMaster>
+* 02519f9 - [engine] Fix RAP for equality (5 weeks ago) <DwarfMaster>
+* 80682c4 - [coq] Fix de-duplication check in store (5 weeks ago) <DwarfMaster>
+* 7452a30 - [engine] Misc fixes in realization of eq (5 weeks ago) <DwarfMaster>
+* d2c2197 - [coq] Fix querying of morphism type (5 weeks ago) <DwarfMaster>
+* 10d3641 - [engine] Fix infinite loop in realizer (6 weeks ago) <DwarfMaster>
+* d9f9238 - [engine] Add action to unify two equalities (6 weeks ago) <DwarfMaster>
+* 8094bdb - [engine] Add method to Eq to check if it is atomic (6 weeks ago) <DwarfMaster>
+* a7c32f6 - [engine] Relabel after split (6 weeks ago) <DwarfMaster>
+* f3f94e6 - [coq] Fix building of composition (6 weeks ago) <DwarfMaster>
+* 1d7c303 - [coq] Fix parsing of composition (6 weeks ago) <DwarfMaster>
+* 3d22e94 - [engine] Plug hide/reveal/split/insert into compiler (6 weeks ago) <DwarfMaster>
+* d2d9904 - [engine] Update split action (6 weeks ago) <DwarfMaster>
+* 75a65cb - [engine] Update insert action (6 weeks ago) <DwarfMaster>
+* 5f1da75 - [engine] Remove outdated refine action (6 weeks ago) <DwarfMaster>
+* ac0aea2 - [engine] Update hide action (6 weeks ago) <DwarfMaster>
+* 2ea50e3 - [coq] Fix handling of environment when building lemma pattern (6 weeks ago) <DwarfMaster>
+* 84f3ed3 - [coq] Graph builder now splits morphisms (6 weeks ago) <DwarfMaster>
+* 3fd8f25 - [coq] Remove unnecessary Loader indirection for projections (6 weeks ago) <DwarfMaster>
+* 137a968 - [coq] Fix serialisation of query answer (6 weeks ago) <DwarfMaster>
+* 1dcc674 - [engine] Fix normalisation (6 weeks ago) <DwarfMaster>
+* 7d14608 - [coq] Compute the evar status (6 weeks ago) <DwarfMaster>
+* a398d83 - [engine] Fix (de)serializing of evarstatus (6 weeks ago) <DwarfMaster>
+* 8ca21d4 - [coq] Fix querying of types (6 weeks ago) <DwarfMaster>
+* 51d9c38 - [engine] Update labeler (6 weeks ago) <DwarfMaster>
+* 31d0d67 - [coq] Fix creation of goal evar (6 weeks ago) <DwarfMaster>
+* cbbfe4b - [engine] Fix out-of-bound vector access (6 weeks ago) <DwarfMaster>
+* 84cefde - [engine] Fix RPC build call (6 weeks ago) <DwarfMaster>
+* b7bda72 - [engine] Improve handling of errors in received messages (6 weeks ago) <DwarfMaster>
+* ec84b3b - [engine] Accept nil as an empty vector when deserializing (6 weeks ago) <DwarfMaster>
+* 29c10a7 - [engine] Fix argument passing encoding in RPC (6 weeks ago) <DwarfMaster>
+* 50fddcf - [engine] Remove legacy RPC code (6 weeks ago) <DwarfMaster>
+* d3b8057 - [engine] Implement graph deserialization (6 weeks ago) <DwarfMaster>
+* 7e6ed76 - [coq] Store category in graph (6 weeks ago) <DwarfMaster>
+* ba520a2 - [engine] Change data structure used for terms (6 weeks ago) <DwarfMaster>
+* 4f8f6d3 - [engine] Add atomic constructor for equality (6 weeks ago) <DwarfMaster>
+* ee55ab4 - [engine] Normalizer also returns vector of components (6 weeks ago) <DwarfMaster>
+* e0e9448 - [engine] Make VM a TermEngine instance (6 weeks ago) <DwarfMaster>
+* 7dd879c - [engine] Finish equality realizer (6 weeks ago) <DwarfMaster>
+* 6beb44b - [engine] Implement utilities to build inp/outp of eqs slices (7 weeks ago) <DwarfMaster>
+* 3fa5725 - [engine] Extend TermEngine trait to support querying types (7 weeks ago) <DwarfMaster>
+* eb9642c - [engine] Misc fixes to equality definition (7 weeks ago) <DwarfMaster>
+* 96fca24 - [engine] Move TermEngine trait to remote (7 weeks ago) <DwarfMaster>
+* c85d305 - [engine] Port normalisation to new protocol (8 weeks ago) <DwarfMaster>
+* a2e5d5a - [engine] Improve string diagram based eq structure (8 weeks ago) <DwarfMaster>
+* be8fe75 - [engine] Add cached remote query of features to VM (8 weeks ago) <DwarfMaster>
+* 921efc6 - [engine] Parameterize VM with the Remote type (8 weeks ago) <DwarfMaster>
+* 33a3c9c - [engine] Implement RPC based remote (9 weeks ago) <DwarfMaster>
+* 086e11b - [engine] Implement mock remote (9 weeks ago) <DwarfMaster>
+* 48ca712 - [engine] Add trait for remote implementation (9 weeks ago) <DwarfMaster>
+* c7ee2ca - [engine] Implement store for terms state (9 weeks ago) <DwarfMaster>
+* 02244c8 - [engine] Add Feature type (9 weeks ago) <DwarfMaster>
+* d251130 - [coq] Improve error message on unknown method (9 weeks ago) <DwarfMaster>
+* c8eedaf - [coq] Remove legacy code (9 weeks ago) <DwarfMaster>
+* aea7ab9 - [coq] Update plugin to use new query system (9 weeks ago) <DwarfMaster>
+* 81e6265 - [coq] Implement finish protocol handler (9 weeks ago) <DwarfMaster>
+* bfcb6d9 - [coq] Implement parse protocol handler (9 weeks ago) <DwarfMaster>
+* be83709 - [coq] Implement state save/restore protocol handler (9 weeks ago) <DwarfMaster>
+* 98bf236 - [coq] Implement build protocol handler (9 weeks ago) <DwarfMaster>
+* 938a51d - [coq] Implement query protocol handler (9 weeks ago) <DwarfMaster>
+* c68c1c2 - [coq] Implement lemmas related protocol handlers (2 months ago) <DwarfMaster>
+* 4ac412e - [coq] Implement equalify handler (2 months ago) <DwarfMaster>
+* 0f018a7 - [coq] Start implementation of new protocol (2 months ago) <DwarfMaster>
+* d0329b5 - [coq] Refactor graph/graphbuilder and lemma to use new feature system (2 months ago) <DwarfMaster>
+* 42e667b - [coq] Add function to inspect quantifiers (2 months ago) <DwarfMaster>
+* 99478d7 - [coq] Remove InverseMph feature (3 months ago) <DwarfMaster>
+* 527213d - [coq] Implement building of all features (3 months ago) <DwarfMaster>
+* 197dda4 - [coq] Features store all information (3 months ago) <DwarfMaster>
+* 9674990 - [coq] When querying, use cached type information (3 months ago) <DwarfMaster>
+* 6d1906a - [coq] Implement building of type features (3 months ago) <DwarfMaster>
+* 473fa50 - [coq] Implement objects and morphims queries (3 months ago) <DwarfMaster>
+* e8d4f9d - [coq] Implement type queries (3 months ago) <DwarfMaster>
+* 316f834 - [coq] Add function to query stored state (3 months ago) <DwarfMaster>
+* 2a9caf3 - [coq] Add metadata to stored type objects (3 months ago) <DwarfMaster>
+* 3f6bd43 - [coq] Add objects and state primitives to monad (3 months ago) <DwarfMaster>
+* e70ccfb - [coq] Factor out all the implementations of mapM (3 months ago) <DwarfMaster>
+* c084091 - [coq] Add type about features (3 months ago) <DwarfMaster>

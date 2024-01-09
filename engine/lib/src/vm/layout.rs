@@ -1,6 +1,6 @@
 use super::config::Config;
 use crate::graph::GraphId;
-use crate::vm::Graph;
+use crate::vm::vm::GraphState;
 
 mod ccs;
 mod edges;
@@ -9,20 +9,20 @@ mod nodes;
 mod precompute;
 pub use engine::LayoutEngine;
 
-impl LayoutEngine {
-    pub fn particles_for_graph(&mut self, cfg: &Config, graph: &mut Graph) {
-        self.compute_structure(cfg, graph);
-        self.particles_for_nodes(cfg, graph);
-        self.particles_for_edges(cfg, graph);
-        self.reset_components(cfg);
+impl GraphState {
+    pub fn particles_for_graph(&mut self, cfg: &Config) {
+        self.layout.compute_structure(cfg, &mut self.graph);
+        self.layout.particles_for_nodes(cfg, &mut self.graph);
+        self.layout.particles_for_edges(cfg, &mut self.graph);
+        self.layout.reset_components(cfg);
     }
 
-    pub fn apply_forces<F>(&mut self, cfg: &Config, graph: &Graph, fixed: &F)
+    pub fn apply_forces<F>(&mut self, cfg: &Config, fixed: &F)
     where
         F: Fn(GraphId) -> bool,
     {
-        self.apply_nodes_forces(cfg, graph, fixed);
-        self.apply_edge_forces(cfg, graph, fixed);
-        self.apply_cc_forces(cfg, graph, fixed);
+        self.layout.apply_nodes_forces(cfg, &mut self.graph, fixed);
+        self.layout.apply_edge_forces(cfg, &mut self.graph, fixed);
+        self.layout.apply_cc_forces(cfg, &mut self.graph, fixed);
     }
 }

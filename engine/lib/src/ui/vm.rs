@@ -1,7 +1,9 @@
 use super::graph::graph::Action;
 use crate::graph::GraphId;
 use crate::remote::Remote;
+use crate::runtime::Runtime;
 use crate::vm;
+use async_trait::async_trait;
 use egui::{Context, Ui};
 
 pub mod apply;
@@ -50,65 +52,78 @@ pub enum ActionResult {
     Commit,
 }
 
+#[async_trait]
 impl vm::Interactive for InteractiveAction {
-    fn compile<R: Remote>(self, vm: &VM<R>) -> String {
+    async fn compile<R: Remote + Sync + Send>(self, vm: &VM<R>) -> String {
         use InteractiveAction::*;
         match self {
-            LemmaApplication(apply) => apply.compile(vm),
+            LemmaApplication(apply) => apply.compile(vm).await,
             Merge(merge) => merge.compile(vm),
             Insert(insert) => insert.compile(vm),
         }
     }
-    fn terminate(self) {}
+    async fn terminate(self) {}
 }
 
 pub type VM<R> = vm::VM<R, InteractiveAction>;
 
 impl InteractiveAction {
-    pub fn apply<R: Remote>(vm: &mut VM<R>, lemma: usize) -> Self {
-        let state = apply::LemmaApplicationState::new(vm, lemma);
+    pub async fn apply<R: Remote>(vm: &VM<R>, lemma: usize) -> Self {
+        let state = apply::LemmaApplicationState::new(vm, lemma).await;
         InteractiveAction::LemmaApplication(state)
     }
 
-    pub fn merge(id: GraphId) -> Self {
+    pub async fn merge(id: GraphId) -> Self {
         let state = merge::MergeState::new(id);
         InteractiveAction::Merge(state)
     }
 
-    pub fn insert(kind: insert::InsertKind) -> Self {
+    pub async fn insert(kind: insert::InsertKind) -> Self {
         let state = insert::InsertState::new(kind);
         InteractiveAction::Insert(state)
     }
 
-    pub fn display<R: Remote>(&mut self, vm: &mut VM<R>, ui: &Context) -> ActionResult {
+    pub fn display<RT: Runtime>(
+        &mut self,
+        rt: &mut RT,
+        vm: &VM<RT::Rem>,
+        ui: &Context,
+    ) -> ActionResult {
         use InteractiveAction::*;
         match self {
-            LemmaApplication(state) => state.display(vm, ui),
-            Merge(state) => state.display(vm, ui),
-            Insert(state) => state.display(vm, ui),
+            LemmaApplication(state) => state.display(rt, vm, ui),
+            Merge(state) => state.display(rt, vm, ui),
+            Insert(state) => state.display(rt, vm, ui),
         }
     }
 
-    pub fn context_menu<R: Remote>(
+    pub fn context_menu<RT: Runtime>(
         &mut self,
-        vm: &mut VM<R>,
+        rt: &mut RT,
+        vm: &VM<RT::Rem>,
         on: GraphId,
         ui: &mut Ui,
     ) -> ContextMenuResult {
         use InteractiveAction::*;
         match self {
-            LemmaApplication(state) => state.context_menu(vm, on, ui),
-            Merge(state) => state.context_menu(vm, on, ui),
-            Insert(state) => state.context_menu(vm, on, ui),
+            LemmaApplication(state) => state.context_menu(rt, vm, on, ui),
+            Merge(state) => state.context_menu(rt, vm, on, ui),
+            Insert(state) => state.context_menu(rt, vm, on, ui),
         }
     }
 
-    pub fn action<R: Remote>(&mut self, vm: &mut VM<R>, act: Action, ui: &mut Ui) -> bool {
+    pub fn action<RT: Runtime>(
+        &mut self,
+        rt: &mut RT,
+        vm: &VM<RT::Rem>,
+        act: Action,
+        ui: &mut Ui,
+    ) -> bool {
         use InteractiveAction::*;
         match self {
-            LemmaApplication(state) => state.action(vm, act, ui),
-            Merge(state) => state.action(vm, act, ui),
-            Insert(state) => state.action(vm, act, ui),
+            LemmaApplication(state) => state.action(rt, vm, act, ui),
+            Merge(state) => state.action(rt, vm, act, ui),
+            Insert(state) => state.action(rt, vm, act, ui),
         }
     }
 

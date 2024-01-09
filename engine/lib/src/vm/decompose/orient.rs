@@ -1,8 +1,7 @@
-use crate::remote::Remote;
-use crate::vm::{Interactive, VM};
+use crate::vm::vm::GraphState;
 use egui::Pos2;
 
-impl<Rm: Remote, I: Interactive> VM<Rm, I> {
+impl GraphState {
     // Returns true if two parallel paths are oriented correctly for decomposition
     pub fn decompose_orient_sides<ItLeft, ItRight>(&self, left: ItLeft, right: ItRight) -> bool
     where
@@ -15,23 +14,17 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         let points: Vec<Pos2> = left
             .map(|(src, mph)| {
                 [
-                    self.graph
-                        .layout
-                        .get_pos(self.graph.graph.nodes[src].2.pos.unwrap()),
-                    self.graph
-                        .layout
-                        .get_pos(self.graph.graph.edges[src][mph].1.control.unwrap()),
+                    self.layout.get_pos(self.graph.nodes[src].2.pos.unwrap()),
+                    self.layout
+                        .get_pos(self.graph.edges[src][mph].1.control.unwrap()),
                 ]
             })
             .chain(right.rev().map(|(src, mph)| {
-                let dst = self.graph.graph.edges[src][mph].0;
+                let dst = self.graph.edges[src][mph].0;
                 [
-                    self.graph
-                        .layout
-                        .get_pos(self.graph.graph.nodes[dst].2.pos.unwrap()),
-                    self.graph
-                        .layout
-                        .get_pos(self.graph.graph.edges[src][mph].1.control.unwrap()),
+                    self.layout.get_pos(self.graph.nodes[dst].2.pos.unwrap()),
+                    self.layout
+                        .get_pos(self.graph.edges[src][mph].1.control.unwrap()),
                 ]
             }))
             .flatten()

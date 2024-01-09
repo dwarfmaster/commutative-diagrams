@@ -23,6 +23,6 @@ mod vm;
 pub use asm::Instruction;
 pub use compiler::ExecutionResult;
 pub use graph::{EdgeLabel, FaceLabel, FaceStatus, Graph, GraphParsed, NodeLabel};
-pub use lemmas::{Lemma, LemmaState, LemmaTree};
+pub use lemmas::{Lemma, LemmaTree};
 pub use store::Context;
-pub use vm::{CodeStyle, EndStatus, Interactive, VM};
+pub use vm::{CodeStyle, EndStatus, Interactive, VM, GraphState};

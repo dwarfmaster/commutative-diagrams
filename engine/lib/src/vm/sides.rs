@@ -38,8 +38,8 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         );
     }
 
-    pub fn show_face(&mut self, fce: usize) {
-        Self::show_face_impl(&mut self.graph.graph, fce);
+    pub async fn show_face(&self, fce: usize) {
+        Self::show_face_impl(&mut self.graph.lock().await.graph, fce);
     }
 
     pub fn unshow_face_impl(graph: &mut Graph, fce: usize) {
@@ -61,24 +61,26 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         );
     }
 
-    pub fn unshow_face(&mut self, fce: usize) {
-        Self::unshow_face_impl(&mut self.graph.graph, fce);
+    pub async fn unshow_face(&self, fce: usize) {
+        Self::unshow_face_impl(&mut self.graph.lock().await.graph, fce);
     }
 
-    pub fn deselect_face(&mut self) {
-        if let Some(fce) = self.graph.selected_face.take() {
-            self.unshow_face(fce);
+    pub async fn deselect_face(&self) {
+        let sel = self.graph.lock().await.selected_face.take();
+        if let Some(fce) = sel {
+            self.unshow_face(fce).await;
         }
     }
 
-    pub fn select_face(&mut self, fce: usize) {
-        if let Some(prev) = self.graph.selected_face {
+    pub async fn select_face(&mut self, fce: usize) {
+        let prev = self.graph.lock().await.selected_face.clone();
+        if let Some(prev) = prev {
             if prev == fce {
                 return;
             }
-            self.unshow_face(prev);
+            self.unshow_face(prev).await;
         }
-        self.show_face(fce);
-        self.graph.selected_face = Some(fce);
+        self.show_face(fce).await;
+        self.graph.lock().await.selected_face = Some(fce);
     }
 }

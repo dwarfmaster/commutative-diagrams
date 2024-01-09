@@ -9,8 +9,10 @@ use crate::vm::layout::LayoutEngine;
 use crate::vm::lemmas::{Lemma, LemmaTree};
 use crate::vm::parser;
 use crate::vm::store::Context;
+use async_trait::async_trait;
 use core::ops::Range;
 use egui::Vec2;
+use futures::lock::Mutex;
 use std::collections::HashMap;
 
 #[derive(Debug, Hash, Clone, Copy, Eq, PartialEq, Default)]
@@ -35,17 +37,20 @@ pub enum CodeStyle {
     None,
 }
 
+#[async_trait]
 pub trait Interactive: Sized {
-    fn compile<R: Remote>(self, vm: &VM<R, Self>) -> String;
-    fn terminate(self);
+    async fn compile<R: Remote + Sync + Send>(self, vm: &VM<R, Self>) -> String;
+    async fn terminate(self);
 }
+#[async_trait]
 impl Interactive for () {
-    fn compile<R: Remote>(self, _: &VM<R, ()>) -> String {
+    async fn compile<R: Remote + Sync + Send>(self, _: &VM<R, ()>) -> String {
         "".to_string()
     }
-    fn terminate(self) {}
+    async fn terminate(self) {}
 }
 
+#[derive(Debug, Clone)]
 pub struct GraphState {
     pub graph: Graph,
     pub names: HashMap<String, GraphId>,
@@ -83,29 +88,34 @@ pub struct CodeState {
     pub code_window_open: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct GraphicalState {
     pub offset: Vec2,
     pub zoom: f32,
-    pub focused_object: Option<GraphId>,
-    pub hovered_object: Option<GraphId>,
-    pub dragged_object: Option<GraphId>,
+    pub focused: Option<GraphId>,
+    pub hovered: Option<GraphId>,
+    pub dragged: Option<GraphId>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DisplayState {
     pub init_ppp: Option<f32>,
     pub ppp: Option<f32>,
 }
 
 pub struct VM<Rm: Remote, I: Interactive> {
     // State
-    pub ctx: Context<Rm>,
-    pub config: Config,
-    pub graph: GraphState,
-    pub lemmas: LemmaState,
+    pub ctx: Mutex<Context<Rm>>,
+    pub config: Mutex<Config>,
+    pub graph: Mutex<GraphState>,
+    pub lemmas: Mutex<LemmaState>,
 
     // Execution
-    pub ins: InstructionsState,
-    pub end_status: EndStatus,
+    pub ins: Mutex<InstructionsState>,
+    pub end_status: Mutex<EndStatus>,
 
     // Code
-    pub code: CodeState,
+    pub code: Mutex<CodeState>,
 
     // Used to handle partial action execution. Indeed, some actions executions
     // are interactive, and as such can be in a state of being partially
@@ -114,10 +124,11 @@ pub struct VM<Rm: Remote, I: Interactive> {
     // application, it becomes an action and it is assumed the instructions
     // emitted interactively have the same resulting effect as if it was
     // executed at once.
-    pub current_action: Option<(usize, I)>,
+    pub current_action: Mutex<Option<(usize, I)>>,
 
     // Graphical status
     pub graphical: GraphicalState,
+    pub display: DisplayState,
 }
 
 impl<R: Remote, I: Interactive> VM<R, I> {
@@ -142,22 +153,22 @@ impl<R: Remote, I: Interactive> VM<R, I> {
         let lemma_tree = LemmaTree::new(&lemmas[..]);
         let init_state = ctx.save_state();
         let mut vm = Self {
-            ctx,
-            config: Config::new(),
-            end_status: EndStatus::Running,
-            graph: GraphState {
+            ctx: Mutex::new(ctx),
+            config: Mutex::new(Config::new()),
+            end_status: Mutex::new(EndStatus::Running),
+            graph: Mutex::new(GraphState {
                 graph,
                 names: HashMap::new(),
                 layout: LayoutEngine::new(),
                 face_goal_order: Vec::new(),
                 face_hyps_order: Vec::new(),
                 selected_face: None,
-            },
-            ins: InstructionsState {
+            }),
+            ins: Mutex::new(InstructionsState {
                 instructions: Vec::new(),
                 eval_status: interpreter::InterpreterStatus::new(),
-            },
-            code: CodeState {
+            }),
+            code: Mutex::new(CodeState {
                 prev_code: String::new(),
                 code: String::new(),
                 ast: Vec::new(),
@@ -166,19 +177,21 @@ impl<R: Remote, I: Interactive> VM<R, I> {
                 run_until: 0,
                 states: vec![init_state],
                 code_window_open: false,
-            },
-            lemmas: LemmaState {
+            }),
+            lemmas: Mutex::new(LemmaState {
                 lemmas,
                 lemma_tree,
                 selected_lemma: None,
-            },
-            current_action: None,
+            }),
+            current_action: Mutex::new(None),
             graphical: GraphicalState {
                 offset: Vec2::ZERO,
                 zoom: 1.0,
-                focused_object: None,
-                hovered_object: None,
-                dragged_object: None,
+                focused: None,
+                hovered: None,
+                dragged: None,
+            },
+            display: DisplayState {
                 init_ppp: None,
                 ppp: None,
             },
@@ -186,24 +199,24 @@ impl<R: Remote, I: Interactive> VM<R, I> {
         vm.relabel();
         vm.recompute_face_statuses();
         vm.autoname();
-        vm.init_face_order();
-        vm.graph
-            .layout
-            .particles_for_graph(&vm.config, &mut vm.graph.graph);
+        {
+            let graph = &mut vm.graph.try_lock().unwrap();
+            graph.init_face_order();
+            graph.particles_for_graph(&vm.config.try_lock().unwrap());
+        }
         vm
     }
 
-    fn recompile_to(&mut self, to: usize, one: bool) -> Option<ast::AST> {
-        let p = parser::Parser::new(
-            self.code.run_until,
-            &self.code.code[self.code.run_until..to],
-        );
+    async fn recompile_to(&self, to: usize, one: bool) -> Option<ast::AST> {
+        let code = &mut self.code.lock().await;
+        let p = parser::Parser::new(code.run_until, &code.code[code.run_until..to]);
         let r = if one { p.parse_one() } else { p.parse() };
         match r {
             Ok((_, ast)) => {
-                self.code.error_msg.clear();
-                self.reset_style();
-                self.style_range(0..self.code.run_until, CodeStyle::Run);
+                code.error_msg.clear();
+                code.reset_style();
+                let run_until = code.run_until;
+                code.style_range(0..run_until, CodeStyle::Run);
                 Some(ast)
             }
             Err(err) => {
@@ -212,66 +225,71 @@ impl<R: Remote, I: Interactive> VM<R, I> {
                     nom::Err::Error(err) => err,
                     nom::Err::Failure(err) => err,
                 };
-                let start =
-                    unsafe { err.input.as_ptr().offset_from(self.code.code.as_ptr()) as usize };
+                let start = unsafe { err.input.as_ptr().offset_from(code.code.as_ptr()) as usize };
                 let end = start + err.input.len();
-                self.code.ast.clear();
-                self.code.error_msg = format!("{}:{}: {}", start, end, err);
-                self.style_range(start..end, CodeStyle::Error);
+                code.error_msg = format!("{}:{}: {}", start, end, err);
+                code.ast.clear();
+                code.style_range(start..end, CodeStyle::Error);
                 None
             }
         }
     }
 
     // Compile the code, but do not run it
-    pub fn recompile(&mut self) -> Option<ast::AST> {
-        self.recompile_to(self.code.code.len(), false)
+    pub async fn recompile(&self) -> Option<ast::AST> {
+        let len = self.code.lock().await.code.len();
+        self.recompile_to(len, false).await
     }
-    pub fn recompile_one(&mut self) -> Option<ast::AST> {
-        self.recompile_to(self.code.code.len(), true)
+    pub async fn recompile_one(&self) -> Option<ast::AST> {
+        let len = self.code.lock().await.code.len();
+        self.recompile_to(len, true).await
     }
 
     // Insert new code the last executed instruction and parse it
-    fn insert_and_parse(&mut self, code: &str) -> Option<ast::AST> {
-        let start = self.code.run_until + (if self.code.run_until == 0 { 0 } else { 1 });
-        let end = self.code.run_until + code.len() + (if self.code.run_until == 0 { 0 } else { 1 });
-        if !(self.code.code.len() > end
-            && &self.code.code[start..end] == code
-            && (self.code.code.len() == end || self.code.code.chars().nth(end) == Some('\n')))
-        {
-            if self.code.run_until == 0 {
-                self.code
-                    .code
-                    .insert_str(self.code.run_until, &format!("{}\n", code));
-            } else {
-                self.code
-                    .code
-                    .insert_str(self.code.run_until, &format!("\n{}", code));
+    async fn insert_and_parse(&self, to_insert: &str) -> Option<ast::AST> {
+        let end = {
+            let code = &mut self.code.lock().await;
+            let start = code.run_until + (if code.run_until == 0 { 0 } else { 1 });
+            let end = code.run_until + to_insert.len() + (if code.run_until == 0 { 0 } else { 1 });
+            if !(code.code.len() > end
+                && &code.code[start..end] == to_insert
+                && (code.code.len() == end || code.code.chars().nth(end) == Some('\n')))
+            {
+                let run_until = code.run_until;
+                if run_until == 0 {
+                    code.code.insert_str(run_until, &format!("{}\n", to_insert));
+                } else {
+                    code.code.insert_str(run_until, &format!("\n{}", to_insert));
+                }
             }
-        }
-        self.recompile_to(end, false)
+            end
+        };
+        self.recompile_to(end, false).await
     }
 
     // Insert new code after the last executed instruction, parse it and run it
-    pub fn insert_and_run(&mut self, code: &str) {
-        if let Some(ast) = self.insert_and_parse(code) {
+    pub async fn insert_and_run(&self, code: &str) {
+        if let Some(ast) = self.insert_and_parse(code).await {
             self.run(ast);
         }
     }
 
     // Start a new interactive action
-    pub fn start_interactive(&mut self, int: I) {
-        if self.current_action.is_some() {
+    pub async fn start_interactive(&self, int: I) {
+        if self.current_action.lock().await.is_some() {
             self.stop_interactive();
         }
-        self.current_action = Some((self.ins.instructions.len(), int));
+        *self.current_action.lock().await = Some((self.ins.lock().await.instructions.len(), int));
     }
+}
 
+impl <Rm: Remote + Sync + Send, I: Interactive> VM<Rm,I> {
     // Commit the current interactive action
-    pub fn commit_interactive(&mut self) {
-        if let Some((last, interactive)) = self.current_action.take() {
-            let code = interactive.compile(&self);
-            let ast = self.insert_and_parse(&code).unwrap();
+    pub async fn commit_interactive(&self) {
+        let current = self.current_action.lock().await.take();
+        if let Some((last, interactive)) = current {
+            let code = interactive.compile(&self).await;
+            let ast = self.insert_and_parse(&code).await.unwrap();
             assert_eq!(ast.len(), 1);
             let act = ast.into_iter().next().unwrap();
             self.store_action(act, last);
