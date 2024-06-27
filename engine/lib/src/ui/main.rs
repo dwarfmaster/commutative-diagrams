@@ -45,6 +45,7 @@ pub fn main<RPC: Remote>(ctx: &egui::Context, vm: &mut VM<RPC>) {
                 }
                 Some((_, Merge(..))) => (),
                 Some((_, Insert(..))) => (),
+                Some((_, Compose(..))) => (),
                 None => (),
             }
         }

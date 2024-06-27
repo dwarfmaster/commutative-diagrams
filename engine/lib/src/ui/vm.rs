@@ -5,6 +5,7 @@ use crate::vm;
 use egui::{Context, Ui};
 
 pub mod apply;
+pub mod compose;
 pub mod insert;
 pub mod merge;
 
@@ -35,6 +36,7 @@ pub enum InteractiveAction {
     LemmaApplication(apply::LemmaApplicationState),
     Merge(merge::MergeState),
     Insert(insert::InsertState),
+    Compose(compose::ComposeState),
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ContextMenuResult {
@@ -57,6 +59,7 @@ impl vm::Interactive for InteractiveAction {
             LemmaApplication(apply) => apply.compile(vm),
             Merge(merge) => merge.compile(vm),
             Insert(insert) => insert.compile(vm),
+            Compose(comp) => comp.compile(vm),
         }
     }
     fn terminate(self) {}
@@ -80,12 +83,23 @@ impl InteractiveAction {
         InteractiveAction::Insert(state)
     }
 
+    pub fn compose_id(nd: usize) -> Self {
+        let state = compose::ComposeState::new_id(nd);
+        InteractiveAction::Compose(state)
+    }
+
+    pub fn compose<R: Remote>(vm: &VM<R>, src: usize, mph: usize) -> Self {
+        let state = compose::ComposeState::new(vm, src, mph);
+        InteractiveAction::Compose(state)
+    }
+
     pub fn display<R: Remote>(&mut self, vm: &mut VM<R>, ui: &Context) -> ActionResult {
         use InteractiveAction::*;
         match self {
             LemmaApplication(state) => state.display(vm, ui),
             Merge(state) => state.display(vm, ui),
             Insert(state) => state.display(vm, ui),
+            Compose(state) => state.display(vm, ui),
         }
     }
 
@@ -100,6 +114,7 @@ impl InteractiveAction {
             LemmaApplication(state) => state.context_menu(vm, on, ui),
             Merge(state) => state.context_menu(vm, on, ui),
             Insert(state) => state.context_menu(vm, on, ui),
+            Compose(state) => state.context_menu(vm, on, ui),
         }
     }
 
@@ -109,6 +124,7 @@ impl InteractiveAction {
             LemmaApplication(state) => state.action(vm, act, ui),
             Merge(state) => state.action(vm, act, ui),
             Insert(state) => state.action(vm, act, ui),
+            Compose(state) => state.action(vm, act, ui),
         }
     }
 
@@ -118,6 +134,7 @@ impl InteractiveAction {
             LemmaApplication(state) => state.modifier(vm, on),
             Merge(state) => state.modifier(vm, on),
             Insert(state) => state.modifier(vm, on),
+            Compose(state) => state.modifier(vm, on),
         }
     }
 }

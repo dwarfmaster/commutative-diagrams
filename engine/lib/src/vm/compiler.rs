@@ -246,6 +246,30 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     result = ExecutionError;
                 }
             }
+            Compose(src, comps) => {
+                if let Some(GraphId::Node(src)) = self.graph.names.get(&src.value) {
+                    let cmps = comps
+                        .iter()
+                        .map_while(|cmp| {
+                            if let Some(GraphId::Morphism(_, mph)) =
+                                self.graph.names.get(&cmp.value)
+                            {
+                                Some(*mph)
+                            } else {
+                                self.code.error_msg = format!("Couldn't find edge {}", cmp.value);
+                                result = ExecutionError;
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    if cmps.len() == comps.len() {
+                        self.path_to_edge(*src, cmps.as_slice());
+                    }
+                } else {
+                    self.code.error_msg = format!("Couldn't find node {}", src.value);
+                    result = ExecutionError;
+                }
+            }
             Decompose(fce, steps) => {
                 if let Some(GraphId::Face(face)) = self.graph.names.get(&fce.value) {
                     let deref_names =

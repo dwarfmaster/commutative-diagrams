@@ -18,7 +18,7 @@ fn integer(input: &str) -> IResult<&str, usize> {
 // Inspired by:
 //   https://docs.rs/nom/latest/nom/recipes/index.html#rust-style-identifiers
 fn ident(input: &str) -> IResult<&str, &str> {
-    let extra = recognize(one_of("_.!/-"));
+    let extra = recognize(one_of("_.!/-'"));
     recognize(pair(alpha1, many0_count(alt((alphanumeric1, extra)))))(input)
 }
 
@@ -164,6 +164,7 @@ impl<'a> Parser<'a> {
             "hide" => self.act_hide(true, input),
             "reveal" => self.act_hide(false, input),
             "merge" => self.act_merge(input),
+            "compose" => self.act_compose(input),
             "decompose" => self.act_decompose(input),
             "succeed" => success(ast::Action::Succeed)(input),
             "fail" => success(ast::Action::Fail)(input),
@@ -253,6 +254,19 @@ impl<'a> Parser<'a> {
         let (input, _) = space1(input)?;
         let (input, id2) = self.name(input)?;
         success(ast::Action::Merge(id1, id2))(input)
+    }
+
+    fn act_compose(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {
+        let (input, _) = space1(input)?;
+        let (input, src) = self.name(input)?;
+        let (input, comps) = alt((
+            map(
+                pair(space1, separated_list0(space1, |i| self.name(i))),
+                |(_, c)| c,
+            ),
+            success(Vec::new()),
+        ))(input)?;
+        success(ast::Action::Compose(src, comps))(input)
     }
 
     fn act_decompose(&'a self, input: &'a str) -> IResult<&'a str, ast::Action> {

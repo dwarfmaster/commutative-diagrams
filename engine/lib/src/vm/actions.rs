@@ -1,3 +1,4 @@
+mod compose;
 pub mod decompose;
 mod hide;
 mod insert;

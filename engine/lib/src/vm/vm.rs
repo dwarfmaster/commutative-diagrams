@@ -271,6 +271,7 @@ impl<R: Remote, I: Interactive> VM<R, I> {
     pub fn commit_interactive(&mut self) {
         if let Some((last, interactive)) = self.current_action.take() {
             let code = interactive.compile(&self);
+            log::trace!("Commit interactive \"{}\"", code);
             let ast = self.insert_and_parse(&code).unwrap();
             assert_eq!(ast.len(), 1);
             let act = ast.into_iter().next().unwrap();

@@ -90,7 +90,7 @@ fn mk_inp_eq<R: TermEngine>(rm: &mut R, eq: &Eq) -> u64 {
     if let Some(slice) = eq.slices.first() {
         mk_inp_slice(rm, eq.cat, slice)
     } else {
-        mk_morphism(rm, eq.cat, &eq.inp)
+        realize_morphism(rm, eq.cat, &eq.inp)
     }
 }
 
@@ -98,11 +98,11 @@ fn mk_outp_eq<R: TermEngine>(rm: &mut R, eq: &Eq) -> u64 {
     if let Some(slice) = eq.slices.last() {
         mk_outp_slice(rm, eq.cat, slice)
     } else {
-        mk_morphism(rm, eq.cat, &eq.outp)
+        realize_morphism(rm, eq.cat, &eq.outp)
     }
 }
 
-fn mk_morphism<R: TermEngine>(rm: &mut R, cat: u64, mph: &Morphism) -> u64 {
+pub fn realize_morphism<R: TermEngine>(rm: &mut R, cat: u64, mph: &Morphism) -> u64 {
     let r = mph
         .comps
         .iter()
@@ -148,7 +148,7 @@ where
                 let m = blkmake(rm, &blk);
                 (mph.src, mph.dst, m)
             } else {
-                let m = mk_morphism(rm, cat, &mph);
+                let m = realize_morphism(rm, cat, &mph);
                 (mph.src, mph.dst, m)
             }
         })
@@ -215,7 +215,7 @@ fn mk_inp_blk<R: TermEngine>(rm: &mut R, cat: u64, blk: &Block) -> u64 {
                 })
                 .unwrap()
         }
-        Split => mk_morphism(rm, cat, &blk.inp),
+        Split => realize_morphism(rm, cat, &blk.inp),
     }
 }
 
@@ -239,7 +239,7 @@ fn mk_outp_blk<R: TermEngine>(rm: &mut R, cat: u64, blk: &Block) -> u64 {
                 })
                 .unwrap()
         }
-        Split => mk_morphism(rm, cat, &blk.outp),
+        Split => realize_morphism(rm, cat, &blk.outp),
     }
 }
 
@@ -404,7 +404,7 @@ fn realize_slice<R: TermEngine>(
             }
         } else {
             let mph = morphism_sub(&slice.inp, start_in, len_in);
-            let m = mk_morphism(rm, cat, &mph);
+            let m = realize_morphism(rm, cat, &mph);
             if let Some((peq, pin, pout)) = partial_state {
                 let eq = rm
                     .remote()
@@ -548,7 +548,7 @@ fn realize_block<R: TermEngine>(
             (f_in, f_out, f_eq)
         }
         Split => {
-            let m = mk_morphism(rm, cat, &blk.inp);
+            let m = realize_morphism(rm, cat, &blk.inp);
             let eq = rm
                 .remote()
                 .build(Feature::Reflexivity {

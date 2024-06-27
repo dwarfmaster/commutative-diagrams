@@ -299,6 +299,12 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                     ui.close_menu();
                     return false;
                 }
+                if ui.button("Start compose").clicked() {
+                    let comp = InteractiveAction::compose_id(n);
+                    self.start_interactive(comp);
+                    ui.close_menu();
+                    return false;
+                }
                 if ui
                     .button(if self.graph.graph.nodes[n].2.pinned {
                         "Unpin"
@@ -325,6 +331,12 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                 if ui.button("Merge with").clicked() {
                     let merge = InteractiveAction::merge(GraphId::Morphism(src, dst));
                     self.start_interactive(merge);
+                    ui.close_menu();
+                    return false;
+                }
+                if ui.button("Start compose").clicked() {
+                    let comp = InteractiveAction::compose(self, src, dst);
+                    self.start_interactive(comp);
                     ui.close_menu();
                     return false;
                 }

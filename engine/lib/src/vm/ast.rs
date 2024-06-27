@@ -63,6 +63,8 @@ pub enum Action {
     Lemma(Annot<String>, Vec<(Annot<String>, Annot<String>)>),
     // Merge two object
     Merge(Annot<String>, Annot<String>),
+    // Compose edges
+    Compose(Annot<String>, Vec<Annot<String>>),
     // Decompose a lemma into sub-faces
     Decompose(Annot<String>, Vec<DecomposeStep>),
     // End the interface with a success
