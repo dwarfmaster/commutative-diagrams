@@ -125,6 +125,10 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
         }
     }
 
+    fn has_faces(&self) -> bool {
+        !self.graph.graph.faces.is_empty()
+    }
+
     fn faces<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
         F: FnMut(GraphId, FaceContent<'a>, bool, FaceStyle),

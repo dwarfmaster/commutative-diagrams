@@ -73,6 +73,8 @@ pub trait UiGraph {
     fn draw<'a, F>(&'a self, style: &Arc<Style>, f: F)
     where
         F: FnMut(Drawable<'a>, Stroke, Modifier, GraphId) -> Rect;
+    // Check if there are faces
+    fn has_faces(&self) -> bool;
     // Draw the faces
     fn faces<'a, F>(&'a self, style: &Arc<Style>, f: F)
     where

@@ -103,6 +103,14 @@ impl UiGraph for Lemma {
         }
     }
 
+    fn has_faces(&self) -> bool {
+        if let Some(pattern) = &self.pattern {
+            !pattern.faces.is_empty()
+        } else {
+            false
+        }
+    }
+
     fn faces<'a, F>(&'a self, style: &Arc<Style>, mut f: F)
     where
         F: FnMut(GraphId, FaceContent<'a>, bool, FaceStyle),

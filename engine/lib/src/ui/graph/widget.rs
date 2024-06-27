@@ -205,17 +205,19 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
         });
 
         // Faces
-        painter.rect(faces_rect, 3.0, visuals.bg_fill, visuals.bg_stroke);
-        let faces_rect = faces_rect.shrink(5.0);
-        faces_in_rect(
-            ui,
-            painter.with_clip_rect(faces_rect),
-            faces_rect,
-            gr,
-            pointer_pos,
-            &mut closest_object,
-            &mut closest_distance,
-        );
+        if gr.has_faces() {
+            painter.rect(faces_rect, 3.0, visuals.bg_fill, visuals.bg_stroke);
+            let faces_rect = faces_rect.shrink(5.0);
+            faces_in_rect(
+                ui,
+                painter.with_clip_rect(faces_rect),
+                faces_rect,
+                gr,
+                pointer_pos,
+                &mut closest_object,
+                &mut closest_distance,
+            );
+        }
 
         // Notify graph of actions
         if closest_distance < 20.0 * zoom {
