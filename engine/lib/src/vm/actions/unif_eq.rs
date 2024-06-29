@@ -1,7 +1,7 @@
 use super::super::vm::{Interactive, VM};
 use crate::data::EvarStatus;
 use crate::graph::eq::Eq;
-use crate::normalizer::{normalize_eq, normalize_morphism};
+use crate::normalizer::ensure_graph_invariant;
 use crate::realizer::realize_eq;
 use crate::remote::Remote;
 use crate::vm::Context;
@@ -74,14 +74,6 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     }
 
     pub fn ensure_morphisms_invariant(&mut self) {
-        for src in 0..self.graph.graph.nodes.len() {
-            let cat = self.graph.graph.nodes[src].1;
-            for mph in 0..self.graph.graph.edges[src].len() {
-                normalize_morphism(&mut self.ctx, cat, &mut self.graph.graph.edges[src][mph].3);
-            }
-        }
-        for fce in 0..self.graph.graph.faces.len() {
-            normalize_eq(&mut self.ctx, &mut self.graph.graph.faces[fce].eq);
-        }
+        ensure_graph_invariant(&mut self.ctx, &mut self.graph.graph);
     }
 }

@@ -1,5 +1,6 @@
 use crate::data::Feature;
 use crate::graph::eq::*;
+use crate::graph::GraphImpl;
 use crate::remote::Remote;
 use crate::remote::TermEngine;
 
@@ -49,6 +50,18 @@ pub fn normalize_eq<R: TermEngine>(rm: &mut R, eq: &mut Eq) {
         .iter_mut()
         .for_each(|slc| normalize_slice(rm, eq.cat, slc));
     eq.assert_check();
+}
+
+pub fn ensure_graph_invariant<R: TermEngine, NL, EL, FL>(rm: &mut R, graph: &mut GraphImpl<Morphism, Eq, NL, EL, FL>) {
+    for src in 0..graph.nodes.len() {
+        let cat = graph.nodes[src].1;
+        for mph in 0..graph.edges[src].len() {
+            normalize_morphism(rm, cat, &mut graph.edges[src][mph].3);
+        }
+    }
+    for fce in 0..graph.faces.len() {
+        normalize_eq(rm, &mut graph.faces[fce].eq);
+    }
 }
 
 pub fn morphism<R: TermEngine>(

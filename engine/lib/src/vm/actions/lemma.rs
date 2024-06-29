@@ -1,6 +1,7 @@
 use crate::graph::GraphId;
 use crate::remote::Remote;
 use crate::vm::{Graph, Interactive, VM};
+use crate::normalizer::ensure_graph_invariant;
 use std::collections::HashMap;
 
 type Mapping = HashMap<GraphId, Vec<GraphId>>;
@@ -8,7 +9,7 @@ type Mapping = HashMap<GraphId, Vec<GraphId>>;
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Returns true on success and false on failure
     pub fn apply_lemma(&mut self, lemma: usize, matching: &[(GraphId, GraphId)]) -> bool {
-        let pattern = self.lemmas.lemmas[lemma].instantiate(&mut self.ctx, &self.config, true);
+        let mut pattern = self.lemmas.lemmas[lemma].instantiate(&mut self.ctx, &self.config, true);
         let matchings = match self.lemma_complete_matchings(&pattern, matching) {
             Some(matching) => matching,
             None => {
@@ -21,7 +22,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         let mut reverse = HashMap::new();
         Self::lemma_extend_hash_matching(&matchings, &mut direct, &mut reverse);
 
-        let r = self.lemma_unify_matching(&pattern, &matchings);
+        let r = self.lemma_unify_matching(&mut pattern, &matchings);
         if let Some(errmsg) = r {
             self.code.error_msg = errmsg;
             return false;
@@ -60,7 +61,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Returns None on success or an error message on failure
     pub fn lemma_unify_matching(
         &mut self,
-        pattern: &Graph,
+        pattern: &mut Graph,
         matching: &[(GraphId, GraphId)],
     ) -> Option<String> {
         use GraphId::*;
@@ -110,6 +111,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
 
         // Normalize all morphisms
         self.ensure_morphisms_invariant();
+        ensure_graph_invariant(&mut self.ctx, pattern);
 
         None
     }

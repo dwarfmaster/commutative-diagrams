@@ -253,7 +253,7 @@ impl LemmaApplicationState {
 
         // State checkpoint
         let state = vm.ctx.save_state();
-        let r = vm.lemma_unify_matching(&self.graph, &matching);
+        let r = vm.lemma_unify_matching(&mut self.graph, &matching);
         if let Some(errmsg) = r {
             self.error_msg = Some(errmsg);
             vm.ctx.restore_state(state);
