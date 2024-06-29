@@ -49,9 +49,15 @@ fn setup_hooks<NL, EL, FL, R: TermEngine>(uf: &mut UF<R>, ctx: &mut R, gr: &Grap
     for src in 0..gr.nodes.len() {
         for m in 0..gr.edges[src].len() {
             let mph = gr.edges[src][m].3.get_repr(ctx);
-            uf.register_hook(move |ctx, eq, opts| hooks::precompose::hook(&mph, ctx, eq, opts));
+            if mph.comps.len() > 0 {
+                uf.register_hook(move |ctx, eq, opts| hooks::precompose::hook(&mph, ctx, eq, opts));
+            }
             let mph = gr.edges[src][m].3.get_repr(ctx);
-            uf.register_hook(move |ctx, eq, opts| hooks::postcompose::hook(&mph, ctx, eq, opts));
+            if mph.comps.len() > 0 {
+                uf.register_hook(move |ctx, eq, opts| {
+                    hooks::postcompose::hook(&mph, ctx, eq, opts)
+                });
+            }
         }
     }
 }
