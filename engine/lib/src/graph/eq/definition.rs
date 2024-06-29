@@ -375,7 +375,7 @@ impl Slice {
             let offset = (blk.outp.comps.len() as isize) - (blk.inp.comps.len() as isize);
             self.blocks
                 .iter_mut()
-                .filter(|(_, st, _)| *st > start)
+                .filter(|(stin, stout, _)| *stout >= start && *stin >= start_input)
                 .for_each(|b| {
                     b.0 = b.0.saturating_add_signed(offset);
                     b.1 = b.1.saturating_add_signed(offset);
