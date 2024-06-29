@@ -1,7 +1,7 @@
 use crate::graph::GraphId;
+use crate::normalizer::ensure_graph_invariant;
 use crate::remote::Remote;
 use crate::vm::{Graph, Interactive, VM};
-use crate::normalizer::ensure_graph_invariant;
 use std::collections::HashMap;
 
 type Mapping = HashMap<GraphId, Vec<GraphId>>;

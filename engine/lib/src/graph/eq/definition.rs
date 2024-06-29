@@ -314,8 +314,14 @@ impl Slice {
         let mut prev_in = 0;
         let mut prev_out = 0;
         for b in self.blocks.iter() {
-            assert_eq!(&self.inp.comps[b.0..(b.0+b.2.inp.comps.len())], b.2.inp.comps);
-            assert_eq!(&self.outp.comps[b.1..(b.1+b.2.outp.comps.len())], b.2.outp.comps);
+            assert_eq!(
+                &self.inp.comps[b.0..(b.0 + b.2.inp.comps.len())],
+                b.2.inp.comps
+            );
+            assert_eq!(
+                &self.outp.comps[b.1..(b.1 + b.2.outp.comps.len())],
+                b.2.outp.comps
+            );
             assert!(prev_in <= b.0);
             prev_in = b.0;
             assert!(prev_out <= b.1);
@@ -337,22 +343,19 @@ impl Slice {
                 .splice(output_range, blk.outp.comps.iter().copied());
 
             let r = match start_input {
-              Ok(start_input) => {
-                let pred = |(inid,outid,_): &(usize,usize,Block)| {
-                    if start_input <= *inid && start <= *outid {
-                        Ordering::Greater
-                    } else if start_input >= *inid && start >= *outid {
-                        Ordering::Less
-                    } else {
-                        unreachable!()
-                    }
-                };
-                self
-                    .blocks
-                    .binary_search_by(pred)
-                    .unwrap_err()
-              }
-              Err(iblk) => iblk + 1,
+                Ok(start_input) => {
+                    let pred = |(inid, outid, _): &(usize, usize, Block)| {
+                        if start_input <= *inid && start <= *outid {
+                            Ordering::Greater
+                        } else if start_input >= *inid && start >= *outid {
+                            Ordering::Less
+                        } else {
+                            unreachable!()
+                        }
+                    };
+                    self.blocks.binary_search_by(pred).unwrap_err()
+                }
+                Err(iblk) => iblk + 1,
             };
             let offset = blk.outp.comps.len() as isize - blk.inp.comps.len() as isize;
             for b in r..self.blocks.len() {
@@ -408,7 +411,7 @@ impl Slice {
     // start is assumed to be relative to output. If it is compatible, returns the
     // index of the corresponding input. If it is not but line up to its inverse,
     // returns the index of this block in Err.
-    fn block_compatible(&self, start: usize, blk: &Block) -> Option<Result<usize,usize>> {
+    fn block_compatible(&self, start: usize, blk: &Block) -> Option<Result<usize, usize>> {
         let input = self.output_source(start);
         match input {
             Ok(input) => {

@@ -52,7 +52,10 @@ pub fn normalize_eq<R: TermEngine>(rm: &mut R, eq: &mut Eq) {
     eq.assert_check();
 }
 
-pub fn ensure_graph_invariant<R: TermEngine, NL, EL, FL>(rm: &mut R, graph: &mut GraphImpl<Morphism, Eq, NL, EL, FL>) {
+pub fn ensure_graph_invariant<R: TermEngine, NL, EL, FL>(
+    rm: &mut R,
+    graph: &mut GraphImpl<Morphism, Eq, NL, EL, FL>,
+) {
     for src in 0..graph.nodes.len() {
         let cat = graph.nodes[src].1;
         for mph in 0..graph.edges[src].len() {
