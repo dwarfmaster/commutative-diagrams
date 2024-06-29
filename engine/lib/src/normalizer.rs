@@ -1,5 +1,5 @@
 use crate::data::Feature;
-use crate::graph::eq::Morphism;
+use crate::graph::eq::*;
 use crate::remote::Remote;
 use crate::remote::TermEngine;
 
@@ -7,6 +7,48 @@ pub fn to_morphism<R: TermEngine>(rm: &mut R, cat: u64, src: u64, dst: u64, mph:
     let mut functs = Vec::new();
     let (_, _, comps) = norm_under_functors(rm, &mut functs, cat, src, dst, mph, false);
     Morphism { src, dst, comps }
+}
+
+pub fn normalize_morphism<R: TermEngine>(rm: &mut R, cat: u64, mph: &mut Morphism) {
+    let mut m = Morphism::id(mph.src);
+    std::mem::swap(&mut m, mph);
+    m.comps.into_iter().for_each(|(src, dst, m)| {
+        mph.compose(&to_morphism(rm, cat, src, dst, m));
+    });
+}
+
+fn normalize_block<R: TermEngine>(rm: &mut R, cat: u64, blk: &mut Block) {
+    normalize_morphism(rm, cat, &mut blk.inp);
+    normalize_morphism(rm, cat, &mut blk.outp);
+}
+
+fn normalize_slice<R: TermEngine>(rm: &mut R, cat: u64, slc: &mut Slice) {
+    normalize_morphism(rm, cat, &mut slc.inp);
+    normalize_morphism(rm, cat, &mut slc.outp);
+    let mut offset_in: isize = 0;
+    let mut offset_out: isize = 0;
+    for b in 0..slc.blocks.len() {
+        let szin = slc.blocks[b].2.inp.comps.len();
+        let szout = slc.blocks[b].2.outp.comps.len();
+        slc.blocks[b].0 = slc.blocks[b].0.saturating_add_signed(offset_in);
+        slc.blocks[b].1 = slc.blocks[b].1.saturating_add_signed(offset_out);
+        normalize_block(rm, cat, &mut slc.blocks[b].2);
+        offset_in = offset_in
+            .saturating_add_unsigned(slc.blocks[b].2.inp.comps.len())
+            .saturating_sub_unsigned(szin);
+        offset_out = offset_out
+            .saturating_add_unsigned(slc.blocks[b].2.outp.comps.len())
+            .saturating_sub_unsigned(szout);
+    }
+}
+
+pub fn normalize_eq<R: TermEngine>(rm: &mut R, eq: &mut Eq) {
+    normalize_morphism(rm, eq.cat, &mut eq.inp);
+    normalize_morphism(rm, eq.cat, &mut eq.outp);
+    eq.slices
+        .iter_mut()
+        .for_each(|slc| normalize_slice(rm, eq.cat, slc));
+    eq.assert_check();
 }
 
 pub fn morphism<R: TermEngine>(
