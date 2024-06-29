@@ -136,10 +136,10 @@ impl<R: TermEngine> UF<R> {
                 }
                 _ => {
                     if id1.is_none() {
-                        log::trace!("Couldn't find in enumeration: {:#?}", left);
+                        log::trace!("Couldn't find in enumeration: {:?}", left);
                     }
                     if id2.is_none() {
-                        log::trace!("Couldn't find in enumeration: {:#?}", right);
+                        log::trace!("Couldn't find in enumeration: {:?}", right);
                     }
                 }
             }
