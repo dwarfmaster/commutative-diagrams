@@ -137,8 +137,11 @@ impl Eq {
         let mut nstart = start;
         while insert_at > 0 {
             if let Some(start) = self.slices[insert_at - 1].block_compatible(nstart, &blk) {
-                nstart = start;
                 insert_at -= 1;
+                match start {
+                    Ok(start) => nstart = start,
+                    Err(_) => break,
+                }
             } else {
                 break;
             }
@@ -169,6 +172,9 @@ impl Eq {
         // Finally insert block
         if self.slices[insert_at].insert_block_at(start, blk).is_some() {
             assert!(false);
+        }
+        if self.slices[insert_at].blocks.is_empty() {
+            self.slices.remove(insert_at);
         }
     }
 
@@ -320,7 +326,8 @@ impl Slice {
     // Try to insert a block. start is the index to insert it at on the outputs.
     // Return None on success, and give back the block on failure
     fn insert_block_at(&mut self, start: usize, blk: Block) -> Option<Block> {
-        if let Some(start_input) = self.block_compatible(start, &blk) {
+        let bc = self.block_compatible(start, &blk);
+        if let Some(start_input) = bc {
             // inp doesn't change, since we insert on a passthrough place.
             // However output changes
             let output_range = start..(start + blk.inp.comps.len());
@@ -329,27 +336,37 @@ impl Slice {
                 .comps
                 .splice(output_range, blk.outp.comps.iter().copied());
 
-            let pred = |(inid,outid,_): &(usize,usize,Block)| {
-                if start_input <= *inid && start <= *outid {
-                    Ordering::Greater
-                } else if start_input >= *inid && start >= *outid {
-                    Ordering::Less
-                } else {
-                    unreachable!()
-                }
+            let r = match start_input {
+              Ok(start_input) => {
+                let pred = |(inid,outid,_): &(usize,usize,Block)| {
+                    if start_input <= *inid && start <= *outid {
+                        Ordering::Greater
+                    } else if start_input >= *inid && start >= *outid {
+                        Ordering::Less
+                    } else {
+                        unreachable!()
+                    }
+                };
+                self
+                    .blocks
+                    .binary_search_by(pred)
+                    .unwrap_err()
+              }
+              Err(iblk) => iblk + 1,
             };
-            let r = self
-                .blocks
-                .binary_search_by(pred)
-                .unwrap_err();
             let offset = blk.outp.comps.len() as isize - blk.inp.comps.len() as isize;
             for b in r..self.blocks.len() {
                 self.blocks[b].1 = self.blocks[b].1.saturating_add_signed(offset);
             }
-            self.blocks.insert(r, (start_input, start, blk));
+            match start_input {
+                Ok(start_input) => self.blocks.insert(r, (start_input, start, blk)),
+                Err(iblk) => {
+                    self.blocks.remove(iblk);
+                }
+            }
             None
         } else {
-            return Some(blk);
+            Some(blk)
         }
     }
 
@@ -357,7 +374,7 @@ impl Slice {
     // to the output. On success, return the index of the block on the input
     // range.
     fn commutes_with_block(&mut self, start: usize, blk: &Block) -> Option<usize> {
-        if let Some(start_input) = self.block_compatible(start, blk) {
+        if let Some(Ok(start_input)) = self.block_compatible(start, blk) {
             // Update input
             let input_range = start_input..(start_input + blk.inp.comps.len());
             self.inp
@@ -389,22 +406,26 @@ impl Slice {
 
     // Test if the block is compatible with the slice (assumes well typedness).
     // start is assumed to be relative to output. If it is compatible, returns the
-    // index of the corresponding input.
-    fn block_compatible(&self, start: usize, blk: &Block) -> Option<usize> {
+    // index of the corresponding input. If it is not but line up to its inverse,
+    // returns the index of this block in Err.
+    fn block_compatible(&self, start: usize, blk: &Block) -> Option<Result<usize,usize>> {
         let input = self.output_source(start);
         match input {
             Ok(input) => {
                 if self.blocks.iter().all(|(ins, _, iblk)| {
                     *ins + iblk.inp.comps.len() <= input || input + blk.inp.comps.len() <= *ins
                 }) {
-                    Some(input)
+                    Some(Ok(input))
                 } else {
                     None
                 }
             }
-            Err((iblk, _)) => {
+            Err((iblk, offset)) => {
+                if offset == 0 && self.blocks[iblk].2.is_inv(blk) {
+                    return Some(Err(iblk));
+                }
                 if blk.inp.comps.len() == 0 && start == self.blocks[iblk].1 {
-                    Some(self.blocks[iblk].0)
+                    Some(Ok(self.blocks[iblk].0))
                 } else {
                     None
                 }
@@ -524,6 +545,15 @@ impl Block {
                 Funct(f.clone(), eq)
             }
             Split => Split,
+        }
+    }
+
+    fn is_inv(&self, o: &Block) -> bool {
+        use BlockData::*;
+        match (&self.data, &o.data) {
+            (Direct(eq1), Inv(eq2)) if *eq1 == *eq2 => true,
+            (Inv(eq1), Direct(eq2)) if *eq1 == *eq2 => true,
+            _ => false,
         }
     }
 }
@@ -777,5 +807,21 @@ mod tests {
         assert_eq!(eq1.slices[0].outp.comps.len(), 3);
         assert_eq!(eq1.slices[0].outp, eq1.outp);
         assert_eq!(eq1.outp.comps.len(), 3);
+    }
+
+    #[test]
+    fn eq_append_inverse() {
+        let mut eq1 = Eq::refl(0, loops(5, 1));
+        let b = Block {
+            inp: loops(2, 1),
+            outp: loops(3, 1),
+            data: BlockData::Direct(50),
+        };
+        let mut bi = b.clone();
+        bi.inv();
+        eq1.append_block(1, b);
+        assert_eq!(eq1.slices.len(), 1);
+        eq1.append_block(1, bi);
+        assert_eq!(eq1.slices.len(), 0);
     }
 }
