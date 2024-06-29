@@ -103,10 +103,13 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             })
             .collect::<Vec<_>>();
         for (eq1, eq2) in eqs {
-            if !self.unify_eq(eq1.cat, &eq1, &eq2) {
+            if !self.unify_eq_unsafe(eq1.cat, &eq1, &eq2, false) {
                 return Some("Unification of equalities failed".to_string());
             }
         }
+
+        // Normalize all morphisms
+        self.ensure_morphisms_invariant();
 
         None
     }

@@ -116,6 +116,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     )))
                     .unwrap()
                 {
+                    self.ensure_morphisms_invariant();
                     self.change_state();
                     self.merge_nodes(n1, n2);
                     true
@@ -133,6 +134,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     )))
                     .unwrap()
                 {
+                    self.ensure_morphisms_invariant();
                     self.change_state();
                     let mut src = src1;
                     let mut mph1 = mph1;
