@@ -227,7 +227,7 @@ impl Eq {
                 &eq.outp.comps[..]
             );
         } else {
-            assert!(false);
+            self.outp = self.inp.clone()
         }
         self.assert_check();
     }
