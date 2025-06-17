@@ -426,6 +426,14 @@ let rec query_lemma_impl rctx sigma tp =
       let* props = is_relevant_type rctx sigma arg in
       let q = { name = Some name.binder_name; tp = arg; props = props; kind = Universal } in
       query_lemma_impl (q :: rctx) sigma body
+  | App (ex,[|_; fn|]) when isInd sigma Env.is_exists ex -> begin
+      match EConstr.kind sigma fn with
+      | Lambda (name,arg,body) ->
+          let* props = is_relevant_type rctx sigma arg in
+          let q = { name = Some name.binder_name; tp = arg; props = props; kind = Existential} in
+          query_lemma_impl (q :: rctx) sigma body
+      | _ -> none ()
+    end
   | _ ->
       let* props = is_relevant_type rctx sigma tp in
       if List.length props > 0

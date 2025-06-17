@@ -332,3 +332,36 @@ let g_coq_rap_names : string array =
   |]
 let get_rap = fun _ -> perform_locate g_coq_rap g_coq_rap_names locate_const
 let mk_rap = fun _ -> mk_const (get_rap ())
+
+
+
+
+(*  _____      _     _             _   _       _  *)
+(* | ____|_  _(_)___| |_ ___ _ __ | |_(_) __ _| | *)
+(* |  _| \ \/ / / __| __/ _ \ '_ \| __| |/ _` | | *)
+(* | |___ >  <| \__ \ ||  __/ | | | |_| | (_| | | *)
+(* |_____/_/\_\_|___/\__\___|_| |_|\__|_|\__,_|_| *)
+(*                                                *)
+let g_coq_exists : Names.inductive array ref = ref [| |]
+let g_coq_exists_names : string array =
+  [| "UniMath.Foundations.Preamble.total2"
+  |]
+let is_exists = is_ind g_coq_exists g_coq_exists_names
+let g_coq_pr1 : Names.Constant.t array ref = ref [| |]
+let g_coq_pr1_names : string array =
+  [| "UniMath.Foundations.Preamble.pr1"
+  |]
+let get_pr1 = fun _ -> perform_locate g_coq_pr1 g_coq_pr1_names locate_const
+let mk_pr1 = fun _ -> mk_const (get_pr1 ())
+let g_coq_pr2 : Names.Constant.t array ref = ref [| |]
+let g_coq_pr2_names : string array =
+  [| "UniMath.Foundations.Preamble.pr2"
+  |]
+let get_pr2 = fun _ -> perform_locate g_coq_pr2 g_coq_pr2_names locate_const
+let mk_pr2 = fun _ -> mk_const (get_pr2 ())
+let g_coq_UU : Names.Constant.t array ref = ref [| |]
+let g_coq_UU_names : string array =
+  [| "UniMath.Foundations.Preamble.UU"
+  |]
+let get_UU = fun _ -> perform_locate g_coq_UU g_coq_UU_names locate_const
+let mk_UU = fun _ -> mk_const (get_UU ())

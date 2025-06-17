@@ -42,6 +42,10 @@ val mk_lap : unit -> EConstr.t Proofview.tactic
 val mk_rap : unit -> EConstr.t Proofview.tactic
 val is_object : Names.Constant.t -> bool
 val mk_object : unit -> EConstr.t Proofview.tactic
+val is_exists : Names.inductive -> bool
+val mk_pr1 : unit -> EConstr.t Proofview.tactic
+val mk_pr2 : unit -> EConstr.t Proofview.tactic
+val mk_UU : unit -> EConstr.t Proofview.tactic
 
 val is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string -> bool
 val build_const : Names.Constant.t -> EConstr.t Proofview.tactic
