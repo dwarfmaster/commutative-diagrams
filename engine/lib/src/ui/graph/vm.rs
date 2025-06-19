@@ -195,6 +195,11 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                     style.noninteractive().bg_stroke,
                 )
             };
+            let fill = if self.graph.graph.faces[fce].label.blocked {
+                style.visuals.extreme_bg_color
+            } else {
+                fill
+            };
             let style = FaceStyle {
                 border,
                 fill,
@@ -414,6 +419,19 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                 } else {
                     if ui.button("Hide term").clicked() {
                         self.graph.graph.faces[fce].label.folded = true;
+                        ui.close_menu();
+                        return false;
+                    }
+                }
+                if self.graph.graph.faces[fce].label.blocked {
+                    if ui.button("Unblock").clicked() {
+                        self.graph.graph.faces[fce].label.blocked = false;
+                        ui.close_menu();
+                        return false;
+                    }
+                } else {
+                    if ui.button("Block").clicked() {
+                        self.graph.graph.faces[fce].label.blocked = true;
                         ui.close_menu();
                         return false;
                     }

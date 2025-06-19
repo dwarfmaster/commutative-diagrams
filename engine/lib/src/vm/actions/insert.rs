@@ -96,6 +96,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 label: self.ctx.get_stored_label(eq),
                 name: "".to_string(),
                 status: FaceStatus::Refined,
+                blocked: false,
             },
         };
         let id = self.graph.graph.faces.len();

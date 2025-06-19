@@ -62,4 +62,12 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             self.set_face_status(fce);
         }
     }
+
+    pub fn block_goals(&mut self) {
+        for fce in 0..self.graph.graph.faces.len() {
+            if self.graph.graph.faces[fce].label.status == FaceStatus::Goal {
+                self.graph.graph.faces[fce].label.blocked = true;
+            }
+        }
+    }
 }

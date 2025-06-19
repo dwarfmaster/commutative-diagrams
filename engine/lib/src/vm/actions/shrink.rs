@@ -258,6 +258,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 children: Vec::new(),
                 status: FaceStatus::Goal,
                 folded: self.graph.graph.faces[fce].label.folded,
+                blocked: false,
             },
         };
         self.register_instruction(Ins::InsertFace(new_face));

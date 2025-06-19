@@ -185,6 +185,7 @@ impl<R: Remote, I: Interactive> VM<R, I> {
         };
         vm.relabel();
         vm.recompute_face_statuses();
+        vm.block_goals();
         vm.autoname();
         vm.init_face_order();
         vm.graph

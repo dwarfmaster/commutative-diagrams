@@ -12,6 +12,12 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             mask[nxt] = false;
             current = self.graph.graph.faces[nxt].label.parent;
         }
+        // Disable blocked
+        for fce in 0..self.graph.graph.faces.len() {
+            if self.graph.graph.faces[fce].label.blocked {
+                mask[fce] = false;
+            }
+        }
 
         let cat = self.graph.graph.nodes[self.graph.graph.faces[fce].start].1;
         let solved = solve(&mut self.ctx, &self.graph.graph, &mask, fce, max_size);

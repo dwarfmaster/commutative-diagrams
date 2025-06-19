@@ -76,6 +76,7 @@ pub struct FaceLabel {
     pub parent: Option<usize>,
     pub children: Vec<usize>,
     pub status: FaceStatus,
+    pub blocked: bool,
 }
 
 impl FaceLabel {
@@ -88,6 +89,7 @@ impl FaceLabel {
             parent: None,
             children: Vec::new(),
             status: FaceStatus::Hypothesis,
+            blocked: false,
         }
     }
 }
