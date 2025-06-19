@@ -176,14 +176,7 @@ let build_lemma ns lemma tp quantifiers =
   let* bld = fold_quantified (Bld.empty ()) lcs |> Hyps.withEnv env in
 
   (* Add the lemma to the graph *)
-  let prepare_quantifier i q =
-    match q.Query.kind with
-    | Existential -> None
-    | Universal -> Some (Var i)
-    | LetIn _ -> None in
-  let args = quantifiers |> List.mapi prepare_quantifier |> List.filter_map (fun x -> x) in
-  let lterm = App (Subst tp, Lemma lemma, args) in
-  let* bld = add_to_builder lterm tp bld |> Hyps.withEnv env in
+  let* bld = add_to_builder lm tp bld |> Hyps.withEnv env in
 
   (* Finalize *)
   let name, namespace = mkName lemma in
@@ -266,11 +259,20 @@ module Instantiate = struct
         }) in
         let extp = EConstr.mkProd (name, tp, uu) in
         let* ex = Build.mk_evar env extp in
-      let* pr1 = Env.app (Env.mk_pr1 ()) [| tp; ex; ec |] |> lift in
+        let* pr1 = Env.app (Env.mk_pr1 ()) [| tp; ex; ec |] |> lift in
         ret pr1
     | Proj2 lc ->
         let* ec = lconstr ns subst lc in
-        let* pr2 = Env.app (Env.mk_pr2 ()) [| ec |] |> lift in
+        let* uu = Env.mk_UU () |> lift in
+        let* env = env () in
+        let* tp = Build.mk_evar env uu in
+        let name = Context.({
+          binder_name = Names.Name.Anonymous;
+          binder_relevance = Sorts.Irrelevant;
+        }) in
+        let extp = EConstr.mkProd (name, tp, uu) in
+        let* ex = Build.mk_evar env extp in
+        let* pr2 = Env.app (Env.mk_pr2 ()) [| tp; ex; ec |] |> lift in
         ret pr2
 
   let rec bound partial ns subst left =

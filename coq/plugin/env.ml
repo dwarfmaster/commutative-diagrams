@@ -82,7 +82,7 @@ let is_projection : Names.Projection.t -> (Names.inductive -> bool) -> string ->
 let mk_loader_name name : string =
   let prefix = match Sys.getenv_opt "COMDIAG_LOADER_NAME" with
   | Some name -> name
-  | None -> "Loader" in
+  | None -> "CommutativeDiagrams.Loader" in
   Printf.sprintf "%s.%s" prefix name
 
 (*   ___      _ *)
