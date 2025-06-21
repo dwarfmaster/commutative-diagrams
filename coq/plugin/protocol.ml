@@ -42,8 +42,14 @@ let info st args =
         let* vl = Hyps.getObjValue id in
         let label = Pp.(Printer.pr_leconstr_env env sigma vl |> string_of_ppcmds) in
         (* Evars *)
+        let rec has_evars ec =
+          match EConstr.kind sigma ec with
+          | Evar (ev,_) -> begin match Evd.evar_body (Evd.find sigma ev) with
+          | Evar_empty -> true
+            | Evar_defined body -> has_evars body end
+          | _ -> EConstr.fold sigma (fun b ec -> b || has_evars ec) false ec in 
         let evar = if EConstr.isEvar sigma vl then 0 (* Evar *)
-          else if EConstr.fold sigma (fun b ec -> b || EConstr.isEvar sigma ec) false vl
+          else if has_evars vl
             then 2 (* Partial *)
             else 1 (* Grounded *) in
         success(Array [String label ; name; Integer evar])
