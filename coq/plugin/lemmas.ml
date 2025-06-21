@@ -110,11 +110,6 @@ let handle_quantifier q n dbindex lemma env =
              q.Query.props 
         |> Hyps.withEnv env in
       let lc = Subst lcid in
-      let nq = {
-        name = Option.map (fun nm -> nm |> Names.Name.print |> Pp.string_of_ppcmds) q.Query.name;
-        tp = tp;
-        value = Some (Proj1 lemma);
-      } in
       let* sigma = evars () in
       let name = Context.({
         binder_name = Names.Name.Anonymous;
@@ -122,6 +117,11 @@ let handle_quantifier q n dbindex lemma env =
       }) in
       let decl = Context.Rel.Declaration.LocalAssum (name,EConstr.to_constr sigma tp) in
       let env = Environ.push_rel decl env in
+      let nq = {
+        name = Option.map (fun nm -> nm |> Names.Name.print |> Pp.string_of_ppcmds) q.Query.name;
+        tp = tp;
+        value = Some (Proj1 lemma);
+      } in
       ret (env, (lc,lctpid), nq, Proj2 lemma)
   | Universal ->
       let tp = q.Query.tp in
@@ -260,6 +260,9 @@ module Instantiate = struct
         let extp = EConstr.mkProd (name, tp, uu) in
         let* ex = Build.mk_evar env extp in
         let* pr1 = Env.app (Env.mk_pr1 ()) [| tp; ex; ec |] |> lift in
+        let* sigma = evars () in
+        let (sigma,_) = Typing.type_of env sigma pr1 in
+        let* () = Hyps.setState sigma in
         ret pr1
     | Proj2 lc ->
         let* ec = lconstr ns subst lc in
@@ -273,6 +276,9 @@ module Instantiate = struct
         let extp = EConstr.mkProd (name, tp, uu) in
         let* ex = Build.mk_evar env extp in
         let* pr2 = Env.app (Env.mk_pr2 ()) [| tp; ex; ec |] |> lift in
+        let* sigma = evars () in
+        let (sigma,_) = Typing.type_of env sigma pr2 in
+        let* () = Hyps.setState sigma in
         ret pr2
 
   let rec bound partial ns subst left =
