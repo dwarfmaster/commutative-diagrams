@@ -91,6 +91,7 @@ let register ec tp (q : 'a option) : (obj * 'a) option Hyps.t =
 let rec query_cat env sigma tp =
   if isConst sigma Env.is_cat tp then some () else none ()
 and query_cat_cached env sigma tp =
+  let tp = Reductionops.whd_beta env sigma tp in
   run_query_cached env sigma tp
     (query_cat env sigma)
     (fun () -> some ())
@@ -115,6 +116,7 @@ and query_object env sigma tp =
       some cat
   | _ -> none ()
 and query_object_cached env sigma tp =
+  let tp = Reductionops.whd_beta env sigma tp in
   run_query_cached env sigma tp
     (query_object env sigma)
     (fun cat -> ofst <$> extract_cat env sigma cat @<< get_type env sigma cat)
@@ -127,6 +129,7 @@ and query_morphism env sigma tp =
       some (cat,src,dst)
   | _ -> none ()
 and query_morphism_cached env sigma tp =
+  let tp = Reductionops.whd_beta env sigma tp in
   run_query_cached env sigma tp
     (query_morphism env sigma)
     (fun (cat, src, dst) ->
@@ -157,6 +160,7 @@ and query_functor env sigma tp =
       some (src,dst)
   | _ -> none ()
 and query_functor_cached env sigma tp =
+  let tp = Reductionops.whd_beta env sigma tp in
   run_query_cached env sigma tp
     (query_functor env sigma)
     (fun (src,dst) ->
@@ -182,6 +186,7 @@ and query_eq env sigma tp =
     end
   | _ -> none ()
 and query_eq_cached env sigma tp =
+  let tp = Reductionops.whd_beta env sigma tp in
   run_query_cached env sigma tp
     (query_eq env sigma)
     (fun (cat,src,dst,left,right) ->
