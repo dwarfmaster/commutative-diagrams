@@ -72,8 +72,7 @@ impl<'a> Parser<'a> {
         F: nom::Parser<&'a str, O, E> + 'a,
     {
         move |input: &'a str| {
-            let i = input.clone();
-            match parser.parse(i) {
+            match parser.parse(input) {
                 Ok((i, r)) => {
                     let start = self.offset + self.complete.offset(&input);
                     let end = self.offset + self.complete.offset(&i);
