@@ -1,7 +1,7 @@
 {
   description="Coq plugin to automate commutative diagrams";
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-unstable";
+    nixpkgs.url = "nixpkgs/nixos-25.05";
     rust = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -80,11 +80,6 @@
     };
     shell = pkgs.mkShell {
       inputsFrom = [ shell-coq shell-engine ];
-      nativeBuildInputs = builtins.attrValues {
-        inherit (pkgs)
-          msgpack-tools
-          ;
-      };
       PKG_CONFIG_PATH = pkgs.lib.concatStringsSep ":" [
         "${pkgs.fontconfig.dev}/lib/pkgconfig"
         "${pkgs.freetype.dev}/lib/pkgconfig"
