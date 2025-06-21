@@ -438,10 +438,6 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
         &mut self.apply.dragged
     }
 
-    fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
-        &mut self.apply.graph.faces[fce].label.folded
-    }
-
     fn action(&mut self, act: Action, _ui: &mut Ui) {
         self.apply.hovered = None;
         match act {

@@ -268,8 +268,4 @@ impl UiGraph for Lemma {
             false
         }
     }
-
-    fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
-        &mut self.pattern.as_mut().unwrap().faces[fce].label.folded
-    }
 }

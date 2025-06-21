@@ -89,7 +89,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             right: right_path,
             eq: Eq::atomic(cat, left_mph, right_mph, eq),
             label: FaceLabel {
-                folded: false,
+                folded: true,
                 hidden: false,
                 parent: None,
                 children: Vec::new(),

@@ -172,7 +172,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 parent: Some(parent),
                 children: Vec::new(),
                 status: FaceStatus::Goal,
-                folded: false,
+                folded: true,
                 blocked: false,
             },
         };

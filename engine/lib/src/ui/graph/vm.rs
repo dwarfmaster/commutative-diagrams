@@ -228,10 +228,6 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
         &mut self.graphical.dragged_object
     }
 
-    fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool {
-        &mut self.graph.graph.faces[fce].label.folded
-    }
-
     fn action(&mut self, act: Action, ui: &mut Ui) {
         self.graphical.hovered_object = None;
 

@@ -84,7 +84,6 @@ pub trait UiGraph {
     fn offset<'a>(&'a mut self) -> &'a mut Vec2;
     fn focused<'a>(&'a mut self) -> &'a mut Option<GraphId>;
     fn dragged<'a>(&'a mut self) -> &'a mut Option<GraphId>;
-    fn face_folded<'a>(&'a mut self, fce: usize) -> &'a mut bool;
     // Called at every frame
     fn action(&mut self, act: Action, ui: &mut Ui);
     // Setup right-click menu. Must returns false when the menu is closed

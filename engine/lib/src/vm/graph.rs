@@ -1,5 +1,6 @@
 use crate::graph;
 use crate::graph::GraphId;
+use derivative::Derivative;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct NodeLabel {
@@ -67,11 +68,13 @@ pub enum FaceStatus {
     Hypothesis,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Derivative, Debug, Clone, PartialEq, Eq)]
+#[derivative(Default)]
 pub struct FaceLabel {
     pub label: String,
     pub name: String,
     pub hidden: bool,
+    #[derivative(Default(value="true"))]
     pub folded: bool,
     pub parent: Option<usize>,
     pub children: Vec<usize>,
@@ -85,7 +88,7 @@ impl FaceLabel {
             name: "".to_string(),
             label: String::new(),
             hidden: false,
-            folded: false,
+            folded: true,
             parent: None,
             children: Vec::new(),
             status: FaceStatus::Hypothesis,
