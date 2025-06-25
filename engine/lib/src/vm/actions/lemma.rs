@@ -35,7 +35,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Complete a partial matching (ie if morphisms are matched, match the source and
     // destination...)
     pub fn lemma_complete_matchings(
-        &self,
+        &mut self,
         pattern: &Graph,
         matching: &[(GraphId, GraphId)],
     ) -> Option<Vec<(GraphId, GraphId)>> {
@@ -132,7 +132,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
 
     // Returns false if the matched object are not of the same nature
     pub fn lemma_complete_matching(
-        &self,
+        &mut self,
         pattern: &Graph,
         lem: GraphId,
         goal: GraphId,

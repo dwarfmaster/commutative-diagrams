@@ -268,6 +268,9 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                     }
                     self.graph.selected_face = Some(fce);
                     self.show_face(fce);
+                } else {
+                    self.unshow_face(fce);
+                    self.graph.selected_face = None;
                 }
             }
             Action::DoubleClick(GraphId::Face(fce)) => {
