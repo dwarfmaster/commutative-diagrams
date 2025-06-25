@@ -94,10 +94,12 @@ let unify st args =
   let pairs = parse_pairs args in
   match pairs with
   | Some pairs -> begin 
-      let* pairs = mapM (fun (o1,o2) ->
+      let* pairs = concatMapM (fun (o1,o2) ->
         let* ec1 = Hyps.getObjValue o1 in
         let* ec2 = Hyps.getObjValue o2 in
-        ret (ec1,ec2)) pairs in
+        let* tp1 = Hyps.getObjType o1 in
+        let* tp2 = Hyps.getObjType o2 in
+        ret [(tp1,tp2); (ec1,ec2)]) pairs in
       let* sigma = evars () in
       let result = List.fold_left unify_pair (Evarsolve.Success sigma) pairs in
       match result with

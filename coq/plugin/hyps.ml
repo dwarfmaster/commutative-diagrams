@@ -109,6 +109,12 @@ module Combinators = struct
       let* t = concat t in
       ret (x :: t)
   let mapM f l = concat (List.map f l)
+  let rec concatMapM f = function
+    | [] -> ret []
+    | x :: t ->
+      let* xs = f x in
+      let* t = concatMapM f t in
+      ret (xs @ t)
 end
 open Combinators
 

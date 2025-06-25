@@ -33,6 +33,7 @@ module Combinators : sig
   val warning : string -> unit t
   val concat  : 'a t list -> 'a list t
   val mapM    : ('a -> 'b t) -> 'a list -> 'b list t
+  val concatMapM : ('a -> 'b list t) -> 'a list -> 'b list t
 end
 
 val withEnv : Environ.env -> 'a t -> 'a t
