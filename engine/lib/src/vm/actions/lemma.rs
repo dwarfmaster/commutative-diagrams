@@ -2,12 +2,9 @@ use crate::graph::GraphId;
 use crate::normalizer::ensure_graph_invariant;
 use crate::remote::Remote;
 use crate::vm::{Graph, Interactive, VM};
-use crate::data::Feature;
 use std::collections::HashMap;
 
-type Mapping = HashMap<GraphId, Vec<GraphId>>;
-
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum UnifyPair {
     Nodes(usize,usize),
     Morphisms((usize,usize),(usize,usize)),
@@ -15,6 +12,21 @@ pub enum UnifyPair {
     PathLemma(usize, Vec::<usize>, (usize,usize)),
     Faces(usize, usize),
 }
+
+impl UnifyPair {
+    pub fn goal_id(&self) -> Option<GraphId> {
+        use UnifyPair::*;
+        use GraphId::*;
+        match self {
+            Nodes(_,nd) => Some(Node(*nd)),
+            Morphisms(_,(s,m)) => Some(Morphism(*s, *m)),
+            Faces(_,f) => Some(Face(*f)),
+            _ => None,
+        }
+    }
+}
+
+type Mapping = HashMap<GraphId, Vec<UnifyPair>>;
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Returns true on success and false on failure
@@ -66,9 +78,9 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         for pair in matching {
             use UnifyPair :: *;
             match pair {
-                Nodes(n1,n2) => Self::lemma_match_connect(direct, reverse, GraphId::Node(*n1), GraphId::Node(*n2)),
-                Morphisms((s1,m1),(s2,m2)) => Self::lemma_match_connect(direct, reverse, GraphId::Morphism(*s1,*m1), GraphId::Morphism(*s2,*m2)),
-                Faces(f1, f2) => Self::lemma_match_connect(direct, reverse, GraphId::Face(*f1), GraphId::Face(*f2)),
+                Nodes(n1,n2) => Self::lemma_match_connect(direct, reverse, GraphId::Node(*n1), GraphId::Node(*n2), pair),
+                Morphisms((s1,m1),(s2,m2)) => Self::lemma_match_connect(direct, reverse, GraphId::Morphism(*s1,*m1), GraphId::Morphism(*s2,*m2), pair),
+                Faces(f1, f2) => Self::lemma_match_connect(direct, reverse, GraphId::Face(*f1), GraphId::Face(*f2), pair),
                 _ => {},
             }
         }
@@ -80,51 +92,20 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         pattern: &mut Graph,
         matching: &[UnifyPair],
     ) -> Option<String> {
-        let realize_path = |rm: &mut Rm, gr: &Graph, src: usize, nxts: &[usize]| -> u64 {
-            if nxts.len() == 0 {
-                rm.build(Feature::Identity{ cat: gr.nodes[src].1, obj: gr.nodes[src].0 }).unwrap()
-            } else if nxts.len() == 1 {
-                gr.edges[src][nxts[0]].2
-            } else {
-                let mut mph = gr.edges[src][nxts[0]].2;
-                let mut s = gr.edges[src][nxts[0]].0;
-                for m in 1..nxts.len() {
-                    mph = rm.build(Feature::ComposeMph {
-                        cat: gr.nodes[src].1,
-                        src: gr.nodes[src].0,
-                        mid: gr.nodes[s].0,
-                        dst: gr.nodes[gr.edges[s][m].0].0,
-                        m1: mph,
-                        m2: gr.edges[s][m].2,
-                    }).unwrap();
-                    s = gr.edges[s][m].0;
-                }
-                mph
-            }
-        };
-
         // Unify nodes and morphisms
-        let get_value = |rm: &mut Rm, glem: &Graph, gvm: &Graph, pair: &UnifyPair| -> Option<(u64,u64)> {
+        let get_value = |glem: &Graph, gvm: &Graph, pair: &UnifyPair| -> Option<(u64,u64)> {
             use UnifyPair::*;
             match pair {
                 Nodes(n1, n2) => Some((glem.nodes[*n1].0, gvm.nodes[*n2].0)),
                 Morphisms((s1,m1), (s2,m2)) => Some((glem.edges[*s1][*m1].2, gvm.edges[*s2][*m2].2)),
-                PathVM((s1,m1), s2, pth) => {
-                    // let m2 = realize_path(rm, gvm, *s2, &pth);
-                    // Some((glem.edges[*s1][*m1].2, m2))
-                    None
-                },
-                PathLemma(s1, pth, (s2,m2)) => {
-                    // let m1 = realize_path(rm, glem, *s1, &pth);
-                    // Some((m1, gvm.edges[*s2][*m2].2))
-                    None
-                },
+                PathVM(_, _, _) => None,
+                PathLemma(_, _, _) => None,
                 Faces(_, _) => None,
             }
         };
         let to_unify = matching
             .iter()
-            .filter_map(|pair| get_value(&mut self.ctx.remote, &pattern, &self.graph.graph, pair))
+            .filter_map(|pair| get_value(&pattern, &self.graph.graph, pair))
             .collect::<Vec<_>>();
         let success = self.ctx.remote.unify(to_unify.into_iter()).unwrap();
         if !success {
@@ -250,11 +231,12 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         reverse: &mut Mapping,
         lem: GraphId,
         goal: GraphId,
+        pair: &UnifyPair,
     ) {
-        if direct.get(&lem).map(|v| v.contains(&goal)).unwrap_or(false) {
+        if direct.get(&lem).map(|v| v.contains(&pair)).unwrap_or(false) {
             return;
         }
-        direct.entry(lem).or_default().push(goal);
-        reverse.entry(goal).or_default().push(lem);
+        direct.entry(lem).or_default().push(pair.clone());
+        reverse.entry(goal).or_default().push(pair.clone());
     }
 }

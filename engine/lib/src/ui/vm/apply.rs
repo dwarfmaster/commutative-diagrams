@@ -7,6 +7,7 @@ use crate::ui::graph::graph::{Action, Drawable, FaceContent, UiGraph};
 use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier, TextStyle};
 use crate::ui::graph::widget;
 use crate::ui::VM;
+use crate::vm::UnifyPair;
 use crate::vm::{Context, EdgeLabel, FaceLabel, FaceStatus, NodeLabel};
 use egui::{Rect, Stroke, Style, Ui, Vec2};
 use std::collections::HashMap;
@@ -26,8 +27,8 @@ pub struct LemmaApplicationState {
     pub lemma: usize,
     pub graph: Graph<NodeLabel, EdgeLabel, FaceLabel>,
     // The mapping is considered to be lemma -> state graph
-    pub direct_mapping: HashMap<GraphId, Vec<GraphId>>,
-    pub reverse_mapping: HashMap<GraphId, Vec<GraphId>>,
+    pub direct_mapping: HashMap<GraphId, Vec<UnifyPair>>,
+    pub reverse_mapping: HashMap<GraphId, Vec<UnifyPair>>,
 
     // Action state
     pub selected: Option<AppId>,
@@ -101,8 +102,10 @@ impl LemmaApplicationState {
         for (lem, goals) in self.direct_mapping.iter() {
             let lname = self.get_name(*lem);
             for goal in goals.iter() {
-                let gname = vm.get_name(*goal);
-                cmd = format!("{} {}:{}", cmd, lname, gname);
+                if let Some(gid) = goal.goal_id() {
+                  let gname = vm.get_name(gid);
+                  cmd = format!("{} {}:{}", cmd, lname, gname);
+                }
             }
         }
         cmd

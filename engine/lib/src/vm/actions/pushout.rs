@@ -1,13 +1,14 @@
 use crate::graph::{Face, GraphId};
 use crate::remote::Remote;
 use crate::vm::{Graph, Interactive, VM};
+use crate::vm::actions::lemma::UnifyPair;
 use std::collections::HashMap;
 
 type Ins = crate::vm::asm::Instruction;
 
 struct PartialMap {
     nodes: Vec<Option<usize>>,
-    edges: Vec<Vec<Option<(usize, usize)>>>,
+    edges: Vec<Vec<Option<(usize, Vec::<usize>)>>>,
     faces: Vec<Option<usize>>,
 }
 
@@ -21,35 +22,35 @@ impl PartialMap {
     }
 }
 
-fn extract_node(id: &GraphId) -> usize {
+fn extract_node(id: &UnifyPair) -> usize {
     match id {
-        GraphId::Node(nd) => *nd,
+        UnifyPair::Nodes(_,nd) => *nd,
         _ => panic!(),
     }
 }
 
-fn extract_morphism(id: &GraphId) -> (usize, usize) {
+fn extract_morphism(id: &UnifyPair) -> (usize, usize) {
     match id {
-        GraphId::Morphism(src, mph) => (*src, *mph),
+        UnifyPair::Morphisms(_, (src, mph)) => (*src, *mph),
         _ => panic!(),
     }
 }
 
-fn extract_face(id: &GraphId) -> usize {
+fn extract_face(id: &UnifyPair) -> usize {
     match id {
-        GraphId::Face(fce) => *fce,
+        UnifyPair::Faces(_, fce) => *fce,
         _ => panic!(),
     }
 }
 
 struct Mapping {
     nodes: Vec<(usize, Vec<usize>)>,
-    edges: Vec<((usize, usize), Vec<(usize, usize)>)>,
+    edges: Vec<((usize, usize), Vec<(usize, usize)>, Option<(usize, Vec<usize>)>)>,
     faces: Vec<(usize, Vec<usize>)>,
 }
 
 impl Mapping {
-    fn new(map: &HashMap<GraphId, Vec<GraphId>>) -> Mapping {
+    fn new(map: &HashMap<GraphId, Vec<UnifyPair>>) -> Mapping {
         let mut ret = Mapping {
             nodes: Vec::new(),
             edges: Vec::new(),
@@ -66,6 +67,7 @@ impl Mapping {
                     ret.edges.push((
                         (*src, *dst),
                         mapping.1.iter().map(extract_morphism).collect(),
+                        None, // TODO
                     ));
                 }
                 Face(fce) => {
@@ -94,11 +96,19 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     std::mem::swap(&mut prev, &mut new);
                     std::mem::swap(&mut prevlen, &mut newlen);
                 }
-                direct.edges.iter_mut().for_each(|(_, v)| {
+                direct.edges.iter_mut().for_each(|(_, v, multi)| {
                     v.iter_mut().for_each(|(src, mph)| {
                         if *src == prev {
                             *src = new;
                             *mph = newlen + prevlen - *mph - 1;
+                        }
+                    });
+                    multi.iter_mut().for_each(|(src,mphs)| {
+                        if *src == prev {
+                            *src = new;
+                            mphs.iter_mut().for_each(|mph| {
+                                *mph = newlen + prevlen - *mph - 1;
+                            });
                         }
                     });
                 });
@@ -123,29 +133,49 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
 
     fn pushout_merge_edges(&mut self, direct: &mut Mapping, map: &mut PartialMap) {
         while let Some(mapping) = direct.edges.pop() {
+            // Merge all simples
             let (src, mph1) = mapping.1[0];
             let mut mph = mph1;
             mapping.1.iter().skip(1).for_each(|(_, mph2)| {
                 let prev = mph;
                 mph = self.merge_edges(src, mph, *mph2);
-                direct.edges.iter_mut().for_each(|(_, v)| {
+                direct.edges.iter_mut().for_each(|(_, v, multi)| {
                     v.iter_mut().for_each(|(s, m)| {
                         if *s == src && (*m == prev || *m == *mph2) {
                             *m = mph;
                         }
                     });
+                    multi.iter_mut().for_each(|(s, mphs)| {
+                        let mut nd = *s;
+                        for m in mphs.iter_mut() {
+                            if nd == src && (*m == prev || *m == *mph2) {
+                                *m = mph;
+                            }
+                            nd = self.graph.graph.edges[nd][*m].0;
+                        };
+                    });
                 });
                 map.edges.iter_mut().for_each(|v| {
                     v.iter_mut().for_each(|o| {
-                        if let Some((s, m)) = o {
-                            if *s == src && (*m == prev || *m == *mph2) {
-                                *m = mph;
-                            }
-                        }
+                        o.iter_mut().for_each(|(s,ms)| {
+                            let mut nd = *s;
+                            for m in ms.iter_mut() {
+                                if nd == src && (*m == prev || *m == *mph2) {
+                                    *m = mph;
+                                }
+                                nd = self.graph.graph.edges[nd][*m].0;
+                            };
+                        });
                     });
                 });
             });
-            map.edges[mapping.0 .0][mapping.0 .1] = Some((src, mph));
+
+            // Splice if required
+            if let Some((dsrc, dmphs)) = mapping.2 {
+                // TODO
+            }
+
+            map.edges[mapping.0 .0][mapping.0 .1] = Some((src, vec![mph]));
         }
     }
 
@@ -183,7 +213,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // objects are merged. Then objects are added to the graph to complete the
     // injection. It also keeps a map from the initial graph to position in the
     // resulting graph.
-    pub fn pushout(&mut self, other: &Graph, direct: &HashMap<GraphId, Vec<GraphId>>) {
+    pub fn pushout(&mut self, other: &Graph, direct: &HashMap<GraphId, Vec<UnifyPair>>) {
         let mut map = PartialMap::new(&other);
         let mut direct = Mapping::new(direct);
 
@@ -212,7 +242,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     other.edges[src][mph].2,
                     other.edges[src][mph].3.clone(),
                 ));
-                map.edges[src][mph] = Some((nsrc, self.graph.graph.edges[nsrc].len() - 1));
+                map.edges[src][mph] = Some((nsrc, vec![self.graph.graph.edges[nsrc].len() - 1]));
             }
         }
 
@@ -230,19 +260,21 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     .left
                     .iter()
                     .scan(rface.start, |src, mph| {
-                        let nmph = map.edges[*src][*mph].unwrap().1;
                         *src = other.edges[*src][*mph].0;
-                        Some(nmph)
+                        Some(map.edges[*src][*mph].as_ref().unwrap().1.iter())
                     })
+                    .flatten()
+                    .copied()
                     .collect(),
                 right: rface
                     .right
                     .iter()
                     .scan(rface.start, |src, mph| {
-                        let nmph = map.edges[*src][*mph].unwrap().1;
                         *src = other.edges[*src][*mph].0;
-                        Some(nmph)
+                        Some(map.edges[*src][*mph].as_ref().unwrap().1.iter())
                     })
+                    .flatten()
+                    .copied()
                     .collect(),
                 eq: rface.eq.clone(),
                 label: Default::default(),

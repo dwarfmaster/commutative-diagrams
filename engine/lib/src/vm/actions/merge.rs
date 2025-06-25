@@ -14,32 +14,33 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         fce1
     }
 
-    // Returns the edge that is kept
-    pub fn merge_edges(&mut self, src: usize, mut mph1: usize, mut mph2: usize) -> usize {
-        assert_eq!(
-            self.graph.graph.edges[src][mph1].0,
-            self.graph.graph.edges[src][mph2].0
-        );
-
-        if self.graph.graph.edges[src][mph1].1.name > self.graph.graph.edges[src][mph2].1.name {
-            std::mem::swap(&mut mph1, &mut mph2);
+    // Replace an edge with a path in the graph
+    pub fn splice_edge(&mut self, src: usize, mph: usize, mphs: &[usize]) {
+        {
+          let mut dst = src;
+          for m in mphs {
+              dst = self.graph.graph.edges[dst][*m].0;
+          }
+          assert_eq!(self.graph.graph.edges[src][mph].0, dst);
         }
 
         // Update equalities using the replaced morphism
         for fce in 0..self.graph.graph.faces.len() {
             // Left side
-            let mut nleft = self.graph.graph.faces[fce].left.clone();
             let mut nsrc = self.graph.graph.faces[fce].start;
-            let mut changed = false;
+            let mut splice_at = Vec::new();
             for nxt in 0..self.graph.graph.faces[fce].left.len() {
-                let mph = self.graph.graph.faces[fce].left[nxt];
-                if nsrc == src && mph == mph2 {
-                    changed = true;
-                    nleft[nxt] = mph1;
+                let m = self.graph.graph.faces[fce].left[nxt];
+                if nsrc == src && m == mph {
+                    splice_at.push(nxt);
                 }
-                nsrc = self.graph.graph.edges[nsrc][mph].0;
+                nsrc = self.graph.graph.edges[nsrc][m].0;
             }
-            if changed {
+            if !splice_at.is_empty() {
+                let mut nleft = self.graph.graph.faces[fce].left.clone();
+                for splt in splice_at.iter().rev() {
+                    nleft.splice(*splt..(*splt+1), mphs.iter().copied()); 
+                }
                 self.register_instruction(Ins::RelocateFaceLeft(
                     fce,
                     self.graph.graph.faces[fce].left.clone(),
@@ -48,18 +49,20 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             }
 
             // Right side
-            let mut nright = self.graph.graph.faces[fce].right.clone();
             let mut nsrc = self.graph.graph.faces[fce].start;
-            let mut changed = false;
+            let mut splice_at = Vec::new();
             for nxt in 0..self.graph.graph.faces[fce].right.len() {
-                let mph = self.graph.graph.faces[fce].right[nxt];
-                if nsrc == src && mph == mph2 {
-                    changed = true;
-                    nright[nxt] = mph1;
+                let m = self.graph.graph.faces[fce].right[nxt];
+                if nsrc == src && m == mph {
+                    splice_at.push(nxt);
                 }
-                nsrc = self.graph.graph.edges[nsrc][mph].0;
+                nsrc = self.graph.graph.edges[nsrc][m].0;
             }
-            if changed {
+            if !splice_at.is_empty() {
+                let mut nright = self.graph.graph.faces[fce].left.clone();
+                for splt in splice_at.iter().rev() {
+                    nright.splice(*splt..(*splt+1), mphs.iter().copied()); 
+                }
                 self.register_instruction(Ins::RelocateFaceRight(
                     fce,
                     self.graph.graph.faces[fce].right.clone(),
@@ -68,7 +71,21 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             }
         }
 
-        self.hide(GraphId::Morphism(src, mph2));
+        {
+            let mut s = src;
+            for m in mphs {
+                self.hide(GraphId::Morphism(s, *m));
+                s = self.graph.graph.edges[s][*m].0;
+            }
+        }
+    }
+
+    // Returns the edge that is kept
+    pub fn merge_edges(&mut self, src: usize, mut mph1: usize, mut mph2: usize) -> usize {
+        if self.graph.graph.edges[src][mph1].1.name > self.graph.graph.edges[src][mph2].1.name {
+            std::mem::swap(&mut mph1, &mut mph2);
+        }
+        self.splice_edge(src, mph2, &[mph1]);
         mph1
     }
 

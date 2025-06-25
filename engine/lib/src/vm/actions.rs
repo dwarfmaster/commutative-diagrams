@@ -2,7 +2,7 @@ mod compose;
 pub mod decompose;
 mod hide;
 mod insert;
-mod lemma;
+pub mod lemma;
 mod merge;
 mod pushout;
 mod shrink;
