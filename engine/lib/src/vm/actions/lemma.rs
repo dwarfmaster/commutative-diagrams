@@ -2,9 +2,19 @@ use crate::graph::GraphId;
 use crate::normalizer::ensure_graph_invariant;
 use crate::remote::Remote;
 use crate::vm::{Graph, Interactive, VM};
+use crate::data::Feature;
 use std::collections::HashMap;
 
 type Mapping = HashMap<GraphId, Vec<GraphId>>;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum UnifyPair {
+    Nodes(usize,usize),
+    Morphisms((usize,usize),(usize,usize)),
+    PathVM((usize,usize), usize, Vec::<usize>),
+    PathLemma(usize, Vec::<usize>, (usize,usize)),
+    Faces(usize, usize),
+}
 
 impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Returns true on success and false on failure
@@ -18,15 +28,15 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             }
         };
 
-        let mut direct = HashMap::new();
-        let mut reverse = HashMap::new();
-        Self::lemma_extend_hash_matching(&matchings, &mut direct, &mut reverse);
-
         let r = self.lemma_unify_matching(&mut pattern, &matchings);
         if let Some(errmsg) = r {
             self.code.error_msg = errmsg;
             return false;
         }
+
+        let mut direct = HashMap::new();
+        let mut reverse = HashMap::new();
+        Self::lemma_extend_hash_matching(&matchings, &mut direct, &mut reverse);
 
         self.pushout(&pattern, &direct);
         true
@@ -38,7 +48,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         &mut self,
         pattern: &Graph,
         matching: &[(GraphId, GraphId)],
-    ) -> Option<Vec<(GraphId, GraphId)>> {
+    ) -> Option<Vec<UnifyPair>> {
         let mut matchings = Vec::new();
         for (lem, goal) in matching {
             if !self.lemma_complete_matching(&pattern, *lem, *goal, &mut matchings) {
@@ -49,12 +59,18 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     }
 
     pub fn lemma_extend_hash_matching(
-        matching: &[(GraphId, GraphId)],
+        matching: &[UnifyPair],
         direct: &mut Mapping,
         reverse: &mut Mapping,
     ) {
-        for (lem, goal) in matching {
-            Self::lemma_match_connect(direct, reverse, *lem, *goal);
+        for pair in matching {
+            use UnifyPair :: *;
+            match pair {
+                Nodes(n1,n2) => Self::lemma_match_connect(direct, reverse, GraphId::Node(*n1), GraphId::Node(*n2)),
+                Morphisms((s1,m1),(s2,m2)) => Self::lemma_match_connect(direct, reverse, GraphId::Morphism(*s1,*m1), GraphId::Morphism(*s2,*m2)),
+                Faces(f1, f2) => Self::lemma_match_connect(direct, reverse, GraphId::Face(*f1), GraphId::Face(*f2)),
+                _ => {},
+            }
         }
     }
 
@@ -62,29 +78,53 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     pub fn lemma_unify_matching(
         &mut self,
         pattern: &mut Graph,
-        matching: &[(GraphId, GraphId)],
+        matching: &[UnifyPair],
     ) -> Option<String> {
-        use GraphId::*;
+        let realize_path = |rm: &mut Rm, gr: &Graph, src: usize, nxts: &[usize]| -> u64 {
+            if nxts.len() == 0 {
+                rm.build(Feature::Identity{ cat: gr.nodes[src].1, obj: gr.nodes[src].0 }).unwrap()
+            } else if nxts.len() == 1 {
+                gr.edges[src][nxts[0]].2
+            } else {
+                let mut mph = gr.edges[src][nxts[0]].2;
+                let mut s = gr.edges[src][nxts[0]].0;
+                for m in 1..nxts.len() {
+                    mph = rm.build(Feature::ComposeMph {
+                        cat: gr.nodes[src].1,
+                        src: gr.nodes[src].0,
+                        mid: gr.nodes[s].0,
+                        dst: gr.nodes[gr.edges[s][m].0].0,
+                        m1: mph,
+                        m2: gr.edges[s][m].2,
+                    }).unwrap();
+                    s = gr.edges[s][m].0;
+                }
+                mph
+            }
+        };
 
         // Unify nodes and morphisms
-        let get_value = |graph: &Graph, id: GraphId| -> Option<u64> {
-            match id {
-                Node(n) => Some(graph.nodes[n].0),
-                Morphism(s, m) => Some(graph.edges[s][m].2),
-                Face(_) => None,
+        let get_value = |rm: &mut Rm, glem: &Graph, gvm: &Graph, pair: &UnifyPair| -> Option<(u64,u64)> {
+            use UnifyPair::*;
+            match pair {
+                Nodes(n1, n2) => Some((glem.nodes[*n1].0, gvm.nodes[*n2].0)),
+                Morphisms((s1,m1), (s2,m2)) => Some((glem.edges[*s1][*m1].2, gvm.edges[*s2][*m2].2)),
+                PathVM((s1,m1), s2, pth) => {
+                    // let m2 = realize_path(rm, gvm, *s2, &pth);
+                    // Some((glem.edges[*s1][*m1].2, m2))
+                    None
+                },
+                PathLemma(s1, pth, (s2,m2)) => {
+                    // let m1 = realize_path(rm, glem, *s1, &pth);
+                    // Some((m1, gvm.edges[*s2][*m2].2))
+                    None
+                },
+                Faces(_, _) => None,
             }
         };
         let to_unify = matching
             .iter()
-            .filter_map(|(id1, id2)| {
-                match (
-                    get_value(&pattern, *id1),
-                    get_value(&self.graph.graph, *id2),
-                ) {
-                    (Some(n1), Some(n2)) => Some((n1, n2)),
-                    _ => None,
-                }
-            })
+            .filter_map(|pair| get_value(&mut self.ctx.remote, &pattern, &self.graph.graph, pair))
             .collect::<Vec<_>>();
         let success = self.ctx.remote.unify(to_unify.into_iter()).unwrap();
         if !success {
@@ -95,8 +135,8 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         self.ctx.save_state(); // Necessary to clear cached representations
         let eqs = matching
             .iter()
-            .filter_map(|(id1, id2)| match (id1, id2) {
-                (Face(f1), Face(f2)) => Some((
+            .filter_map(|pair| match pair {
+                UnifyPair::Faces(f1, f2) => Some((
                     pattern.faces[*f1].eq.clone(),
                     self.graph.graph.faces[*f2].eq.clone(),
                 )),
@@ -136,58 +176,68 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         pattern: &Graph,
         lem: GraphId,
         goal: GraphId,
-        matching: &mut Vec<(GraphId, GraphId)>,
+        matching: &mut Vec<UnifyPair>,
     ) -> bool {
         use GraphId::*;
         match (lem, goal) {
             (Node(lnd), Node(gnd)) => {
-                matching.push((Node(lnd), Node(gnd)));
+                matching.push(UnifyPair::Nodes(lnd, gnd));
             }
             (Morphism(lsrc, lmph), Morphism(gsrc, gmph)) => {
-                matching.push((Morphism(lsrc, lmph), Morphism(gsrc, gmph)));
-                matching.push((Node(lsrc), Node(gsrc)));
-                matching.push((
-                    Node(pattern.edges[lsrc][lmph].0),
-                    Node(self.graph.graph.edges[gsrc][gmph].0),
-                ));
+                matching.push(UnifyPair::Morphisms((lsrc,lmph), (gsrc,gmph)));
+                matching.push(UnifyPair::Nodes(lsrc, gsrc));
+                matching.push(UnifyPair::Nodes(pattern.edges[lsrc][lmph].0,self.graph.graph.edges[gsrc][gmph].0));
             }
             (Face(lfce), Face(gfce)) => {
-                matching.push((Face(lfce), Face(gfce)));
-                matching.push((
-                    Node(pattern.faces[lfce].end),
-                    Node(self.graph.graph.faces[gfce].end),
-                ));
+                matching.push(UnifyPair::Faces(lfce, gfce));
+                matching.push(UnifyPair::Nodes(pattern.faces[lfce].end,self.graph.graph.faces[gfce].end));
 
                 // Connect left side
                 let mut lsrc = pattern.faces[lfce].start;
                 let mut gsrc = self.graph.graph.faces[gfce].start;
-                for nxt in 0..pattern.faces[lfce]
-                    .left
-                    .len()
-                    .min(self.graph.graph.faces[gfce].left.len())
-                {
-                    matching.push((Node(lsrc), Node(gsrc)));
-                    let lmph = pattern.faces[lfce].left[nxt];
-                    let gmph = self.graph.graph.faces[gfce].left[nxt];
-                    matching.push((Morphism(lsrc, lmph), Morphism(gsrc, gmph)));
-                    lsrc = pattern.edges[lsrc][lmph].0;
-                    gsrc = self.graph.graph.edges[gsrc][gmph].0;
+                if pattern.faces[lfce].left.len() == self.graph.graph.faces[gfce].left.len() {
+                    for nxt in 0..pattern.faces[lfce]
+                        .left
+                        .len()
+                        .min(self.graph.graph.faces[gfce].left.len())
+                    {
+                        matching.push(UnifyPair::Nodes(lsrc,gsrc));
+                        let lmph = pattern.faces[lfce].left[nxt];
+                        let gmph = self.graph.graph.faces[gfce].left[nxt];
+                        matching.push(UnifyPair::Morphisms((lsrc,lmph), (gsrc,gmph)));
+                        lsrc = pattern.edges[lsrc][lmph].0;
+                        gsrc = self.graph.graph.edges[gsrc][gmph].0;
+                    }
+                } else if pattern.faces[lfce].left.len() == 1 {
+                    let mph_gr = self.graph.graph.faces[gfce].left.clone();
+                    matching.push(UnifyPair::PathVM((lsrc, pattern.faces[lfce].left[0]), gsrc, mph_gr));
+                } else if self.graph.graph.faces[gfce].left.len() == 1 {
+                    let mph_lem = pattern.faces[lfce].left.clone();
+                    matching.push(UnifyPair::PathLemma(lsrc, mph_lem, (gsrc, self.graph.graph.faces[gfce].left[0])));
                 }
 
                 // Connect right side
                 let mut lsrc = pattern.faces[lfce].start;
                 let mut gsrc = self.graph.graph.faces[gfce].start;
-                for nxt in 0..pattern.faces[lfce]
-                    .right
-                    .len()
-                    .min(self.graph.graph.faces[gfce].right.len())
-                {
-                    matching.push((Node(lsrc), Node(gsrc)));
-                    let lmph = pattern.faces[lfce].right[nxt];
-                    let gmph = self.graph.graph.faces[gfce].right[nxt];
-                    matching.push((Morphism(lsrc, lmph), Morphism(gsrc, gmph)));
-                    lsrc = pattern.edges[lsrc][lmph].0;
-                    gsrc = self.graph.graph.edges[gsrc][gmph].0;
+                if pattern.faces[lfce].right.len() == self.graph.graph.faces[gfce].right.len() {
+                    for nxt in 0..pattern.faces[lfce]
+                        .right
+                        .len()
+                        .min(self.graph.graph.faces[gfce].right.len())
+                    {
+                        matching.push(UnifyPair::Nodes(lsrc,gsrc));
+                        let lmph = pattern.faces[lfce].right[nxt];
+                        let gmph = self.graph.graph.faces[gfce].right[nxt];
+                        matching.push(UnifyPair::Morphisms((lsrc,lmph), (gsrc,gmph)));
+                        lsrc = pattern.edges[lsrc][lmph].0;
+                        gsrc = self.graph.graph.edges[gsrc][gmph].0;
+                    }
+                } else if pattern.faces[lfce].right.len() == 1 {
+                    let mph_gr = self.graph.graph.faces[gfce].right.clone();
+                    matching.push(UnifyPair::PathVM((lsrc, pattern.faces[lfce].right[0]), gsrc, mph_gr));
+                } else if self.graph.graph.faces[gfce].right.len() == 1 {
+                    let mph_lem = pattern.faces[lfce].right.clone();
+                    matching.push(UnifyPair::PathLemma(lsrc, mph_lem, (gsrc, self.graph.graph.faces[gfce].right[0])));
                 }
             }
             _ => return false,

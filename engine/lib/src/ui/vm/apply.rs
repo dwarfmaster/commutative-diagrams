@@ -265,6 +265,7 @@ impl LemmaApplicationState {
         }
 
         // Relabel and connect
+        vm.ctx.save_state();
         self.relabel(&mut vm.ctx);
         vm.relabel();
         VM::<Rm>::lemma_extend_hash_matching(
