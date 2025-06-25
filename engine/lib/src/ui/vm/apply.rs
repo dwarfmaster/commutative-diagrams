@@ -1,4 +1,5 @@
 use super::ActionResult;
+use crate::data::EvarStatus;
 use crate::graph::{Graph, GraphId};
 use crate::remote::Remote;
 use crate::ui::graph::graph::{edge_label_pos, prepare_edge};
@@ -7,7 +8,6 @@ use crate::ui::graph::graph::{ArrowStyle, CurveStyle, FaceStyle, Modifier, TextS
 use crate::ui::graph::widget;
 use crate::ui::VM;
 use crate::vm::{Context, EdgeLabel, FaceLabel, FaceStatus, NodeLabel};
-use crate::data::EvarStatus;
 use egui::{Rect, Stroke, Style, Ui, Vec2};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -279,19 +279,37 @@ impl LemmaApplicationState {
         for lem_node in 0..self.graph.nodes.len() {
             for vm_node in 0..vm.graph.graph.nodes.len() {
                 if vm.ctx.get_stored_repr(self.graph.nodes[lem_node].0)
-                   != vm.ctx.get_stored_repr(vm.graph.graph.nodes[vm_node].0) {
+                    != vm.ctx.get_stored_repr(vm.graph.graph.nodes[vm_node].0)
+                {
                     continue;
                 }
                 to_match.push((GraphId::Node(lem_node), GraphId::Node(vm_node)));
                 for lem_mph in 0..self.graph.edges[lem_node].len() {
                     for vm_mph in 0..vm.graph.graph.edges[vm_node].len() {
-                        if vm.ctx.get_stored_repr(self.graph.edges[lem_node][lem_mph].2)
-                            == vm.ctx.get_stored_repr(vm.graph.graph.edges[vm_node][vm_mph].2) {
-                            to_match.push((GraphId::Morphism(lem_node, lem_mph), GraphId::Morphism(vm_node, vm_mph)));
-                        } else if vm.ctx.get_stored_repr(self.graph.nodes[self.graph.edges[lem_node][lem_mph].0].0)
-                            == vm.ctx.get_stored_repr(vm.graph.graph.nodes[vm.graph.graph.edges[vm_node][vm_mph].0].0)
-                            && vm.ctx.get_stored_status(self.graph.edges[lem_node][lem_mph].2) == EvarStatus::Evar {
-                            to_match.push((GraphId::Morphism(lem_node, lem_mph), GraphId::Morphism(vm_node, vm_mph)));
+                        if vm
+                            .ctx
+                            .get_stored_repr(self.graph.edges[lem_node][lem_mph].2)
+                            == vm
+                                .ctx
+                                .get_stored_repr(vm.graph.graph.edges[vm_node][vm_mph].2)
+                        {
+                            to_match.push((
+                                GraphId::Morphism(lem_node, lem_mph),
+                                GraphId::Morphism(vm_node, vm_mph),
+                            ));
+                        } else if vm.ctx.get_stored_repr(
+                            self.graph.nodes[self.graph.edges[lem_node][lem_mph].0].0,
+                        ) == vm.ctx.get_stored_repr(
+                            vm.graph.graph.nodes[vm.graph.graph.edges[vm_node][vm_mph].0].0,
+                        ) && vm
+                            .ctx
+                            .get_stored_status(self.graph.edges[lem_node][lem_mph].2)
+                            == EvarStatus::Evar
+                        {
+                            to_match.push((
+                                GraphId::Morphism(lem_node, lem_mph),
+                                GraphId::Morphism(vm_node, vm_mph),
+                            ));
                         }
                     }
                 }
