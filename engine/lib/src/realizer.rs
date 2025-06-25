@@ -1,4 +1,4 @@
-use crate::data::Feature;
+use crate::data::{Feature,EvarStatus};
 use crate::graph::eq::{Block, BlockData, Eq, Morphism, Slice};
 use crate::normalizer::morphism;
 use crate::remote::{Remote, TermEngine};
@@ -326,6 +326,8 @@ pub fn realize_eq<R: TermEngine>(rm: &mut R, left: u64, right: u64, eq: &Eq) -> 
     if let Some(acc) = acc {
         if input == right {
             acc
+        } else if rm.get_status(input) == EvarStatus::Evar {
+            acc
         } else {
             let eq = repar(rm, cat, src, dst, input, right);
             rm.remote()
@@ -461,22 +463,25 @@ fn realize_slice<R: TermEngine>(
 
     let (eq, expecting, output) =
         partial_state.unwrap_or_else(|| panic!("There should be no empty slices in equalities"));
-    let rep = repar(rm, cat, src, dst, input, expecting);
-    let eq = rm
-        .remote()
-        .build(Feature::Concat {
-            cat,
-            src,
-            dst,
-            left: input,
-            mid: expecting,
-            right: output,
-            eq1: rep,
-            eq2: eq,
-        })
-        .unwrap();
-
-    (output, eq)
+    if expecting == input || rm.get_status(expecting) == EvarStatus::Evar {
+        (output,eq)
+    } else {
+      let rep = repar(rm, cat, src, dst, input, expecting);
+      let eq = rm
+          .remote()
+          .build(Feature::Concat {
+              cat,
+              src,
+              dst,
+              left: input,
+              mid: expecting,
+              right: output,
+              eq1: rep,
+              eq2: eq,
+          })
+          .unwrap();
+      (output, eq)
+    }
 }
 
 fn realize_block<R: TermEngine>(
