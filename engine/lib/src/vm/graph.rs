@@ -74,7 +74,7 @@ pub struct FaceLabel {
     pub label: String,
     pub name: String,
     pub hidden: bool,
-    #[derivative(Default(value="true"))]
+    #[derivative(Default(value = "true"))]
     pub folded: bool,
     pub parent: Option<usize>,
     pub children: Vec<usize>,

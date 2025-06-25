@@ -71,21 +71,19 @@ impl<'a> Parser<'a> {
     where
         F: nom::Parser<&'a str, O, E> + 'a,
     {
-        move |input: &'a str| {
-            match parser.parse(input) {
-                Ok((i, r)) => {
-                    let start = self.offset + self.complete.offset(&input);
-                    let end = self.offset + self.complete.offset(&i);
-                    Ok((
-                        i,
-                        ast::Annot {
-                            value: r,
-                            range: std::ops::Range { start, end },
-                        },
-                    ))
-                }
-                Err(e) => Err(e),
+        move |input: &'a str| match parser.parse(input) {
+            Ok((i, r)) => {
+                let start = self.offset + self.complete.offset(&input);
+                let end = self.offset + self.complete.offset(&i);
+                Ok((
+                    i,
+                    ast::Annot {
+                        value: r,
+                        range: std::ops::Range { start, end },
+                    },
+                ))
             }
+            Err(e) => Err(e),
         }
     }
 
