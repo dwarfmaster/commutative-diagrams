@@ -47,6 +47,12 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                     crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
                 }
 
+                if self.graph.graph.nodes[nd].2.left {
+                    stroke.color = egui::Color32::RED;
+                } else if self.graph.graph.nodes[nd].2.right {
+                    stroke.color = egui::Color32::GREEN;
+                }
+
                 let rect = f(drawable, stroke, modifier, id);
                 nodes_rect.push(rect);
                 stroke.color = style.noninteractive().fg_stroke.color;

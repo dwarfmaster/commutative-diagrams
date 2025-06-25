@@ -28,6 +28,9 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 lbl.style.left = true;
             },
         );
+        if graph.faces[fce].left.is_empty() {
+            graph.nodes[graph.faces[fce].start].2.left = true;
+        }
         on_path(
             &mut graph.edges,
             graph.faces[fce].start,
@@ -36,6 +39,9 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 lbl.style.right = true;
             },
         );
+        if graph.faces[fce].right.is_empty() {
+            graph.nodes[graph.faces[fce].start].2.right = true;
+        }
     }
 
     pub fn show_face(&mut self, fce: usize) {
@@ -51,6 +57,9 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 lbl.style.left = false;
             },
         );
+        if graph.faces[fce].left.is_empty() {
+            graph.nodes[graph.faces[fce].start].2.left = false;
+        }
         on_path(
             &mut graph.edges,
             graph.faces[fce].start,
@@ -59,6 +68,9 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 lbl.style.right = false;
             },
         );
+        if graph.faces[fce].right.is_empty() {
+            graph.nodes[graph.faces[fce].start].2.right = false;
+        }
     }
 
     pub fn unshow_face(&mut self, fce: usize) {

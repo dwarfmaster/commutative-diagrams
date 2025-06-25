@@ -12,6 +12,9 @@ pub struct NodeLabel {
     pub label: String,
     // Invariant: when a node is hidden, all in/out-going edges must be hidden too
     pub hidden: bool,
+    // Style
+    pub left: bool,
+    pub right: bool,
 }
 
 impl NodeLabel {
@@ -22,6 +25,8 @@ impl NodeLabel {
             name: "".to_string(),
             label: String::new(),
             hidden: false,
+            left: false,
+            right: false,
         }
     }
 }
