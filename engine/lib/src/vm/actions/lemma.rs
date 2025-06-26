@@ -48,7 +48,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
 
         let mut direct = HashMap::new();
         let mut reverse = HashMap::new();
-        Self::lemma_extend_hash_matching(&matchings, &mut direct, &mut reverse);
+        Self::lemma_extend_hash_matching(&matchings, &mut direct, &mut reverse, &pattern, &self.graph.graph);
 
         self.pushout(&pattern, &direct);
         true
@@ -74,6 +74,8 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         matching: &[UnifyPair],
         direct: &mut Mapping,
         reverse: &mut Mapping,
+        pattern: &Graph,
+        goal: &Graph,
     ) {
         for pair in matching {
             use UnifyPair :: *;
@@ -81,7 +83,22 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                 Nodes(n1,n2) => Self::lemma_match_connect(direct, reverse, GraphId::Node(*n1), GraphId::Node(*n2), pair),
                 Morphisms((s1,m1),(s2,m2)) => Self::lemma_match_connect(direct, reverse, GraphId::Morphism(*s1,*m1), GraphId::Morphism(*s2,*m2), pair),
                 Faces(f1, f2) => Self::lemma_match_connect(direct, reverse, GraphId::Face(*f1), GraphId::Face(*f2), pair),
-                _ => {},
+                PathVM((s1,m1), s2, mphs) => {
+                    Self::lemma_connect(direct, GraphId::Morphism(*s1, *m1), pair);
+                    let mut s = *s2;
+                    for m in mphs {
+                        Self::goal_connect(reverse, GraphId::Morphism(s, *m), pair);
+                        s = goal.edges[s][*m].0;
+                    }
+                }
+                PathLemma(s1, mphs, (s2,m2)) => {
+                    Self::goal_connect(reverse, GraphId::Morphism(*s2, *m2), pair);
+                    let mut s = *s1;
+                    for m in mphs {
+                        Self::lemma_connect(direct, GraphId::Morphism(s, *m), pair);
+                        s = pattern.edges[s][*m].0;
+                    }
+                }
             }
         }
     }
@@ -226,6 +243,26 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         true
     }
 
+    fn lemma_connect(
+        direct: &mut Mapping,
+        lem: GraphId,
+        pair: &UnifyPair
+    ) {
+        if !direct.get(&lem).map(|v| v.contains(&pair)).unwrap_or(false) {
+            direct.entry(lem).or_default().push(pair.clone());
+        }
+    }
+
+    fn goal_connect(
+        reverse: &mut Mapping,
+        goal: GraphId,
+        pair: &UnifyPair
+    ) {
+        if !reverse.get(&goal).map(|v| v.contains(&pair)).unwrap_or(false) {
+            reverse.entry(goal).or_default().push(pair.clone());
+        }
+    }
+
     fn lemma_match_connect(
         direct: &mut Mapping,
         reverse: &mut Mapping,
@@ -233,10 +270,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
         goal: GraphId,
         pair: &UnifyPair,
     ) {
-        if direct.get(&lem).map(|v| v.contains(&pair)).unwrap_or(false) {
-            return;
-        }
-        direct.entry(lem).or_default().push(pair.clone());
-        reverse.entry(goal).or_default().push(pair.clone());
+        Self::lemma_connect(direct, lem, pair);
+        Self::goal_connect(reverse, goal, pair);
     }
 }

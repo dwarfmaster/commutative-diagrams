@@ -275,6 +275,8 @@ impl LemmaApplicationState {
             &matching,
             &mut self.direct_mapping,
             &mut self.reverse_mapping,
+            &self.graph,
+            &vm.graph.graph,
         );
     }
 

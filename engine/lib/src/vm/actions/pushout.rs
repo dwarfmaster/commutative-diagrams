@@ -29,10 +29,19 @@ fn extract_node(id: &UnifyPair) -> usize {
     }
 }
 
-fn extract_morphism(id: &UnifyPair) -> (usize, usize) {
+fn extract_morphism(id: &UnifyPair) -> Option<(usize, usize)> {
     match id {
-        UnifyPair::Morphisms(_, (src, mph)) => (*src, *mph),
-        _ => panic!(),
+        UnifyPair::Morphisms(_, (src, mph)) => Some((*src, *mph)),
+        _ => None,
+    }
+}
+
+fn extract_expand_morphism(id: &UnifyPair) -> Option<(usize, Vec<usize>)> {
+    match id {
+        UnifyPair::PathVM(_, src, mphs) => {
+            Some((*src, mphs.clone()))
+        },
+        _ => None,
     }
 }
 
@@ -66,8 +75,8 @@ impl Mapping {
                 Morphism(src, dst) => {
                     ret.edges.push((
                         (*src, *dst),
-                        mapping.1.iter().map(extract_morphism).collect(),
-                        None, // TODO
+                        mapping.1.iter().map(extract_morphism).flatten().collect(),
+                        mapping.1.iter().find_map(extract_expand_morphism)
                     ));
                 }
                 Face(fce) => {
@@ -134,32 +143,25 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     fn pushout_merge_edges(&mut self, direct: &mut Mapping, map: &mut PartialMap) {
         while let Some(mapping) = direct.edges.pop() {
             // Merge all simples
-            let (src, mph1) = mapping.1[0];
-            let mut mph = mph1;
-            mapping.1.iter().skip(1).for_each(|(_, mph2)| {
-                let prev = mph;
-                mph = self.merge_edges(src, mph, *mph2);
-                direct.edges.iter_mut().for_each(|(_, v, multi)| {
-                    v.iter_mut().for_each(|(s, m)| {
-                        if *s == src && (*m == prev || *m == *mph2) {
-                            *m = mph;
-                        }
-                    });
-                    multi.iter_mut().for_each(|(s, mphs)| {
-                        let mut nd = *s;
-                        for m in mphs.iter_mut() {
-                            if nd == src && (*m == prev || *m == *mph2) {
+            let mut tgt = Vec::new();
+            let mut src_node = 0;
+            let mph = if mapping.1.is_empty() {
+                None
+            } else {
+                let (src, mph1) = mapping.1[0];
+                let mut mph = mph1;
+                mapping.1.iter().skip(1).for_each(|(_, mph2)| {
+                    let prev = mph;
+                    mph = self.merge_edges(src, mph, *mph2);
+                    direct.edges.iter_mut().for_each(|(_, v, multi)| {
+                        v.iter_mut().for_each(|(s, m)| {
+                            if *s == src && (*m == prev || *m == *mph2) {
                                 *m = mph;
                             }
-                            nd = self.graph.graph.edges[nd][*m].0;
-                        };
-                    });
-                });
-                map.edges.iter_mut().for_each(|v| {
-                    v.iter_mut().for_each(|o| {
-                        o.iter_mut().for_each(|(s,ms)| {
+                        });
+                        multi.iter_mut().for_each(|(s, mphs)| {
                             let mut nd = *s;
-                            for m in ms.iter_mut() {
+                            for m in mphs.iter_mut() {
                                 if nd == src && (*m == prev || *m == *mph2) {
                                     *m = mph;
                                 }
@@ -167,15 +169,76 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                             };
                         });
                     });
+                    map.edges.iter_mut().for_each(|v| {
+                        v.iter_mut().for_each(|o| {
+                            o.iter_mut().for_each(|(s,ms)| {
+                                let mut nd = *s;
+                                for m in ms.iter_mut() {
+                                    if nd == src && (*m == prev || *m == *mph2) {
+                                        *m = mph;
+                                    }
+                                    nd = self.graph.graph.edges[nd][*m].0;
+                                };
+                            });
+                        });
+                    });
                 });
-            });
+                tgt = vec![mph];
+                src_node = src;
+                Some(mph)
+            };
 
             // Splice if required
-            if let Some((dsrc, dmphs)) = mapping.2 {
-                // TODO
+            if let Some((src, dmphs)) = mapping.2 {
+                if let Some(mph) = mph {
+                    self.splice_edge(src, mph, &dmphs);
+                    direct.edges.iter_mut().for_each(|(_, v, multi)| {
+                        for i in 0..v.len() {
+                            if v[i].0 == src && v[i].1 == mph {
+                                if multi.is_none() {
+                                    *multi = Some((src,dmphs.clone()));
+                                } else {
+                                    panic!() // TODO should be treated more gracefully
+                                }
+                            }
+                        }
+                        multi.iter_mut().for_each(|(s, mphs)| {
+                            let mut splice_at = Vec::new();
+                            let mut nd = *s;
+                            for i in 0..mphs.len() {
+                                if nd == src && mphs[i] == mph {
+                                    splice_at.push(i);
+                                }
+                                nd = self.graph.graph.edges[nd][mphs[i]].0;
+                            }
+                            for i in splice_at.into_iter().rev() {
+                                mphs.splice(i..(i+1), dmphs.iter().copied());
+                            }
+                        });
+                    });
+                    map.edges.iter_mut().for_each(|v| {
+                        v.iter_mut().for_each(|o| {
+                            o.iter_mut().for_each(|(s,ms)| {
+                                let mut nd = *s;
+                                let mut splice_at = Vec::new();
+                                for i in 0..ms.len() {
+                                    if nd == src && ms[i] == mph {
+                                        splice_at.push(i);
+                                    }
+                                    nd = self.graph.graph.edges[nd][ms[i]].0;
+                                };
+                                for i in splice_at.into_iter().rev() {
+                                    ms.splice(i..(i+1), dmphs.iter().copied());
+                                }
+                            });
+                        });
+                    });
+                }
+                tgt = dmphs;
+                src_node = src;
             }
 
-            map.edges[mapping.0 .0][mapping.0 .1] = Some((src, vec![mph]));
+            map.edges[mapping.0 .0][mapping.0 .1] = Some((src_node, tgt));
         }
     }
 
@@ -260,8 +323,9 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     .left
                     .iter()
                     .scan(rface.start, |src, mph| {
+                        let old = *src;
                         *src = other.edges[*src][*mph].0;
-                        Some(map.edges[*src][*mph].as_ref().unwrap().1.iter())
+                        Some(map.edges[old][*mph].as_ref().unwrap().1.iter())
                     })
                     .flatten()
                     .copied()
@@ -270,8 +334,9 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                     .right
                     .iter()
                     .scan(rface.start, |src, mph| {
+                        let old = *src;
                         *src = other.edges[*src][*mph].0;
-                        Some(map.edges[*src][*mph].as_ref().unwrap().1.iter())
+                        Some(map.edges[old][*mph].as_ref().unwrap().1.iter())
                     })
                     .flatten()
                     .copied()
