@@ -2,7 +2,7 @@ use super::vm::insert::InsertKind::*;
 use super::InteractiveAction;
 use crate::remote::Remote;
 use crate::ui::VM;
-use egui::menu;
+use egui::{menu,Visuals};
 
 pub fn toolbar<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
     menu::bar(ui, |ui| {
@@ -59,6 +59,13 @@ pub fn toolbar<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
         ui.menu_button("Ui", |ui| {
             const MIN_PPP: f32 = 0.2f32;
             const MAX_PPP: f32 = 4f32;
+            if ui.checkbox(&mut vm.graphical.dark, "Dark theme").changed() {
+                if vm.graphical.dark {
+                    ui.ctx().set_visuals(Visuals::dark());
+                } else {
+                    ui.ctx().set_visuals(Visuals::light());
+                }
+            }
             if ui.button("Reset zoom").clicked() {
                 if let Some(ppp) = vm.graphical.init_ppp {
                     vm.graphical.ppp = Some(ppp);

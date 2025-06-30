@@ -91,6 +91,7 @@ pub struct GraphicalState {
     pub dragged_object: Option<GraphId>,
     pub init_ppp: Option<f32>,
     pub ppp: Option<f32>,
+    pub dark: bool,
 }
 
 pub struct VM<Rm: Remote, I: Interactive> {
@@ -181,6 +182,7 @@ impl<R: Remote, I: Interactive> VM<R, I> {
                 dragged_object: None,
                 init_ppp: None,
                 ppp: None,
+                dark: true
             },
         };
         vm.relabel();
