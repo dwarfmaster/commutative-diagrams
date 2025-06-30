@@ -10,10 +10,10 @@ use crate::vm::lemmas::{Lemma, LemmaTree};
 use crate::vm::parser;
 use crate::vm::store::Context;
 use core::ops::Range;
-use egui::{Vec2,Color32};
+use egui::{Color32, Vec2};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::cell::RefCell;
 
 #[derive(Debug, Hash, Clone, Copy, Eq, PartialEq, Default)]
 pub enum EndStatus {
@@ -85,7 +85,7 @@ pub struct CodeState {
     pub code_window_open: bool,
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct SemanticColors {
     pub both: Color32,
     pub left: Color32,
@@ -105,7 +105,7 @@ impl SemanticColors {
             selected: Color32::from_rgb(150, 0, 255),
             active: Color32::from_rgb(255, 165, 0),
             goal: Color32::GOLD,
-            partial: Color32::GREEN
+            partial: Color32::GREEN,
         }
     }
 
@@ -179,7 +179,14 @@ impl<R: Remote, I: Interactive> VM<R, I> {
                 panic!()
             })
             .into_iter()
-            .map(|(id, name, namespace)| Lemma::new(id, name, namespace, crate::vm::lemmas::LemmaState::new(colors.clone())))
+            .map(|(id, name, namespace)| {
+                Lemma::new(
+                    id,
+                    name,
+                    namespace,
+                    crate::vm::lemmas::LemmaState::new(colors.clone()),
+                )
+            })
             .collect();
         let lemma_tree = LemmaTree::new(&lemmas[..]);
         let init_state = ctx.save_state();

@@ -3,7 +3,7 @@ use super::InteractiveAction;
 use crate::remote::Remote;
 use crate::ui::VM;
 use crate::vm::SemanticColors;
-use egui::{menu,Visuals};
+use egui::{menu, Visuals};
 
 pub fn toolbar<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
     menu::bar(ui, |ui| {

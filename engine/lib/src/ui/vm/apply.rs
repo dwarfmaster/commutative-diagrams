@@ -103,8 +103,8 @@ impl LemmaApplicationState {
             let lname = self.get_name(*lem);
             for goal in goals.iter() {
                 if let Some(gid) = goal.goal_id() {
-                  let gname = vm.get_name(gid);
-                  cmd = format!("{} {}:{}", cmd, lname, gname);
+                    let gname = vm.get_name(gid);
+                    cmd = format!("{} {}:{}", cmd, lname, gname);
                 }
             }
         }
@@ -358,7 +358,12 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
                     Modifier::None
                 };
                 let md = self.apply.self_modifier(GraphId::Node(nd));
-                super::apply_modifier(self.vm.graphical.colors.clone(), md, &mut stroke.color, &mut modifier);
+                super::apply_modifier(
+                    self.vm.graphical.colors.clone(),
+                    md,
+                    &mut stroke.color,
+                    &mut modifier,
+                );
 
                 let rect = f(drawable, stroke, modifier, GraphId::Node(nd));
                 nodes_rect.push(rect);
@@ -377,7 +382,12 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
                     Modifier::None
                 };
                 let md = self.apply.self_modifier(id);
-                super::apply_modifier(self.vm.graphical.colors.clone(), md, &mut stroke.color, &mut modifier);
+                super::apply_modifier(
+                    self.vm.graphical.colors.clone(),
+                    md,
+                    &mut stroke.color,
+                    &mut modifier,
+                );
 
                 // Positions
                 let psrc = self.vm.lemmas.lemmas[self.apply.lemma]
@@ -457,7 +467,12 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
             };
             let mut modifier = Modifier::None;
             let md = self.apply.self_modifier(id);
-            super::apply_modifier(self.vm.graphical.colors.clone(), md, &mut border.color, &mut modifier);
+            super::apply_modifier(
+                self.vm.graphical.colors.clone(),
+                md,
+                &mut border.color,
+                &mut modifier,
+            );
 
             let style = if modifier == Modifier::Highlight {
                 FaceStyle {

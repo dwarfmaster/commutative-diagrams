@@ -1,4 +1,4 @@
-use crate::data::{Feature,EvarStatus};
+use crate::data::{EvarStatus, Feature};
 use crate::graph::eq::{Block, BlockData, Eq, Morphism, Slice};
 use crate::normalizer::morphism;
 use crate::remote::{Remote, TermEngine};
@@ -464,23 +464,23 @@ fn realize_slice<R: TermEngine>(
     let (eq, expecting, output) =
         partial_state.unwrap_or_else(|| panic!("There should be no empty slices in equalities"));
     if expecting == input || rm.get_status(expecting) == EvarStatus::Evar {
-        (output,eq)
+        (output, eq)
     } else {
-      let rep = repar(rm, cat, src, dst, input, expecting);
-      let eq = rm
-          .remote()
-          .build(Feature::Concat {
-              cat,
-              src,
-              dst,
-              left: input,
-              mid: expecting,
-              right: output,
-              eq1: rep,
-              eq2: eq,
-          })
-          .unwrap();
-      (output, eq)
+        let rep = repar(rm, cat, src, dst, input, expecting);
+        let eq = rm
+            .remote()
+            .build(Feature::Concat {
+                cat,
+                src,
+                dst,
+                left: input,
+                mid: expecting,
+                right: output,
+                eq1: rep,
+                eq2: eq,
+            })
+            .unwrap();
+        (output, eq)
     }
 }
 

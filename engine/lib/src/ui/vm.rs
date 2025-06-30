@@ -3,8 +3,8 @@ use crate::graph::GraphId;
 use crate::remote::Remote;
 use crate::vm;
 use egui::{Context, Ui};
-use std::sync::Arc;
 use std::cell::RefCell;
+use std::sync::Arc;
 
 pub mod apply;
 pub mod compose;
@@ -22,7 +22,12 @@ pub struct Modifier {
 }
 
 type Md = crate::ui::graph::graph::Modifier;
-pub fn apply_modifier(colors: Arc<RefCell<vm::SemanticColors>>, md: Modifier, color: &mut egui::Color32, modifier: &mut Md) {
+pub fn apply_modifier(
+    colors: Arc<RefCell<vm::SemanticColors>>,
+    md: Modifier,
+    color: &mut egui::Color32,
+    modifier: &mut Md,
+) {
     if md.selected {
         *color = colors.borrow().selected;
         *modifier = Md::Highlight;

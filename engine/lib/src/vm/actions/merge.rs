@@ -17,11 +17,11 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
     // Replace an edge with a path in the graph
     pub fn splice_edge(&mut self, src: usize, mph: usize, mphs: &[usize]) {
         {
-          let mut dst = src;
-          for m in mphs {
-              dst = self.graph.graph.edges[dst][*m].0;
-          }
-          assert_eq!(self.graph.graph.edges[src][mph].0, dst);
+            let mut dst = src;
+            for m in mphs {
+                dst = self.graph.graph.edges[dst][*m].0;
+            }
+            assert_eq!(self.graph.graph.edges[src][mph].0, dst);
         }
 
         // Update equalities using the replaced morphism
@@ -39,7 +39,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             if !splice_at.is_empty() {
                 let mut nleft = self.graph.graph.faces[fce].left.clone();
                 for splt in splice_at.iter().rev() {
-                    nleft.splice(*splt..(*splt+1), mphs.iter().copied()); 
+                    nleft.splice(*splt..(*splt + 1), mphs.iter().copied());
                 }
                 self.register_instruction(Ins::RelocateFaceLeft(
                     fce,
@@ -61,7 +61,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
             if !splice_at.is_empty() {
                 let mut nright = self.graph.graph.faces[fce].left.clone();
                 for splt in splice_at.iter().rev() {
-                    nright.splice(*splt..(*splt+1), mphs.iter().copied()); 
+                    nright.splice(*splt..(*splt + 1), mphs.iter().copied());
                 }
                 self.register_instruction(Ins::RelocateFaceRight(
                     fce,

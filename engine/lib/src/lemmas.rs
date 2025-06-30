@@ -25,7 +25,7 @@ impl<GR, NL, EL, FL> Lemma<GR, NL, EL, FL> {
             namespace,
             complete_name: complete,
             pattern: None,
-            graphical_state: gr
+            graphical_state: gr,
         }
     }
 }

@@ -1,14 +1,14 @@
 use crate::graph::{Face, GraphId};
 use crate::remote::Remote;
-use crate::vm::{Graph, Interactive, VM};
 use crate::vm::actions::lemma::UnifyPair;
+use crate::vm::{Graph, Interactive, VM};
 use std::collections::HashMap;
 
 type Ins = crate::vm::asm::Instruction;
 
 struct PartialMap {
     nodes: Vec<Option<usize>>,
-    edges: Vec<Vec<Option<(usize, Vec::<usize>)>>>,
+    edges: Vec<Vec<Option<(usize, Vec<usize>)>>>,
     faces: Vec<Option<usize>>,
 }
 
@@ -24,7 +24,7 @@ impl PartialMap {
 
 fn extract_node(id: &UnifyPair) -> usize {
     match id {
-        UnifyPair::Nodes(_,nd) => *nd,
+        UnifyPair::Nodes(_, nd) => *nd,
         _ => panic!(),
     }
 }
@@ -38,9 +38,7 @@ fn extract_morphism(id: &UnifyPair) -> Option<(usize, usize)> {
 
 fn extract_expand_morphism(id: &UnifyPair) -> Option<(usize, Vec<usize>)> {
     match id {
-        UnifyPair::PathVM(_, src, mphs) => {
-            Some((*src, mphs.clone()))
-        },
+        UnifyPair::PathVM(_, src, mphs) => Some((*src, mphs.clone())),
         _ => None,
     }
 }
@@ -54,7 +52,11 @@ fn extract_face(id: &UnifyPair) -> usize {
 
 struct Mapping {
     nodes: Vec<(usize, Vec<usize>)>,
-    edges: Vec<((usize, usize), Vec<(usize, usize)>, Option<(usize, Vec<usize>)>)>,
+    edges: Vec<(
+        (usize, usize),
+        Vec<(usize, usize)>,
+        Option<(usize, Vec<usize>)>,
+    )>,
     faces: Vec<(usize, Vec<usize>)>,
 }
 
@@ -76,7 +78,7 @@ impl Mapping {
                     ret.edges.push((
                         (*src, *dst),
                         mapping.1.iter().map(extract_morphism).flatten().collect(),
-                        mapping.1.iter().find_map(extract_expand_morphism)
+                        mapping.1.iter().find_map(extract_expand_morphism),
                     ));
                 }
                 Face(fce) => {
@@ -112,7 +114,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                             *mph = newlen + prevlen - *mph - 1;
                         }
                     });
-                    multi.iter_mut().for_each(|(src,mphs)| {
+                    multi.iter_mut().for_each(|(src, mphs)| {
                         if *src == prev {
                             *src = new;
                             mphs.iter_mut().for_each(|mph| {
@@ -166,19 +168,19 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                                     *m = mph;
                                 }
                                 nd = self.graph.graph.edges[nd][*m].0;
-                            };
+                            }
                         });
                     });
                     map.edges.iter_mut().for_each(|v| {
                         v.iter_mut().for_each(|o| {
-                            o.iter_mut().for_each(|(s,ms)| {
+                            o.iter_mut().for_each(|(s, ms)| {
                                 let mut nd = *s;
                                 for m in ms.iter_mut() {
                                     if nd == src && (*m == prev || *m == *mph2) {
                                         *m = mph;
                                     }
                                     nd = self.graph.graph.edges[nd][*m].0;
-                                };
+                                }
                             });
                         });
                     });
@@ -196,7 +198,7 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                         for i in 0..v.len() {
                             if v[i].0 == src && v[i].1 == mph {
                                 if multi.is_none() {
-                                    *multi = Some((src,dmphs.clone()));
+                                    *multi = Some((src, dmphs.clone()));
                                 } else {
                                     panic!() // TODO should be treated more gracefully
                                 }
@@ -212,13 +214,13 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                                 nd = self.graph.graph.edges[nd][mphs[i]].0;
                             }
                             for i in splice_at.into_iter().rev() {
-                                mphs.splice(i..(i+1), dmphs.iter().copied());
+                                mphs.splice(i..(i + 1), dmphs.iter().copied());
                             }
                         });
                     });
                     map.edges.iter_mut().for_each(|v| {
                         v.iter_mut().for_each(|o| {
-                            o.iter_mut().for_each(|(s,ms)| {
+                            o.iter_mut().for_each(|(s, ms)| {
                                 let mut nd = *s;
                                 let mut splice_at = Vec::new();
                                 for i in 0..ms.len() {
@@ -226,9 +228,9 @@ impl<Rm: Remote, I: Interactive> VM<Rm, I> {
                                         splice_at.push(i);
                                     }
                                     nd = self.graph.graph.edges[nd][ms[i]].0;
-                                };
+                                }
                                 for i in splice_at.into_iter().rev() {
-                                    ms.splice(i..(i+1), dmphs.iter().copied());
+                                    ms.splice(i..(i + 1), dmphs.iter().copied());
                                 }
                             });
                         });

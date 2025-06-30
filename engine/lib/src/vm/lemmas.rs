@@ -6,11 +6,11 @@ use crate::remote::Mock;
 use crate::remote::Remote;
 use crate::vm::layout::LayoutEngine;
 use crate::vm::store::Context;
-use crate::vm::{Graph, VM, SemanticColors};
-use std::sync::Arc;
-use std::cell::RefCell;
+use crate::vm::{Graph, SemanticColors, VM};
 use egui::Vec2;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 mod tree;
 pub use tree::LemmaTree;

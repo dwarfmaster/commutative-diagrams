@@ -44,7 +44,12 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
 
                 if let Some((_, interactive)) = &self.current_action {
                     let md = interactive.modifier(self, GraphId::Node(nd));
-                    crate::ui::vm::apply_modifier(self.graphical.colors.clone(), md, &mut stroke.color, &mut modifier);
+                    crate::ui::vm::apply_modifier(
+                        self.graphical.colors.clone(),
+                        md,
+                        &mut stroke.color,
+                        &mut modifier,
+                    );
                 }
 
                 if self.graph.graph.nodes[nd].2.left {
@@ -77,7 +82,12 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
 
                 if let Some((_, interactive)) = &self.current_action {
                     let md = interactive.modifier(self, id);
-                    crate::ui::vm::apply_modifier(self.graphical.colors.clone(), md, &mut stroke.color, &mut modifier);
+                    crate::ui::vm::apply_modifier(
+                        self.graphical.colors.clone(),
+                        md,
+                        &mut stroke.color,
+                        &mut modifier,
+                    );
                 }
 
                 // Positions
@@ -177,7 +187,12 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
             };
             if let Some((_, interactive)) = &self.current_action {
                 let modifier = interactive.modifier(&self, id);
-                crate::ui::vm::apply_modifier(self.graphical.colors.clone(), modifier, &mut border_color, &mut md);
+                crate::ui::vm::apply_modifier(
+                    self.graphical.colors.clone(),
+                    modifier,
+                    &mut border_color,
+                    &mut md,
+                );
             }
 
             let border = Stroke {

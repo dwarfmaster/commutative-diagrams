@@ -20,10 +20,10 @@ mod style;
 mod undo;
 mod vm;
 
+pub use actions::lemma::UnifyPair;
 pub use asm::Instruction;
 pub use compiler::ExecutionResult;
 pub use graph::{EdgeLabel, FaceLabel, FaceStatus, Graph, GraphParsed, NodeLabel};
 pub use lemmas::{Lemma, LemmaState, LemmaTree};
 pub use store::Context;
-pub use vm::{CodeStyle, EndStatus, Interactive, VM, SemanticColors};
-pub use actions::lemma::UnifyPair;
+pub use vm::{CodeStyle, EndStatus, Interactive, SemanticColors, VM};
