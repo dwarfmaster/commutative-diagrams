@@ -6,7 +6,9 @@ use crate::remote::Mock;
 use crate::remote::Remote;
 use crate::vm::layout::LayoutEngine;
 use crate::vm::store::Context;
-use crate::vm::{Graph, VM};
+use crate::vm::{Graph, VM, SemanticColors};
+use std::sync::Arc;
+use std::cell::RefCell;
 use egui::Vec2;
 use std::collections::HashMap;
 
@@ -24,10 +26,11 @@ pub struct LemmaState {
     pub selected: bool,
     pub names: HashMap<String, GraphId>,
     pub layout: LayoutEngine,
+    pub colors: Arc<RefCell<SemanticColors>>,
 }
 
-impl Default for LemmaState {
-    fn default() -> Self {
+impl LemmaState {
+    pub fn new(colors: Arc<RefCell<SemanticColors>>) -> Self {
         Self {
             zoom: 1.0,
             offset: Vec2::ZERO,
@@ -38,6 +41,7 @@ impl Default for LemmaState {
             selected: false,
             names: HashMap::new(),
             layout: LayoutEngine::new(),
+            colors,
         }
     }
 }

@@ -87,11 +87,11 @@ impl UiGraph for Lemma {
 
                     let stl = pattern.edges[src][mph].1.style;
                     stroke.color = if stl.left && stl.right {
-                        egui::Color32::GOLD
+                        self.graphical_state.colors.borrow().both
                     } else if stl.left {
-                        egui::Color32::RED
+                        self.graphical_state.colors.borrow().left
                     } else if stl.right {
-                        egui::Color32::GREEN
+                        self.graphical_state.colors.borrow().right
                     } else {
                         style.noninteractive().fg_stroke.color
                     };
@@ -126,8 +126,8 @@ impl UiGraph for Lemma {
                 let folded = pattern.faces[fce].label.folded;
 
                 let border_color = match pattern.faces[fce].label.status {
-                    FaceStatus::Goal => egui::Color32::GOLD,
-                    FaceStatus::Refined => egui::Color32::GREEN,
+                    FaceStatus::Goal => self.graphical_state.colors.borrow().goal,
+                    FaceStatus::Refined => self.graphical_state.colors.borrow().partial,
                     FaceStatus::Hypothesis => {
                         if self.graphical_state.selected_face == Some(fce) {
                             style.noninteractive().fg_stroke.color

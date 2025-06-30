@@ -44,13 +44,13 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
 
                 if let Some((_, interactive)) = &self.current_action {
                     let md = interactive.modifier(self, GraphId::Node(nd));
-                    crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
+                    crate::ui::vm::apply_modifier(self.graphical.colors.clone(), md, &mut stroke.color, &mut modifier);
                 }
 
                 if self.graph.graph.nodes[nd].2.left {
-                    stroke.color = egui::Color32::RED;
+                    stroke.color = self.graphical.colors.borrow().left;
                 } else if self.graph.graph.nodes[nd].2.right {
-                    stroke.color = egui::Color32::GREEN;
+                    stroke.color = self.graphical.colors.borrow().right;
                 }
 
                 let rect = f(drawable, stroke, modifier, id);
@@ -77,7 +77,7 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
 
                 if let Some((_, interactive)) = &self.current_action {
                     let md = interactive.modifier(self, id);
-                    crate::ui::vm::apply_modifier(md, &mut stroke.color, &mut modifier);
+                    crate::ui::vm::apply_modifier(self.graphical.colors.clone(), md, &mut stroke.color, &mut modifier);
                 }
 
                 // Positions
@@ -116,11 +116,11 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
 
                 let stl = self.graph.graph.edges[src][mph].1.style;
                 stroke.color = if stl.left && stl.right {
-                    egui::Color32::GOLD
+                    self.graphical.colors.borrow().both
                 } else if stl.left {
-                    egui::Color32::RED
+                    self.graphical.colors.borrow().left
                 } else if stl.right {
-                    egui::Color32::GREEN
+                    self.graphical.colors.borrow().right
                 } else {
                     stroke.color
                 };
@@ -160,8 +160,8 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
             let folded = self.graph.graph.faces[fce].label.folded;
 
             let mut border_color = match self.graph.graph.faces[fce].label.status {
-                FaceStatus::Goal => egui::Color32::GOLD,
-                FaceStatus::Refined => egui::Color32::GREEN,
+                FaceStatus::Goal => self.graphical.colors.borrow().goal,
+                FaceStatus::Refined => self.graphical.colors.borrow().partial,
                 FaceStatus::Hypothesis => {
                     if self.graph.selected_face == Some(fce) {
                         style.noninteractive().fg_stroke.color
@@ -177,7 +177,7 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
             };
             if let Some((_, interactive)) = &self.current_action {
                 let modifier = interactive.modifier(&self, id);
-                crate::ui::vm::apply_modifier(modifier, &mut border_color, &mut md);
+                crate::ui::vm::apply_modifier(self.graphical.colors.clone(), modifier, &mut border_color, &mut md);
             }
 
             let border = Stroke {

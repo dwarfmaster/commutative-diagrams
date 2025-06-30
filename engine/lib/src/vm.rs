@@ -25,5 +25,5 @@ pub use compiler::ExecutionResult;
 pub use graph::{EdgeLabel, FaceLabel, FaceStatus, Graph, GraphParsed, NodeLabel};
 pub use lemmas::{Lemma, LemmaState, LemmaTree};
 pub use store::Context;
-pub use vm::{CodeStyle, EndStatus, Interactive, VM};
+pub use vm::{CodeStyle, EndStatus, Interactive, VM, SemanticColors};
 pub use actions::lemma::UnifyPair;

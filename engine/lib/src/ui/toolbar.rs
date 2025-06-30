@@ -2,6 +2,7 @@ use super::vm::insert::InsertKind::*;
 use super::InteractiveAction;
 use crate::remote::Remote;
 use crate::ui::VM;
+use crate::vm::SemanticColors;
 use egui::{menu,Visuals};
 
 pub fn toolbar<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
@@ -62,8 +63,10 @@ pub fn toolbar<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
             if ui.checkbox(&mut vm.graphical.dark, "Dark theme").changed() {
                 if vm.graphical.dark {
                     ui.ctx().set_visuals(Visuals::dark());
+                    vm.graphical.colors.replace(SemanticColors::dark());
                 } else {
                     ui.ctx().set_visuals(Visuals::light());
+                    vm.graphical.colors.replace(SemanticColors::light());
                 }
             }
             if ui.button("Reset zoom").clicked() {

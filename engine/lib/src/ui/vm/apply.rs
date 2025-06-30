@@ -358,7 +358,7 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
                     Modifier::None
                 };
                 let md = self.apply.self_modifier(GraphId::Node(nd));
-                super::apply_modifier(md, &mut stroke.color, &mut modifier);
+                super::apply_modifier(self.vm.graphical.colors.clone(), md, &mut stroke.color, &mut modifier);
 
                 let rect = f(drawable, stroke, modifier, GraphId::Node(nd));
                 nodes_rect.push(rect);
@@ -377,7 +377,7 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
                     Modifier::None
                 };
                 let md = self.apply.self_modifier(id);
-                super::apply_modifier(md, &mut stroke.color, &mut modifier);
+                super::apply_modifier(self.vm.graphical.colors.clone(), md, &mut stroke.color, &mut modifier);
 
                 // Positions
                 let psrc = self.vm.lemmas.lemmas[self.apply.lemma]
@@ -415,11 +415,11 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
 
                 let stl = self.apply.graph.edges[src][mph].1.style;
                 stroke.color = if stl.left && stl.right {
-                    egui::Color32::GOLD
+                    self.vm.graphical.colors.borrow().both
                 } else if stl.left {
-                    egui::Color32::RED
+                    self.vm.graphical.colors.borrow().left
                 } else if stl.right {
-                    egui::Color32::GREEN
+                    self.vm.graphical.colors.borrow().right
                 } else {
                     stroke.color
                 };
@@ -447,8 +447,8 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
             let folded = self.apply.graph.faces[fce].label.folded;
 
             let border_color = match self.apply.graph.faces[fce].label.status {
-                FaceStatus::Goal => egui::Color32::GOLD,
-                FaceStatus::Refined => egui::Color32::GREEN,
+                FaceStatus::Goal => self.vm.graphical.colors.borrow().goal,
+                FaceStatus::Refined => self.vm.graphical.colors.borrow().partial,
                 FaceStatus::Hypothesis => style.noninteractive().bg_stroke.color,
             };
             let mut border = Stroke {
@@ -457,7 +457,7 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
             };
             let mut modifier = Modifier::None;
             let md = self.apply.self_modifier(id);
-            super::apply_modifier(md, &mut border.color, &mut modifier);
+            super::apply_modifier(self.vm.graphical.colors.clone(), md, &mut border.color, &mut modifier);
 
             let style = if modifier == Modifier::Highlight {
                 FaceStyle {

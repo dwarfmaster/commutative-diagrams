@@ -9,8 +9,8 @@ pub struct Lemma<GR, NL, EL, FL> {
     pub graphical_state: GR,
 }
 
-impl<GR: Default, NL, EL, FL> Lemma<GR, NL, EL, FL> {
-    pub fn new(id: u64, name: String, namespace: Vec<String>) -> Self {
+impl<GR, NL, EL, FL> Lemma<GR, NL, EL, FL> {
+    pub fn new(id: u64, name: String, namespace: Vec<String>, gr: GR) -> Self {
         let complete = itertools::Itertools::intersperse(
             namespace
                 .iter()
@@ -25,7 +25,7 @@ impl<GR: Default, NL, EL, FL> Lemma<GR, NL, EL, FL> {
             namespace,
             complete_name: complete,
             pattern: None,
-            graphical_state: Default::default(),
+            graphical_state: gr
         }
     }
 }
