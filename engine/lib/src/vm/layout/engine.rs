@@ -99,6 +99,16 @@ impl LayoutEngine {
             if f.length() >= 1e-6 {
                 part.pos += f;
             }
+            part.pos = part.pos.clamp(
+                Pos2 {
+                    x: -5000.0,
+                    y: -5000.0,
+                },
+                Pos2 {
+                    x: 5000.0,
+                    y: 5000.0,
+                },
+            );
             if let Some(cc) = part.cc {
                 self.components[cc].rect.extend_with(part.pos);
             }
@@ -109,11 +119,13 @@ impl LayoutEngine {
     // round. Also clear forces.
     pub fn update(&mut self, cfg: &Config) {
         let new_time = Utc::now();
-        let elapsed = (new_time - self.time).to_std().unwrap().as_secs_f32();
-        self.time_elapsed += elapsed;
-        let t = cfg.layout.speed * 10.0f32 * elapsed;
-        self.time = new_time;
-        self.step(t);
+        if let Ok(elapsed) = (new_time - self.time).to_std() {
+            let elapsed = elapsed.as_secs_f32();
+            self.time_elapsed += elapsed;
+            let t = cfg.layout.speed * 10.0f32 * elapsed;
+            self.time = new_time;
+            self.step(t);
+        }
     }
 
     // Run many times to approximate convergence
