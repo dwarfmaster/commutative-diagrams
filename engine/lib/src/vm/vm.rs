@@ -113,11 +113,11 @@ impl SemanticColors {
         SemanticColors {
             both: Color32::from_rgb(255, 178, 44),
             left: Color32::from_rgb(237, 53, 0),
-            right: Color32::from_rgb(61, 141, 122),
+            right: Color32::from_rgb(107, 142, 35),
             selected: Color32::from_rgb(75, 22, 76),
             active: Color32::from_rgb(255, 140, 0),
             goal: Color32::from_rgb(255, 178, 44),
-            partial: Color32::from_rgb(61, 141, 122),
+            partial: Color32::from_rgb(107, 142, 35),
         }
     }
 }

@@ -52,10 +52,15 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                     );
                 }
 
-                if self.graph.graph.nodes[nd].2.left {
+                if self.graph.graph.nodes[nd].2.left && self.graph.graph.nodes[nd].2.right {
+                    stroke.color = self.graphical.colors.borrow().both;
+                    modifier = Modifier::Highlight;
+                } else if self.graph.graph.nodes[nd].2.left {
                     stroke.color = self.graphical.colors.borrow().left;
+                    modifier = Modifier::Highlight;
                 } else if self.graph.graph.nodes[nd].2.right {
                     stroke.color = self.graphical.colors.borrow().right;
+                    modifier = Modifier::Highlight;
                 }
 
                 let rect = f(drawable, stroke, modifier, id);
@@ -134,6 +139,9 @@ impl<Rm: Remote> UiGraph for VM<Rm> {
                 } else {
                     stroke.color
                 };
+                if stl.left || stl.right {
+                    modifier = Modifier::Highlight;
+                }
 
                 f(drawable, stroke, modifier, id);
                 stroke.color = style.noninteractive().fg_stroke.color

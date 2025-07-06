@@ -433,6 +433,9 @@ impl<'vm, Rm: Remote> UiGraph for DisplayState<'vm, Rm> {
                 } else {
                     stroke.color
                 };
+                if stl.left || stl.right {
+                    modifier = Modifier::Highlight;
+                }
 
                 f(drawable, stroke, modifier, id);
                 stroke.color = style.noninteractive().fg_stroke.color;

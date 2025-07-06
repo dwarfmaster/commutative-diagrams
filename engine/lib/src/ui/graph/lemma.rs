@@ -45,7 +45,7 @@ impl UiGraph for Lemma {
                     // There will be no hidden edges
                     let dst = pattern.edges[src][mph].0;
                     let id = GraphId::Morphism(src, mph);
-                    let modifier = if self.graphical_state.hovered == Some(id) {
+                    let mut modifier = if self.graphical_state.hovered == Some(id) {
                         Modifier::Highlight
                     } else {
                         Modifier::None
@@ -95,6 +95,9 @@ impl UiGraph for Lemma {
                     } else {
                         style.noninteractive().fg_stroke.color
                     };
+                    if stl.left || stl.right {
+                        modifier = Modifier::Highlight;
+                    }
 
                     f(drawable, stroke, modifier, id);
                     stroke.color = style.noninteractive().fg_stroke.color
