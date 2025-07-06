@@ -86,6 +86,20 @@ impl LayoutEngine {
         self.particles[part].force += force;
     }
 
+    pub fn center(&mut self) {
+        let mut barycenter = Vec2::ZERO;
+        for p in self.particles.iter() {
+            barycenter += p.pos - Pos2::ZERO;
+        }
+        barycenter.x /= self.particles.len() as f32;
+        barycenter.y /= self.particles.len() as f32;
+        log::trace!("Shifting: {}x{}", barycenter.x, barycenter.y);
+
+        for p in self.particles.iter_mut() {
+            p.pos -= barycenter;
+        }
+    }
+
     fn step(&mut self, step: f32) {
         self.components
             .iter_mut()

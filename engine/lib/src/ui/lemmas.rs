@@ -13,11 +13,20 @@ pub fn lemmas_window<Rm: Remote>(ctx: &egui::Context, vm: &mut VM<Rm>) {
             .open(&mut open)
             .show(ctx, |ui| {
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
-                    if ui.button("Start matching").clicked() {
-                        let apply = InteractiveAction::apply(vm, lem);
-                        vm.start_interactive(apply);
-                        should_close = true;
-                    }
+                    ui.allocate_ui_with_layout(
+                      egui::Vec2::new(100.0, 40.0),
+                      egui::Layout::right_to_left(egui::Align::Center),
+                      |ui| {
+                        if ui.button("Start matching").clicked() {
+                            let apply = InteractiveAction::apply(vm, lem);
+                            vm.start_interactive(apply);
+                            should_close = true;
+                        }
+                        if ui.button("Center").clicked() {
+                            vm.lemmas.lemmas[lem].graphical_state.layout.center();
+                            vm.lemmas.lemmas[lem].graphical_state.offset = egui::Vec2::ZERO;
+                        }
+                      });
                     ui.add(graph_lemma(&mut vm.lemmas.lemmas[lem]));
                 })
             });

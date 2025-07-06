@@ -56,6 +56,11 @@ pub fn toolbar<Rm: Remote>(ui: &mut egui::Ui, vm: &mut VM<Rm>) {
                 ui.label("Speed");
                 ui.add(egui::Slider::new(&mut vm.config.layout.speed, 0.0..=2.0))
             });
+            if ui.button("Center").clicked() {
+                vm.graph.layout.center();
+                vm.graphical.offset = egui::Vec2::ZERO;
+                ui.close_menu();
+            }
         });
         ui.menu_button("Ui", |ui| {
             const MIN_PPP: f32 = 0.2f32;
