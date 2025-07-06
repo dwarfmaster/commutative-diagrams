@@ -9,7 +9,7 @@ impl LayoutConfig {
     pub fn new() -> Self {
         Self {
             ideal_distance: 200f32,
-            speed: 1f32,
+            speed: 0.6f32,
             edge_repulse: true,
         }
     }

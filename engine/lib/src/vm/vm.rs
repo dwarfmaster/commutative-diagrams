@@ -170,7 +170,7 @@ impl<R: Remote, I: Interactive> VM<R, I> {
             panic!()
         });
         let graph = graph_parsed.prepare(&mut ctx);
-        let colors = Arc::new(RefCell::new(SemanticColors::dark()));
+        let colors = Arc::new(RefCell::new(SemanticColors::light()));
         let lemmas: Vec<Lemma> = ctx
             .remote
             .lemmas()
@@ -230,7 +230,7 @@ impl<R: Remote, I: Interactive> VM<R, I> {
                 dragged_object: None,
                 init_ppp: None,
                 ppp: None,
-                dark: true,
+                dark: false,
                 colors,
             },
         };

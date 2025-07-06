@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 
 use clap::{Parser, Subcommand};
+use egui::Visuals;
 
 type RPC = remote::RPC<std::io::Stdin, std::io::Stdout>;
 type VM = ui::VM<RPC>;
@@ -23,7 +24,8 @@ struct App {
 }
 
 impl App {
-    pub fn new(_cc: &eframe::CreationContext<'_>, state: State, vm: VM) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, state: State, vm: VM) -> Self {
+        cc.egui_ctx.set_visuals(Visuals::light());
         Self {
             state,
             vm,
