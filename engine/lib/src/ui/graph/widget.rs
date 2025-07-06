@@ -119,11 +119,15 @@ fn graph_widget<G: UiGraph>(ui: &mut egui::Ui, gr: &mut G) -> egui::Response {
 
             match dr {
                 Drawable::Text(p, label, style) => {
+                    let size = match md {
+                        Modifier::None => 14.0,
+                        Modifier::Highlight => 20.0,
+                    };
                     let rect = painter.text(
                         project_pos(p),
                         egui::Align2::CENTER_CENTER,
                         label,
-                        egui::FontId::proportional(14.0),
+                        egui::FontId::proportional(size),
                         style.color.unwrap_or(stroke.color),
                     );
                     if style.underline {
